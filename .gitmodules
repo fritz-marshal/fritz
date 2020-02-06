@@ -1,0 +1,3 @@
+[submodule "skyportal"]
+	path = skyportal
+	url = git@github.com:skyportal/skyportal
