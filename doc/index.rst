@@ -11,6 +11,8 @@ Welcome to Fritz Marshal's documentation!
    :caption: Contents:
 
    usage
+   developer
+   license
 
 
 
