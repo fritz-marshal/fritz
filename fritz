@@ -6,17 +6,40 @@ import os
 
 
 def run(args):
+    """
+    Launch the marshal
+    """
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
     if args.init:
         subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
-
-    subprocess.run(["make", "run"], cwd="skyportal", env=env)
+    else:
+        subprocess.run(["make", "run"], cwd="skyportal", env=env)
 
 
 def log(args):
+    """
+    Show colorized logs while the marshal is running
+    """
     subprocess.run(["make", "log"], cwd="skyportal")
+
+
+def develop(args=None):
+    """
+    Install developer tools.
+    """
+    subprocess.run(["pip", "install", "-r", ".requirements/dev.txt"])
+    subprocess.run(["pre-commit", "install"])
+
+
+def lint(args):
+    try:
+        import pre_commit  # noqa: F401
+    except ImportError:
+        develop()
+
+    subprocess.run(["pre-commit", "run", "--all-files"])
 
 
 def test(args):
@@ -28,9 +51,14 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(title="commands", dest="command")
 
     run_parser = subparsers.add_parser("run", help="🚀 Launch the marshal")
-    run_parser.add_argument('--init', action='store_true',
-                            help="Initialize the database")
+    run_parser.add_argument(
+        "--init", action="store_true", help="Initialize the database"
+    )
 
+    develop_parser = subparsers.add_parser(
+        "develop", help="Install tools for developing Fritz"
+    )
+    develop_parser = subparsers.add_parser("lint", help="Lint the full code base")
     test_parser = subparsers.add_parser("test", help="Run the test suite")
 
     args = parser.parse_args()
