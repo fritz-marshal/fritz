@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+import argparse
+import sys
+import subprocess
+import os
+
+
+def run(args):
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../fritz.yaml"})
+
+    if args.init:
+        subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
+
+    subprocess.run(["make", "run"], cwd="skyportal", env=env)
+
+
+def log(args):
+    subprocess.run(["make", "log"], cwd="skyportal")
+
+
+def test(args):
+    print("Launching tests...")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(title="commands", dest="command")
+
+    run_parser = subparsers.add_parser("run", help="🚀 Launch the marshal")
+    run_parser.add_argument('--init', action='store_true',
+                            help="Initialize the database")
+
+    test_parser = subparsers.add_parser("test", help="Run the test suite")
+
+    args = parser.parse_args()
+    if args.command is None or args.command == "help":
+        parser.print_help()
+    else:
+        getattr(sys.modules[__name__], args.command)(args)
