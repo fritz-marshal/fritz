@@ -1,4 +1,4 @@
-# Fritz usage
+# Usage
 
 All operations are started via the `fritz` script.  Please type
 `./fritz --help` to see available commands.
