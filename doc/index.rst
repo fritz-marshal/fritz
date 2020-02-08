@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Fritz Marshal's documentation!
-=========================================
+Fritz marshal manual
+====================
 
 .. toctree::
    :maxdepth: 2
