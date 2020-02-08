@@ -13,12 +13,3 @@ Welcome to Fritz Marshal's documentation!
    usage
    developer
    license
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
