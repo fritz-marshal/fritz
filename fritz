@@ -3,6 +3,7 @@ import argparse
 import sys
 import subprocess
 import os
+from pathlib import Path
 
 
 def run(args):
@@ -46,20 +47,53 @@ def test(args):
     print("Launching tests...")
 
 
+def doc(args):
+    subprocess.run(["make", "html"], cwd="doc")
+    Path("doc/_build/html/.nojekyll").touch()
+
+    if args.upload:
+        subprocess.run(
+            [
+                "./tools/push_dir_to_repo.py",
+                "--branch",
+                "master",
+                "--committer",
+                "fritz",
+                "--email",
+                "fritz@fritz-marshal.org",
+                "--message",
+                "Update website",
+                "--force",
+                "./doc/_build/html",
+                "git@github.com:fritz-marshal/doc",
+            ]
+        )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(title="commands", dest="command")
 
-    run_parser = subparsers.add_parser("run", help="🚀 Launch the marshal")
-    run_parser.add_argument(
+    commands = [
+        ("run", "🚀 Launch the marshal"),
+        ("develop", "Install tools for developing Fritz"),
+        ("lint", "Lint the full code base"),
+        ("test", "Run the test suite"),
+        ("doc", "Build the documentation"),
+        ("help", "Print this message"),
+    ]
+
+    parsers = {}
+    for (cmd, desc) in commands:
+        parsers[cmd] = subparsers.add_parser(cmd, help=desc)
+
+    parsers["run"].add_argument(
         "--init", action="store_true", help="Initialize the database"
     )
 
-    develop_parser = subparsers.add_parser(
-        "develop", help="Install tools for developing Fritz"
+    parsers["doc"].add_argument(
+        "--upload", action="store_true", help="Upload documentation to GitHub"
     )
-    develop_parser = subparsers.add_parser("lint", help="Lint the full code base")
-    test_parser = subparsers.add_parser("test", help="Run the test suite")
 
     args = parser.parse_args()
     if args.command is None or args.command == "help":
