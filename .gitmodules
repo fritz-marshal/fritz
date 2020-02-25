@@ -2,5 +2,5 @@
 	path = skyportal
 	url = git@github.com:skyportal/skyportal
 [submodule "kowalski-dev"]
-	path = kowalski-dev
+	path = kowalski
 	url = git@github.com:dmitryduev/kowalski-dev
