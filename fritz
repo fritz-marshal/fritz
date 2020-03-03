@@ -20,7 +20,7 @@ def run(args):
     else:
         # start up skyportal
         # subprocess.run(["make", "run"], cwd="skyportal", env=env)
-        subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
+        subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal", env=env)
         # start up kowalski
         subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
 
