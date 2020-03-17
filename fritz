@@ -16,13 +16,13 @@ def run(args):
     if args.init:
         # subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
         subprocess.run(["make", "docker-local"], cwd="skyportal", env=env)
-        subprocess.run(["docker-compose", "build"], cwd="kowalski-dev")
+        subprocess.run(["docker-compose", "build"], cwd="kowalski")
     else:
         # start up skyportal
         # subprocess.run(["make", "run"], cwd="skyportal", env=env)
-        subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
+        subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal", env=env)
         # start up kowalski
-        subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski-dev")
+        subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
 
 
 def stop(args):
@@ -32,7 +32,7 @@ def stop(args):
     :return:
     """
     print('Shutting fritz down')
-    subprocess.run(["docker-compose", "down"], cwd="kowalski-dev")
+    subprocess.run(["docker-compose", "down"], cwd="kowalski")
     subprocess.run(["docker-compose", "down"], cwd="skyportal")
 
 
