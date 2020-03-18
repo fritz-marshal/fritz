@@ -24,7 +24,7 @@ def run(args):
         subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal", env=env)
         # init skyportal and load test data
         subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                        "'source /skyportal_env/bin/activate; make load_demo_data'"], cwd="skyportal", env=env)
+                        "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal", env=env)
         # start up kowalski
         subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
 
