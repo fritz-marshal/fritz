@@ -14,13 +14,18 @@ def run(args):
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
     if args.init:
+        # todo: config.yaml.defaults to config.yaml if config.yaml does not exist
         # subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
         subprocess.run(["make", "docker-local"], cwd="skyportal", env=env)
+        #source /skyportal_env/bin/activate
         subprocess.run(["docker-compose", "build"], cwd="kowalski")
     else:
         # start up skyportal
         # subprocess.run(["make", "run"], cwd="skyportal", env=env)
         subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal", env=env)
+        # init skyportal and load test data
+        subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+                        "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal", env=env)
         # start up kowalski
         subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
 
