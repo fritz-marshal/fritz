@@ -1,9 +1,83 @@
 #!/usr/bin/env python
 import argparse
-import sys
-import subprocess
+from contextlib import contextmanager
+import json
 import os
 from pathlib import Path
+import subprocess
+import sys
+
+
+@contextmanager
+def status(message):
+    # stolen from baselayer
+    print(f'[·] {message}', end='')
+    try:
+        yield
+    except:
+        print(f'\r[✗] {message}')
+        raise
+    else:
+        print(f'\r[✓] {message}')
+
+
+def check_config(cfgs):
+    for cfg in cfgs:
+        if not Path(cfg).exists():
+            cd = input(f'{cfg} does not exist, do you want to use {cfg}.defaults (not recommended)? [y/N] ')
+            if cd.lower() == 'y':
+                subprocess.run(["cp", f"{cfg}.yaml.defaults", f"{cfg}.yaml"], cwd="skyportal")
+            else:
+                raise IOError(f'{cfg} does not exist, aborting')
+
+
+def get_skyportal_token():
+    """
+    Get a token for Kowalski to access SkyPortal
+    this is ugly and should be re-done, but gets the work done, so ok for now
+    """
+    try:
+        result = subprocess.run(
+            ["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+             "source /skyportal_env/bin/activate; "
+             """python -c "from baselayer.app.config import load_config; """
+             """from skyportal.models import init_db; """
+             """from skyportal.model_util import create_token; """
+             # """import secrets; import string; """
+             """conn = init_db(**load_config(['config.yaml'])['database']); """
+             # """token_name = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(6)); """
+             # """print(create_token(['Upload data', 'Manage sources'], 1, token_name))" """
+             """print(create_token(['Upload data', 'Manage sources'], 1, 'kowalski'))" """
+             ],
+            cwd="skyportal",
+            capture_output=True,
+            universal_newlines=True,
+        )
+        token = result.stdout.split()[-1]
+
+        assert len(token) == 36
+
+    except Exception as e:
+        # print(e)
+        token = None
+
+    return token
+
+
+def update_kowalski_secrets(token):
+
+    p_secrets = Path('kowalski/secrets.json')
+
+    if not p_secrets.exists():
+        raise IOError(f'{p_secrets} does not exist')
+
+    if token:
+        with open(str(p_secrets), 'r') as f:
+            secrets = json.load(f)
+        secrets['skyportal']['token'] = token
+
+        with open(str(p_secrets), 'w') as f:
+            json.dump(secrets, f, indent=2)
 
 
 def run(args):
@@ -14,20 +88,35 @@ def run(args):
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
     if args.init:
-        # todo: config.yaml.defaults to config.yaml if config.yaml does not exist
+        # Build skyportal's images
+        # check skyportal configs:
+        cfgs = ('skyportal/config.yaml', 'skyportal/docker.yaml')
+        check_config(cfgs)
+        subprocess.run(["make", "docker-local"], cwd="skyportal")
         # subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
-        subprocess.run(["make", "docker-local"], cwd="skyportal", env=env)
-        #source /skyportal_env/bin/activate
-        subprocess.run(["docker-compose", "build"], cwd="kowalski")
-    else:
-        # start up skyportal
-        # subprocess.run(["make", "run"], cwd="skyportal", env=env)
-        subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal", env=env)
+
+    # start up skyportal
+    # subprocess.run(["make", "run"], cwd="skyportal", env=env)
+    # check configs:
+    cfgs = ('skyportal/docker-compose.yaml',)
+    check_config(cfgs)
+    subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
+
+    if args.init:
         # init skyportal and load test data
         subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                        "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal", env=env)
-        # start up kowalski
-        subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
+                        "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
+
+        # create the kowalski user and write access token to kowalski/secrets.json
+        token = get_skyportal_token()
+        update_kowalski_secrets(token)
+
+        # Build kowalski's images
+        subprocess.run(["python", "kowalski.py", "build", "--fritz"], cwd="kowalski")
+
+    # start up kowalski
+    # subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
+    subprocess.run(["python", "kowalski.py", "up", "--fritz"], cwd="kowalski")
 
 
 def stop(args):
@@ -36,8 +125,9 @@ def stop(args):
     :param args:
     :return:
     """
-    print('Shutting fritz down')
-    subprocess.run(["docker-compose", "down"], cwd="kowalski")
+    print('Shutting fritz down...')
+    # subprocess.run(["docker-compose", "down"], cwd="kowalski")
+    subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
     subprocess.run(["docker-compose", "down"], cwd="skyportal")
 
 
@@ -68,6 +158,11 @@ def lint(args):
 def test(args):
     print("Launching tests...")
 
+    # load_demo_data is run as part of ./fritz run --init since it is needed to create a token for kowalski
+
+    print("Testing Kowalski...")
+    subprocess.run(["python", "kowalski.py", "test"], cwd="kowalski")
+
 
 def doc(args):
     subprocess.run(["make", "html"], cwd="doc")
@@ -97,8 +192,8 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(title="commands", dest="command")
 
     commands = [
-        ("run", "🚀 Launch the marshal"),
-        ("stop", "✋ Shut the marshal down"),
+        ("run", "🚀 Launch Fritz"),
+        ("stop", "✋ Shut Fritz down"),
         ("develop", "Install tools for developing Fritz"),
         ("lint", "Lint the full code base"),
         ("test", "Run the test suite"),
@@ -111,7 +206,7 @@ if __name__ == "__main__":
         parsers[cmd] = subparsers.add_parser(cmd, help=desc)
 
     parsers["run"].add_argument(
-        "--init", action="store_true", help="Initialize the database"
+        "--init", action="store_true", help="Initialize Fritz"
     )
 
     parsers["doc"].add_argument(
