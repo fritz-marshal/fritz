@@ -8,7 +8,6 @@ Clone the repo from `GitHub`, pull the submodules (`skyportal` and `kowalski`), 
 ```bash
 git clone https://github.com/fritz-marshal/fritz.git && cd fritz
 git submodule update --init
-chmod 755 fritz
 ```
 
 Initialize `fritz` and run tests:
