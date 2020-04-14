@@ -24,12 +24,12 @@ def status(message):
 def check_configs(cfgs):
     # use config defaults if configs do not exist
     for cfg in cfgs:
-        cwd = str(Path(cfg).parent)
+        # cwd = str(Path(cfg).parent)
         c = cfg.replace('.defaults', '')
         if not Path(c).exists():
             cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
             if cd.lower() == 'y':
-                subprocess.run(["cp", f"{cfg}", f"{c}"], cwd=cwd)
+                subprocess.run(["cp", f"{cfg}", f"{c}"])
             else:
                 raise IOError(f'{c} does not exist, aborting')
 
