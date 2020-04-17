@@ -4,10 +4,9 @@ Frontend for Reviewing Interesting Transients from ZTF-II
 
 ## Bare-bones end-to-end demo
 
-Clone the repo from `GitHub`, pull the submodules (`skyportal` and `kowalski`), and make the `fritz` utility executable:
+Clone the repo from `GitHub`:
 ```bash
 git clone https://github.com/fritz-marshal/fritz.git && cd fritz
-git submodule update --init
 ```
 
 Initialize `fritz` and run tests:

@@ -91,6 +91,12 @@ def run(args):
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
     if args.init:
+        # pull skyportal and kowalski
+        subprocess.run(['git', 'submodule', 'update', '--init'])
+    else:
+        subprocess.run(['git', 'submodule', 'update'])
+
+    if args.init:
         # Build skyportal's images
         # check skyportal configs:
         cfgs = ('skyportal/config.yaml.defaults', 'skyportal/docker.yaml.defaults')
