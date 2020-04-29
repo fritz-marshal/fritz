@@ -92,11 +92,11 @@ def run(args):
 
     if args.init:
         # pull skyportal and kowalski
-        # subprocess.run(['git', 'submodule', 'update', '--init'])
-        pass
+        subprocess.run(['git', 'submodule', 'update', '--init'])
+        # pass
     else:
-        # subprocess.run(['git', 'submodule', 'update'])
-        pass
+        subprocess.run(['git', 'submodule', 'update'])
+        # pass
 
     if args.init:
         # Build skyportal's images
