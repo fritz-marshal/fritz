@@ -114,6 +114,8 @@ def run(args):
     check_configs(cfgs)
     subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
 
+    # todo: verify that skyportal is up and running
+
     if args.init:
         # init skyportal and load test data
         subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
@@ -132,6 +134,8 @@ def run(args):
     # start up kowalski
     # subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
     subprocess.run(["python", "kowalski.py", "up", "--fritz"], cwd="kowalski")
+
+    # todo: verify that kowalski is up and running
 
 
 def stop(args):

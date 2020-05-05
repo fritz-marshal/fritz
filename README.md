@@ -16,4 +16,10 @@ Initialize `fritz` and run tests:
 ./fritz test
 ```
 
+Shut down `fritz`:
+
+```bash
+./fritz stop
+```
+
 Go to `http://localhost:9000/` -- you should see a few real alerts among the displayed sources.
