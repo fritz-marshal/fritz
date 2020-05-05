@@ -28,6 +28,7 @@ def check_configs(cfgs):
         c = cfg.replace('.defaults', '')
         if not Path(c).exists():
             cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
+            print(cd, cd.lower() == 'y')
             if cd.lower() == 'y':
                 subprocess.run(["cp", f"{cfg}", f"{c}"])
             else:
