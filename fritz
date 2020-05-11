@@ -83,7 +83,7 @@ def update_kowalski_secrets(token):
 
 def run(args):
     """
-    Launch the marshal
+    Launch Fritz
     """
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
@@ -116,8 +116,8 @@ def run(args):
     # start up skyportal
     # subprocess.run(["make", "run"], cwd="skyportal", env=env)
     # check configs:
-    cfgs = ('skyportal/docker-compose.yaml.defaults', )
-    check_configs(cfgs)
+    # cfgs = ('skyportal/docker-compose.yaml.defaults', )
+    # check_configs(cfgs)
     p = subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
     if p.returncode != 0:
         raise RuntimeError("Failed to start skyportal")
@@ -191,7 +191,7 @@ def prune(args=None):
     todo: Prune fritz'es docker containers and volumes and reset configs to defaults
     """
     # are you sure?
-    go = input(f"Do you want to prune fritz'es docker containers and volumes and reset configs to defaults? [y/N] ")
+    go = input(f"Do you want to prune fritz'es docker containers and volumes and deinit submodules? [y/N] ")
 
     if go.lower() == 'y':
         # try stopping anything that's running first:
@@ -283,7 +283,7 @@ if __name__ == "__main__":
         ("test", "Run the test suite"),
         ("develop", "Install tools for developing Fritz"),
         ("lint", "Lint the full code base"),
-        ("prune", "☠️ Wipe out containers, volumes, and configs"),
+        ("prune", "☠️ Wipe out containers, volumes, and submodules"),
         ("doc", "Build the documentation"),
         ("help", "Print this message"),
     ]
