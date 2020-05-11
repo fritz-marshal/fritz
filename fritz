@@ -217,21 +217,28 @@ def prune(args=None):
                 print(f'Failed to removed {volume_name} docker volume')
 
         # remove user configs
-        cfgs = (
-            'skyportal/config.yaml',
-            'kowalski/secrets.json',
-            'kowalski/docker-compose.fritz.yaml',
-            'kowalski/kowalski/config_api.json',
-            'kowalski/kowalski/config_ingester.json',
-            'kowalski/kowalski/supervisord_api.conf',
-            'kowalski/kowalski/supervisord_ingester.conf',
-        )
-        for cfg in cfgs:
-            p = subprocess.run(['rm', '-f', cfg])
-            if p.returncode == 0:
-                print(f'Removed {cfg} config file')
-            else:
-                print(f'Failed to removed {cfg} config file')
+        # cfgs = (
+        #     'skyportal/config.yaml',
+        #     'kowalski/secrets.json',
+        #     'kowalski/docker-compose.fritz.yaml',
+        #     'kowalski/kowalski/config_api.json',
+        #     'kowalski/kowalski/config_ingester.json',
+        #     'kowalski/kowalski/supervisord_api.conf',
+        #     'kowalski/kowalski/supervisord_ingester.conf',
+        # )
+        # for cfg in cfgs:
+        #     p = subprocess.run(['rm', '-f', cfg])
+        #     if p.returncode == 0:
+        #         print(f'Removed {cfg} config file')
+        #     else:
+        #         print(f'Failed to removed {cfg} config file')
+
+        # deinit submodules
+        p = subprocess.run(['git', 'submodule', 'deinit', '--all', '-f'])
+        if p.returncode == 0:
+            print(f"Deinitialized fritz' submodules")
+        else:
+            print(f"Failed to deinit fritz' submodules")
 
 
 def test(args):
