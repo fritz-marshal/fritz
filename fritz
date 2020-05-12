@@ -106,7 +106,7 @@ def run(args):
     if args.init:
         # Build skyportal's images
         # check skyportal configs:
-        cfgs = ('skyportal/config.yaml.defaults', 'skyportal/docker.yaml.defaults')
+        cfgs = ('skyportal/config.yaml.defaults', )
         check_configs(cfgs)
         p = subprocess.run(["make", "docker-local"], cwd="skyportal")
         if p.returncode != 0:
