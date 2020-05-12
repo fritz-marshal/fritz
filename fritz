@@ -10,11 +10,11 @@ import sys
 
 @contextmanager
 def status(message):
-    # stolen from baselayer
+    # from baselayer
     print(f'[·] {message}', end='')
     try:
         yield
-    except:
+    except:  # noqa: E722
         print(f'\r[✗] {message}')
         raise
     else:
@@ -28,7 +28,6 @@ def check_configs(cfgs):
         c = cfg.replace('.defaults', '')
         if not Path(c).exists():
             cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
-            # print(cd, cd.lower() == 'y')
             if cd.lower() == 'y':
                 s = subprocess.run(["cp", f"{cfg}", f"{c}"])
                 if s.returncode != 0:
@@ -48,10 +47,7 @@ def get_skyportal_token():
          """python -c "from baselayer.app.config import load_config; """
          """from skyportal.models import init_db; """
          """from skyportal.model_util import create_token; """
-         # """import secrets; import string; """
          """conn = init_db(**load_config(['config.yaml'])['database']); """
-         # """token_name = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(6)); """
-         # """print(create_token(['Upload data', 'Manage sources'], 1, token_name))" """
          """print(create_token(['Upload data', 'Manage sources'], 1, 'kowalski'))" """
          ],
         cwd="skyportal",
@@ -96,12 +92,10 @@ def run(args):
         p = subprocess.run(['git', 'submodule', 'update'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
-        # pass
     else:
         p = subprocess.run(['git', 'submodule', 'update'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
-        # pass
 
     if args.init:
         # Build skyportal's images
@@ -111,13 +105,8 @@ def run(args):
         p = subprocess.run(["make", "docker-local"], cwd="skyportal")
         if p.returncode != 0:
             raise RuntimeError("Failed to build skyportal's docker images")
-        # subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
 
     # start up skyportal
-    # subprocess.run(["make", "run"], cwd="skyportal", env=env)
-    # check configs:
-    # cfgs = ('skyportal/docker-compose.yaml.defaults', )
-    # check_configs(cfgs)
     p = subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
     if p.returncode != 0:
         raise RuntimeError("Failed to start skyportal")
@@ -150,14 +139,11 @@ def run(args):
 
 def stop(args):
     """
-        Shut marshal down
-    :param args:
-    :return:
+    Shut down Fritz
     """
     print('Shutting fritz down...')
-    # subprocess.run(["docker-compose", "down"], cwd="kowalski")
-    p = subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
-    p = subprocess.run(["docker-compose", "down"], cwd="skyportal")
+    subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
+    subprocess.run(["docker-compose", "down"], cwd="skyportal")
 
 
 def log(args):
@@ -173,8 +159,8 @@ def develop(args=None):
     """
     Install developer tools.
     """
-    p = subprocess.run(["pip", "install", "-r", ".requirements/dev.txt"])
-    p = subprocess.run(["pre-commit", "install"])
+    subprocess.run(["pip", "install", "-r", ".requirements/dev.txt"])
+    subprocess.run(["pre-commit", "install"])
 
 
 def lint(args):
@@ -183,62 +169,7 @@ def lint(args):
     except ImportError:
         develop()
 
-    p = subprocess.run(["pre-commit", "run", "--all-files"])
-
-
-def prune(args=None):
-    """
-    todo: Prune fritz'es docker containers and volumes and reset configs to defaults
-    """
-    # are you sure?
-    go = input(f"Do you want to prune fritz'es docker containers and volumes and deinit submodules? [y/N] ")
-
-    if go.lower() == 'y':
-        # try stopping anything that's running first:
-        stop(args)
-
-        # remove docker images
-        for image_name in ('kowalski_api', 'kowalski_ingester', 'skyportal/web'):
-            p1 = subprocess.Popen(['docker', 'images'], stdout=subprocess.PIPE)
-            p2 = subprocess.Popen(['grep', image_name], stdin=p1.stdout, stdout=subprocess.PIPE)
-            image_id = subprocess.check_output(['awk', '{print $3}'], stdin=p2.stdout, universal_newlines=True).strip()
-            p3 = subprocess.run(['docker', 'rmi', image_id])
-            if p3.returncode == 0:
-                print(f'Removed {image_name} docker image')
-            else:
-                print(f'Failed to removed {image_name} docker image')
-
-        # remove docker volumes
-        for volume_name in ('kowalski_data', 'kowalski_mongodb', 'skyportal_dbdata'):
-            p = subprocess.run(['docker', 'volume', 'rm', volume_name])
-            if p.returncode == 0:
-                print(f'Removed {volume_name} docker volume')
-            else:
-                print(f'Failed to removed {volume_name} docker volume')
-
-        # remove user configs
-        # cfgs = (
-        #     'skyportal/config.yaml',
-        #     'kowalski/secrets.json',
-        #     'kowalski/docker-compose.fritz.yaml',
-        #     'kowalski/kowalski/config_api.json',
-        #     'kowalski/kowalski/config_ingester.json',
-        #     'kowalski/kowalski/supervisord_api.conf',
-        #     'kowalski/kowalski/supervisord_ingester.conf',
-        # )
-        # for cfg in cfgs:
-        #     p = subprocess.run(['rm', '-f', cfg])
-        #     if p.returncode == 0:
-        #         print(f'Removed {cfg} config file')
-        #     else:
-        #         print(f'Failed to removed {cfg} config file')
-
-        # deinit submodules
-        p = subprocess.run(['git', 'submodule', 'deinit', '--all', '-f'])
-        if p.returncode == 0:
-            print(f"Deinitialized fritz' submodules")
-        else:
-            print(f"Failed to deinit fritz' submodules")
+    subprocess.run(["pre-commit", "run", "--all-files"])
 
 
 def test(args):
@@ -247,7 +178,7 @@ def test(args):
     # load_demo_data is run as part of ./fritz run --init since it is needed to create a token for kowalski
 
     print("Testing Kowalski...")
-    p = subprocess.run(["python", "kowalski.py", "test"], cwd="kowalski")
+    subprocess.run(["python", "kowalski.py", "test"], cwd="kowalski")
 
 
 def doc(args):
