@@ -10,11 +10,11 @@ import sys
 
 @contextmanager
 def status(message):
-    # stolen from baselayer
+    # from baselayer
     print(f'[·] {message}', end='')
     try:
         yield
-    except:
+    except:  # noqa: E722
         print(f'\r[✗] {message}')
         raise
     else:
@@ -29,7 +29,9 @@ def check_configs(cfgs):
         if not Path(c).exists():
             cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
             if cd.lower() == 'y':
-                subprocess.run(["cp", f"{cfg}", f"{c}"])
+                s = subprocess.run(["cp", f"{cfg}", f"{c}"])
+                if s.returncode != 0:
+                    raise IOError(f"Failed to copy {cfg} to {c}")
             else:
                 raise IOError(f'{c} does not exist, aborting')
 
@@ -39,30 +41,23 @@ def get_skyportal_token():
     Get a token for Kowalski to access SkyPortal
     this is ugly and should be re-done, but gets the work done, so ok for now
     """
-    try:
-        result = subprocess.run(
-            ["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-             "source /skyportal_env/bin/activate; "
-             """python -c "from baselayer.app.config import load_config; """
-             """from skyportal.models import init_db; """
-             """from skyportal.model_util import create_token; """
-             # """import secrets; import string; """
-             """conn = init_db(**load_config(['config.yaml'])['database']); """
-             # """token_name = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(6)); """
-             # """print(create_token(['Upload data', 'Manage sources'], 1, token_name))" """
-             """print(create_token(['Upload data', 'Manage sources'], 1, 'kowalski'))" """
-             ],
-            cwd="skyportal",
-            capture_output=True,
-            universal_newlines=True,
-        )
-        token = result.stdout.split()[-1]
+    result = subprocess.run(
+        ["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+         "source /skyportal_env/bin/activate; "
+         """python -c "from baselayer.app.config import load_config; """
+         """from skyportal.models import init_db; """
+         """from skyportal.model_util import create_token; """
+         """conn = init_db(**load_config(['config.yaml'])['database']); """
+         """print(create_token(['Upload data', 'Manage sources'], 1, 'kowalski'))" """
+         ],
+        cwd="skyportal",
+        capture_output=True,
+        universal_newlines=True,
+    )
+    token = result.stdout.split()[-1]
 
-        assert len(token) == 36
-
-    except Exception as e:
-        # print(e)
-        token = None
+    if len(token) != 36:
+        raise RuntimeError('Failed to generate a SkyPortal token for Kowalski')
 
     return token
 
@@ -74,71 +69,79 @@ def update_kowalski_secrets(token):
     if not p_secrets.exists():
         raise IOError(f'{p_secrets} does not exist')
 
-    if token:
-        with open(str(p_secrets), 'r') as f:
-            secrets = json.load(f)
-        secrets['skyportal']['token'] = token
+    with open(str(p_secrets), 'r') as f:
+        secrets = json.load(f)
+    secrets['skyportal']['token'] = token
 
-        with open(str(p_secrets), 'w') as f:
-            json.dump(secrets, f, indent=2)
+    with open(str(p_secrets), 'w') as f:
+        json.dump(secrets, f, indent=2)
 
 
 def run(args):
     """
-    Launch the marshal
+    Launch Fritz
     """
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
     if args.init:
         # pull skyportal and kowalski
-        subprocess.run(['git', 'submodule', 'update', '--init'])
+        p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to initialize fritz's submodules")
+        p = subprocess.run(['git', 'submodule', 'update'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to update fritz's submodules")
     else:
-        subprocess.run(['git', 'submodule', 'update'])
+        p = subprocess.run(['git', 'submodule', 'update'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to update fritz's submodules")
 
     if args.init:
         # Build skyportal's images
         # check skyportal configs:
-        cfgs = ('skyportal/config.yaml.defaults', 'skyportal/docker.yaml.defaults')
+        cfgs = ('skyportal/config.yaml.defaults', )
         check_configs(cfgs)
-        subprocess.run(["make", "docker-local"], cwd="skyportal")
-        # subprocess.run(["make", "db_init"], cwd="skyportal", env=env)
+        p = subprocess.run(["make", "docker-local"], cwd="skyportal")
+        if p.returncode != 0:
+            raise RuntimeError("Failed to build skyportal's docker images")
 
     # start up skyportal
-    # subprocess.run(["make", "run"], cwd="skyportal", env=env)
-    # check configs:
-    cfgs = ('skyportal/docker-compose.yaml.defaults', )
-    check_configs(cfgs)
-    subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
+    p = subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
+    if p.returncode != 0:
+        raise RuntimeError("Failed to start skyportal")
 
     if args.init:
         # init skyportal and load test data
-        subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                        "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
+        p = subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+                            "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
+        if p.returncode != 0:
+            raise RuntimeError("Failed to init skyportal and load test data")
 
         # create the kowalski user and write access token to kowalski/secrets.json
         token = get_skyportal_token()
         # check that Kowalski's secrets.json exist:
         cfgs = ('kowalski/secrets.defaults.json', )
         check_configs(cfgs)
+        # update kowalski's secrets.json with the generated token:
         update_kowalski_secrets(token)
 
         # Build kowalski's images
-        subprocess.run(["python", "kowalski.py", "build", "--fritz"], cwd="kowalski")
+        p = subprocess.run(["python", "kowalski.py", "build", "--fritz"], cwd="kowalski")
+        if p.returncode != 0:
+            raise RuntimeError("Failed to build kowalski's docker images")
 
     # start up kowalski
-    # subprocess.run(["docker-compose", "up", "-d"], cwd="kowalski")
-    subprocess.run(["python", "kowalski.py", "up", "--fritz"], cwd="kowalski")
+    p = subprocess.run(["python", "kowalski.py", "up", "--fritz"], cwd="kowalski")
+    if p.returncode != 0:
+        raise RuntimeError("Failed to start kowalski")
 
 
 def stop(args):
     """
-        Shut marshal down
-    :param args:
-    :return:
+    Shut down Fritz
     """
     print('Shutting fritz down...')
-    # subprocess.run(["docker-compose", "down"], cwd="kowalski")
     subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
     subprocess.run(["docker-compose", "down"], cwd="skyportal")
 
@@ -147,7 +150,9 @@ def log(args):
     """
     Show colorized logs while the marshal is running
     """
-    subprocess.run(["make", "log"], cwd="skyportal")
+    p = subprocess.run(["make", "log"], cwd="skyportal")
+    if p.returncode != 0:
+        raise RuntimeError("Failed to display fritz's logs")
 
 
 def develop(args=None):
@@ -206,9 +211,10 @@ if __name__ == "__main__":
     commands = [
         ("run", "🚀 Launch Fritz"),
         ("stop", "✋ Shut Fritz down"),
+        ("test", "Run the test suite"),
         ("develop", "Install tools for developing Fritz"),
         ("lint", "Lint the full code base"),
-        ("test", "Run the test suite"),
+        ("prune", "☠️ Wipe out containers, volumes, and submodules"),
         ("doc", "Build the documentation"),
         ("help", "Print this message"),
     ]
