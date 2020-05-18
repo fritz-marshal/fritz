@@ -29,7 +29,7 @@ def check_configs(cfgs):
         if not Path(c).exists():
             cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
             if cd.lower() == 'y':
-                s = subprocess.run(["cp", f"{cfg}", f"{c}"])
+                s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
                 if s.returncode != 0:
                     raise IOError(f"Failed to copy {cfg} to {c}")
             else:
@@ -182,7 +182,7 @@ def test(args):
 
 
 def doc(args):
-    subprocess.run(["make", "html"], cwd="doc")
+    subprocess.run(["make", "html"], cwd="doc", check=True)
     Path("doc/_build/html/.nojekyll").touch()
 
     if args.upload:
@@ -200,7 +200,8 @@ def doc(args):
                 "--force",
                 "./doc/_build/html",
                 "git@github.com:fritz-marshal/doc",
-            ]
+            ],
+            check=True
         )
 
 
