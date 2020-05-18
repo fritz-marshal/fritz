@@ -19,27 +19,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r doc/requirements.txt
-    - name: Set up SSH and git
-      env:
-        GH_ACTION_PAGES_DEPLOY_KEY: ${{ secrets.GH_ACTION_PAGES_DEPLOY_KEY }}
-      run: |
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Set up SSH key
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        mkdir -p ~/.ssh/
-        echo "$GH_ACTION_PAGES_DEPLOY_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Reconfigure the git remote to use SSH
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        git remote rm origin
-        git remote add origin git@github.com:${GITHUB_REPOSITORY}
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Configure the git user
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        git config user.name "${GITHUB_ACTOR}"
-        git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
     - name: Build docs
       run: |
         ./fritz doc
