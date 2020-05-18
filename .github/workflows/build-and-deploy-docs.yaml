@@ -25,4 +25,11 @@ jobs:
     - name: Deploy docs
       if: github.ref == 'refs/heads/master'
       run: |
-        ./fritz doc --upload
+        ./tools/push_dir_to_repo.py \
+          --branch "master"
+          --committer "fritz"
+          --email "ci@fritz-marshal.org"
+          --message "CI website upload"
+          --force
+          ./doc/_build/html
+          https://${{ secrets.GH_TOKEN }}@github.com/fritz-marshal/doc
