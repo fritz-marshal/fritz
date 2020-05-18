@@ -26,10 +26,10 @@ jobs:
       if: github.ref == 'refs/heads/master'
       run: |
         ./tools/push_dir_to_repo.py \
-          --branch "master"
-          --committer "fritz"
-          --email "ci@fritz-marshal.org"
-          --message "CI website upload"
-          --force
-          ./doc/_build/html
+          --branch "master" \
+          --committer "fritz" \
+          --email "ci@fritz-marshal.org" \
+          --message "CI website upload" \
+          --force \
+          ./doc/_build/html \
           https://${{ secrets.GH_TOKEN }}@github.com/fritz-marshal/doc
