@@ -44,6 +44,6 @@ jobs:
       run: |
         ./fritz doc
     - name: Deploy docs
-      if: github.ref == 'ref/head/master'
+      if: github.ref == 'refs/heads/master'
       run: |
         ./fritz doc --upload
