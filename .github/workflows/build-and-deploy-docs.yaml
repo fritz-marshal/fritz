@@ -22,6 +22,11 @@ jobs:
     - name: Build docs
       run: |
         ./fritz doc
+    - name: Install SSH Client 🔑
+      if: github.ref == 'refs/heads/master'
+      uses: webfactory/ssh-agent@v0.2.0
+      with:
+        ssh-private-key: ${{ secrets.CI_DEPLOY_KEY }}
     - name: Deploy docs
       if: github.ref == 'refs/heads/master'
       uses: JamesIves/github-pages-deploy-action@releases/v3
@@ -30,3 +35,4 @@ jobs:
         REPOSITORY_NAME: fritz-marshal/doc
         BRANCH: master
         SINGLE_COMMIT: true
+        SSH: true
