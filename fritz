@@ -154,12 +154,18 @@ def run(args):
             yaml.dump(config, cyaml)
 
         # Build kowalski's images
-        p = subprocess.run(["python", "kowalski.py", "build", "--fritz"], cwd="kowalski")
+        c = ["python", "kowalski.py", "build", "--fritz"]
+        if args.yes:
+            c.append("--yes")
+        p = subprocess.run(c, cwd="kowalski")
         if p.returncode != 0:
             raise RuntimeError("Failed to build kowalski's docker images")
 
     # start up kowalski
-    p = subprocess.run(["python", "kowalski.py", "up", "--fritz"], cwd="kowalski")
+    c = ["python", "kowalski.py", "up", "--fritz"]
+    if args.yes:
+        c.append("--yes")
+    p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
         raise RuntimeError("Failed to start kowalski")
 
