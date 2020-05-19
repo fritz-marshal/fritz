@@ -267,10 +267,6 @@ def doc(args):
         )
 
 
-def foo(args):
-    print(args)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(title="commands", dest="command")
@@ -289,7 +285,6 @@ if __name__ == "__main__":
         ("prune", "☠️ Wipe out containers, volumes, and submodules"),
         ("doc", "Build the documentation"),
         ("help", "Print this message"),
-        ("foo", "bar"),
     ]
 
     parsers = {}
