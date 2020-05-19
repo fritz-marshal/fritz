@@ -2,7 +2,6 @@
 import argparse
 from contextlib import contextmanager
 import datetime
-import jwt
 import os
 from pathlib import Path
 import subprocess
@@ -23,39 +22,12 @@ def status(message):
         print(f'\r[✓] {message}')
 
 
-def check_config(cfg='fritz.defaults.yaml'):
-    c = cfg.replace('.defaults', '')
-    if not Path(c).exists():
-        cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
-        if cd.lower() == 'y':
-            s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
-        else:
-            raise IOError(f'{c} does not exist, aborting')
-
-    # generate a token for SkyPortal to talk to Kowalski:
-    with open(c) as cyaml:
-        config = yaml.load(cyaml, Loader=yaml.FullLoader)
-
-    kowalski_token = generate_kowalski_token(
-        user_id=config['kowalski']['server']['admin_username'],
-        jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
-    )
-    config['app']['kowalski_token'] = kowalski_token
-
-    with open(c, 'w') as cyaml:
-        yaml.dump(config, cyaml)  # default_flow_style=False
-
-    # copy over to Kowalski and SkyPortal
-    for submodule in ('kowalski', 'skyportal'):
-        target_c = f"{submodule}/config.yaml"
-        # if not Path(target_c).exists():
-        s = subprocess.run(["cp", f"{c}", target_c], check=True)
-
-
 def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256', jwt_exp_delta_seconds=30*86400*12):
     """
     Generate a token for SkyPortal to access Kowalski
     """
+    import jwt
+
     jwt_config = {
         'user_id': user_id,
         'JWT_SECRET': jwt_secret,
@@ -96,6 +68,35 @@ def generate_skyportal_token():
         raise RuntimeError('Failed to generate a SkyPortal token for Kowalski')
 
     return token
+
+
+def check_config(cfg='fritz.defaults.yaml'):
+    c = cfg.replace('.defaults', '')
+    if not Path(c).exists():
+        cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
+        if cd.lower() == 'y':
+            s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
+        else:
+            raise IOError(f'{c} does not exist, aborting')
+
+    # generate a token for SkyPortal to talk to Kowalski:
+    with open(c) as cyaml:
+        config = yaml.load(cyaml, Loader=yaml.FullLoader)
+
+    kowalski_token = generate_kowalski_token(
+        user_id=config['kowalski']['server']['admin_username'],
+        jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
+    )
+    config['app']['kowalski_token'] = kowalski_token
+
+    with open(c, 'w') as cyaml:
+        yaml.dump(config, cyaml)  # default_flow_style=False
+
+    # copy over to Kowalski and SkyPortal
+    for submodule in ('kowalski', 'skyportal'):
+        target_c = f"{submodule}/config.yaml"
+        # if not Path(target_c).exists():
+        s = subprocess.run(["cp", f"{c}", target_c], check=True)
 
 
 def run(args):
@@ -148,7 +149,7 @@ def run(args):
         config['kowalski']['skyportal']['token'] = token
 
         with open('kowalski/config.yaml', 'w') as cyaml:
-            yaml.dump(config, cyaml)  # default_flow_style=False
+            yaml.dump(config, cyaml)
 
         # Build kowalski's images
         p = subprocess.run(["python", "kowalski.py", "build", "--fritz"], cwd="kowalski")
@@ -198,9 +199,9 @@ def lint(args):
 
 def prune(args):
     """
-    Prune fritz'es docker containers and volumes and reset configs to defaults
+    Prune fritz's docker containers and volumes and reset configs to defaults
     """
-    go = input(f"Do you want to prune fritz'es docker containers and volumes and deinit submodules? [y/N] ")
+    go = input(f"Do you want to prune fritz's docker containers and volumes and deinit submodules? [y/N] ")
 
     if go.lower() == 'y':
         # try stopping anything that's running first:
@@ -228,9 +229,9 @@ def prune(args):
         # deinit submodules
         p = subprocess.run(['git', 'submodule', 'deinit', '--all', '-f'])
         if p.returncode == 0:
-            print(f"Deinitialized fritz' submodules")
+            print(f"Deinitialized fritz's submodules")
         else:
-            print(f"Failed to deinit fritz' submodules")
+            print(f"Failed to deinit fritz's submodules")
 
 
 def test(args):
