@@ -9,6 +9,12 @@ Clone the repo from `GitHub`:
 git clone https://github.com/fritz-marshal/fritz.git && cd fritz
 ```
 
+Make sure the requirements to run the `fritz` utility are met, e.g.:
+
+```bash
+pip install -r requirements_api.txt --no-cache-dir
+``` 
+
 Initialize `fritz` and run tests:
 
 ```bash

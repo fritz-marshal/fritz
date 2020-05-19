@@ -1,0 +1,393 @@
+app:
+  # This secret key can be any random string of
+  # characters.
+  #
+  # You should re-generate this for your application
+  # using:
+  #
+  # base64.b64encode(os.urandom(50)).decode('ascii')
+  secret_key: abc01234
+  factory: skyportal.app_server.make_app
+
+  # See https://stackoverflow.com/a/35604855 for syntax
+  # These are Javascript component routes
+  routes:
+    - path: "/"
+      component: HomePage
+      exact: True
+    - path: "/source/:id"
+      component: Source
+    - path: "/groups"
+      component: Groups
+    - path: "/group/:id"
+      component: Group
+    - path: "/profile"
+      component: Profile
+    - path: "/sources"
+      component: SourceList
+    - path: "/user/:id"
+      component: UserInfo
+
+  kowalski_token: 
+
+database:
+  database: skyportal
+  host: localhost
+  port: 5432
+  user: skyportal
+  password: password
+
+server:
+  # From https://console.developers.google.com/
+  #
+  # - Create Client ID
+  # - Javascript origins: https://localhost:5000
+  # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
+  #
+  # You need to have Google+ API enabled; it takes a few minutes to activate.
+
+  auth:
+    debug_login: True
+    google_oauth2_key:
+    google_oauth2_secret:
+
+services:
+  dask: False
+
+
+kowalski:
+  server:
+    name: "Kowalski"
+    version: "2.0.0dev"
+    description: "Kowalski: a toolkit for Time-Domain Astronomy"
+    host: "0.0.0.0"
+    port: "4000"
+    admin_username: "admin"
+    # fixme: use ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
+    admin_password: "admin"
+    # fixme: use ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
+    SECRET_KEY: "abc0123"
+    JWT_SECRET_KEY: "abc0123"
+    # fixme: use from cryptography.fernet import Fernet; Fernet.generate_key().decode()
+    fernet_key: "irjsxvfJdqSJ2fcnpPacbH972dt-RPMMLE48PQ8J5Hg="
+
+  path:
+    app: "/app"
+    docs: "/app/docs"
+    ml_models: "/app/models/"
+    logs: "/data/logs/"
+    data: "/data"
+    alerts: "/data/alerts"
+    queries: "/data/queries"
+    tess: "/data/tess"
+    tmp: "/_tmp"
+    kafka: "/kafka_2.13-2.5.0"
+
+  kafka:
+    default.topic.config:
+      auto.offset.reset: "earliest"
+    group: "kowalski"
+
+    bootstrap.servers: "192.168.0.64:9092,192.168.0.65:9092,192.168.0.66:9092"
+    zookeeper: "192.168.0.64:2181"
+    bootstrap.test.servers: "localhost:9092"
+    zookeeper.test: "localhost:2181"
+
+  database:
+    max_pool_size: 2000
+    host: "kowalski_mongo_1"
+    port: 27017
+    db: "kowalski"
+    admin_username: "mongoadmin"
+    # fixme: use strong password if exposing the database to the world
+    admin_password: "mongoadminsecret"
+    username: "ztf"
+    # fixme: use strong password if exposing the database to the world
+    password: "ztf"
+
+    collections:
+      users: "users"
+      filters: "filters"
+      queries: "queries"
+      alerts_ztf: "ZTF_alerts"
+      alerts_ztf_aux: "ZTF_alerts_aux"
+      alerts_zuds: "ZUDS_alerts"
+      alerts_zuds_aux: "ZUDS_alerts_aux"
+
+    indexes:
+      ZTF_alerts:
+        radec_candid:
+          - ["coordinates.radec_geojson", "2dsphere"]
+          - ["candid", -1]
+        radec_objectId:
+          - ["coordinates.radec_geojson", "2dsphere"]
+          - ["objectId", -1]
+        jd_radec_candid:
+          - ["candidate.jd", 1]
+          - ["coordinates.radec_geojson", "2dsphere"]
+          - ["candid", -1]
+        jd_radec_objectId:
+          - ["candidate.jd", 1]
+          - ["coordinates.radec_geojson", "2dsphere"]
+          - ["objectId", -1]
+        objectId:
+          - ["objectId", -1]
+        candid:
+          - ["candid", -1]
+        pid:
+          - ["candidate.pid", 1]
+        objectId_pid:
+          - ["objectId", -1]
+          - ["candidate.pid", 1]
+        pdiffimfilename:
+          - ["candidate.pdiffimfilename", 1]
+        jd_programid_programpi:
+          - ["candidate.jd", 1]
+          - ["candidate.programid", 1]
+          - ["candidate.programpi", 1]
+        jd_braai_candid:
+          - ["candidate.jd", -1]
+          - ["classifications.braai", -1]
+          - ["candid", -1]
+        jd_drb_candid:
+          - ["candidate.jd", -1]
+          - ["candidate.drb", -1]
+          - ["candid", -1]
+        jd_braai_magpsf_isdiffpos_ndethist:
+          - ["candidate.jd", 1]
+          - ["classifications.braai", 1]
+          - ["candidate.magpsf", 1]
+          - ["candidate.isdiffpos", 1]
+          - ["candidate.ndethist", 1]
+        jd_field_drb_ndethhist_magpsf_isdiffpos_objectId:
+          - ["candidate.jd", 1]
+          - ["candidate.field", 1]
+          - ["candidate.rb", 1]
+          - ["candidate.drb", 1]
+          - ["candidate.ndethist", 1]
+          - ["candidate.magpsf", 1]
+          - ["candidate.isdiffpos", 1]
+          - ["objectId", -1]
+
+    filters:
+      ZTF_alerts:
+        # default upstream aggregation pipeline stages for filtering ZTF alerts:
+        - {"$match": {"candid": null}}
+        - {"$project": {"cutoutScience": 0, "cutoutTemplate": 0, "cutoutDifference": 0}}
+        - {"$lookup": {"from": "ZTF_alerts_aux", "localField": "objectId", "foreignField": "_id", "as": "aux"}}
+        - {"$replaceRoot": {"newRoot": {"$mergeObjects": [{"$arrayElemAt": ["$aux", 0]}, "$$ROOT"]}}}
+        - {"$project": {"aux": 0}}
+
+    xmatch:
+      cone_search_radius: 5
+      cone_search_unit: "arcsec"
+      catalogs:
+        2MASS_PSC:
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            j_m: 1
+            h_m: 1
+            k_m: 1
+
+        AllWISE:
+          filter: {}
+          projection:
+             _id: 1
+             coordinates.radec_str: 1
+             w1mpro: 1
+             w1sigmpro: 1
+             w2mpro: 1
+             w2sigmpro: 1
+             w3mpro: 1
+             w3sigmpro: 1
+             w4mpro: 1
+             w4sigmpro: 1
+             ph_qual: 1
+
+        Gaia_DR2:
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            parallax: 1
+            parallax_error: 1
+            phot_g_mean_mag: 1
+            phot_bp_mean_mag: 1
+            phot_rp_mean_mag: 1
+
+        Gaia_DR2_WD:
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            White_dwarf_name: 1
+            Pwd: 1
+            Pwd_correction: 1
+            SDSS_name: 1
+            Teff: 1
+            eTeff: 1
+
+        GALEX:
+          filter: {}
+          projection:
+            _id: 0
+            name: 1
+            coordinates.radec_str: 1
+            FUVmag: 1
+            e_FUVmag: 1
+            NUVmag: 1
+            e_NUVmag: 1
+
+        IPHAS_DR2:
+          filter: {}
+          projection:
+            _id: 0
+            name: 1
+            coordinates.radec_str: 1
+            r: 1
+            rErr: 1
+            i: 1
+            iErr: 1
+            ha: 1
+            haErr: 1
+
+        LAMOST_DR5_v3:
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            mjd: 1
+            snru: 1
+            snrg: 1
+            snrr: 1
+            snri: 1
+            snrz: 1
+            objtype: 1
+            class: 1
+            subclass:  1
+
+        PS1_DR1:
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            gMeanPSFMag: 1
+            gMeanPSFMagErr: 1
+            rMeanPSFMag: 1
+            rMeanPSFMagErr: 1
+            iMeanPSFMag: 1
+            iMeanPSFMagErr: 1
+            zMeanPSFMag: 1
+            zMeanPSFMagErr: 1
+            yMeanPSFMag: 1
+            yMeanPSFMagErr: 1
+
+  ml_models:
+    braai:
+      version:  "d6_m9"
+
+  skyportal:
+    protocol: "http"
+    host: "skyportal_web_1"
+    port: 5000
+    username: "kowalski"
+    token: "<token>"
+
+  ztf_depot:
+    # fixme:
+    username: "username"
+    password: "password"
+
+  ztf_ops:
+    # fixme: Tom Barlow's ops db
+    url: "http://site/allexp.tbl"
+    username: "username"
+    password: "password"
+
+  misc:
+    # fixme: set to False if running stand-alone
+    post_to_skyportal: True
+    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2"]
+    query_expiration_interval: 5
+    max_time_ms: 300000
+    max_retries: 100
+    logging_level: "debug"
+    openapi_validate:  False
+
+  # this is used to make supervisord.conf files at build time
+  supervisord:
+    api:
+      unix_http_server:
+        file: /dev/shm/supervisor.sock
+
+      supervisord:
+        logfile: /data/logs/supervisord.log
+        logfile_maxbytes: 50MB
+        logfile_backups: 20
+        loglevel: info
+        pidfile: /tmp/supervisord.pid
+        nodaemon: True
+        minfds: 1024
+        minprocs: 200
+
+      "rpcinterface:supervisor":
+        "supervisor.rpcinterface_factory": supervisor.rpcinterface:make_main_rpcinterface
+
+      supervisorctl:
+        serverurl: unix:///dev/shm/supervisor.sock
+
+      "program:gunicorn":
+        # fixme: adjust number of workers -w for your case (e.g. -w 20 for kowalski.caltech.edu)
+        command: >
+          /usr/local/bin/gunicorn
+          -w 2
+          --bind 0.0.0.0:4000
+          --worker-tmp-dir /dev/shm
+          --worker-class aiohttp.GunicornUVLoopWebWorker
+          --log-level=DEBUG
+          --timeout 36000
+          --max-requests 10000
+          api:app_factory
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/gunicorn_stdout.log
+        stdout_logfile_maxbytes: 30MB
+        stderr_logfile: /data/logs/gunicorn_stderr.log
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
+    ingester:
+      unix_http_server:
+        file: /dev/shm/supervisor.sock
+
+      supervisord:
+        logfile: /data/logs/supervisord.log
+        logfile_maxbytes: 50MB
+        logfile_backups: 20
+        loglevel: info
+        pidfile: /tmp/supervisord.pid
+        nodaemon: True
+        minfds: 1024
+        minprocs: 200
+
+      "rpcinterface:supervisor":
+        "supervisor.rpcinterface_factory": supervisor.rpcinterface:make_main_rpcinterface
+
+      supervisorctl:
+        serverurl: unix:///dev/shm/supervisor.sock
+
+      "program:alert-watcher-ztf":
+        command: /usr/local/bin/python alert_watcher_ztf.py
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/alert_watcher_ztf_stdout.log
+        stdout_logfile_maxbytes: 30MB
+        stderr_logfile: /data/logs/alert_watcher_ztf_stderr.log
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
