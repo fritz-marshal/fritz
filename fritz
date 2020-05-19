@@ -34,23 +34,25 @@ def check_config(cfg='fritz.defaults.yaml'):
         else:
             raise IOError(f'{c} does not exist, aborting')
 
-    # generate a token for SkyPortal to talk to Kowalski:
-    with open(c) as cyaml:
-        config = yaml.load(cyaml, Loader=yaml.FullLoader)
-
-    kowalski_token = generate_kowalski_token(
-        user_id=config['kowalski']['server']['admin_username'],
-        jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
-    )
-    config['app']['kowalski_token'] = kowalski_token
-
-    with open(c, 'w') as cyaml:
-        yaml.dump(config, cyaml)  # default_flow_style=False
-
     # distribute to Kowalski and SkyPortal
     for submodule in ('kowalski', 'skyportal'):
         target_c = f"{submodule}/config.yaml"
         if not Path(target_c).exists():
+
+            if submodule == 'skyportal':
+                # generate a token for SkyPortal to talk to Kowalski:
+                with open(c) as cyaml:
+                    config = yaml.load(cyaml, Loader=yaml.FullLoader)
+
+                kowalski_token = generate_kowalski_token(
+                    user_id=config['kowalski']['server']['admin_username'],
+                    jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
+                )
+                config['app']['kowalski_token'] = kowalski_token
+
+                with open(c, 'w') as cyaml:
+                    yaml.dump(config, cyaml)  # default_flow_style=False
+
             s = subprocess.run(["cp", f"{c}", target_c], check=True)
             if s.returncode != 0:
                 raise IOError(f"Failed to copy {c} to {submodule}")
