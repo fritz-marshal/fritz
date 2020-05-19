@@ -24,12 +24,9 @@ jobs:
         ./fritz doc
     - name: Deploy docs
       if: github.ref == 'refs/heads/master'
-      run: |
-        ./tools/push_dir_to_repo.py \
-          --branch "master" \
-          --committer "fritz" \
-          --email "ci@fritz-marshal.org" \
-          --message "CI website upload" \
-          --force \
-          ./doc/_build/html \
-          https://${{ secrets.GH_TOKEN }}@github.com/fritz-marshal/doc
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        FOLDER: doc/_build/html
+        REPOSITORY_NAME: fritz-marshal/doc
+        BRANCH: master
+        SINGLE_COMMIT: true
