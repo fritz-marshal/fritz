@@ -70,10 +70,12 @@ def generate_skyportal_token():
     return token
 
 
-def check_config(cfg='fritz.defaults.yaml'):
+def check_config(cfg='fritz.defaults.yaml', yes=False):
     c = cfg.replace('.defaults', '')
     if not Path(c).exists():
-        cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
+        cd = input(
+            f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] '
+        ) if not yes else 'y'
         if cd.lower() == 'y':
             s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
         else:
@@ -121,7 +123,7 @@ def run(args):
             raise RuntimeError("Failed to update fritz's submodules")
 
     if args.init:
-        check_config(cfg='fritz.defaults.yaml')
+        check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
     if args.init:
         # Build skyportal's images
@@ -201,7 +203,9 @@ def prune(args):
     """
     Prune fritz's docker containers and volumes and reset configs to defaults
     """
-    go = input(f"Do you want to prune fritz's docker containers and volumes and deinit submodules? [y/N] ")
+    go = input(
+        f"Do you want to prune fritz's docker containers and volumes and deinit submodules? [y/N] "
+    ) if not args.yes else 'y'
 
     if go.lower() == 'y':
         # try stopping anything that's running first:
