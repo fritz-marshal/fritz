@@ -29,8 +29,6 @@ def check_config(cfg='fritz.defaults.yaml'):
         cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
         if cd.lower() == 'y':
             s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
-            if s.returncode != 0:
-                raise IOError(f"Failed to copy {cfg} to {c}")
         else:
             raise IOError(f'{c} does not exist, aborting')
 
@@ -52,8 +50,6 @@ def check_config(cfg='fritz.defaults.yaml'):
         target_c = f"{submodule}/config.yaml"
         # if not Path(target_c).exists():
         s = subprocess.run(["cp", f"{c}", target_c], check=True)
-        if s.returncode != 0:
-            raise IOError(f"Failed to copy {c} to {submodule}")
 
 
 def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256', jwt_exp_delta_seconds=30*86400*12):
