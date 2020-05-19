@@ -267,9 +267,18 @@ def doc(args):
         )
 
 
+def foo(args):
+    print(args)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(title="commands", dest="command")
+
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "--yes", action="store_true", help="Answer yes for all questions"
+    )
 
     commands = [
         ("run", "🚀 Launch Fritz"),
@@ -280,11 +289,12 @@ if __name__ == "__main__":
         ("prune", "☠️ Wipe out containers, volumes, and submodules"),
         ("doc", "Build the documentation"),
         ("help", "Print this message"),
+        ("foo", "bar"),
     ]
 
     parsers = {}
     for (cmd, desc) in commands:
-        parsers[cmd] = subparsers.add_parser(cmd, help=desc)
+        parsers[cmd] = subparsers.add_parser(cmd, help=desc, parents=[parent_parser])
 
     parsers["run"].add_argument(
         "--init", action="store_true", help="Initialize Fritz"
