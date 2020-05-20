@@ -201,7 +201,10 @@ def lint(args):
     except ImportError:
         develop()
 
-    subprocess.run(["pre-commit", "run", "--all-files"])
+    try:
+        subprocess.run(["pre-commit", "run", "--all-files"], check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
 
 
 def prune(args):
