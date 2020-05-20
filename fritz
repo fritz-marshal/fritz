@@ -22,7 +22,8 @@ def status(message):
         print(f'\r[✓] {message}')
 
 
-def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256', jwt_exp_delta_seconds=30*86400*12):
+def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256',
+                            jwt_exp_delta_seconds=30 * 86400 * 12):
     """
     Generate a token for SkyPortal to access Kowalski
     """
@@ -77,7 +78,7 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
             f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] '
         ) if not yes else 'y'
         if cd.lower() == 'y':
-            s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
+            subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
         else:
             raise IOError(f'{c} does not exist, aborting')
 
@@ -97,8 +98,7 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
     # copy over to Kowalski and SkyPortal
     for submodule in ('kowalski', 'skyportal'):
         target_c = f"{submodule}/config.yaml"
-        # if not Path(target_c).exists():
-        s = subprocess.run(["cp", f"{c}", target_c], check=True)
+        subprocess.run(["cp", f"{c}", target_c], check=True)
 
 
 def run(args):
