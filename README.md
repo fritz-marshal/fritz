@@ -12,8 +12,8 @@ git clone https://github.com/fritz-marshal/fritz.git && cd fritz
 Make sure the requirements to run the `fritz` utility are met, e.g.:
 
 ```bash
-pip install -r .requirements/dev.txt
-``` 
+pip install -r requirements.txt
+```
 
 Initialize `fritz` and run tests:
 

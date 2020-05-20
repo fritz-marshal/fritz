@@ -192,7 +192,6 @@ def develop(args=None):
     """
     Install developer tools.
     """
-    subprocess.run(["pip", "install", "-r", ".requirements/dev.txt"])
     subprocess.run(["pre-commit", "install"])
 
 
