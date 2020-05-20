@@ -28,7 +28,7 @@ app:
     - path: "/user/:id"
       component: UserInfo
 
-  kowalski_token: 
+  kowalski_token:
 
 database:
   database: skyportal
