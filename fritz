@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import argparse
 from contextlib import contextmanager
-import json
+import datetime
 import os
 from pathlib import Path
 import subprocess
 import sys
+import yaml
 
 
 @contextmanager
@@ -21,24 +22,32 @@ def status(message):
         print(f'\r[✓] {message}')
 
 
-def check_configs(cfgs):
-    # use config defaults if configs do not exist
-    for cfg in cfgs:
-        # cwd = str(Path(cfg).parent)
-        c = cfg.replace('.defaults', '')
-        if not Path(c).exists():
-            cd = input(f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] ')
-            if cd.lower() == 'y':
-                s = subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
-                if s.returncode != 0:
-                    raise IOError(f"Failed to copy {cfg} to {c}")
-            else:
-                raise IOError(f'{c} does not exist, aborting')
-
-
-def get_skyportal_token():
+def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256',
+                            jwt_exp_delta_seconds=30 * 86400 * 12):
     """
-    Get a token for Kowalski to access SkyPortal
+    Generate a token for SkyPortal to access Kowalski
+    """
+    import jwt
+
+    jwt_config = {
+        'user_id': user_id,
+        'JWT_SECRET': jwt_secret,
+        'JWT_ALGORITHM': jwt_algorithm,
+        'JWT_EXP_DELTA_SECONDS': jwt_exp_delta_seconds,
+    }
+
+    payload = {
+        'user_id': jwt_config['user_id'],
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=jwt_config['JWT_EXP_DELTA_SECONDS'])
+    }
+    jwt_token = jwt.encode(payload, jwt_config['JWT_SECRET'], jwt_config['JWT_ALGORITHM'])
+
+    return jwt_token.decode('utf-8')
+
+
+def generate_skyportal_token():
+    """
+    Generate a token for Kowalski to access SkyPortal
     this is ugly and should be re-done, but gets the work done, so ok for now
     """
     result = subprocess.run(
@@ -62,19 +71,34 @@ def get_skyportal_token():
     return token
 
 
-def update_kowalski_secrets(token):
+def check_config(cfg='fritz.defaults.yaml', yes=False):
+    c = cfg.replace('.defaults', '')
+    if not Path(c).exists():
+        cd = input(
+            f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] '
+        ) if not yes else 'y'
+        if cd.lower() == 'y':
+            subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
+        else:
+            raise IOError(f'{c} does not exist, aborting')
 
-    p_secrets = Path('kowalski/secrets.json')
+    # generate a token for SkyPortal to talk to Kowalski:
+    with open(c) as cyaml:
+        config = yaml.load(cyaml, Loader=yaml.FullLoader)
 
-    if not p_secrets.exists():
-        raise IOError(f'{p_secrets} does not exist')
+    kowalski_token = generate_kowalski_token(
+        user_id=config['kowalski']['server']['admin_username'],
+        jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
+    )
+    config['app']['kowalski_token'] = kowalski_token
 
-    with open(str(p_secrets), 'r') as f:
-        secrets = json.load(f)
-    secrets['skyportal']['token'] = token
+    with open(c, 'w') as cyaml:
+        yaml.dump(config, cyaml)  # default_flow_style=False
 
-    with open(str(p_secrets), 'w') as f:
-        json.dump(secrets, f, indent=2)
+    # copy over to Kowalski and SkyPortal
+    for submodule in ('kowalski', 'skyportal'):
+        target_c = f"{submodule}/config.yaml"
+        subprocess.run(["cp", f"{c}", target_c], check=True)
 
 
 def run(args):
@@ -84,24 +108,25 @@ def run(args):
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
+    # initialize/update fritz's submodules kowalski and skyportal
     if args.init:
         # pull skyportal and kowalski
         p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
         if p.returncode != 0:
             raise RuntimeError("Failed to initialize fritz's submodules")
-        p = subprocess.run(['git', 'submodule', 'update'])
+        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
     else:
-        p = subprocess.run(['git', 'submodule', 'update'])
+        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
 
     if args.init:
+        check_config(cfg='fritz.defaults.yaml', yes=args.yes)
+
+    if args.init:
         # Build skyportal's images
-        # check skyportal configs:
-        cfgs = ('skyportal/config.yaml.defaults', )
-        check_configs(cfgs)
         p = subprocess.run(["make", "docker-local"], cwd="skyportal")
         if p.returncode != 0:
             raise RuntimeError("Failed to build skyportal's docker images")
@@ -118,21 +143,29 @@ def run(args):
         if p.returncode != 0:
             raise RuntimeError("Failed to init skyportal and load test data")
 
-        # create the kowalski user and write access token to kowalski/secrets.json
-        token = get_skyportal_token()
-        # check that Kowalski's secrets.json exist:
-        cfgs = ('kowalski/secrets.defaults.json', )
-        check_configs(cfgs)
-        # update kowalski's secrets.json with the generated token:
-        update_kowalski_secrets(token)
+        # generate a token for Kowalski to talk to SkyPortal:
+        with open('kowalski/config.yaml') as cyaml:
+            config = yaml.load(cyaml, Loader=yaml.FullLoader)
+
+        token = generate_skyportal_token()
+        config['kowalski']['skyportal']['token'] = token
+
+        with open('kowalski/config.yaml', 'w') as cyaml:
+            yaml.dump(config, cyaml)
 
         # Build kowalski's images
-        p = subprocess.run(["python", "kowalski.py", "build", "--fritz"], cwd="kowalski")
+        c = ["python", "kowalski.py", "build", "--fritz"]
+        if args.yes:
+            c.append("--yes")
+        p = subprocess.run(c, cwd="kowalski")
         if p.returncode != 0:
             raise RuntimeError("Failed to build kowalski's docker images")
 
     # start up kowalski
-    p = subprocess.run(["python", "kowalski.py", "up", "--fritz"], cwd="kowalski")
+    c = ["python", "kowalski.py", "up", "--fritz"]
+    if args.yes:
+        c.append("--yes")
+    p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
         raise RuntimeError("Failed to start kowalski")
 
@@ -159,7 +192,6 @@ def develop(args=None):
     """
     Install developer tools.
     """
-    subprocess.run(["pip", "install", "-r", ".requirements/dev.txt"])
     subprocess.run(["pre-commit", "install"])
 
 
@@ -170,6 +202,45 @@ def lint(args):
         develop()
 
     subprocess.run(["pre-commit", "run", "--all-files"])
+
+
+def prune(args):
+    """
+    Prune fritz's docker containers and volumes and reset configs to defaults
+    """
+    go = input(
+        f"Do you want to prune fritz's docker containers and volumes and deinit submodules? [y/N] "
+    ) if not args.yes else 'y'
+
+    if go.lower() == 'y':
+        # try stopping anything that's running first:
+        stop(args)
+
+        # remove docker images
+        for image_name in ('kowalski_api', 'kowalski_ingester', 'skyportal/web'):
+            p1 = subprocess.Popen(['docker', 'images'], stdout=subprocess.PIPE)
+            p2 = subprocess.Popen(['grep', image_name], stdin=p1.stdout, stdout=subprocess.PIPE)
+            image_id = subprocess.check_output(['awk', '{print $3}'], stdin=p2.stdout, universal_newlines=True).strip()
+            p3 = subprocess.run(['docker', 'rmi', image_id])
+            if p3.returncode == 0:
+                print(f'Removed {image_name} docker image')
+            else:
+                print(f'Failed to remove {image_name} docker image')
+
+        # remove docker volumes
+        for volume_name in ('kowalski_data', 'kowalski_mongodb', 'skyportal_dbdata'):
+            p = subprocess.run(['docker', 'volume', 'rm', volume_name])
+            if p.returncode == 0:
+                print(f'Removed {volume_name} docker volume')
+            else:
+                print(f'Failed to remove {volume_name} docker volume')
+
+        # deinit submodules
+        p = subprocess.run(['git', 'submodule', 'deinit', '--all', '-f'])
+        if p.returncode == 0:
+            print(f"Deinitialized fritz's submodules")
+        else:
+            print(f"Failed to deinit fritz's submodules")
 
 
 def test(args):
@@ -209,6 +280,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(title="commands", dest="command")
 
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "--yes", action="store_true", help="Answer yes for all questions"
+    )
+
     commands = [
         ("run", "🚀 Launch Fritz"),
         ("stop", "✋ Shut Fritz down"),
@@ -222,7 +298,7 @@ if __name__ == "__main__":
 
     parsers = {}
     for (cmd, desc) in commands:
-        parsers[cmd] = subparsers.add_parser(cmd, help=desc)
+        parsers[cmd] = subparsers.add_parser(cmd, help=desc, parents=[parent_parser])
 
     parsers["run"].add_argument(
         "--init", action="store_true", help="Initialize Fritz"
