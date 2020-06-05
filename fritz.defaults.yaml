@@ -28,7 +28,11 @@ app:
     - path: "/user/:id"
       component: UserInfo
 
-  kowalski_token:
+  kowalski:
+    protocol: "http"
+    host: "kowalski_api_1"
+    port: 4000
+    token:
 
 database:
   database: skyportal
@@ -53,6 +57,14 @@ server:
 
 services:
   dask: False
+
+misc:
+  days_to_keep_unsaved_candidates: 7
+
+cron:
+  - interval: 1440
+    script: jobs/delete_unsaved_candidates.py
+    limit: ["01:00", "02:00"]
 
 
 kowalski:

@@ -57,7 +57,7 @@ def generate_skyportal_token():
          """from skyportal.models import init_db; """
          """from skyportal.model_util import create_token; """
          """conn = init_db(**load_config(['config.yaml'])['database']); """
-         """print(create_token(['Upload data', 'Manage sources'], 1, 'kowalski'))" """
+         """print(create_token(['Upload data', 'Manage sources', 'Manage groups'], 1, 'kowalski'))" """
          ],
         cwd="skyportal",
         capture_output=True,
@@ -90,7 +90,7 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
         user_id=config['kowalski']['server']['admin_username'],
         jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
     )
-    config['app']['kowalski_token'] = kowalski_token
+    config['app']['kowalski']['token'] = kowalski_token
 
     with open(c, 'w') as cyaml:
         yaml.dump(config, cyaml)  # default_flow_style=False
