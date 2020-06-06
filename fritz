@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 from contextlib import contextmanager
+from copy import deepcopy
 import datetime
 import os
 from pathlib import Path
@@ -95,10 +96,18 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
     with open(c, 'w') as cyaml:
         yaml.dump(config, cyaml)  # default_flow_style=False
 
-    # copy over to Kowalski and SkyPortal
-    for submodule in ('kowalski', 'skyportal'):
-        target_c = f"{submodule}/config.yaml"
-        subprocess.run(["cp", f"{c}", target_c], check=True)
+    # strip down, adjust, and copy over to Kowalski and SkyPortal
+    config_kowalski = {'kowalski': config['kowalski']}  # don't need the SP stuff
+    with open("kowalski/config.yaml", 'w') as cyaml:
+        yaml.dump(config_kowalski, cyaml)
+
+    config_skyportal = deepcopy(config)
+    config_skyportal.pop('kowalski', None)  # don't need the K stuff
+    # Docker-specific stuff:
+    config_skyportal['database']['host'] = "db"
+    config_skyportal['server']['url'] = "http://localhost:5000"
+    with open("skyportal/config.yaml", 'w') as cyaml:
+        yaml.dump(config_skyportal, cyaml)
 
 
 def run(args):
@@ -132,7 +141,8 @@ def run(args):
             raise RuntimeError("Failed to build skyportal's docker images")
 
     # start up skyportal
-    p = subprocess.run(["docker-compose", "up", "-d"], cwd="skyportal")
+    # docker-compose.skyportal.yaml bind-mounts the fritz-created config.yaml
+    p = subprocess.run(["docker-compose", "-f", '../docker-compose.skyportal.yaml', "up", "-d"], cwd="skyportal")
     if p.returncode != 0:
         raise RuntimeError("Failed to start skyportal")
 
