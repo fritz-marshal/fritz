@@ -3,6 +3,7 @@ import argparse
 from contextlib import contextmanager
 from copy import deepcopy
 import datetime
+from distutils.dir_util import copy_tree
 import os
 from pathlib import Path
 import subprocess
@@ -73,6 +74,9 @@ def generate_skyportal_token():
 
 
 def check_config(cfg='fritz.defaults.yaml', yes=False):
+    """
+    Check config, generate a K token for SP, adjust cfg and distribute to K and SP
+    """
     c = cfg.replace('.defaults', '')
     if not Path(c).exists():
         cd = input(
@@ -132,9 +136,12 @@ def run(args):
             raise RuntimeError("Failed to update fritz's submodules")
 
     if args.init:
+        # check config
         check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
-    if args.init:
+        # add Fritz-specific K and SP extensions:
+        copy_tree('extensions/skyportal/', 'skyportal/')
+
         # Build skyportal's images
         p = subprocess.run(["make", "docker-local"], cwd="skyportal")
         if p.returncode != 0:
@@ -142,7 +149,7 @@ def run(args):
 
     # start up skyportal
     # docker-compose.skyportal.yaml bind-mounts the fritz-created config.yaml
-    p = subprocess.run(["docker-compose", "-f", '../docker-compose.skyportal.yaml', "up", "-d"], cwd="skyportal")
+    p = subprocess.run(["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"], cwd="skyportal")
     if p.returncode != 0:
         raise RuntimeError("Failed to start skyportal")
 
