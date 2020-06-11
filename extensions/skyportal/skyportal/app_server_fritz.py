@@ -2,6 +2,7 @@ from skyportal.app_server import make_app
 
 from skyportal.handlers.api.alert import (
     AlertHandler,
+    # CandidHandler,
 )
 
 
@@ -25,7 +26,8 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
     # add Fritz-specific handlers
     handlers = [
         # Fritz-specific API endpoints
-        (r'/api/alerts(/.*)?', AlertHandler),
+        (r'/api/alerts/ztf(/.*)?', AlertHandler),
+        # (r'/api/alerts/ztf/candids(/.*)?', CandidHandler),
     ]
 
     app.add_handlers(

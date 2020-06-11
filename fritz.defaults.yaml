@@ -27,6 +27,10 @@ app:
       component: SourceList
     - path: "/user/:id"
       component: UserInfo
+#    - path: "/alerts"
+#      component: Alerts
+    - path: "/alert/:id"
+      component: Alert
 
   kowalski:
     protocol: "http"
