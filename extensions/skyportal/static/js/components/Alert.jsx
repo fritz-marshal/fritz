@@ -1,7 +1,10 @@
 // import React from 'react';
+// import React, {useEffect, useState, Suspense} from 'react';
 import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 
+import Button from '@material-ui/core/Button';
+import SaveIcon from '@material-ui/icons/Save';
 import PropTypes from 'prop-types';
 import {lighten, withStyles, makeStyles} from '@material-ui/core/styles';
 import Table from '@material-ui/core/Table';
@@ -16,6 +19,8 @@ import Paper from '@material-ui/core/Paper';
 
 // Import action creators from `static/js/ducks/alert.js`
 import * as Actions from '../ducks/alert';
+
+// const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotAlert'));
 
 
 const StyledTableCell = withStyles((theme) => ({
@@ -49,13 +54,16 @@ const useStyles = makeStyles({
         top: 20,
         width: 1,
     },
+    button: {
+        "margin-bottom": "1em",
+    },
 // table: {
 //     minWidth: 650,
 // },
 });
 
-function createRows(id, jd, mag, emag, rb, drb, isdiffpos) {
-    return {id, jd, mag, emag, rb, drb, isdiffpos};
+function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos) {
+    return {id, jd, fid, mag, emag, rb, drb, isdiffpos};
 }
 
 const columns = [
@@ -74,6 +82,13 @@ const columns = [
         // minWidth: 170,
         align: 'left',
         format: (value) => value.toFixed(3),
+    },
+    {
+        id: 'fid',
+        numeric: true,
+        disablePadding: false,
+        label: 'fid',
+        align: 'left',
     },
     {
         id: 'mag',
@@ -217,6 +232,7 @@ const Alert = ({route}) => {
         rows = alert_data.alert_data.map(a => createRows(
             a.candid,
             a.candidate.jd,
+            a.candidate.fid,
             a.candidate.magpsf,
             a.candidate.sigmapsf,
             a.candidate.rb,
@@ -271,15 +287,28 @@ const Alert = ({route}) => {
             </div>
             <div>
                 <p>todo: light curve plot from prv_candidates</p>
-                <p>todo: cross matches (with a plot interleaved on PS1 cutout?)</p>
-                <p>todo: save as a source to one of my programs button</p>
+                {/*<Suspense fallback={<div>Loading plot...</div>}>*/}
+                {/*  <VegaPlot*/}
+                {/*    dataUrl={`/api/alerts/ztf/${objectId}`}*/}
+                {/*  />*/}
+                {/*</Suspense>*/}
             </div>
-            {/*<div>*/}
-            {/*    <button type="button" onClick={() => dispatch(Actions.fetchAlertData(objectId))}>*/}
-            {/*        Fetch alert data.*/}
-            {/*    </button>*/}
-            {/*    <br/>*/}
-            {/*</div>*/}
+            <div>
+                <p>todo: cross matches (with a plot interleaved on PS1 cutout?)</p>
+            </div>
+            <div>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    className={classes.button}
+                    startIcon={<SaveIcon/>}
+                    // todo: save as a source to one of my programs button
+                    // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
+                >
+                    Save as a Source
+                </Button>
+                <br/>
+            </div>
             <Paper className={classes.root}>
                 <TableContainer className={classes.container}>
                     <Table stickyHeader size="small" aria-label="sticky table">
@@ -314,22 +343,6 @@ const Alert = ({route}) => {
                                     );
                                 })}
                         </TableBody>
-                        {/*<TableBody>*/}
-                        {/*    {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => {*/}
-                        {/*        return (*/}
-                        {/*            <TableRow hover role="checkbox" tabIndex={-1} key={row.code}>*/}
-                        {/*                {columns.map((column) => {*/}
-                        {/*                    const value = row[column.id];*/}
-                        {/*                    return (*/}
-                        {/*                        <TableCell key={column.id} align={column.align}>*/}
-                        {/*                            {column.format && typeof value === 'number' ? column.format(value) : value}*/}
-                        {/*                        </TableCell>*/}
-                        {/*                    );*/}
-                        {/*                })}*/}
-                        {/*            </TableRow>*/}
-                        {/*        );*/}
-                        {/*    })}*/}
-                        {/*</TableBody>*/}
                     </Table>
                 </TableContainer>
                 <TablePagination

@@ -93,6 +93,7 @@ class AlertHandler(BaseHandler):
                             "_id": 0,
                             "candid": {"$toString": "$candid"},  # js luvz bigints
                             "candidate.jd": 1,
+                            "candidate.fid": 1,
                             "candidate.magpsf": 1,
                             "candidate.sigmapsf": 1,
                             "candidate.rb": 1,
@@ -196,80 +197,98 @@ class AlertHandler(BaseHandler):
             return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
 
-# class CandidHandler(BaseHandler):
-#     @auth_or_token
-#     def get(self, candid: int = None):
-#         """
-#         ---
-#         single:
-#           description: Retrieve an objectId from Kowalski
-#           parameters:
-#             - in: path
-#               name: candid
-#               required: false
-#               schema:
-#                 type: int
-#           responses:
-#             200:
-#               description: retrieval failed
-#               content:
-#                 application/json:
-#                   schema:
-#                     type: object
-#                     required:
-#                       - status
-#                       - message
-#                     properties:
-#                       status:
-#                         type: string
-#                         enum: [success]
-#                       message:
-#                         type: string
-#             400:
-#               content:
-#                 application/json:
-#                   schema: Error
-#         """
-#         # alert = self.cfg['app.kowalski']
-#
-#         # /api/alerts/<objectId>?candid=<candid>
-#         # - if no candid is specified, assemble lc, show table with detection history
-#         #   - actual alerts from ZTF_alerts have links that load in the thumbnails + alert contents on the right side
-#         #   - the latest candid is displayed on the right, lc plot shows a dashed vertical line for <jd>
-#         # - if candid is specified, display it on the right-hand side right away
-#         #   - on error (e.g., wrong candid) display the default, show error
-#         # - if objectId does not exist on K, display that info
-#
-#         print(candid)
-#
-#         query = {
-#             "query_type": "find",
-#             "query": {
-#                 "catalog": "ZTF_alerts",
-#                 "filter": {
-#                     "candid": int(candid)
-#                 },
-#                 "projection": {
-#                     "_id": 0,
-#                     "cutoutScience": 0,
-#                     "cutoutTemplate": 0,
-#                     "cutoutDifference": 0,
-#                 }
-#             }
-#         }
-#
-#         base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-#                    f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-#         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
-#
-#         resp = s.post(
-#             os.path.join(base_url, 'api/queries'),
-#             json=query, headers=headers
-#         )
-#
-#         if resp.status_code == requests.codes.ok:
-#             alert = loads(resp.text).get('data', dict())
-#         else:
-#             alert = dict()
-#
-#         return self.success(data=alert)
+class AlertAuxHandler(BaseHandler):
+    @auth_or_token
+    def get(self, objectId: int = None):
+        """
+        ---
+        single:
+          description: Retrieve aux data for an objectId from Kowalski
+          parameters:
+            - in: path
+              name: objectId
+              required: false
+              schema:
+                type: int
+          responses:
+            200:
+              description: retrieval failed
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    required:
+                      - status
+                      - message
+                    properties:
+                      status:
+                        type: string
+                        enum: [success]
+                      message:
+                        type: string
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        # alert = self.cfg['app.kowalski']
+
+        # /api/alerts/<objectId>?candid=<candid>
+        # - if no candid is specified, assemble lc, show table with detection history
+        #   - actual alerts from ZTF_alerts have links that load in the thumbnails + alert contents on the right side
+        #   - the latest candid is displayed on the right, lc plot shows a dashed vertical line for <jd>
+        # - if candid is specified, display it on the right-hand side right away
+        #   - on error (e.g., wrong candid) display the default, show error
+        # - if objectId does not exist on K, display that info
+
+        print(objectId, 'aux')
+
+        query = {
+            "query_type": "aggregate",
+            "query": {
+                "catalog": "ZTF_alerts_aux",
+                "pipeline": [
+                    {
+                        "$match": {
+                            "_id": objectId
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 1,
+                            "cross_matches": 1,
+                            "prv_candidates": {
+                                "$filter": {
+                                    "input": "$prv_candidates",
+                                    "as": "item",
+                                    "cond": {
+                                        "$in": [
+                                            "$$item.programid",
+                                            [
+                                                1, 2, 3  # fixme: ACLs plug in here!
+                                            ]
+                                        ]
+                                    }
+                                }
+                            },
+                        }
+                    }
+                ]
+            }
+        }
+
+        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+
+        resp = s.post(
+            os.path.join(base_url, 'api/queries'),
+            json=query, headers=headers
+        )
+
+        if resp.status_code == requests.codes.ok:
+            alert = loads(resp.text).get('data', dict())
+        else:
+            alert = dict()
+
+        return self.success(data=alert)
