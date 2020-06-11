@@ -8,6 +8,7 @@ import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableContainer from '@material-ui/core/TableContainer';
 import TableHead from '@material-ui/core/TableHead';
+import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 
@@ -16,18 +17,65 @@ import * as Actions from '../ducks/alert';
 
 
 const useStyles = makeStyles({
-    table: {
-        minWidth: 650,
+    root: {
+        width: '100%',
     },
+    container: {
+        maxHeight: 440,
+    },
+// table: {
+//     minWidth: 650,
+// },
 });
 
 function createRows(id, jd, mag, emag, rb, drb, isdiffpos) {
     return {id, jd, mag, emag, rb, drb, isdiffpos};
 }
 
-// function createRows(id, jd) {
-//     return {id, jd};
-// }
+const columns = [
+    {id: 'id', label: 'candid', minWidth: 170},
+    {
+        id: 'jd',
+        label: 'JD',
+        minWidth: 170,
+        align: 'right',
+        format: (value) => value.toFixed(3),
+    },
+    {
+        id: 'mag',
+        label: 'mag',
+        minWidth: 170,
+        align: 'right',
+        format: (value) => value.toFixed(3),
+    },
+    {
+        id: 'emag',
+        label: 'e_mag',
+        minWidth: 170,
+        align: 'right',
+        format: (value) => value.toFixed(3),
+    },
+    {
+        id: 'rb',
+        label: 'rb score',
+        minWidth: 170,
+        align: 'right',
+        format: (value) => value.toFixed(5),
+    },
+    {
+        id: 'drb',
+        label: 'drb score',
+        minWidth: 170,
+        align: 'right',
+        format: (value) => value.toFixed(5),
+    },
+    {
+        id: 'isdiffpos',
+        label: 'isdiffpos',
+        minWidth: 170,
+        align: 'right'
+    },
+];
 
 
 /*
@@ -81,52 +129,78 @@ const Alert = ({route}) => {
     }, [dispatch, isCached, route.id]);
 
     const classes = useStyles();
+    const [page, setPage] = React.useState(0);
+    const [rowsPerPage, setRowsPerPage] = React.useState(10);
+
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
+    };
+
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(+event.target.value);
+        setPage(0);
+    };
 
     return (
         <div>
             <div>
-                <b>{objectId}</b>
-                <br />
+                <h2>{objectId}</h2>
+                {/*<br/>*/}
             </div>
             <div>
-
+                <p>todo: light curve plot from prv_candidates</p>
+                <p>todo: cross matches (with a plot interleaved on PS1 cutout?)</p>
             </div>
-            <div>
-                <button type="button" onClick={() => dispatch(Actions.fetchAlertData(objectId))}>
-                    Fetch alert data.
-                </button>
-                <br />
-            </div>
-            <TableContainer component={Paper}>
-                <Table className={classes.table} size="small" aria-label="a dense table">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>candid</TableCell>
-                            <TableCell align="right">jd</TableCell>
-                            <TableCell align="right">mag</TableCell>
-                            <TableCell align="right">e_mag</TableCell>
-                            <TableCell align="right">rb score</TableCell>
-                            <TableCell align="right">drb score</TableCell>
-                            <TableCell align="right">isdiffpos</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.name}>
-                                <TableCell component="th" scope="row">
-                                    {row.id}
-                                </TableCell>
-                                <TableCell align="right">{row.jd}</TableCell>
-                                <TableCell align="right">{row.mag.toFixed(3)}</TableCell>
-                                <TableCell align="right">{row.emag.toFixed(3)}</TableCell>
-                                <TableCell align="right">{row.rb.toFixed(5)}</TableCell>
-                                <TableCell align="right">{row.drb.toFixed(5)}</TableCell>
-                                <TableCell align="right">{row.isdiffpos}</TableCell>
+            {/*<div>*/}
+            {/*    <button type="button" onClick={() => dispatch(Actions.fetchAlertData(objectId))}>*/}
+            {/*        Fetch alert data.*/}
+            {/*    </button>*/}
+            {/*    <br/>*/}
+            {/*</div>*/}
+            <Paper className={classes.root}>
+                <TableContainer className={classes.container}>
+                    <Table stickyHeader size="small" aria-label="sticky table">
+                        <TableHead>
+                            <TableRow>
+                                {columns.map((column) => (
+                                    <TableCell
+                                        key={column.id}
+                                        align={column.align}
+                                        style={{minWidth: column.minWidth}}
+                                    >
+                                        {column.label}
+                                    </TableCell>
+                                ))}
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+                        </TableHead>
+                        <TableBody>
+                            {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => {
+                                return (
+                                    <TableRow hover role="checkbox" tabIndex={-1} key={row.code}>
+                                        {columns.map((column) => {
+                                            const value = row[column.id];
+                                            return (
+                                                <TableCell key={column.id} align={column.align}>
+                                                    {column.format && typeof value === 'number' ? column.format(value) : value}
+                                                </TableCell>
+                                            );
+                                        })}
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+                <TablePagination
+                    rowsPerPageOptions={[10, 25, 100]}
+                    component="div"
+                    count={rows.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onChangePage={handleChangePage}
+                    onChangeRowsPerPage={handleChangeRowsPerPage}
+                />
+            </Paper>
         </div>
 
     );

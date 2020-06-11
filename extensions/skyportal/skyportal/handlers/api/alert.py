@@ -89,9 +89,15 @@ class AlertHandler(BaseHandler):
                     },
                     {
                         "$project": {
+                            # grab only what's going to be rendered
                             "_id": 0,
-                            "candid": {"$toString": "$candid"},
-                            "candidate": 1
+                            "candid": {"$toString": "$candid"},  # js luvz bigints
+                            "candidate.jd": 1,
+                            "candidate.magpsf": 1,
+                            "candidate.sigmapsf": 1,
+                            "candidate.rb": 1,
+                            "candidate.drb": 1,
+                            "candidate.isdiffpos": 1,
                         }
                     },
                     # {
