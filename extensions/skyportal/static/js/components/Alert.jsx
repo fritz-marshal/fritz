@@ -2,7 +2,8 @@
 import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 
-import {makeStyles} from '@material-ui/core/styles';
+import PropTypes from 'prop-types';
+import {lighten, withStyles, makeStyles} from '@material-ui/core/styles';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -10,10 +11,24 @@ import TableContainer from '@material-ui/core/TableContainer';
 import TableHead from '@material-ui/core/TableHead';
 import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
+import TableSortLabel from '@material-ui/core/TableSortLabel';
 import Paper from '@material-ui/core/Paper';
 
 // Import action creators from `static/js/ducks/alert.js`
 import * as Actions from '../ducks/alert';
+
+
+const StyledTableCell = withStyles((theme) => ({
+    head: {
+        // backgroundColor: theme.palette.common.black,
+        backgroundColor: "#111",
+        // color: theme.palette.common.white,
+        color: "#f0f0f0",
+    },
+    body: {
+        fontSize: 14,
+    },
+}))(TableCell);
 
 
 const useStyles = makeStyles({
@@ -22,6 +37,17 @@ const useStyles = makeStyles({
     },
     container: {
         maxHeight: 440,
+    },
+    visuallyHidden: {
+        border: 0,
+        clip: 'rect(0 0 0 0)',
+        height: 1,
+        margin: -1,
+        overflow: 'hidden',
+        padding: 0,
+        position: 'absolute',
+        top: 20,
+        width: 1,
     },
 // table: {
 //     minWidth: 650,
@@ -33,49 +59,137 @@ function createRows(id, jd, mag, emag, rb, drb, isdiffpos) {
 }
 
 const columns = [
-    {id: 'id', label: 'candid', minWidth: 170},
+    {
+        id: 'id',
+        label: 'candid',
+        numeric: false,
+        disablePadding: false,
+        // minWidth: 170
+    },
     {
         id: 'jd',
+        numeric: true,
+        disablePadding: false,
         label: 'JD',
-        minWidth: 170,
-        align: 'right',
+        // minWidth: 170,
+        align: 'left',
         format: (value) => value.toFixed(3),
     },
     {
         id: 'mag',
+        numeric: true,
+        disablePadding: false,
         label: 'mag',
-        minWidth: 170,
-        align: 'right',
+        // minWidth: 170,
+        align: 'left',
         format: (value) => value.toFixed(3),
     },
     {
         id: 'emag',
+        numeric: true,
+        disablePadding: false,
         label: 'e_mag',
-        minWidth: 170,
-        align: 'right',
+        // minWidth: 170,
+        align: 'left',
         format: (value) => value.toFixed(3),
     },
     {
         id: 'rb',
+        numeric: true,
+        disablePadding: false,
         label: 'rb score',
-        minWidth: 170,
-        align: 'right',
+        // minWidth: 170,
+        align: 'left',
         format: (value) => value.toFixed(5),
     },
     {
         id: 'drb',
+        numeric: true,
+        disablePadding: false,
         label: 'drb score',
-        minWidth: 170,
-        align: 'right',
+        // minWidth: 170,
+        align: 'left',
         format: (value) => value.toFixed(5),
     },
     {
         id: 'isdiffpos',
+        numeric: false,
+        disablePadding: false,
         label: 'isdiffpos',
-        minWidth: 170,
-        align: 'right'
+        // minWidth: 170,
+        align: 'left'
     },
 ];
+
+
+function descendingComparator(a, b, orderBy) {
+    if (b[orderBy] < a[orderBy]) {
+        return -1;
+    }
+    if (b[orderBy] > a[orderBy]) {
+        return 1;
+    }
+    return 0;
+}
+
+function getComparator(order, orderBy) {
+    return order === 'desc'
+        ? (a, b) => descendingComparator(a, b, orderBy)
+        : (a, b) => -descendingComparator(a, b, orderBy);
+}
+
+function stableSort(array, comparator) {
+    const stabilizedThis = array.map((el, index) => [el, index]);
+    stabilizedThis.sort((a, b) => {
+        const order = comparator(a[0], b[0]);
+        if (order !== 0) return order;
+        return a[1] - b[1];
+    });
+    return stabilizedThis.map((el) => el[0]);
+}
+
+
+function EnhancedTableHead(props) {
+    const {classes, order, orderBy, onRequestSort} = props;
+    const createSortHandler = (property) => (event) => {
+        onRequestSort(event, property);
+    };
+
+    return (
+        <TableHead>
+            <TableRow>
+                {columns.map((headCell) => (
+                    <StyledTableCell
+                        key={headCell.id}
+                        align={headCell.numeric ? 'right' : 'left'}
+                        padding={headCell.disablePadding ? 'none' : 'default'}
+                        sortDirection={orderBy === headCell.id ? order : false}
+                    >
+                        <TableSortLabel
+                            active={orderBy === headCell.id}
+                            direction={orderBy === headCell.id ? order : 'asc'}
+                            onClick={createSortHandler(headCell.id)}
+                        >
+                            {headCell.label}
+                            {orderBy === headCell.id ? (
+                                <span className={classes.visuallyHidden}>
+                  {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                </span>
+                            ) : null}
+                        </TableSortLabel>
+                    </StyledTableCell>
+                ))}
+            </TableRow>
+        </TableHead>
+    );
+}
+
+EnhancedTableHead.propTypes = {
+    classes: PropTypes.object.isRequired,
+    onRequestSort: PropTypes.func.isRequired,
+    order: PropTypes.oneOf(['asc', 'desc']).isRequired,
+    orderBy: PropTypes.string.isRequired,
+};
 
 
 /*
@@ -129,8 +243,16 @@ const Alert = ({route}) => {
     }, [dispatch, isCached, route.id]);
 
     const classes = useStyles();
+    const [order, setOrder] = React.useState('desc');
+    const [orderBy, setOrderBy] = React.useState('jd');
     const [page, setPage] = React.useState(0);
     const [rowsPerPage, setRowsPerPage] = React.useState(10);
+
+    const handleRequestSort = (event, property) => {
+        const isAsc = orderBy === property && order === 'asc';
+        setOrder(isAsc ? 'desc' : 'asc');
+        setOrderBy(property);
+    };
 
     const handleChangePage = (event, newPage) => {
         setPage(newPage);
@@ -150,6 +272,7 @@ const Alert = ({route}) => {
             <div>
                 <p>todo: light curve plot from prv_candidates</p>
                 <p>todo: cross matches (with a plot interleaved on PS1 cutout?)</p>
+                <p>todo: save as a source to one of my programs button</p>
             </div>
             {/*<div>*/}
             {/*    <button type="button" onClick={() => dispatch(Actions.fetchAlertData(objectId))}>*/}
@@ -160,35 +283,53 @@ const Alert = ({route}) => {
             <Paper className={classes.root}>
                 <TableContainer className={classes.container}>
                     <Table stickyHeader size="small" aria-label="sticky table">
-                        <TableHead>
-                            <TableRow>
-                                {columns.map((column) => (
-                                    <TableCell
-                                        key={column.id}
-                                        align={column.align}
-                                        style={{minWidth: column.minWidth}}
-                                    >
-                                        {column.label}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
+                        <EnhancedTableHead
+                            classes={classes}
+                            order={order}
+                            orderBy={orderBy}
+                            onRequestSort={handleRequestSort}
+                        />
                         <TableBody>
-                            {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => {
-                                return (
-                                    <TableRow hover role="checkbox" tabIndex={-1} key={row.code}>
-                                        {columns.map((column) => {
-                                            const value = row[column.id];
-                                            return (
-                                                <TableCell key={column.id} align={column.align}>
-                                                    {column.format && typeof value === 'number' ? column.format(value) : value}
-                                                </TableCell>
-                                            );
-                                        })}
-                                    </TableRow>
-                                );
-                            })}
+                            {stableSort(rows, getComparator(order, orderBy))
+                                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                .map((row, index) => {
+
+                                    return (
+                                        <TableRow
+                                            hover
+                                            role="checkbox"
+                                            tabIndex={-1}
+                                            key={row.name}
+                                        >
+                                            {columns.map((column) => {
+                                                const value = row[column.id];
+                                                return (
+                                                    <TableCell key={column.id}
+                                                               align={column.numeric ? 'right' : 'left'}>
+                                                        {column.format && typeof value === 'number' ? column.format(value) : value}
+                                                    </TableCell>
+                                                );
+                                            })}
+                                        </TableRow>
+                                    );
+                                })}
                         </TableBody>
+                        {/*<TableBody>*/}
+                        {/*    {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => {*/}
+                        {/*        return (*/}
+                        {/*            <TableRow hover role="checkbox" tabIndex={-1} key={row.code}>*/}
+                        {/*                {columns.map((column) => {*/}
+                        {/*                    const value = row[column.id];*/}
+                        {/*                    return (*/}
+                        {/*                        <TableCell key={column.id} align={column.align}>*/}
+                        {/*                            {column.format && typeof value === 'number' ? column.format(value) : value}*/}
+                        {/*                        </TableCell>*/}
+                        {/*                    );*/}
+                        {/*                })}*/}
+                        {/*            </TableRow>*/}
+                        {/*        );*/}
+                        {/*    })}*/}
+                        {/*</TableBody>*/}
                     </Table>
                 </TableContainer>
                 <TablePagination
