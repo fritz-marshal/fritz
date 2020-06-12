@@ -3,6 +3,8 @@
 import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 
+import styles from "./Alert.css";
+
 import Button from '@material-ui/core/Button';
 import SaveIcon from '@material-ui/icons/Save';
 import PropTypes from 'prop-types';
@@ -17,8 +19,16 @@ import TableRow from '@material-ui/core/TableRow';
 import TableSortLabel from '@material-ui/core/TableSortLabel';
 import Paper from '@material-ui/core/Paper';
 
+// import Plot from './Plot';
+import Responsive from "./Responsive";
+import FoldBox from "./FoldBox";
+
+import Plot from 'react-plotly.js';
+// import Moment from 'react-moment';
+
 // Import action creators from `static/js/ducks/alert.js`
 import * as Actions from '../ducks/alert';
+import {FETCH_ALERT_ERROR, FETCH_ALERT_FAIL, FETCH_ALERT_OK} from "../ducks/alert";
 
 // const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotAlert'));
 
@@ -163,7 +173,6 @@ function stableSort(array, comparator) {
     return stabilizedThis.map((el) => el[0]);
 }
 
-
 function EnhancedTableHead(props) {
     const {classes, order, orderBy, onRequestSort} = props;
     const createSortHandler = (property) => (event) => {
@@ -207,6 +216,38 @@ EnhancedTableHead.propTypes = {
 };
 
 
+function lc_colors(fid) {
+    switch (fid) {
+        case 1: {
+            return '#28a745';
+        }
+        case 2: {
+            return '#dc3545';
+        }
+        case 3: {
+            return '#f3dc11';
+        }
+        default:
+            return '#222';
+    }
+}
+
+function filter_name(fid) {
+    switch (fid) {
+        case 1: {
+            return 'ztfg';
+        }
+        case 2: {
+            return 'ztfr';
+        }
+        case 3: {
+            return 'ztfi';
+        }
+        default:
+            return fid.toString();
+    }
+}
+
 /*
 - if no candid is specified, assemble lc, show table with detection history
   - actual alerts from ZTF_alerts have links that load in the thumbnails + alert contents on the right side
@@ -221,15 +262,13 @@ const Alert = ({route}) => {
 
     const objectId = route.id;
     const dispatch = useDispatch();
-    // dispatch(Actions.fetchAlertData(objectId));
+
     const alert_data = useSelector((state) => state.alert_data);
     let candid = null;
     let rows = [];
-    if (alert_data.alert_data !== null) {
-        // candid = alert_data.alert_data[0].candid
-        // const numbers = [1,2,3,4,5];
-        candid = alert_data.alert_data.map(a => a.candid);
-        rows = alert_data.alert_data.map(a => createRows(
+    if (alert_data !== null) {
+        candid = alert_data.map(a => a.candid);
+        rows = alert_data.map(a => createRows(
             a.candid,
             a.candidate.jd,
             a.candidate.fid,
@@ -242,13 +281,65 @@ const Alert = ({route}) => {
     }
     // const candid = null
 
-    const cachedObjectId = alert_data.alert_data ? route.id : null;
+    const alert_aux_data = useSelector((state) => state.alert_aux_data);
+    let prv_candidates = {};
+    let plot_data = [];
+    if ((alert_aux_data !== null) && (alert_aux_data.length > 0)) {
+        plot_data = [];
+        prv_candidates = alert_aux_data[0].prv_candidates;
+        const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
+
+        // detections:
+        for (const fid of fids) {
+            // let jd = new JulianDate().julian(prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.jd));
+            // let dt = moment.utc(jd.getDate());
+            plot_data.push(
+                {
+                    x: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.jd),
+                    y: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.magpsf),
+                    error_y: {
+                        type: 'data',
+                        array: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.sigmapsf),
+                        width: 2,
+                        thickness: 0.8,
+                        color: lc_colors(fid),
+                        opacity: 0.5,
+                        visible: true
+                    },
+                    name: filter_name(fid),
+                    type: 'scatter',
+                    mode: 'markers',
+                    showlegend: true,
+                    marker: {color: lc_colors(fid)},
+                }
+            )
+        }
+
+        // limits:
+        for (const fid of fids) {
+            plot_data.push(
+                {
+                    x: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.jd),
+                    y: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.diffmaglim),
+                    name: filter_name(fid) + '_nodet_u',
+                    type: 'scatter',
+                    mode: 'markers',
+                    showlegend: true,
+                    marker: {symbol: 'triangle-down', color: lc_colors(fid), opacity: 0.4},
+                }
+            )
+        }
+
+    }
+
+    const cachedObjectId = alert_data ? route.id : null;
     const isCached = (route.id === cachedObjectId);
 
     useEffect(() => {
         const fetchAlert = async () => {
             const data = await dispatch(Actions.fetchAlertData(objectId));
             if (data.status === "success") {
+                const data_aux = await dispatch(Actions.fetchAuxData(objectId));
                 // dispatch(Actions.fetchAlertThumbnails(candid));
             }
         };
@@ -279,6 +370,27 @@ const Alert = ({route}) => {
         setPage(0);
     };
 
+    const layout = {
+        width: 900,
+        height: 300,
+        xaxis: {autorange: true},
+        yaxis: {autorange: 'reversed'},
+        margin: {b: 30, t: 30, l: 50, r: 50, pad: 1},
+        // shapes: [{
+        //     type: 'line',
+        //     x0: '2019-06-09',
+        //     y0: 0,
+        //     x1: '2019-06-09',
+        //     yref: 'paper',
+        //     y1: 1,
+        //     line: {
+        //         color: 'grey',
+        //         width: 1.5,
+        //         dash: 'dot'
+        //     }
+        // }]
+    };
+
     return (
         <div>
             <div>
@@ -286,12 +398,21 @@ const Alert = ({route}) => {
                 {/*<br/>*/}
             </div>
             <div>
-                <p>todo: light curve plot from prv_candidates</p>
+                {/*todo: redo light curve plot from prv_candidates with bokeh or vega?*/}
                 {/*<Suspense fallback={<div>Loading plot...</div>}>*/}
                 {/*  <VegaPlot*/}
                 {/*    dataUrl={`/api/alerts/ztf/${objectId}`}*/}
                 {/*  />*/}
                 {/*</Suspense>*/}
+                <Responsive
+                    element={FoldBox}
+                    title="Photometry"
+                    mobileProps={{folded: true}}
+                >
+                    {/*<Plot className={styles.plot} url={`/api/internal/plot/photometry/14gqr`}/>*/}
+                    {/*<Plot className={styles.plot} url={`/api/alerts/ztf/${objectId}/aux`}/>*/}
+                    <Plot data={plot_data} layout={layout}/>
+                </Responsive>
             </div>
             <div>
                 <p>todo: cross matches (with a plot interleaved on PS1 cutout?)</p>
