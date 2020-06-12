@@ -18,6 +18,7 @@ import TablePagination from '@material-ui/core/TablePagination';
 import TableRow from '@material-ui/core/TableRow';
 import TableSortLabel from '@material-ui/core/TableSortLabel';
 import Paper from '@material-ui/core/Paper';
+import Grid from '@material-ui/core/Grid';
 
 // import Plot from './Plot';
 import Responsive from "./Responsive";
@@ -46,7 +47,7 @@ const StyledTableCell = withStyles((theme) => ({
 }))(TableCell);
 
 
-const useStyles = makeStyles({
+const useStyles = makeStyles((theme) => ({
     root: {
         width: '100%',
     },
@@ -64,13 +65,26 @@ const useStyles = makeStyles({
         top: 20,
         width: 1,
     },
-    button: {
-        "margin-bottom": "1em",
+    margin_bottom: {
+        "margin-bottom": "2em",
+    },
+    margin_left: {
+        "margin-left": "2em",
+    },
+    image: {
+        padding: theme.spacing(1),
+        textAlign: 'center',
+        color: theme.palette.text.secondary,
+    },
+    paper: {
+        padding: theme.spacing(2),
+        textAlign: 'center',
+        color: theme.palette.text.secondary,
     },
 // table: {
 //     minWidth: 650,
 // },
-});
+}));
 
 function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos) {
     return {id, jd, fid, mag, emag, rb, drb, isdiffpos};
@@ -283,10 +297,12 @@ const Alert = ({route}) => {
 
     const alert_aux_data = useSelector((state) => state.alert_aux_data);
     let prv_candidates = {};
+    let cross_matches = {};
     let plot_data = [];
     if ((alert_aux_data !== null) && (alert_aux_data.length > 0)) {
         plot_data = [];
         prv_candidates = alert_aux_data[0].prv_candidates;
+        cross_matches = alert_aux_data[0].cross_matches;
         const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
 
         // detections:
@@ -295,11 +311,17 @@ const Alert = ({route}) => {
             // let dt = moment.utc(jd.getDate());
             plot_data.push(
                 {
-                    x: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.jd),
-                    y: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.magpsf),
+                    x: prv_candidates.filter(function (c) {
+                        return c.fid === fid
+                    }).map(c => c.jd),
+                    y: prv_candidates.filter(function (c) {
+                        return c.fid === fid
+                    }).map(c => c.magpsf),
                     error_y: {
                         type: 'data',
-                        array: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.sigmapsf),
+                        array: prv_candidates.filter(function (c) {
+                            return c.fid === fid
+                        }).map(c => c.sigmapsf),
                         width: 2,
                         thickness: 0.8,
                         color: lc_colors(fid),
@@ -319,8 +341,12 @@ const Alert = ({route}) => {
         for (const fid of fids) {
             plot_data.push(
                 {
-                    x: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.jd),
-                    y: prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.diffmaglim),
+                    x: prv_candidates.filter(function (c) {
+                        return c.fid === fid
+                    }).map(c => c.jd),
+                    y: prv_candidates.filter(function (c) {
+                        return c.fid === fid
+                    }).map(c => c.diffmaglim),
                     name: filter_name(fid) + '_nodet_u',
                     type: 'scatter',
                     mode: 'markers',
@@ -371,8 +397,10 @@ const Alert = ({route}) => {
     };
 
     const layout = {
-        width: 900,
+        // width: 900,
         height: 300,
+        paper_bgcolor: '#fafafa',
+        plot_bgcolor: '#fafafa',
         xaxis: {autorange: true},
         yaxis: {autorange: 'reversed'},
         margin: {b: 30, t: 30, l: 50, r: 50, pad: 1},
@@ -394,10 +422,21 @@ const Alert = ({route}) => {
     return (
         <div>
             <div>
-                <h2>{objectId}</h2>
-                {/*<br/>*/}
+                <h2>
+                    {objectId}
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        className={classes.margin_left}
+                        startIcon={<SaveIcon/>}
+                        // todo: save as a source to one of my programs button
+                        // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
+                    >
+                        Save as a Source
+                    </Button>
+                </h2>
             </div>
-            <div>
+            <div className={classes.margin_bottom}>
                 {/*todo: redo light curve plot from prv_candidates with bokeh or vega?*/}
                 {/*<Suspense fallback={<div>Loading plot...</div>}>*/}
                 {/*  <VegaPlot*/}
@@ -406,30 +445,41 @@ const Alert = ({route}) => {
                 {/*</Suspense>*/}
                 <Responsive
                     element={FoldBox}
-                    title="Photometry"
+                    title="Photometry and cutouts"
                     mobileProps={{folded: true}}
                 >
                     {/*<Plot className={styles.plot} url={`/api/internal/plot/photometry/14gqr`}/>*/}
                     {/*<Plot className={styles.plot} url={`/api/alerts/ztf/${objectId}/aux`}/>*/}
-                    <Plot data={plot_data} layout={layout}/>
+                    <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                            <Plot data={plot_data} style={{width: "100%"}} useResizeHandler layout={layout}/>
+                        </Grid>
+                        <Grid container item xs={6} spacing={1} className={classes.image}>
+                            <Grid item xs={4}>
+                                <img alt="science"
+                                 src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Science/png"/>
+                                 <br />Science
+                            </Grid>
+                            <Grid item xs={4}>
+                                <img alt="reference"
+                                 src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Template/png"/>
+                                 <br />Reference
+                            </Grid>
+                            <Grid item xs={4}>
+                                <img alt="difference"
+                                 src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Difference/png"/>
+                                 <br />Differece
+                            </Grid>
+                            <Paper className={classes.paper}>
+                                Cross-matches:<br />
+                                {/*todo: plot interleaved on PS1 cutout?*/}
+                                {JSON.stringify(cross_matches, null, 2)}
+                            </Paper>
+                        </Grid>
+                    </Grid>
                 </Responsive>
             </div>
-            <div>
-                <p>todo: cross matches (with a plot interleaved on PS1 cutout?)</p>
-            </div>
-            <div>
-                <Button
-                    variant="contained"
-                    color="primary"
-                    className={classes.button}
-                    startIcon={<SaveIcon/>}
-                    // todo: save as a source to one of my programs button
-                    // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
-                >
-                    Save as a Source
-                </Button>
-                <br/>
-            </div>
+
             <Paper className={classes.root}>
                 <TableContainer className={classes.container}>
                     <Table stickyHeader size="small" aria-label="sticky table">
