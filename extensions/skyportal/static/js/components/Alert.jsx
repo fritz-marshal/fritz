@@ -105,7 +105,7 @@ const columns = [
         label: 'JD',
         // minWidth: 170,
         align: 'left',
-        format: (value) => value.toFixed(3),
+        format: (value) => value.toFixed(5),
     },
     {
         id: 'fid',
