@@ -8,7 +8,7 @@ services:
       - "9001:5001"
     volumes:
       # fritz takes care of making a docker-appropriate config.yaml
-      - config.yaml:/skyportal/config.yaml
+      - ${PWD}/config.yaml:/skyportal/config.yaml
 
   db:
     image: postgres:12.2
