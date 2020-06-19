@@ -134,6 +134,8 @@ def run(args):
 
         # add Fritz-specific K and SP extensions:
         copy_tree('extensions/skyportal/', 'skyportal/')
+        # copy over the additional requirements:
+        subprocess.run(["cp", ".requirements/ext.txt", f"skyportal/requirements.fritz.txt"], check=True)
 
         # Build skyportal's images
         p = subprocess.run(["make", "docker-local"], cwd="skyportal")

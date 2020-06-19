@@ -7,8 +7,11 @@ services:
       - "9000:5000"
       - "9001:5001"
     volumes:
-      # fritz takes care of making a docker-appropriate config.yaml
+      # fritz takes care of making a docker-appropriate config.yaml with Fritz-specific additions
       - ${PWD}/config.yaml:/skyportal/config.yaml
+    command: >
+      bash -c "pip install requirements.fritz.txt
+      && source /skyportal_env/bin/activate && (make log &) && make run_production"
 
   db:
     image: postgres:12.2
