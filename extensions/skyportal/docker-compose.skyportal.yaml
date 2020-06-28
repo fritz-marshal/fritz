@@ -1,5 +1,11 @@
 version: "3.7"
 
+networks:
+  kowalski:
+    external:
+      name: kowalski_kowalski
+  default:
+
 services:
   web:
     image: skyportal/web
