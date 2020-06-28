@@ -143,6 +143,8 @@ def run(args):
             raise RuntimeError("Failed to build skyportal's docker images")
 
     # start up skyportal
+    # create kowalski_kowalski network if it does not exist yet
+    p = subprocess.run(["docker", "network", 'create', "kowalski_kowalski"])
     # docker-compose.skyportal.yaml bind-mounts the fritz-created config.yaml
     p = subprocess.run(["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"], cwd="skyportal")
     if p.returncode != 0:
