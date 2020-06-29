@@ -287,8 +287,8 @@ class AlertAuxHandler(BaseHandler):
         )
 
         if resp.status_code == requests.codes.ok:
-            alert = loads(resp.text).get('data', dict())
+            alert_data = loads(resp.text).get('data', list(dict()))[0]
         else:
-            alert = dict()
+            alert_data = dict()
 
-        return self.success(data=alert)
+        return self.success(data=alert_data)

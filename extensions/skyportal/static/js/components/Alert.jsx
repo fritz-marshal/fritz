@@ -1,6 +1,6 @@
 // import React from 'react';
 // import React, {useEffect, useState, Suspense} from 'react';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, Suspense} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 
 import styles from "./Alert.css";
@@ -24,14 +24,13 @@ import Grid from '@material-ui/core/Grid';
 import Responsive from "./Responsive";
 import FoldBox from "./FoldBox";
 
-import Plot from 'react-plotly.js';
 // import Moment from 'react-moment';
 
 // Import action creators from `static/js/ducks/alert.js`
 import * as Actions from '../ducks/alert';
 import {FETCH_ALERT_ERROR, FETCH_ALERT_FAIL, FETCH_ALERT_OK} from "../ducks/alert";
 
-// const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotAlert'));
+const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotAlert'));
 
 
 const StyledTableCell = withStyles((theme) => ({
@@ -298,64 +297,10 @@ const Alert = ({route}) => {
     const alert_aux_data = useSelector((state) => state.alert_aux_data);
     let prv_candidates = {};
     let cross_matches = {};
-    let plot_data = [];
-    if ((alert_aux_data !== null) && (alert_aux_data.length > 0)) {
-        plot_data = [];
-        prv_candidates = alert_aux_data[0].prv_candidates;
-        cross_matches = alert_aux_data[0].cross_matches;
-        const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
-
-        // detections:
-        for (const fid of fids) {
-            // let jd = new JulianDate().julian(prv_candidates.filter(function(c) {return c.fid === fid}).map(c => c.jd));
-            // let dt = moment.utc(jd.getDate());
-            plot_data.push(
-                {
-                    x: prv_candidates.filter(function (c) {
-                        return c.fid === fid
-                    }).map(c => c.jd),
-                    y: prv_candidates.filter(function (c) {
-                        return c.fid === fid
-                    }).map(c => c.magpsf),
-                    error_y: {
-                        type: 'data',
-                        array: prv_candidates.filter(function (c) {
-                            return c.fid === fid
-                        }).map(c => c.sigmapsf),
-                        width: 2,
-                        thickness: 0.8,
-                        color: lc_colors(fid),
-                        opacity: 0.5,
-                        visible: true
-                    },
-                    name: filter_name(fid),
-                    type: 'scatter',
-                    mode: 'markers',
-                    showlegend: true,
-                    marker: {color: lc_colors(fid)},
-                }
-            )
-        }
-
-        // limits:
-        for (const fid of fids) {
-            plot_data.push(
-                {
-                    x: prv_candidates.filter(function (c) {
-                        return c.fid === fid
-                    }).map(c => c.jd),
-                    y: prv_candidates.filter(function (c) {
-                        return c.fid === fid
-                    }).map(c => c.diffmaglim),
-                    name: filter_name(fid) + '_nodet_u',
-                    type: 'scatter',
-                    mode: 'markers',
-                    showlegend: true,
-                    marker: {symbol: 'triangle-down', color: lc_colors(fid), opacity: 0.4},
-                }
-            )
-        }
-
+    if (alert_aux_data !== null) {
+        prv_candidates = alert_aux_data.prv_candidates;
+        cross_matches = alert_aux_data.cross_matches;
+        // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
     }
 
     const cachedObjectId = alert_data ? route.id : null;
@@ -396,29 +341,6 @@ const Alert = ({route}) => {
         setPage(0);
     };
 
-    const layout = {
-        // width: 900,
-        height: 300,
-        paper_bgcolor: '#fafafa',
-        plot_bgcolor: '#fafafa',
-        xaxis: {autorange: true},
-        yaxis: {autorange: 'reversed'},
-        margin: {b: 30, t: 30, l: 50, r: 50, pad: 1},
-        // shapes: [{
-        //     type: 'line',
-        //     x0: '2019-06-09',
-        //     y0: 0,
-        //     x1: '2019-06-09',
-        //     yref: 'paper',
-        //     y1: 1,
-        //     line: {
-        //         color: 'grey',
-        //         width: 1.5,
-        //         dash: 'dot'
-        //     }
-        // }]
-    };
-
     return (
         <div>
             <div>
@@ -437,24 +359,21 @@ const Alert = ({route}) => {
                 </h2>
             </div>
             <div className={classes.margin_bottom}>
-                {/*todo: redo light curve plot from prv_candidates with bokeh or vega?*/}
-                {/*<Suspense fallback={<div>Loading plot...</div>}>*/}
-                {/*  <VegaPlot*/}
-                {/*    dataUrl={`/api/alerts/ztf/${objectId}`}*/}
-                {/*  />*/}
-                {/*</Suspense>*/}
+
                 <Responsive
                     element={FoldBox}
                     title="Photometry and cutouts"
                     mobileProps={{folded: true}}
                 >
-                    {/*<Plot className={styles.plot} url={`/api/internal/plot/photometry/14gqr`}/>*/}
-                    {/*<Plot className={styles.plot} url={`/api/alerts/ztf/${objectId}/aux`}/>*/}
                     <Grid container spacing={2}>
-                        <Grid item xs={6}>
-                            <Plot data={plot_data} style={{width: "100%"}} useResizeHandler layout={layout}/>
+                        <Grid item sm={12} md={6}>
+                            <Suspense fallback={<div>Loading plot...</div>}>
+                                <VegaPlot
+                                    dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                                />
+                            </Suspense>
                         </Grid>
-                        <Grid container item xs={6} spacing={1} className={classes.image}>
+                        <Grid container item sm={12} md={6} spacing={1} className={classes.image}>
                             <Grid item xs={4}>
                                 <img alt="science"
                                  src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Science/png"/>
