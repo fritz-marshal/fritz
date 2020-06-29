@@ -228,39 +228,6 @@ EnhancedTableHead.propTypes = {
     orderBy: PropTypes.string.isRequired,
 };
 
-
-function lc_colors(fid) {
-    switch (fid) {
-        case 1: {
-            return '#28a745';
-        }
-        case 2: {
-            return '#dc3545';
-        }
-        case 3: {
-            return '#f3dc11';
-        }
-        default:
-            return '#222';
-    }
-}
-
-function filter_name(fid) {
-    switch (fid) {
-        case 1: {
-            return 'ztfg';
-        }
-        case 2: {
-            return 'ztfr';
-        }
-        case 3: {
-            return 'ztfi';
-        }
-        default:
-            return fid.toString();
-    }
-}
-
 /*
 - if no candid is specified, assemble lc, show table with detection history
   - actual alerts from ZTF_alerts have links that load in the thumbnails + alert contents on the right side

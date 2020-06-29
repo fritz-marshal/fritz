@@ -3,6 +3,7 @@ from skyportal.app_server import make_app
 from skyportal.handlers.api.alert import (
     AlertHandler,
     AlertAuxHandler,
+    AlertCutoutHandler,
 )
 
 
@@ -27,6 +28,7 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
     handlers = [
         # Fritz-specific API endpoints
         (r'/api/alerts/ztf/(.+)/aux', AlertAuxHandler),  # most descriptive path must be defined first
+        (r'/api/alerts/ztf/(.+)/cutout', AlertCutoutHandler),  # most descriptive path must be defined first
         (r'/api/alerts/ztf/(.+)', AlertHandler),
     ]
 

@@ -66,7 +66,7 @@ const spec = (url) => ({
         type: "point",
         shape: "circle",
         filled: "true",
-        size: 25,
+        size: 30,
       },
       transform: [
         { calculate: "join([format(datum.magpsf, '.2f'), ' ± ', format(datum.sigmapsf, '.2f'), ' (ab)'], '')", as: "magAndErr" }
