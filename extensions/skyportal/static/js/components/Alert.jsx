@@ -5,6 +5,7 @@ import {useDispatch, useSelector} from 'react-redux';
 
 import styles from "./Alert.css";
 
+import { Link } from "react-router-dom";
 import Button from '@material-ui/core/Button';
 import SaveIcon from '@material-ui/icons/Save';
 import PropTypes from 'prop-types';
@@ -36,9 +37,9 @@ const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './V
 const StyledTableCell = withStyles((theme) => ({
     head: {
         // backgroundColor: theme.palette.common.black,
-        backgroundColor: "#111",
+        // backgroundColor: "#111",
         // color: theme.palette.common.white,
-        color: "#f0f0f0",
+        // color: "#f0f0f0",
     },
     body: {
         fontSize: 14,
@@ -52,6 +53,9 @@ const useStyles = makeStyles((theme) => ({
     },
     container: {
         maxHeight: 440,
+    },
+    whitish: {
+        color: "#f0f0f0"
     },
     visuallyHidden: {
         border: 0,
@@ -85,8 +89,8 @@ const useStyles = makeStyles((theme) => ({
 // },
 }));
 
-function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos) {
-    return {id, jd, fid, mag, emag, rb, drb, isdiffpos};
+function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos, alert_actions) {
+    return {id, jd, fid, mag, emag, rb, drb, isdiffpos, alert_actions};
 }
 
 const columns = [
@@ -156,6 +160,15 @@ const columns = [
         label: 'isdiffpos',
         // minWidth: 170,
         align: 'left'
+    },
+    {
+        id: 'alert_actions',
+        numeric: false,
+        disablePadding: false,
+        label: 'actions',
+        align: 'right',
+        // render: ({ row }) => <Link to={'lol/'}>lolol</Link>,
+        // render: ({ row }) => (<Link to={{ pathname: `/foo/${row.id}` }}>{row.label}</Link>)
     },
 ];
 
@@ -243,11 +256,15 @@ const Alert = ({route}) => {
     const objectId = route.id;
     const dispatch = useDispatch();
 
+    const [candid, setCandid] = useState(0);
+    const [jd, setJd] = useState(0);
+
     const alert_data = useSelector((state) => state.alert_data);
-    let candid = null;
+    // let candid = null;
     let rows = [];
     if (alert_data !== null) {
-        candid = alert_data.map(a => a.candid);
+        // const candids = alert_data.map(a => a.candid).sort();
+        // candid = candids[candids.length-1];
         rows = alert_data.map(a => createRows(
             a.candid,
             a.candidate.jd,
@@ -256,7 +273,11 @@ const Alert = ({route}) => {
             a.candidate.sigmapsf,
             a.candidate.rb,
             a.candidate.drb,
-            a.candidate.isdiffpos
+            a.candidate.isdiffpos,
+            // <Link to={'lol/'}>{a.candid}</Link>
+            <Button onClick={() => { setCandid(a.candid); setJd(a.candidate.jd)}}>
+              { "Show thumbnails" }
+            </Button>
         ));
     }
     // const candid = null
@@ -279,6 +300,13 @@ const Alert = ({route}) => {
             if (data.status === "success") {
                 const data_aux = await dispatch(Actions.fetchAuxData(objectId));
                 // dispatch(Actions.fetchAlertThumbnails(candid));
+                const candids = Array.from(new Set(data.data.map(c => c.candid))).sort()
+                const jds = Array.from(new Set(data.data.map(c => c.candidate.jd))).sort()
+                // grab the latest candid's thumbnails by default
+                setCandid(candids[candids.length-1]);
+                setJd(jds[jds.length-1]);
+                // console.log(candid)
+                // console.log(candids)
             }
         };
 
@@ -337,23 +365,27 @@ const Alert = ({route}) => {
                             <Suspense fallback={<div>Loading plot...</div>}>
                                 <VegaPlot
                                     dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                                    jd={jd}
                                 />
                             </Suspense>
                         </Grid>
                         <Grid container item sm={12} md={6} spacing={1} className={classes.image}>
                             <Grid item xs={4}>
                                 <img alt="science"
-                                 src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Science/png"/>
+                                     src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null}
+                                />
                                  <br />Science
                             </Grid>
                             <Grid item xs={4}>
                                 <img alt="reference"
-                                 src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Template/png"/>
+                                 src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null}
+                                />
                                  <br />Reference
                             </Grid>
                             <Grid item xs={4}>
                                 <img alt="difference"
-                                 src="https://kowalski.caltech.edu/lab/ztf-alerts/1140245004115015001/cutout/Difference/png"/>
+                                 src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
+                                />
                                  <br />Differece
                             </Grid>
                             <Paper className={classes.paper}>

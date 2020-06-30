@@ -36,7 +36,7 @@ function filter_name(fid) {
 }
 
 
-const spec = (url) => ({
+const spec = (url, jd) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: 500,
   // width: "container",
@@ -45,7 +45,7 @@ const spec = (url) => ({
     url,
     format: {
       type: "json",
-      property: "data.prv_candidates" // where on the JSON does the data live
+      property: "data.prv_candidates" // where in the JSON does the data live
     }
   },
   background: "transparent",
@@ -99,6 +99,7 @@ const spec = (url) => ({
           },
         },
         tooltip: [
+          // { field: "candid", title: "candid" },
           { field: "magAndErr", title: "mag" },
           { field: "fid", type: "ordinal" },
           { field: "jd", type: "quantitative" },
@@ -196,9 +197,25 @@ const spec = (url) => ({
           field: "fid",
           type: "nominal"
         },
+        tooltip: [
+          { field: "fid", type: "ordinal" },
+          { field: "jd", type: "quantitative" },
+          { field: "diffmaglim", type: "quantitative", format: ".2f" }
+        ],
         opacity: {
           condition: { selection: "filterLimitingMags", value: 0.3 },
           value: 0
+        }
+      }
+    },
+
+    // render selected candid date
+    {
+      data: {values: [{}]},
+      mark: {type: "rule", strokeDash: [4, 4], size: 2},
+      encoding: {
+        x: {
+          datum: jd
         }
       }
     }
@@ -206,11 +223,11 @@ const spec = (url) => ({
 });
 
 
-const VegaPlot = ({ dataUrl }) => (
+const VegaPlot = ({ dataUrl, jd }) => (
     <div
         ref={
           (node) => {
-            embed(node, spec(dataUrl), {
+            embed(node, spec(dataUrl, jd), {
               actions: false
             });
           }

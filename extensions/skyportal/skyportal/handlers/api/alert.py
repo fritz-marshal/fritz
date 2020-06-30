@@ -6,6 +6,7 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 from numpy import array, flipud, median, nan_to_num
 import os
+import pandas as pd
 import pathlib
 import requests
 import traceback
@@ -62,11 +63,7 @@ class AlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        # alert = self.cfg['app.kowalski']
-
-        # /api/alerts/<objectId>
-
-        print(objectId)
+        # print(objectId)
 
         query = {
             "query_type": "aggregate",
@@ -180,8 +177,6 @@ class AlertHandler(BaseHandler):
 
         if resp.status_code == requests.codes.ok:
             alert_data = loads(resp.text).get('data')
-            # print(alert_data)
-            # self.push_all(action="skyportal/FETCH_ALERT")
             return self.success(data=alert_data)
         else:
             alert_data = []
@@ -232,7 +227,7 @@ class AlertAuxHandler(BaseHandler):
         #   - on error (e.g., wrong candid) display the default, show error
         # - if objectId does not exist on K, display that info
 
-        print(objectId, 'aux')
+        # print(objectId, 'aux')
 
         query = {
             "query_type": "aggregate",
@@ -263,6 +258,18 @@ class AlertAuxHandler(BaseHandler):
                                 }
                             },
                         }
+                    },
+                    {
+                        "$project": {
+                            "_id": 1,
+                            "cross_matches": 1,
+                            "prv_candidates.magpsf": 1,
+                            "prv_candidates.sigmapsf": 1,
+                            "prv_candidates.diffmaglim": 1,
+                            "prv_candidates.fid": 1,
+                            "prv_candidates.candid": 1,
+                            "prv_candidates.jd": 1,
+                        }
                     }
                 ]
             }
@@ -281,6 +288,59 @@ class AlertAuxHandler(BaseHandler):
             alert_data = loads(resp.text).get('data', list(dict()))[0]
         else:
             alert_data = dict()
+
+        # grab and append most recent candid as it should not be in prv_candidates
+        query = {
+            "query_type": "aggregate",
+            "query": {
+                "catalog": "ZTF_alerts",
+                "pipeline": [
+                    {
+                        "$match": {
+                            "objectId": objectId
+                        }
+                    },
+                    {
+                        "$project": {
+                            # grab only what's going to be rendered
+                            "_id": 0,
+                            "candidate.candid": 1,
+                            "candidate.jd": 1,
+                            "candidate.fid": 1,
+                            "candidate.magpsf": 1,
+                            "candidate.sigmapsf": 1,
+                            "candidate.diffmaglim": 1,
+                        }
+                    },
+                    {
+                        "$sort": {
+                            "candidate.jd": -1
+                        }
+                    },
+                    {
+                        "$limit": 1
+                    }
+                ]
+            }
+        }
+
+        resp = s.post(
+            os.path.join(base_url, 'api/queries'),
+            json=query, headers=headers
+        )
+
+        if resp.status_code == requests.codes.ok:
+            latest_alert_data = loads(resp.text).get('data', list(dict()))[0]
+        else:
+            latest_alert_data = dict()
+
+        if len(latest_alert_data) > 0:
+            alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+
+        # fixme? populate empty fields for vega
+        # if len(alert_data) > 0:
+        #     df = pd.DataFrame.from_records(alert_data['prv_candidates'])
+        #     alert_data['prv_candidates'] = df.to_dict(orient='records')
 
         return self.success(data=alert_data)
 
