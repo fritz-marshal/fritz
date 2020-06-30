@@ -72,7 +72,8 @@ class AlertHandler(BaseHandler):
                 "pipeline": [
                     {
                         "$match": {
-                            "objectId": objectId
+                            "objectId": objectId,
+                            "candidate.programid": {"$in": [1, 2, 3]}  # fixme: ACLs plug in here!
                         }
                     },
                     {
@@ -89,82 +90,12 @@ class AlertHandler(BaseHandler):
                             "candidate.isdiffpos": 1,
                         }
                     },
-                    # {
-                    #     "$limit": 1
-                    # }
                 ]
-            }
+            },
+            # "kwargs": {
+            #     "max_time_ms": 10000
+            # }
         }
-
-        # query = {
-        #     "query_type": "aggregate",
-        #     "query": {
-        #         "catalog": "ZTF_alerts",
-        #         "pipeline": [
-        #             {
-        #                 "$match": {
-        #                     "candid": int(candid),
-        #                     # todo: "candidate.program": {"$in": [1, ]}
-        #                 }
-        #             },
-        #             {
-        #                 "$project": {
-        #                     "cutoutScience": 0,
-        #                     "cutoutTemplate": 0,
-        #                     "cutoutDifference": 0
-        #                 }
-        #             },
-        #             {
-        #                 "$lookup": {
-        #                     "from": "ZTF_alerts_aux",
-        #                     "localField": "objectId",
-        #                     "foreignField": "_id",
-        #                     "as": "aux"
-        #                 }
-        #             },
-        #             {
-        #                 "$project": {
-        #                     "cross_matches": {
-        #                         "$arrayElemAt": [
-        #                             "$aux.cross_matches",
-        #                             0
-        #                         ]
-        #                     },
-        #                     "prv_candidates": {
-        #                         "$filter": {
-        #                             "input": {
-        #                                 "$arrayElemAt": [
-        #                                     "$aux.prv_candidates",
-        #                                     0
-        #                                 ]
-        #                             },
-        #                             "as": "item",
-        #                             "cond": {
-        #                                 "$in": [
-        #                                     "$$item.programid",
-        #                                     [
-        #                                         1
-        #                                     ]
-        #                                 ]
-        #                             }
-        #                         }
-        #                     },
-        #                     "schemavsn": 1,
-        #                     "publisher": 1,
-        #                     "objectId": 1,
-        #                     "candid": 1,
-        #                     "candidate": 1,
-        #                     "classifications": 1,
-        #                     "coordinates": 1,
-        #                     "_id": 0,
-        #                 }
-        #             },
-        #         ]
-        #     },
-        #     "kwargs": {
-        #         "max_time_ms": 1000
-        #     }
-        # }
 
         base_url = f"{self.cfg['app.kowalski.protocol']}://" \
                    f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
@@ -337,7 +268,7 @@ class AlertAuxHandler(BaseHandler):
         if len(latest_alert_data) > 0:
             alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
-        # fixme? populate empty fields for vega
+        # fixme? populate empty fields for vega?
         # if len(alert_data) > 0:
         #     df = pd.DataFrame.from_records(alert_data['prv_candidates'])
         #     alert_data['prv_candidates'] = df.to_dict(orient='records')
