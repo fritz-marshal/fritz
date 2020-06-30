@@ -39,6 +39,7 @@ function filter_name(fid) {
 const spec = (url, jd) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: 500,
+  // width: 400,
   // width: "container",
   height: 250,
   data: {

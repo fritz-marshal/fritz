@@ -336,117 +336,133 @@ const Alert = ({route}) => {
         setPage(0);
     };
 
-    return (
-        <div>
+    if (alert_data === null) {
+        return (<div>Loading...</div>)
+    }
+    else if (alert_data.length === 0) {
+        return (
             <div>
                 <h2>
-                    {objectId}
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        className={classes.margin_left}
-                        startIcon={<SaveIcon/>}
-                        // todo: save as a source to one of my programs button
-                        // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
-                    >
-                        Save as a Source
-                    </Button>
+                    {objectId} not found
                 </h2>
             </div>
-            <div className={classes.margin_bottom}>
+        )
+    }
+    else if (alert_data.length > 0) {
+        return (
+            <div>
+                <div>
+                    <h2>
+                        {objectId}
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            className={classes.margin_left}
+                            startIcon={<SaveIcon/>}
+                            // todo: save as a source to one of my programs button
+                            // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
+                        >
+                            Save as a Source
+                        </Button>
+                    </h2>
+                </div>
+                <div className={classes.margin_bottom}>
 
-                <Responsive
-                    element={FoldBox}
-                    title="Photometry and cutouts"
-                    mobileProps={{folded: true}}
-                >
-                    <Grid container spacing={2}>
-                        <Grid item sm={12} md={6}>
-                            <Suspense fallback={<div>Loading plot...</div>}>
-                                <VegaPlot
-                                    dataUrl={`/api/alerts/ztf/${objectId}/aux`}
-                                    jd={jd}
-                                />
-                            </Suspense>
+                    <Responsive
+                        element={FoldBox}
+                        title="Photometry and cutouts"
+                        mobileProps={{folded: true}}
+                    >
+                        <Grid container spacing={2}>
+                            <Grid item sm={12} md={6}>
+                                <Suspense fallback={<div>Loading plot...</div>}>
+                                    {/*<div style={{width: "100%"}}>*/}
+                                    <VegaPlot
+                                        dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                                        jd={jd}
+                                    />
+                                    {/*</div>*/}
+                                </Suspense>
+                            </Grid>
+                            <Grid container item sm={12} md={6} spacing={1} className={classes.image}>
+                                <Grid item xs={4}>
+                                    <img alt="science"
+                                         src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null}
+                                    />
+                                    <br/>Science
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <img alt="reference"
+                                         src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null}
+                                    />
+                                    <br/>Reference
+                                </Grid>
+                                <Grid item xs={4}>
+                                    <img alt="difference"
+                                         src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
+                                    />
+                                    <br/>Differece
+                                </Grid>
+                                <Paper className={classes.paper}>
+                                    Cross-matches:<br/>
+                                    {/*todo: plot interleaved on PS1 cutout?*/}
+                                    {JSON.stringify(cross_matches, null, 2)}
+                                </Paper>
+                            </Grid>
                         </Grid>
-                        <Grid container item sm={12} md={6} spacing={1} className={classes.image}>
-                            <Grid item xs={4}>
-                                <img alt="science"
-                                     src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null}
-                                />
-                                 <br />Science
-                            </Grid>
-                            <Grid item xs={4}>
-                                <img alt="reference"
-                                 src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null}
-                                />
-                                 <br />Reference
-                            </Grid>
-                            <Grid item xs={4}>
-                                <img alt="difference"
-                                 src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
-                                />
-                                 <br />Differece
-                            </Grid>
-                            <Paper className={classes.paper}>
-                                Cross-matches:<br />
-                                {/*todo: plot interleaved on PS1 cutout?*/}
-                                {JSON.stringify(cross_matches, null, 2)}
-                            </Paper>
-                        </Grid>
-                    </Grid>
-                </Responsive>
+                    </Responsive>
+                </div>
+
+                <Paper className={classes.root}>
+                    <TableContainer className={classes.container}>
+                        <Table stickyHeader size="small" aria-label="sticky table">
+                            <EnhancedTableHead
+                                classes={classes}
+                                order={order}
+                                orderBy={orderBy}
+                                onRequestSort={handleRequestSort}
+                            />
+                            <TableBody>
+                                {stableSort(rows, getComparator(order, orderBy))
+                                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                    .map((row, index) => {
+
+                                        return (
+                                            <TableRow
+                                                hover
+                                                role="checkbox"
+                                                tabIndex={-1}
+                                                key={row.name}
+                                            >
+                                                {columns.map((column) => {
+                                                    const value = row[column.id];
+                                                    return (
+                                                        <TableCell key={column.id}
+                                                                   align={column.numeric ? 'right' : 'left'}>
+                                                            {column.format && typeof value === 'number' ? column.format(value) : value}
+                                                        </TableCell>
+                                                    );
+                                                })}
+                                            </TableRow>
+                                        );
+                                    })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                    <TablePagination
+                        rowsPerPageOptions={[10, 25, 100]}
+                        component="div"
+                        count={rows.length}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onChangePage={handleChangePage}
+                        onChangeRowsPerPage={handleChangeRowsPerPage}
+                    />
+                </Paper>
             </div>
 
-            <Paper className={classes.root}>
-                <TableContainer className={classes.container}>
-                    <Table stickyHeader size="small" aria-label="sticky table">
-                        <EnhancedTableHead
-                            classes={classes}
-                            order={order}
-                            orderBy={orderBy}
-                            onRequestSort={handleRequestSort}
-                        />
-                        <TableBody>
-                            {stableSort(rows, getComparator(order, orderBy))
-                                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                                .map((row, index) => {
-
-                                    return (
-                                        <TableRow
-                                            hover
-                                            role="checkbox"
-                                            tabIndex={-1}
-                                            key={row.name}
-                                        >
-                                            {columns.map((column) => {
-                                                const value = row[column.id];
-                                                return (
-                                                    <TableCell key={column.id}
-                                                               align={column.numeric ? 'right' : 'left'}>
-                                                        {column.format && typeof value === 'number' ? column.format(value) : value}
-                                                    </TableCell>
-                                                );
-                                            })}
-                                        </TableRow>
-                                    );
-                                })}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-                <TablePagination
-                    rowsPerPageOptions={[10, 25, 100]}
-                    component="div"
-                    count={rows.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onChangePage={handleChangePage}
-                    onChangeRowsPerPage={handleChangeRowsPerPage}
-                />
-            </Paper>
-        </div>
-
-    );
+        );
+    }
 };
 
 export default Alert;
