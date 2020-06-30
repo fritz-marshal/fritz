@@ -29,8 +29,8 @@ app:
       component: UserInfo
 #    - path: "/alerts"
 #      component: Alerts
-    - path: "/alert/:id"
-      component: Alert
+    - path: "/alerts/ztf/:id"
+      component: ZTFAlert
 
   kowalski:
     protocol: "http"

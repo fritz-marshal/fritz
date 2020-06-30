@@ -3,7 +3,7 @@
 import React, {useEffect, useState, Suspense} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 
-import styles from "./Alert.css";
+import styles from "./ZTFAlert.css";
 
 import { Link } from "react-router-dom";
 import Button from '@material-ui/core/Button';
@@ -31,7 +31,7 @@ import FoldBox from "./FoldBox";
 import * as Actions from '../ducks/alert';
 import {FETCH_ALERT_ERROR, FETCH_ALERT_FAIL, FETCH_ALERT_OK} from "../ducks/alert";
 
-const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotAlert'));
+const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotZTFAlert'));
 
 
 const StyledTableCell = withStyles((theme) => ({
@@ -89,8 +89,8 @@ const useStyles = makeStyles((theme) => ({
 // },
 }));
 
-function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos, alert_actions) {
-    return {id, jd, fid, mag, emag, rb, drb, isdiffpos, alert_actions};
+function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions) {
+    return {id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions};
 }
 
 const columns = [
@@ -158,6 +158,14 @@ const columns = [
         numeric: false,
         disablePadding: false,
         label: 'isdiffpos',
+        // minWidth: 170,
+        align: 'left'
+    },
+    {
+        id: 'programid',
+        numeric: true,
+        disablePadding: false,
+        label: 'programid',
         // minWidth: 170,
         align: 'left'
     },
@@ -251,7 +259,7 @@ EnhancedTableHead.propTypes = {
 */
 
 
-const Alert = ({route}) => {
+const ZTFAlert = ({route}) => {
 
     const objectId = route.id;
     const dispatch = useDispatch();
@@ -274,6 +282,7 @@ const Alert = ({route}) => {
             a.candidate.rb,
             a.candidate.drb,
             a.candidate.isdiffpos,
+            a.candidate.programid,
             // <Link to={'lol/'}>{a.candid}</Link>
             <Button onClick={() => { setCandid(a.candid); setJd(a.candidate.jd)}}>
               { "Show thumbnails" }
@@ -401,7 +410,7 @@ const Alert = ({route}) => {
                                     <img alt="difference"
                                          src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
                                     />
-                                    <br/>Differece
+                                    <br/>Difference
                                 </Grid>
                                 <Paper className={classes.paper}>
                                     Cross-matches:<br/>
@@ -465,4 +474,4 @@ const Alert = ({route}) => {
     }
 };
 
-export default Alert;
+export default ZTFAlert;

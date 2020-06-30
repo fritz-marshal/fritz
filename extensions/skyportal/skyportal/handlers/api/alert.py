@@ -24,13 +24,13 @@ from ..base import BaseHandler
 s = requests.Session()
 
 
-class AlertHandler(BaseHandler):
+class ZTFAlertHandler(BaseHandler):
     @auth_or_token
     def get(self, objectId: str = None):
         """
         ---
         single:
-          description: Retrieve an objectId from Kowalski
+          description: Retrieve a ZTF objectId from Kowalski
           parameters:
             - in: path
               name: objectId
@@ -82,6 +82,7 @@ class AlertHandler(BaseHandler):
                             "_id": 0,
                             "candid": {"$toString": "$candid"},  # js luvz bigints
                             "candidate.jd": 1,
+                            "candidate.programid": 1,
                             "candidate.fid": 1,
                             "candidate.magpsf": 1,
                             "candidate.sigmapsf": 1,
@@ -114,7 +115,7 @@ class AlertHandler(BaseHandler):
             return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
 
-class AlertAuxHandler(BaseHandler):
+class ZTFAlertAuxHandler(BaseHandler):
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -148,15 +149,6 @@ class AlertAuxHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        # alert = self.cfg['app.kowalski']
-
-        # /api/alerts/<objectId>?candid=<candid>
-        # - if no candid is specified, assemble lc, show table with detection history
-        #   - actual alerts from ZTF_alerts have links that load in the thumbnails + alert contents on the right side
-        #   - the latest candid is displayed on the right, lc plot shows a dashed vertical line for <jd>
-        # - if candid is specified, display it on the right-hand side right away
-        #   - on error (e.g., wrong candid) display the default, show error
-        # - if objectId does not exist on K, display that info
 
         # print(objectId, 'aux')
 
@@ -197,6 +189,7 @@ class AlertAuxHandler(BaseHandler):
                             "prv_candidates.magpsf": 1,
                             "prv_candidates.sigmapsf": 1,
                             "prv_candidates.diffmaglim": 1,
+                            "prv_candidates.programid": 1,
                             "prv_candidates.fid": 1,
                             "prv_candidates.candid": 1,
                             "prv_candidates.jd": 1,
@@ -236,6 +229,7 @@ class AlertAuxHandler(BaseHandler):
                             # grab only what's going to be rendered
                             "_id": 0,
                             "candidate.candid": 1,
+                            "candidate.programid": 1,
                             "candidate.jd": 1,
                             "candidate.fid": 1,
                             "candidate.magpsf": 1,
@@ -276,7 +270,7 @@ class AlertAuxHandler(BaseHandler):
         return self.success(data=alert_data)
 
 
-class AlertCutoutHandler(BaseHandler):
+class ZTFAlertCutoutHandler(BaseHandler):
     @auth_or_token
     # @routes.get('/lab/ztf-alerts/{candid}/cutout/{cutout}/{file_format}', allow_head=False)
     def get(self, objectId: str = None):
