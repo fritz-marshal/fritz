@@ -17,12 +17,16 @@ app:
       exact: True
     - path: "/source/:id"
       component: Source
+    - path: "/candidate/:id"
+      component: Candidate
     - path: "/groups"
       component: Groups
     - path: "/group/:id"
       component: Group
     - path: "/profile"
       component: Profile
+    - path: "/candidates"
+      component: CandidateList
     - path: "/sources"
       component: SourceList
     - path: "/user/:id"
