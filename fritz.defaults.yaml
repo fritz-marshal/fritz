@@ -31,6 +31,10 @@ app:
       component: SourceList
     - path: "/user/:id"
       component: UserInfo
+    - path: "/upload_photometry/:id"
+      component: UploadPhotometry
+    - path: "/about"
+      component: About
 #    - path: "/alerts"
 #      component: Alerts
     - path: "/alerts/ztf/:id"
