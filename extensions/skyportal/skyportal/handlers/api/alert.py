@@ -64,55 +64,59 @@ class ZTFAlertHandler(BaseHandler):
                   schema: Error
         """
         # print(objectId)
+        try:
+            query = {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "objectId": objectId,
+                                "candidate.programid": {"$in": [1, 2, 3]}  # fixme: ACLs plug in here!
+                            }
+                        },
+                        {
+                            "$project": {
+                                # grab only what's going to be rendered
+                                "_id": 0,
+                                "candid": {"$toString": "$candid"},  # js luvz bigints
+                                "candidate.jd": 1,
+                                "candidate.programid": 1,
+                                "candidate.fid": 1,
+                                "candidate.magpsf": 1,
+                                "candidate.sigmapsf": 1,
+                                "candidate.rb": 1,
+                                "candidate.drb": 1,
+                                "candidate.isdiffpos": 1,
+                            }
+                        },
+                    ]
+                },
+                # "kwargs": {
+                #     "max_time_ms": 10000
+                # }
+            }
 
-        query = {
-            "query_type": "aggregate",
-            "query": {
-                "catalog": "ZTF_alerts",
-                "pipeline": [
-                    {
-                        "$match": {
-                            "objectId": objectId,
-                            "candidate.programid": {"$in": [1, 2, 3]}  # fixme: ACLs plug in here!
-                        }
-                    },
-                    {
-                        "$project": {
-                            # grab only what's going to be rendered
-                            "_id": 0,
-                            "candid": {"$toString": "$candid"},  # js luvz bigints
-                            "candidate.jd": 1,
-                            "candidate.programid": 1,
-                            "candidate.fid": 1,
-                            "candidate.magpsf": 1,
-                            "candidate.sigmapsf": 1,
-                            "candidate.rb": 1,
-                            "candidate.drb": 1,
-                            "candidate.isdiffpos": 1,
-                        }
-                    },
-                ]
-            },
-            # "kwargs": {
-            #     "max_time_ms": 10000
-            # }
-        }
+            base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                       f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+            headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
-        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+            resp = s.post(
+                os.path.join(base_url, 'api/queries'),
+                json=query, headers=headers
+            )
 
-        resp = s.post(
-            os.path.join(base_url, 'api/queries'),
-            json=query, headers=headers
-        )
+            if resp.status_code == requests.codes.ok:
+                alert_data = loads(resp.text).get('data')
+                return self.success(data=alert_data)
+            else:
+                alert_data = []
+                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-        if resp.status_code == requests.codes.ok:
-            alert_data = loads(resp.text).get('data')
-            return self.success(data=alert_data)
-        else:
-            alert_data = []
-            return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+        except Exception as _e:
+            _err = traceback.format_exc()
+            return self.error(f'failure: {_err}')
 
 
 class ZTFAlertAuxHandler(BaseHandler):
@@ -151,123 +155,127 @@ class ZTFAlertAuxHandler(BaseHandler):
         """
 
         # print(objectId, 'aux')
-
-        query = {
-            "query_type": "aggregate",
-            "query": {
-                "catalog": "ZTF_alerts_aux",
-                "pipeline": [
-                    {
-                        "$match": {
-                            "_id": objectId
-                        }
-                    },
-                    {
-                        "$project": {
-                            "_id": 1,
-                            "cross_matches": 1,
-                            "prv_candidates": {
-                                "$filter": {
-                                    "input": "$prv_candidates",
-                                    "as": "item",
-                                    "cond": {
-                                        "$in": [
-                                            "$$item.programid",
-                                            [
-                                                1, 2, 3  # fixme: ACLs plug in here!
+        try:
+            query = {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": "ZTF_alerts_aux",
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "_id": objectId
+                            }
+                        },
+                        {
+                            "$project": {
+                                "_id": 1,
+                                "cross_matches": 1,
+                                "prv_candidates": {
+                                    "$filter": {
+                                        "input": "$prv_candidates",
+                                        "as": "item",
+                                        "cond": {
+                                            "$in": [
+                                                "$$item.programid",
+                                                [
+                                                    1, 2, 3  # fixme: ACLs plug in here!
+                                                ]
                                             ]
-                                        ]
+                                        }
                                     }
-                                }
-                            },
+                                },
+                            }
+                        },
+                        {
+                            "$project": {
+                                "_id": 1,
+                                "cross_matches": 1,
+                                "prv_candidates.magpsf": 1,
+                                "prv_candidates.sigmapsf": 1,
+                                "prv_candidates.diffmaglim": 1,
+                                "prv_candidates.programid": 1,
+                                "prv_candidates.fid": 1,
+                                "prv_candidates.candid": 1,
+                                "prv_candidates.jd": 1,
+                            }
                         }
-                    },
-                    {
-                        "$project": {
-                            "_id": 1,
-                            "cross_matches": 1,
-                            "prv_candidates.magpsf": 1,
-                            "prv_candidates.sigmapsf": 1,
-                            "prv_candidates.diffmaglim": 1,
-                            "prv_candidates.programid": 1,
-                            "prv_candidates.fid": 1,
-                            "prv_candidates.candid": 1,
-                            "prv_candidates.jd": 1,
-                        }
-                    }
-                ]
+                    ]
+                }
             }
-        }
 
-        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+            base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                       f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+            headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
-        resp = s.post(
-            os.path.join(base_url, 'api/queries'),
-            json=query, headers=headers
-        )
+            resp = s.post(
+                os.path.join(base_url, 'api/queries'),
+                json=query, headers=headers
+            )
 
-        if resp.status_code == requests.codes.ok:
-            alert_data = loads(resp.text).get('data', list(dict()))[0]
-        else:
-            alert_data = dict()
+            if resp.status_code == requests.codes.ok:
+                alert_data = loads(resp.text).get('data', list(dict()))[0]
+            else:
+                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-        # grab and append most recent candid as it should not be in prv_candidates
-        query = {
-            "query_type": "aggregate",
-            "query": {
-                "catalog": "ZTF_alerts",
-                "pipeline": [
-                    {
-                        "$match": {
-                            "objectId": objectId
+            # grab and append most recent candid as it should not be in prv_candidates
+            query = {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "objectId": objectId
+                            }
+                        },
+                        {
+                            "$project": {
+                                # grab only what's going to be rendered
+                                "_id": 0,
+                                "candidate.candid": 1,
+                                "candidate.programid": 1,
+                                "candidate.jd": 1,
+                                "candidate.fid": 1,
+                                "candidate.magpsf": 1,
+                                "candidate.sigmapsf": 1,
+                                "candidate.diffmaglim": 1,
+                            }
+                        },
+                        {
+                            "$sort": {
+                                "candidate.jd": -1
+                            }
+                        },
+                        {
+                            "$limit": 1
                         }
-                    },
-                    {
-                        "$project": {
-                            # grab only what's going to be rendered
-                            "_id": 0,
-                            "candidate.candid": 1,
-                            "candidate.programid": 1,
-                            "candidate.jd": 1,
-                            "candidate.fid": 1,
-                            "candidate.magpsf": 1,
-                            "candidate.sigmapsf": 1,
-                            "candidate.diffmaglim": 1,
-                        }
-                    },
-                    {
-                        "$sort": {
-                            "candidate.jd": -1
-                        }
-                    },
-                    {
-                        "$limit": 1
-                    }
-                ]
+                    ]
+                }
             }
-        }
 
-        resp = s.post(
-            os.path.join(base_url, 'api/queries'),
-            json=query, headers=headers
-        )
+            resp = s.post(
+                os.path.join(base_url, 'api/queries'),
+                json=query, headers=headers
+            )
 
-        if resp.status_code == requests.codes.ok:
-            latest_alert_data = loads(resp.text).get('data', list(dict()))[0]
-        else:
-            latest_alert_data = dict()
+            if resp.status_code == requests.codes.ok:
+                latest_alert_data = loads(resp.text).get('data', list(dict()))[0]
+            else:
+                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-        if len(latest_alert_data) > 0:
-            alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+            if len(latest_alert_data) > 0:
+                alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
-        # fixme? populate empty fields for vega?
-        # if len(alert_data) > 0:
-        #     df = pd.DataFrame.from_records(alert_data['prv_candidates'])
-        #     alert_data['prv_candidates'] = df.to_dict(orient='records')
+            # fixme? populate empty fields for vega?
+            # if len(alert_data) > 0:
+            #     df = pd.DataFrame.from_records(alert_data['prv_candidates'])
+            #     alert_data['prv_candidates'] = df.to_dict(orient='records')
 
-        return self.success(data=alert_data)
+            return self.success(data=alert_data)
+
+        except Exception as _e:
+            _err = traceback.format_exc()
+            return self.error(f'failure: {_err}')
 
 
 class ZTFAlertCutoutHandler(BaseHandler):
