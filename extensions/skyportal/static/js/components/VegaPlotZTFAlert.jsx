@@ -101,7 +101,7 @@ const spec = (url, jd) => ({
         },
         tooltip: [
           // { field: "candid", title: "candid" },
-          { field: "magAndErr", title: "mag" },
+          { field: "magAndErr", title: "mag", type: "nominal" },
           { field: "fid", type: "ordinal" },
           { field: "jd", type: "quantitative" },
           { field: "diffmaglim", type: "quantitative", format: ".2f" }
