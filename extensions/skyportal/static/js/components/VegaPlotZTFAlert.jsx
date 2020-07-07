@@ -216,7 +216,8 @@ const spec = (url, jd) => ({
       mark: {type: "rule", strokeDash: [4, 4], size: 2},
       encoding: {
         x: {
-          datum: jd
+          datum: jd,
+          type: "quantitative"
         }
       }
     }
