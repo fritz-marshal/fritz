@@ -1,0 +1,439 @@
+[
+  {
+    "$match": {
+      "objectId": "ZTF20aacbyec", 
+      "candidate.programid": {
+        "$in": [
+          1
+        ]
+      }
+    }
+  }, {
+    "$project": {
+      "cutoutScience": 0, 
+      "cutoutTemplate": 0, 
+      "cutoutDifference": 0
+    }
+  }, {
+    "$lookup": {
+      "from": "ZTF_alerts_aux", 
+      "localField": "objectId", 
+      "foreignField": "_id", 
+      "as": "aux"
+    }
+  }, {
+    "$project": {
+      "cross_matches": {
+        "$arrayElemAt": [
+          "$aux.cross_matches", 0
+        ]
+      }, 
+      "prv_candidates": {
+        "$filter": {
+          "input": {
+            "$arrayElemAt": [
+              "$aux.prv_candidates", 0
+            ]
+          }, 
+          "as": "item", 
+          "cond": {
+            "$in": [
+              "$$item.programid", [
+                1
+              ]
+            ]
+          }
+        }
+      }, 
+      "schemavsn": 1, 
+      "publisher": 1, 
+      "objectId": 1, 
+      "candid": 1, 
+      "candidate": 1, 
+      "classifications": 1, 
+      "coordinates": 1
+    }
+  }, {
+    "$project": {
+      "_id": 0, 
+      "candid": 1, 
+      "objectId": 1, 
+      "prv_candidates.jd": 1, 
+      "prv_candidates.magpsf": 1, 
+      "prv_candidates.fid": 1, 
+      "prv_candidates.isdiffpos": 1, 
+      "isdiffpos": "$candidate.isdiffpos", 
+      "m_now": "$candidate.magpsf", 
+      "m_app": "$candidate.magap", 
+      "t_now": "$candidate.jd", 
+      "fid_now": "$candidate.fid", 
+      "sgscore": "$candidate.sgscore1", 
+      "sgscore2": "$candidate.sgscore2", 
+      "sgscore3": "$candidate.sgscore3", 
+      "srmag": "$candidate.srmag1", 
+      "srmag2": "$candidate.srmag2", 
+      "srmag3": "$candidate.srmag3", 
+      "sgmag": "$candidate.sgmag1", 
+      "simag": "$candidate.simag1", 
+      "drbscore": "$candidate.drb", 
+      "magnr": "$candidate.magnr", 
+      "distnr": "$candidate.distnr", 
+      "distpsnr1": "$candidate.distpsnr1", 
+      "distpsnr2": "$candidate.distpsnr2", 
+      "distpsnr3": "$candidate.distpsnr3", 
+      "scorr": "$candidate.scorr", 
+      "fwhm": "$candidate.fwhm", 
+      "elong": "$candidate.elong", 
+      "nbad": "$candidate.nbad", 
+      "chipsf": "$candidate.chipsf", 
+      "gal_lat": "$coordinates.b", 
+      "ssdistnr": "$candidate.ssdistnr", 
+      "ssmagnr": "$candidate.ssmagnr", 
+      "ssnamenr": "$candidate.ssnamenr", 
+      "t_start": "$candidate.jdstarthist", 
+      "age": {
+        "$subtract": [
+          "$candidate.jd", "$candidate.jdstarthist"
+        ]
+      }
+    }
+  }, {
+    "$project": {
+      "objectId": 1, 
+      "t_now": 1, 
+      "m_now": 1, 
+      "fid_now": 1, 
+      "sgscore": 1, 
+      "drbscore": 1, 
+      "magnr": 1, 
+      "distnr": 1, 
+      "scorr": 1, 
+      "gal_lat": 1, 
+      "ssdistnr": 1, 
+      "ssnamenr": 1, 
+      "age": 1, 
+      "peakmag": {
+        "$min": [
+          {
+            "$map": {
+              "input": "$prv_candidates", 
+              "as": "cand", 
+              "in": {
+                "$cond": [
+                  {
+                    "$eq": [
+                      "$$cand.fid", "$fid_now"
+                    ]
+                  }, "$$cand.magpsf", null
+                ]
+              }
+            }
+          }, "$m_now"
+        ]
+      }, 
+      "bright": {
+        "$or": [
+          {
+            "$lt": [
+              "$m_now", 19.0
+            ]
+          }, {
+            "$map": {
+              "input": "$prv_candidates", 
+              "as": "cand", 
+              "in": {
+                "$and": [
+                  {
+                    "$lt": [
+                      {
+                        "$abs": {
+                          "$subtract": [
+                            "$t_now", "$$cand.jd"
+                          ]
+                        }
+                      }, 0.75
+                    ]
+                  }, {
+                    "$in": [
+                      "$isdiffpos", [
+                        1, "1", "t", true
+                      ]
+                    ]
+                  }, {
+                    "$ne": [
+                      "$$cand.magpsf", null
+                    ]
+                  }, {
+                    "$lt": [
+                      "$$cand.magpsf", 19
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }, 
+      "latitude": {
+        "$gte": [
+          {
+            "$abs": "$gal_lat"
+          }, 7
+        ]
+      }, 
+      "positivesubtraction": {
+        "$in": [
+          "$isdiffpos", [
+            1, "1", "t", true
+          ]
+        ]
+      }, 
+      "real": {
+        "$gt": [
+          "$drbscore", 0.5
+        ]
+      }, 
+      "nopointunderneath": {
+        "$not": [
+          {
+            "$and": [
+              {
+                "$gt": [
+                  "$sgscore", 0.76
+                ]
+              }, {
+                "$lt": [
+                  "$distpsnr1", 2
+                ]
+              }
+            ]
+          }
+        ]
+      }, 
+      "brightstar": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "$lt": [
+                  "$distpsnr1", 20
+                ]
+              }, {
+                "$lt": [
+                  "$srmag", 15
+                ]
+              }, {
+                "$gt": [
+                  "$srmag", 0
+                ]
+              }, {
+                "$gt": [
+                  "$sgscore", 0.49
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$lt": [
+                  "$distpsnr2", 20
+                ]
+              }, {
+                "$lt": [
+                  "$srmag2", 15
+                ]
+              }, {
+                "$gt": [
+                  "$srmag2", 0
+                ]
+              }, {
+                "$gt": [
+                  "$sgscore2", 0.49
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$lt": [
+                  "$distpsnr3", 20
+                ]
+              }, {
+                "$lt": [
+                  "$srmag3", 15
+                ]
+              }, {
+                "$gt": [
+                  "$srmag3", 0
+                ]
+              }, {
+                "$gt": [
+                  "$sgscore3", 0.49
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$eq": [
+                  "$sgscore", 0.5
+                ]
+              }, {
+                "$lt": [
+                  "$distpsnr1", 0.5
+                ]
+              }, {
+                "$or": [
+                  {
+                    "$lt": [
+                      "$sgmag", 17
+                    ]
+                  }, {
+                    "$lt": [
+                      "$srmag", 17
+                    ]
+                  }, {
+                    "$lt": [
+                      "$simag", 17
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }, 
+      "variablesource": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "$lt": [
+                  "$distnr", 0.4
+                ]
+              }, {
+                "$lt": [
+                  "$magnr", 19
+                ]
+              }, {
+                "$gt": [
+                  "$age", 90
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$lt": [
+                  "$distnr", 0.8
+                ]
+              }, {
+                "$lt": [
+                  "$magnr", 17
+                ]
+              }, {
+                "$gt": [
+                  "$age", 90
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$lt": [
+                  "$distnr", 1.2
+                ]
+              }, {
+                "$lt": [
+                  "$magnr", 15
+                ]
+              }, {
+                "$gt": [
+                  "$age", 90
+                ]
+              }
+            ]
+          }
+        ]
+      }, 
+      "rock": {
+        "$and": [
+          {
+            "$gte": [
+              "$ssdistnr", 0
+            ]
+          }, {
+            "$lt": [
+              "$ssdistnr", 12
+            ]
+          }, {
+            "$lt": [
+              {
+                "$abs": "$ssmagnr"
+              }, 20
+            ]
+          }
+        ]
+      }, 
+      "stationary": {
+        "$anyElementTrue": {
+          "$map": {
+            "input": "$prv_candidates", 
+            "as": "cand", 
+            "in": {
+              "$and": [
+                {
+                  "$gt": [
+                    {
+                      "$abs": {
+                        "$subtract": [
+                          "$t_now", "$$cand.jd"
+                        ]
+                      }
+                    }, 0.02
+                  ]
+                }, {
+                  "$lt": [
+                    "$$cand.magpsf", 99
+                  ]
+                }, {
+                  "$in": [
+                    "$$cand.isdiffpos", [
+                      1, "1", true, "t"
+                    ]
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }, {
+    "$match": {
+      "latitude": true, 
+      "bright": true, 
+      "nopointunderneath": true, 
+      "positivesubtraction": true, 
+      "real": true, 
+      "stationary": true, 
+      "brightstar": false, 
+      "rock": false
+    }
+  }, {
+    "$project": {
+      "objectId": 1,
+      "annotations.jd": "$t_now", 
+      "annotations.magnitude": "$m_now", 
+      "annotations.sgscore": "$sgscore", 
+      "annotations.peakmag": "$peakmag", 
+      "annotations.atpeak": {
+        "$eq": [
+          "$m_now", "$peakmag"
+        ]
+      }, 
+      "annotations.age": "$age", 
+      "annotations.drb": "$drbscore"
+    }
+  }
+]

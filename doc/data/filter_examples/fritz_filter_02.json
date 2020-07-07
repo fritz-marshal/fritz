@@ -61,19 +61,14 @@
     }
   },
   {
-    "$addFields": {
-      "annotations.author": "dd",
-      "annotations.mean_rb": {
-        "$avg": "$prv_candidates.rb"
-      }
-    }
-  },
-  {
     "$project": {
       "_id": 0,
       "candid": 1,
       "objectId": 1,
-      "annotations": 1
+      "annotations.author": "dd",
+      "annotations.mean_rb": {
+        "$avg": "$prv_candidates.rb"
+      }
     }
   }
 ]
