@@ -946,6 +946,9 @@ Let us explore it step by step:
 
 ### BTS/RCF program (simplified) filter
 
+Let us look at another example - a simplified version of the Bright Transient Survey filter
+(the Redshift Completeness Factor program)
+
 [fritz_filter_rcf.json](data/filter_examples/fritz_filter_rcf.json)
 
 ```js
