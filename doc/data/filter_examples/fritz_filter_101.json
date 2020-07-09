@@ -15,26 +15,21 @@
     }
   },
   {
-    "$replaceRoot": {
-      "newRoot": {
-        "$mergeObjects": [
-          {
+    "$project": {
+      "cross_matches": {
+        "$arrayElemAt": [
+          "$aux.cross_matches",
+          0
+        ]
+      },
+      "prv_candidates": {
+        "$filter": {
+          "input": {
             "$arrayElemAt": [
-              "$aux",
+              "$aux.prv_candidates",
               0
             ]
           },
-          "$$ROOT"
-        ]
-      }
-    }
-  },
-  {
-    "$project": {
-      "cross_matches": 1,
-      "prv_candidates": {
-        "$filter": {
-          "input": "$prv_candidates",
           "as": "item",
           "cond": {
             "$in": [
@@ -60,7 +55,7 @@
       "candidate.drb": {
         "$gt": 0.9999999
       },
-      "cross_matches.CLU_20190625.0": {
+      "cross_matches.Gaia_DR2.0": {
         "$exists": false
       }
     }
