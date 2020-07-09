@@ -59,13 +59,16 @@ the cross-matches, ML scores, computed quantities, and archival photometry
 
 The upstream stages also take care of the ACLs.
 
-`Fritz` automatically prepends these stages to all user-defined filters. 
+`Fritz` automatically prepends these stages to all user-defined filters. However, when constructing/debugging
+filters in Compass, the users must take care of that -- all the examples below come with the upstream stages prepended.
 
 ### Limitations
 
-`$lookup` stages are not allowed in the user-defined filters.
+`$lookup` stages are not allowed in the user-defined part of the filters.
 
 ## Filter examples
+
+Let us explore some examples!
 
 ### Simple filter
 
@@ -318,7 +321,7 @@ The `Fritz`-implementation that can be loaded into Compass can be found here:
 
 [fritz_filter_clu.json](data/filter_examples/fritz_filter_clu.json)
 
-Let us explore it step by step:
+Let us explore it step by step and look at the individual user-defined stages omitting the upstream part.
 
 ```js
 [
