@@ -44,11 +44,28 @@
           },
           "as": "item",
           "cond": {
-            "$in": [
-              "$$item.programid",
-              [
-                1
-              ]
+            "$and": [
+              {
+                "$in": [
+                  "$$item.programid",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              },
+              {
+                "$gt": [
+                  {
+                    "$subtract": [
+                      "$candidate.jd",
+                      "$$item.jd"
+                    ]
+                  },
+                  100
+                ]
+              }
             ]
           }
         }

@@ -2,7 +2,7 @@
 
 In this tutorial, we will discuss the alert filters in `Fritz`:
 - Technical details on the implementation
-- Filter examples with step-by-step explanations 
+- Filter examples with step-by-step explanations
 
 ## Introduction
 
@@ -17,15 +17,15 @@ for a brief introduction into `MongoDB`.
 ### Filtering implementation
 
 Upon alert ingestion into the database, `Kowalski` executes user-defined filters and reports the passing alerts 
-to `Fritz`'s `SkyPortal` submodule. This is implemented as a `MongoDB` aggregation pipeline that first "massages" 
+to `Fritz`'s user-facing `SkyPortal` submodule. This is implemented as a `MongoDB` aggregation pipeline that first "massages" 
 the newly ingested alert data such that the user's filter deals with enhanced "packets" containing, for example, 
-the full photometry history (and not just the rolling 30-day window), cross-match data, and custom ML scores.
+longer photometry history (and not just the rolling 30-day window), cross-match data, and custom ML scores.
 
 The [MongoDB aggregation pipeline](https://docs.mongodb.com/manual/core/aggregation-pipeline/) is a framework 
 for data aggregation modeled on the concept of data processing pipelines. Documents enter a multi-stage pipeline 
 that transforms the documents into aggregated results.
 
-An aggregation pipeline is represented as a list of dictionaries, each representing a processing stage:
+An aggregation pipeline is represented as a list of dictionaries, each corresponding to a processing stage/step:
 
 ```
 [
@@ -35,14 +35,23 @@ An aggregation pipeline is represented as a list of dictionaries, each represent
 ]
 ```
 
+As of MongoDB version 4.2, there are 30 different types of aggregation pipeline stages, please see 
+[the official documentation](https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline/) for a detailed
+description.
+
 ### User interfaces
 
-To ease the process of writing and debugging the filters, we have set up a live public `MongoDB Atlas` database 
-in the cloud with a curated set of sample public ZTF alerts.
+To ease the process of writing and debugging the filters, we have set up two live *public* `MongoDB Atlas` databases 
+in the cloud: 
+1. The first one contains a small curated set of ~300 sample public ZTF alerts originating from SNe, variable stars,
+AGN, and bogus detections. The auxiliary information is limited to the detection history present in the alert packets.
+2. The second one contains ~120,000 public ZTF alerts from July 6, 2020. The auxiliary information contains a ~100-day 
+history of detections (limited to reduce the test database size), cross-matches with external catalogs, and a few 
+additional quantities.
 
 In this tutorial, we will show how to use a tool called [MongoDB Compass](https://www.mongodb.com/try/download/compass) 
-(the full version is now free) to construct and debug aggregation pipelines aka alert filters that can be then 
-plugged into `Fritz`.
+(the full version is now free) to construct and debug aggregation pipelines (aka alert filters) using the two cloud
+databases that can be then plugged into `Fritz`.
 
 Filters will be managed on a dedicated page on `Fritz`. A detailed description of the interface and its capabilities
 (including, for example, filter versioning and diff'ing) will be covered elsewhere -- please stay tuned.
@@ -51,16 +60,21 @@ Filters will be managed on a dedicated page on `Fritz`. A detailed description o
 
 Download and install MongoDB Compass for your system from [here](https://www.mongodb.com/try/download/compass).
 
-The connection string to access the sample public alert database:
+The connection string to access the first sample public alert database:
 ```
 mongodb://ztf:FritzZwicky@fritz-test-shard-00-00-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-01-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-02-uas9d.gcp.mongodb.net:27017/test?authSource=admin&replicaSet=fritz-test-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true
+```
+
+The connection string to access the second sample public alert database:
+```
+<TODO>
 ```
 
 Upon connection:
 - Select the `kowalski` database
 - Select the `ZTF_alerts` collection
-- Go to the Aggregations tab.
-- Click the down arrow to the left of "Collation" button and select "New Pipeline From Text"
+- Go to the Aggregations tab
+- Click the down arrow located to the left of the "Collation" button and select "New Pipeline From Text"
 - Copy paste the contents of the provided JSON files with the sample filters (see below)
 
 Note that Compass shows the output of all stages interactively and also displays/explains any errors in the code, 
@@ -75,14 +89,17 @@ The upstream "massaging" mentioned above is performed by `Fritz` for each alert 
 - Selecting the newly ingested alert from the `ZTF_alerts` collection by its `candid`
 - Removing the image cutouts to reduce traffic
 - Joining the alert by its `objectId` with the corresponding entry in the `ZTF_alerts_aux` collection, which contains 
-the cross-matches, ML scores, computed quantities, and archival photometry
+the cross-matches, ML scores, computed quantities, and archival photometry / detection history
 
 The upstream stages also take care of the ACLs.
 
 `Fritz` uses the following four stages: 
 
-1. The first `$match` stage selects the alert by its candid and ensures the ACLs are respected. 
+1. The first [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/) 
+stage selects the alert by its candid and ensures the ACLs are respected. 
+
 For example, for a program that has access to the partnership data:
+
 ```json
 {
   "$match": {
@@ -94,7 +111,8 @@ For example, for a program that has access to the partnership data:
 }
 ```
 
-2. The image cutouts are stored per alert, but generally not needed for the filtering purposes. The `$project` stage
+2. The image cutouts are stored per alert, but generally not needed for the filtering purposes. 
+The [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage
 removes them:  
 
 ```json
@@ -107,7 +125,9 @@ removes them:
 }
 ```
 
-3. The alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` collection:
+3. Using the [`$lookup`](https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/) stage, 
+the alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` collection, which uses the alert's
+`objectId`s as unique document identifiers (`_id` - a concept in MongoDB similar to primary keys in SQL):
 
 ```json
   {
@@ -120,8 +140,10 @@ removes them:
   }
 ```
 
-4. The final `$project` stage reshapes the joined data for convenience 
-and applies ACLs to the archival photometry stored in `prv_candidates`:
+4. The final [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage reshapes 
+the joined data for convenience, selects the last 100 days of photometry history (which is done having practical
+considerations in mind and may be relaxed in the future), 
+and applies ACLs to the detection history stored in `prv_candidates`:
 
 ```json
 {
@@ -142,11 +164,28 @@ and applies ACLs to the archival photometry stored in `prv_candidates`:
         },
         "as": "item",
         "cond": {
-          "$in": [
-            "$$item.programid",
-            [
-              1, 2
-            ]
+          "$and": [
+            {
+              "$in": [
+                "$$item.programid",
+                [
+                  1,
+                  2,
+                  3
+                ]
+              ]
+            },
+            {
+              "$gt": [
+                {
+                  "$subtract": [
+                    "$candidate.jd",
+                    "$$item.jd"
+                  ]
+                },
+                100
+              ]
+            }
           ]
         }
       }
@@ -162,7 +201,7 @@ and applies ACLs to the archival photometry stored in `prv_candidates`:
 }
 ```
 
-The user-defined filter stages then operate on "enhanced" alerts that look like this:
+The user-defined filter stages then operate on the "enhanced" packets that look like this:
 
 ![img/filter-04.png](img/filter-04.png) 
 
@@ -172,12 +211,12 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 ### Limitations
 
-`$lookup` stages are not allowed in the user-defined part of the filters.
+`$lookup` and `$unionWith` stages are not allowed in the user-defined part of the filters.
 
 ## Filter examples
 
-Let us explore some examples! The provided json files contain prepended upstream stages, but they are not shown
-below for brevity.
+Let us explore some examples! The provided JSON files contain prepended upstream stages, but they are not shown in the
+text below for brevity.
 
 ### Simple filter
 
@@ -185,8 +224,9 @@ Let us start with a very simplistic example:
 
 [fritz_filter_101.json](data/filter_examples/fritz_filter_101.json)
 
-The first user-defined `$match` stage selects alerts with `drb` scores greater than 0.9999999 
-that don't have any matches with the Gaia_DR2 catalog 
+The first user-defined [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/) 
+stage selects alerts with deep-learning-based real-bogus scores (`candidate.drb`) greater than 0.9999999 
+that don't have any matches with the `Gaia_DR2` catalog 
 (the zeroth element of the corresponding array does not exist)
 
 ```json
@@ -218,7 +258,7 @@ In case an alert passes the first stage, the output stage adds the annotations d
 }
 ```
 
-`candid` and `objectId` are passed for the debugging purposes, to see which alerts pass your filter.
+`candid` and `objectId` are kept here for the debugging purposes, to see which alerts pass your filter.
 
 The output of the filter will look something like this:
 
@@ -229,10 +269,10 @@ This alert will be posted to the candidates page with these annotations.
 ### CLU filter
 
 Now that we've looked at a basic example, let us explore a real-life example and build a filter for 
-the Census of the Local Universe program.
+the [Census of the Local Universe](https://ui.adsabs.harvard.edu/abs/2020arXiv200409029D/abstract) program.
 
 As a reference, we will use the filter definition (as of July 10, 2020) 
-from the GROWTH marshal translated into `python` code:
+from the GROWTH marshal translated into `python` code (copy-pasted here with no alterations):
 
 ```python
 def clu_filter(current_observation):
@@ -385,11 +425,13 @@ The `Fritz`-implementation that can be loaded into Compass can be found here:
 
 [fritz_filter_clu.json](data/filter_examples/fritz_filter_clu.json)
 
-Let us explore it step by step and look at the individual user-defined stages again omitting 
+Let us explore it step-by-step and look at the individual user-defined stages, again omitting 
 the upstream part.
 
-In the first `$project` stage, we define the variables that will be used by the downstream stages.
-Note how we are using the `$subtract` operator for the `deltajd` and `psfminap` fields. 
+In the first [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) 
+stage, we define the variables that will be used by the downstream stages.
+Note how we are using the [`$subtract`](https://docs.mongodb.com/manual/reference/operator/aggregation/subtract/) 
+operator for the `deltajd` and `psfminap` fields. 
 Also, the `candidates_fid` field concatenates the previous >3sigma detections in the same filter as `fid_now` 
 with the current photometric point, which we will use below.
 
@@ -398,88 +440,91 @@ see [here](https://docs.mongodb.com/manual/reference/operator/aggregation/).
 
 ```json
 {
-    "$project": {
-      "_id": 0, 
-      "candid": 1, 
-      "objectId": 1, 
-      "prv_candidates.jd": 1, 
-      "prv_candidates.magpsf": 1, 
-      "prv_candidates.fid": 1, 
-      "prv_candidates.isdiffpos": 1, 
-      "isdiffpos": "$candidate.isdiffpos", 
-      "m_now": "$candidate.magpsf", 
-      "m_app": "$candidate.magap", 
-      "t_now": "$candidate.jd", 
-      "fid_now": "$candidate.fid", 
-      "sgscore": "$candidate.sgscore1", 
-      "sgscore2": "$candidate.sgscore2", 
-      "sgscore3": "$candidate.sgscore3", 
-      "srmag": "$candidate.srmag1", 
-      "srmag2": "$candidate.srmag2", 
-      "srmag3": "$candidate.srmag3", 
-      "sgmag": "$candidate.sgmag1", 
-      "simag": "$candidate.simag1", 
-      "rbscore": "$candidate.rb", 
-      "drb": "$candidate.drb", 
-      "magnr": "$candidate.magnr", 
-      "distnr": "$candidate.distnr", 
-      "distpsnr1": "$candidate.distpsnr1", 
-      "distpsnr2": "$candidate.distpsnr2", 
-      "distpsnr3": "$candidate.distpsnr3", 
-      "scorr": "$candidate.scorr", 
-      "fwhm": "$candidate.fwhm", 
-      "elong": "$candidate.elong", 
-      "nbad": "$candidate.nbad", 
-      "chipsf": "$candidate.chipsf", 
-      "gal_lat": "$coordinates.b", 
-      "ssdistnr": "$candidate.ssdistnr", 
-      "ssmagnr": "$candidate.ssmagnr", 
-      "ssnamenr": "$candidate.ssnamenr", 
-      "jdstarthist": "$candidate.jdstarthist", 
-      "jdendhist": "$candidate.jdendhist", 
-      "deltajd": {
-        "$subtract": [
-          "$candidate.jdendhist", "$candidate.jdstarthist"
-        ]
-      }, 
-      "psfminap": {
-        "$subtract": [
-          "$candidate.magpsf", "$candidate.magap"
-        ]
-      }, 
-      "candidates_fid": {
-        "$concatArrays": [
+  "$project": {
+    "_id": 0, 
+    "candid": 1, 
+    "objectId": 1, 
+    "prv_candidates.jd": 1, 
+    "prv_candidates.magpsf": 1, 
+    "prv_candidates.fid": 1, 
+    "prv_candidates.isdiffpos": 1, 
+    "isdiffpos": "$candidate.isdiffpos", 
+    "m_now": "$candidate.magpsf", 
+    "m_app": "$candidate.magap", 
+    "t_now": "$candidate.jd", 
+    "fid_now": "$candidate.fid", 
+    "sgscore": "$candidate.sgscore1", 
+    "sgscore2": "$candidate.sgscore2", 
+    "sgscore3": "$candidate.sgscore3", 
+    "srmag": "$candidate.srmag1", 
+    "srmag2": "$candidate.srmag2", 
+    "srmag3": "$candidate.srmag3", 
+    "sgmag": "$candidate.sgmag1", 
+    "simag": "$candidate.simag1", 
+    "rbscore": "$candidate.rb", 
+    "drb": "$candidate.drb", 
+    "magnr": "$candidate.magnr", 
+    "distnr": "$candidate.distnr", 
+    "distpsnr1": "$candidate.distpsnr1", 
+    "distpsnr2": "$candidate.distpsnr2", 
+    "distpsnr3": "$candidate.distpsnr3", 
+    "scorr": "$candidate.scorr", 
+    "fwhm": "$candidate.fwhm", 
+    "elong": "$candidate.elong", 
+    "nbad": "$candidate.nbad", 
+    "chipsf": "$candidate.chipsf", 
+    "gal_lat": "$coordinates.b", 
+    "ssdistnr": "$candidate.ssdistnr", 
+    "ssmagnr": "$candidate.ssmagnr", 
+    "ssnamenr": "$candidate.ssnamenr", 
+    "jdstarthist": "$candidate.jdstarthist", 
+    "jdendhist": "$candidate.jdendhist", 
+    "deltajd": {
+      "$subtract": [
+        "$candidate.jdendhist", "$candidate.jdstarthist"
+      ]
+    }, 
+    "psfminap": {
+      "$subtract": [
+        "$candidate.magpsf", "$candidate.magap"
+      ]
+    }, 
+    "candidates_fid": {
+      "$concatArrays": [
+        {
+          "$filter": {
+            "input": "$prv_candidates", 
+            "as": "cand", 
+            "cond": {
+              "$and": [
+                {
+                  "$eq": [
+                    "$$cand.fid", "$candidate.fid"
+                  ]
+                }, 
+                {
+                  "$gt": [
+                    "$$cand.magpsf", 0
+                  ]
+                }, 
+                {
+                  "$lt": [
+                    "$$cand.magpsf", 99
+                  ]
+                }
+              ]
+            }
+          }
+        }, 
+        [
           {
-            "$filter": {
-              "input": "$prv_candidates", 
-              "as": "cand", 
-              "cond": {
-                "$and": [
-                  {
-                    "$eq": [
-                      "$$cand.fid", "$candidate.fid"
-                    ]
-                  }, {
-                    "$gt": [
-                      "$$cand.magpsf", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$$cand.magpsf", 99
-                    ]
-                  }
-                ]
-              }
-            }
-          }, [
-            {
-              "jd": "$candidate.jd", 
-              "magpsf": "$candidate.magpsf"
-            }
-          ]
+            "jd": "$candidate.jd", 
+            "magpsf": "$candidate.magpsf"
+          }
         ]
-      }
+      ]
     }
+  }
 }
 ```
 
@@ -490,325 +535,341 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
 
 ```json
 {
-    "$project": {
-      "t_now": 1, 
-      "m_now": 1, 
-      "fid_now": 1, 
-      "sgscore": 1, 
-      "drbscore": 1, 
-      "magnr": 1, 
-      "distnr": 1, 
-      "scorr": 1,
-      "ssdistnr": 1, 
-      "ssnamenr": 1, 
-      "rbscore": 1, 
-      "drb": 1, 
-      "sgmag": 1, 
-      "srmag": 1, 
-      "simag": 1, 
-      "distpsnr1": 1, 
-      "distpsnr2": 1, 
-      "distpsnr3": 1, 
-      "fwhm": 1, 
-      "elong": 1, 
-      "gal_lat": 1, 
-      "jdstarthist": 1, 
-      "jdendhist": 1, 
-      "psfminap": 1, 
-      "candidates_fid": 1, 
-      "m_max_index": {
-        "$indexOfArray": [
-          "$candidates_fid.magpsf", {
-            "$max": [
-              "$candidates_fid.magpsf"
-            ]
-          }
-        ]
-      }, 
-      "m_min_index": {
-        "$indexOfArray": [
-          "$candidates_fid.magpsf", {
-            "$min": [
-              "$candidates_fid.magpsf"
-            ]
-          }
-        ]
-      }, 
-      "bright": {
-        "$lt": [
-          "$m_now", 99.0
-        ]
-      }, 
-      "positivesubtraction": {
-        "$in": [
-          "$isdiffpos", [
-            1, "1", "t", true
+  "$project": {
+    "t_now": 1, 
+    "m_now": 1, 
+    "fid_now": 1, 
+    "sgscore": 1, 
+    "drbscore": 1, 
+    "magnr": 1, 
+    "distnr": 1, 
+    "scorr": 1,
+    "ssdistnr": 1, 
+    "ssnamenr": 1, 
+    "rbscore": 1, 
+    "drb": 1, 
+    "sgmag": 1, 
+    "srmag": 1, 
+    "simag": 1, 
+    "distpsnr1": 1, 
+    "distpsnr2": 1, 
+    "distpsnr3": 1, 
+    "fwhm": 1, 
+    "elong": 1, 
+    "gal_lat": 1, 
+    "jdstarthist": 1, 
+    "jdendhist": 1, 
+    "psfminap": 1, 
+    "candidates_fid": 1, 
+    "m_max_index": {
+      "$indexOfArray": [
+        "$candidates_fid.magpsf", {
+          "$max": [
+            "$candidates_fid.magpsf"
           ]
+        }
+      ]
+    }, 
+    "m_min_index": {
+      "$indexOfArray": [
+        "$candidates_fid.magpsf", {
+          "$min": [
+            "$candidates_fid.magpsf"
+          ]
+        }
+      ]
+    }, 
+    "bright": {
+      "$lt": [
+        "$m_now", 99.0
+      ]
+    }, 
+    "positivesubtraction": {
+      "$in": [
+        "$isdiffpos", 
+        [
+          1, "1", "t", true
         ]
-      }, 
-      "real": {
-        "$and": [
-          {
-            "$gt": [
-              "$rbscore", 0.3
-            ]
-          }, {
-            "$gt": [
-              "$drb", 0.5
-            ]
-          }, {
-            "$gt": [
-              "$fwhm", 0.5
-            ]
-          }, {
-            "$lt": [
-              "$fwhm", 8
-            ]
-          }, {
-            "$lt": [
-              "$nbad", 5
-            ]
-          }, {
-            "$lt": [
-              {
-                "$abs": "$psfminap"
-              }, 0.75
-            ]
-          }
-        ]
-      }, 
-      "nopointunderneath": {
-        "$not": [
-          {
+      ]
+    }, 
+    "real": {
+      "$and": [
+        {
+          "$gt": [
+            "$rbscore", 0.3
+          ]
+        }, {
+          "$gt": [
+            "$drb", 0.5
+          ]
+        }, {
+          "$gt": [
+            "$fwhm", 0.5
+          ]
+        }, {
+          "$lt": [
+            "$fwhm", 8
+          ]
+        }, {
+          "$lt": [
+            "$nbad", 5
+          ]
+        }, {
+          "$lt": [
+            {
+              "$abs": "$psfminap"
+            }, 0.75
+          ]
+        }
+      ]
+    }, 
+    "nopointunderneath": {
+      "$not": [
+        {
+          "$and": [
+            {
+              "$gt": [
+                "$sgscore", 0.76
+              ]
+            }, {
+              "$lt": [
+                "$distpsnr1", 2
+              ]
+            }
+          ]
+        }
+      ]
+    }, 
+    "brightstar": {
+      "$or": [
+        {
+          "$and": [
+            {
+              "$lt": [
+                "$distpsnr1", 20
+              ]
+            }, {
+              "$lt": [
+                "$srmag", 15
+              ]
+            }, {
+              "$gt": [
+                "$srmag", 0
+              ]
+            }, {
+              "$gt": [
+                "$sgscore", 0.49
+              ]
+            }
+          ]
+        }, {
+          "$and": [
+            {
+              "$lt": [
+                "$distpsnr2", 20
+              ]
+            }, {
+              "$lt": [
+                "$srmag2", 15
+              ]
+            }, {
+              "$gt": [
+                "$srmag2", 0
+              ]
+            }, {
+              "$gt": [
+                "$sgscore2", 0.49
+              ]
+            }
+          ]
+        }, {
+          "$and": [
+            {
+              "$lt": [
+                "$distpsnr3", 20
+              ]
+            }, {
+              "$lt": [
+                "$srmag3", 15
+              ]
+            }, {
+              "$gt": [
+                "$srmag3", 0
+              ]
+            }, {
+              "$gt": [
+                "$sgscore3", 0.49
+              ]
+            }
+          ]
+        }, {
+          "$and": [
+            {
+              "$eq": [
+                "$sgscore", 0.5
+              ]
+            }, {
+              "$lt": [
+                "$distpsnr1", 0.5
+              ]
+            }, {
+              "$or": [
+                {
+                  "$lt": [
+                    "$sgmag", 17
+                  ]
+                }, {
+                  "$lt": [
+                    "$srmag", 17
+                  ]
+                }, {
+                  "$lt": [
+                    "$simag", 17
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }, 
+    "variablesource": {
+      "$or": [
+        {
+          "$and": [
+            {
+              "$lt": [
+                "$distnr", 0.4
+              ]
+            }, {
+              "$lt": [
+                "$magnr", 19
+              ]
+            }, {
+              "$gt": [
+                "$age", 90
+              ]
+            }
+          ]
+        }, {
+          "$and": [
+            {
+              "$lt": [
+                "$distnr", 0.8
+              ]
+            }, {
+              "$lt": [
+                "$magnr", 17
+              ]
+            }, {
+              "$gt": [
+                "$age", 90
+              ]
+            }
+          ]
+        }, {
+          "$and": [
+            {
+              "$lt": [
+                "$distnr", 1.2
+              ]
+            }, {
+              "$lt": [
+                "$magnr", 15
+              ]
+            }, {
+              "$gt": [
+                "$age", 90
+              ]
+            }
+          ]
+        }
+      ]
+    }, 
+    "rock": {
+      "$and": [
+        {
+          "$gte": [
+            "$ssdistnr", 0
+          ]
+        }, {
+          "$lt": [
+            "$ssdistnr", 12
+          ]
+        }, {
+          "$lt": [
+            {
+              "$abs": "$ssmagnr"
+            }, 20
+          ]
+        }
+      ]
+    }, 
+    "stationary": {
+      "$anyElementTrue": {
+        "$map": {
+          "input": "$prv_candidates", 
+          "as": "cand", 
+          "in": {
             "$and": [
               {
                 "$gt": [
-                  "$sgscore", 0.76
+                  {
+                    "$abs": {
+                      "$subtract": [
+                        "$t_now", "$$cand.jd"
+                      ]
+                    }
+                  }, 0.02
                 ]
               }, {
                 "$lt": [
-                  "$distpsnr1", 2
-                ]
-              }
-            ]
-          }
-        ]
-      }, 
-      "brightstar": {
-        "$or": [
-          {
-            "$and": [
-              {
-                "$lt": [
-                  "$distpsnr1", 20
+                  "$$cand.magpsf", 99
                 ]
               }, {
-                "$lt": [
-                  "$srmag", 15
-                ]
-              }, {
-                "$gt": [
-                  "$srmag", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore", 0.49
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distpsnr2", 20
-                ]
-              }, {
-                "$lt": [
-                  "$srmag2", 15
-                ]
-              }, {
-                "$gt": [
-                  "$srmag2", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore2", 0.49
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distpsnr3", 20
-                ]
-              }, {
-                "$lt": [
-                  "$srmag3", 15
-                ]
-              }, {
-                "$gt": [
-                  "$srmag3", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore3", 0.49
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$eq": [
-                  "$sgscore", 0.5
-                ]
-              }, {
-                "$lt": [
-                  "$distpsnr1", 0.5
+                "$in": [
+                  "$$cand.isdiffpos", [
+                    1, "1", true, "t"
+                  ]
                 ]
               }, {
                 "$or": [
                   {
                     "$lt": [
-                      "$sgmag", 17
+                      "$ssdistnr", -0.5
                     ]
                   }, {
-                    "$lt": [
-                      "$srmag", 17
-                    ]
-                  }, {
-                    "$lt": [
-                      "$simag", 17
+                    "$gt": [
+                      "$ssdistnr", 2
                     ]
                   }
                 ]
               }
             ]
           }
-        ]
-      }, 
-      "variablesource": {
-        "$or": [
-          {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 0.4
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 19
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 0.8
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 17
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 1.2
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 15
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }
-        ]
-      }, 
-      "rock": {
-        "$and": [
-          {
-            "$gte": [
-              "$ssdistnr", 0
-            ]
-          }, {
-            "$lt": [
-              "$ssdistnr", 12
-            ]
-          }, {
-            "$lt": [
-              {
-                "$abs": "$ssmagnr"
-              }, 20
-            ]
-          }
-        ]
-      }, 
-      "stationary": {
-        "$anyElementTrue": {
-          "$map": {
-            "input": "$prv_candidates", 
-            "as": "cand", 
-            "in": {
-              "$and": [
-                {
-                  "$gt": [
-                    {
-                      "$abs": {
-                        "$subtract": [
-                          "$t_now", "$$cand.jd"
-                        ]
-                      }
-                    }, 0.02
-                  ]
-                }, {
-                  "$lt": [
-                    "$$cand.magpsf", 99
-                  ]
-                }, {
-                  "$in": [
-                    "$$cand.isdiffpos", [
-                      1, "1", true, "t"
-                    ]
-                  ]
-                }, {
-                  "$or": [
-                    {
-                      "$lt": [
-                        "$ssdistnr", -0.5
-                      ]
-                    }, {
-                      "$gt": [
-                        "$ssdistnr", 2
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          }
         }
       }
     }
   }
+}
 ```
 
-In the following `$project` stage, we compute the maximum and minimum magnitudes for the source and the corresponding time stamps:
+Let us take a closer look at a few of the fields defined above:
+
+1. In the definition of `m_max_index`, 
+the [`$indexOfArray`](https://docs.mongodb.com/manual/reference/operator/aggregation/indexOfArray/)
+operator returns the index of the maximum value of the `magpsf` field in the detection history:
+- `$candidates_fid.magpsf` returns an array containing the filtered `magpsf`s
+- the [`$max`](https://docs.mongodb.com/manual/reference/operator/aggregation/max/) operator takes the maximum of that
+array
+ 
+2. In the definition of `stationary`, we evaluate a boolean statement (expressed using the`$and` operator) 
+on each entry in the full detection history stored in the `prv_candidates` array using the 
+[`$map`](https://docs.mongodb.com/manual/reference/operator/aggregation/map/) operator.
+
+
+In the following `$project` stage, we compute the maximum and minimum magnitudes 
+for the source and the corresponding time stamps using the `m_max_index` and `m_min_index` values computed above:
 
 ```json 
 {
@@ -869,7 +930,9 @@ In the following `$project` stage, we compute the maximum and minimum magnitudes
 } 
 ```
 
-The alert is selected or rejected with a `$match` stage based on the values of the boolean fields defined above: 
+The alert is selected or rejected by our filter with a 
+[`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/) 
+stage based on the values of the boolean fields defined above: 
 
 ```json
 {
@@ -993,7 +1056,7 @@ The final stage adds annotations to a passing alert:
 
 ### BTS/RCF program (simplified) filter
 
-Let us look at another example - a simplified version of the Bright Transient Survey filter
+As another example, below you will find a simplified version of the Bright Transient Survey filter
 (the Redshift Completeness Factor program)
 
 [fritz_filter_rcf.json](data/filter_examples/fritz_filter_rcf.json)
