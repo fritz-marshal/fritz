@@ -25,6 +25,16 @@ The [MongoDB aggregation pipeline](https://docs.mongodb.com/manual/core/aggregat
 for data aggregation modeled on the concept of data processing pipelines. Documents enter a multi-stage pipeline 
 that transforms the documents into aggregated results.
 
+An aggregation pipeline is represented as a list of dictionaries, each representing a processing stage:
+
+```
+[
+    {<stage_1>},
+    ...
+    {<stage_N>}
+]
+```
+
 ### User interfaces
 
 To ease the process of writing and debugging the filters, we have set up a live public `MongoDB Atlas` database 
@@ -46,9 +56,19 @@ The connection string to access the sample public alert database:
 mongodb://ztf:FritzZwicky@fritz-test-shard-00-00-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-01-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-02-uas9d.gcp.mongodb.net:27017/test?authSource=admin&replicaSet=fritz-test-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true
 ```
 
-Upon connection, select the `ZTF_alerts` collection and go to the Aggregations tab. 
+Upon connection:
+- Select the `kowalski` database
+- Select the `ZTF_alerts` collection
+- Go to the Aggregations tab.
+- Click the down arrow to the left of "Collation" button and select "New Pipeline From Text"
+- Copy paste the contents of the provided JSON files with the sample filters (see below)
+
+Note that Compass shows the output of all stages interactively and also displays/explains any errors in the code, 
+which is extremely helpful for debugging and experimentation.
 
 ### "Upstream" aggregation pipeline stages
+
+[OPTIONAL READ]
 
 The upstream "massaging" mentioned above is performed by `Fritz` for each alert and includes:
 
@@ -59,39 +79,37 @@ the cross-matches, ML scores, computed quantities, and archival photometry
 
 The upstream stages also take care of the ACLs.
 
-`Fritz` automatically prepends these stages to all user-defined filters. However, when constructing/debugging
-filters in Compass, the users must take care of that -- all the examples below come with the upstream stages prepended.
+`Fritz` uses the following four stages: 
 
-### Limitations
-
-`$lookup` stages are not allowed in the user-defined part of the filters.
-
-## Filter examples
-
-Let us explore some examples!
-
-### Simple filter
-
-[fritz_filter_101.json](data/filter_examples/fritz_filter_101.json)
-
-```js
-[ 
-  /* UPSTREAM STAGES -- automatically prepended by Fritz to user-defined filters */
-  // UPSTREAM STAGE: For this example, we will select alerts by objectId. In practice, alert is selected by candid
-  {
-    "$match": {
-      "objectId": "ZTF20aaelulu"
+1. The first `$match` stage selects the alert by its candid and ensures the ACLs are respected. 
+For example, for a program that has access to the partnership data:
+```json
+{
+  "$match": {
+    "candid": 1282486310015015001,
+    "candidate.programid": {
+      "$in": [1, 2]
     }
-  },
-  // UPSTREAM STAGE: Remove the cutouts
-  {
-    "$project": {
-      "cutoutScience": 0,
-      "cutoutTemplate": 0,
-      "cutoutDifference": 0
-    }
-  },
-  // UPSTREAM STAGE: Join alert with auxiliary data stored in ZTF_alerts_aux collection
+  }
+}
+```
+
+2. The image cutouts are stored per alert, but generally not needed for the filtering purposes. The `$project` stage
+removes them:  
+
+```json
+{
+  "$project": {
+    "cutoutScience": 0,
+    "cutoutTemplate": 0,
+    "cutoutDifference": 0
+  }
+}
+```
+
+3. The alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` collection:
+
+```json
   {
     "$lookup": {
       "from": "ZTF_alerts_aux",
@@ -99,76 +117,122 @@ Let us explore some examples!
       "foreignField": "_id",
       "as": "aux"
     }
-  },
-  // UPSTREAM STAGE: Reshuffle and apply ACLs
-  {
-    "$project": {
-      "cross_matches": {
-        "$arrayElemAt": [
-          "$aux.cross_matches",
-          0
-        ]
-      },
-      "prv_candidates": {
-        "$filter": {
-          "input": {
-            "$arrayElemAt": [
-              "$aux.prv_candidates",
-              0
+  }
+```
+
+4. The final `$project` stage reshapes the joined data for convenience 
+and applies ACLs to the archival photometry stored in `prv_candidates`:
+
+```json
+{
+  "$project": {
+    "cross_matches": {
+      "$arrayElemAt": [
+        "$aux.cross_matches",
+        0
+      ]
+    },
+    "prv_candidates": {
+      "$filter": {
+        "input": {
+          "$arrayElemAt": [
+            "$aux.prv_candidates",
+            0
+          ]
+        },
+        "as": "item",
+        "cond": {
+          "$in": [
+            "$$item.programid",
+            [
+              1, 2
             ]
-          },
-          "as": "item",
-          "cond": {
-            "$in": [
-              "$$item.programid",
-              [
-                1
-              ]
-            ]
-          }
+          ]
         }
-      },
-      "schemavsn": 1,
-      "publisher": 1,
-      "objectId": 1,
-      "candid": 1,
-      "candidate": 1,
-      "classifications": 1,
-      "coordinates": 1
-    }
-  },
-  /* USER-DEFINED PART */
-  // Select alerts with drb scores greater than 0.9999999 that don't have any matches with 
-  // Gaia_DR2 catalog (zeroth element of corresponding array does not exist)
-  {
-    "$match": {
-      "candidate.drb": {
-        "$gt": 0.9999999
-      },
-      "cross_matches.Gaia_DR2.0": {
-        "$exists": false
       }
-    }
-  },
-  // Add annotations
-  {
-    "$project": {
-      "_id": 0,
-      "annotations.author": "dd",
-      "annotations.mean_rb": {
-        "$avg": "$prv_candidates.rb"
-      }
+    },
+    "schemavsn": 1,
+    "publisher": 1,
+    "objectId": 1,
+    "candid": 1,
+    "candidate": 1,
+    "classifications": 1,
+    "coordinates": 1
+  }
+}
+```
+
+The user-defined filter stages then operate on "enhanced" alerts that look like this:
+
+![img/filter-04.png](img/filter-04.png) 
+
+`Fritz` automatically prepends these stages to all user-defined filters. However, when constructing/debugging
+filters in Compass, the users must take care of that -- all the examples below come with the upstream stages prepended.
+
+
+### Limitations
+
+`$lookup` stages are not allowed in the user-defined part of the filters.
+
+## Filter examples
+
+Let us explore some examples! The provided json files contain prepended upstream stages, but they are not shown
+below for brevity.
+
+### Simple filter
+
+Let us start with a very simplistic example:
+
+[fritz_filter_101.json](data/filter_examples/fritz_filter_101.json)
+
+The first user-defined `$match` stage selects alerts with `drb` scores greater than 0.9999999 
+that don't have any matches with the Gaia_DR2 catalog 
+(the zeroth element of the corresponding array does not exist)
+
+```json
+{
+  "$match": {
+    "candidate.drb": {
+      "$gt": 0.9999999
+    },
+    "cross_matches.Gaia_DR2.0": {
+      "$exists": false
     }
   }
-]
+}
 ```
+
+In case an alert passes the first stage, the output stage adds the annotations dictionary:
+
+```json
+{
+  "$project": {
+    "_id": 0,
+    "candid": 1,
+    "objectId": 1,
+    "annotations.author": "dd",
+    "annotations.mean_rb": {
+      "$avg": "$prv_candidates.rb"
+    }
+  }
+}
+```
+
+`candid` and `objectId` are passed for the debugging purposes, to see which alerts pass your filter.
+
+The output of the filter will look something like this:
+
+![img/filter-05.png](img/filter-05.png)
+
+This alert will be posted to the candidates page with these annotations. 
 
 ### CLU filter
 
-Now that we've looked at the basic concepts, let us explore a concrete example a build a filter for 
+Now that we've looked at a basic example, let us explore a real-life example and build a filter for 
 the Census of the Local Universe program.
 
-As a reference, we will use the filter definition from the GROWTH marshal translated into `python` code:
+As a reference, we will use the filter definition (as of July 10, 2020) 
+from the GROWTH marshal translated into `python` code:
 
 ```python
 def clu_filter(current_observation):
@@ -321,65 +385,19 @@ The `Fritz`-implementation that can be loaded into Compass can be found here:
 
 [fritz_filter_clu.json](data/filter_examples/fritz_filter_clu.json)
 
-Let us explore it step by step and look at the individual user-defined stages omitting the upstream part.
+Let us explore it step by step and look at the individual user-defined stages again omitting 
+the upstream part.
 
-```js
-[
-  {
-    "$match": {
-      "objectId": "ZTF20aacbyec", 
-      "candidate.programid": {
-        "$in": [
-          1, 2, 3
-        ]
-      }
-    }
-  }, {
-    "$project": {
-      "cutoutScience": 0, 
-      "cutoutTemplate": 0, 
-      "cutoutDifference": 0
-    }
-  }, {
-    "$lookup": {
-      "from": "ZTF_alerts_aux", 
-      "localField": "objectId", 
-      "foreignField": "_id", 
-      "as": "aux"
-    }
-  }, {
-    "$project": {
-      "cross_matches": {
-        "$arrayElemAt": [
-          "$aux.cross_matches", 0
-        ]
-      }, 
-      "prv_candidates": {
-        "$filter": {
-          "input": {
-            "$arrayElemAt": [
-              "$aux.prv_candidates", 0
-            ]
-          }, 
-          "as": "item", 
-          "cond": {
-            "$in": [
-              "$$item.programid", [
-                1
-              ]
-            ]
-          }
-        }
-      }, 
-      "schemavsn": 1, 
-      "publisher": 1, 
-      "objectId": 1, 
-      "candid": 1, 
-      "candidate": 1, 
-      "classifications": 1, 
-      "coordinates": 1
-    }
-  }, {
+In the first `$project` stage, we define the variables that will be used by the downstream stages.
+Note how we are using the `$subtract` operator for the `deltajd` and `psfminap` fields. 
+Also, the `candidates_fid` field concatenates the previous >3sigma detections in the same filter as `fid_now` 
+with the current photometric point, which we will use below.
+
+For the full list of MongoDB's aggregation pipeline operators, 
+see [here](https://docs.mongodb.com/manual/reference/operator/aggregation/). 
+
+```json
+{
     "$project": {
       "_id": 0, 
       "candid": 1, 
@@ -462,7 +480,16 @@ Let us explore it step by step and look at the individual user-defined stages om
         ]
       }
     }
-  }, {
+}
+```
+
+In the next stage, we define several boolean fields 
+(`bright`, `positivesubtraction`, `real`, `nopointunderneath`, `brightstar`, `variablesource`, `rock`, `stationary`), 
+pass several of the fields defined above (such as, e.g., `m_now`), and save indexes of the 
+maximum and minimum magnitudes in the `candidates_fid` array, which we will use in the next stage.
+
+```json
+{
     "$project": {
       "t_now": 1, 
       "m_now": 1, 
@@ -778,72 +805,90 @@ Let us explore it step by step and look at the individual user-defined stages om
         }
       }
     }
-  }, {
-    "$project": {
-      "m_max": {
-        "$arrayElemAt": [
-          "$candidates_fid.magpsf", "$m_max_index"
-        ]
-      }, 
-      "m_min": {
-        "$arrayElemAt": [
-          "$candidates_fid.magpsf", "$m_min_index"
-        ]
-      }, 
-      "t_max": {
-        "$arrayElemAt": [
-          "$candidates_fid.jd", "$m_max_index"
-        ]
-      }, 
-      "t_min": {
-        "$arrayElemAt": [
-          "$candidates_fid.jd", "$m_min_index"
-        ]
-      }, 
-      "t_now": 1, 
-      "m_now": 1, 
-      "fid_now": 1, 
-      "sgscore": 1, 
-      "drbscore": 1, 
-      "magnr": 1, 
-      "distnr": 1, 
-      "scorr": 1, 
-      "gal_lat": 1, 
-      "ssdistnr": 1, 
-      "ssnamenr": 1, 
-      "rbscore": 1, 
-      "drb": 1, 
-      "sgmag": 1, 
-      "srmag": 1, 
-      "simag": 1, 
-      "distpsnr1": 1, 
-      "distpsnr2": 1, 
-      "distpsnr3": 1, 
-      "fwhm": 1, 
-      "elong": 1,
-      "jdstarthist": 1, 
-      "jdendhist": 1, 
-      "psfminap": 1, 
-      "bright": 1, 
-      "positivesubtraction": 1, 
-      "real": 1, 
-      "nopointunderneath": 1, 
-      "brightstar": 1, 
-      "variablesource": 1, 
-      "rock": 1, 
-      "stationary": 1
-    }
-  }, {
-    "$match": {
-      "bright": true, 
-      "nopointunderneath": true, 
-      "positivesubtraction": true, 
-      "real": true, 
-      "stationary": true, 
-      "brightstar": false, 
-      "rock": false
-    }
-  }, {
+  }
+```
+
+In the following `$project` stage, we compute the maximum and minimum magnitudes for the source and the corresponding time stamps:
+
+```json 
+{
+  "$project": {
+    "m_max": {
+      "$arrayElemAt": [
+        "$candidates_fid.magpsf", "$m_max_index"
+      ]
+    }, 
+    "m_min": {
+      "$arrayElemAt": [
+        "$candidates_fid.magpsf", "$m_min_index"
+      ]
+    }, 
+    "t_max": {
+      "$arrayElemAt": [
+        "$candidates_fid.jd", "$m_max_index"
+      ]
+    }, 
+    "t_min": {
+      "$arrayElemAt": [
+        "$candidates_fid.jd", "$m_min_index"
+      ]
+    }, 
+    "t_now": 1, 
+    "m_now": 1, 
+    "fid_now": 1, 
+    "sgscore": 1, 
+    "drbscore": 1, 
+    "magnr": 1, 
+    "distnr": 1, 
+    "scorr": 1, 
+    "gal_lat": 1, 
+    "ssdistnr": 1, 
+    "ssnamenr": 1, 
+    "rbscore": 1, 
+    "drb": 1, 
+    "sgmag": 1, 
+    "srmag": 1, 
+    "simag": 1, 
+    "distpsnr1": 1, 
+    "distpsnr2": 1, 
+    "distpsnr3": 1, 
+    "fwhm": 1, 
+    "elong": 1,
+    "jdstarthist": 1, 
+    "jdendhist": 1, 
+    "psfminap": 1, 
+    "bright": 1, 
+    "positivesubtraction": 1, 
+    "real": 1, 
+    "nopointunderneath": 1, 
+    "brightstar": 1, 
+    "variablesource": 1, 
+    "rock": 1, 
+    "stationary": 1
+  }
+} 
+```
+
+The alert is selected or rejected with a `$match` stage based on the values of the boolean fields defined above: 
+
+```json
+{
+  "$match": {
+    "bright": true, 
+    "nopointunderneath": true, 
+    "positivesubtraction": true, 
+    "real": true, 
+    "stationary": true, 
+    "brightstar": false, 
+    "rock": false
+  }
+}
+```
+
+The final stage adds annotations to a passing alert:
+
+```json 
+{
     "$project": {
       "annotations.FWHM": "$fwhm", 
       "annotations.drb": "$drb", 
@@ -944,7 +989,6 @@ Let us explore it step by step and look at the individual user-defined stages om
       }
     }
   }
-]
 ```
 
 ### BTS/RCF program (simplified) filter
