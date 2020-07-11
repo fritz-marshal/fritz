@@ -49,6 +49,8 @@ AGN, and bogus detections. The auxiliary information is limited to the detection
 history of detections (limited to reduce the test database size), cross-matches with external catalogs, and a few 
 additional quantities.
 
+We recommend to first try out filtering on the first database.
+
 In this tutorial, we will show how to use a tool called [MongoDB Compass](https://www.mongodb.com/try/download/compass) 
 (the full version is now free) to construct and debug aggregation pipelines (aka alert filters) using the two cloud
 databases that can be then plugged into `Fritz`.
