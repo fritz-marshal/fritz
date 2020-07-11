@@ -67,7 +67,7 @@ mongodb://ztf:FritzZwicky@fritz-test-shard-00-00-uas9d.gcp.mongodb.net:27017,fri
 
 The connection string to access the second sample public alert database:
 ```
-<TODO>
+mongodb+srv://ztf:FritzZwicky@fritz-public-20200706.uas9d.gcp.mongodb.net/kowalski
 ```
 
 Upon connection:
