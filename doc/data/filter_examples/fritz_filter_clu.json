@@ -56,7 +56,7 @@
                 ]
               },
               {
-                "$gt": [
+                "$lt": [
                   {
                     "$subtract": [
                       "$candidate.jd",
