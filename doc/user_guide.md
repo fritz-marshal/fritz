@@ -1657,14 +1657,16 @@ As we have seen above, we can build these kinds of logical expressions right int
       "cutoutTemplate": 0, 
       "cutoutDifference": 0
     }
-  }, {
+  }, 
+  {
     "$lookup": {
       "from": "ZTF_alerts_aux", 
       "localField": "objectId", 
       "foreignField": "_id", 
       "as": "aux"
     }
-  }, {
+  }, 
+  {
     "$project": {
       "cross_matches": {
         "$arrayElemAt": [
@@ -1708,7 +1710,8 @@ As we have seen above, we can build these kinds of logical expressions right int
       "classifications": 1, 
       "coordinates": 1
     }
-  }, {
+  }, 
+  {
     "$match": {
       "candidate.magpsf": {
         "$lt": 20
@@ -1728,7 +1731,8 @@ As we have seen above, we can build these kinds of logical expressions right int
         "$gt": 0.65
       }
     }
-  }, {
+  }, 
+  {
     "$project": {
       "objectId": 1, 
       "dist": "$candidate.distpsnr1", 
@@ -1738,7 +1742,8 @@ As we have seen above, we can build these kinds of logical expressions right int
       "imag": "$candidate.simag1", 
       "zmag": "$candidate.szmag1"
     }
-  }, {
+  }, 
+  {
     "$project": {
       "_id": 0, 
       "objectId": 1, 
@@ -2060,11 +2065,13 @@ As we have seen above, we can build these kinds of logical expressions right int
         ]
       }
     }
-  }, {
+  }, 
+  {
     "$match": {
       "pointunderneath": false
     }
-  }, {
+  }, 
+  {
     "$project": {
       "candid": 1, 
       "objectId": 1, 
