@@ -2,24 +2,35 @@
 
 ## Alert filters in `Fritz`
 
-In this tutorial, we will discuss the alert filters in `Fritz`:
-- Technical details on the implementation
-- Filter examples with step-by-step explanations
+This section describes how to define alert stream filters within `Fritz` and provides some examples for reference.
 
 ### Introduction
 
-One of `Fritz`'s submodules, `Kowalski`, constantly listens to the alert streams and persists the alert data in a 
-database. `Kowalski` additionally computes a number of frequently-used quantities such as the Galactic coordinates for 
-each alert, cross-matches them with several external catalogs, and executes machine learning models. 
+[ZTF alerts](https://github.com/ZwickyTransientFacility/ztf-avro-alert) are 
+[generated at IPAC](https://iopscience.iop.org/article/10.1088/1538-3873/aae8ac/meta) based on difference 
+imaging analysis and are distributed to the world at low latency via a Kafka alert stream. 
+`Fritz`'s `Kowalski` backend consumes this stream, persisting the alerts to a `MongoDB` database, 
+and supplementing them with other useful quantities such as Galactic coordinates, external catalog cross-matches, 
+machine learning scores etc. Next, `Kowalski` executes a series of user-defined filters on each new ("enhanced") 
+incoming alert accessible to the filter. Users create filters on the `SkyPortal` frontend and they are executed 
+on the K backend. If an alert passes a filter, it is pushed up to `SkyPortal` and appears on a program's scanning page.    
 
-`Kowalski` uses `MongoDB`, a document-based NoSQL database, on the backend. 
-See [here](https://github.com/dmitryduev/ay119/blob/master/databases/mongodb.ipynb) and the references therein 
-for a brief introduction into `MongoDB`.   
+#### Implementation of Filters as MongoDB Aggregation Pipelines
 
-#### Filtering implementation
+`Kowalski` uses [`MongoDB`](https://mongodb.com), a document-based NoSQL database, on the backend. 
 
-Upon alert ingestion into the database, `Kowalski` executes user-defined filters and reports the passing alerts 
-to `Fritz`'s user-facing `SkyPortal` submodule. This is implemented as a `MongoDB` aggregation pipeline that first "massages" 
+- For a very brief introduction into `MongoDB`, we recommend watching 
+[MongoDB in 5 Minutes with Eliot Horowitz](https://www.youtube.com/watch?v=EE8ZTQxa0AM). 
+- If you are familiar with relational databases, you may want to check out the 
+[SQL to MongoDB Mapping Chart](https://docs.mongodb.com/manual/reference/sql-comparison/).
+
+`MongoDB` database stores its data in "collections". A collection holds one or more "documents". 
+Documents are analogous to records or rows in a relational database table. 
+Each document has one or more "fields"; fields are similar to the columns in a relational database table.
+`MongoDB` supports a rich query language, which we will make use of when working with the alert filters. 
+
+Alert filtering is implemented as a 
+[MongoDB aggregation pipeline](https://docs.mongodb.com/manual/core/aggregation-pipeline/) that first "massages" 
 the newly ingested alert data such that the user's filter deals with enhanced "packets" containing, for example, 
 longer photometry history (and not just the rolling 30-day window), cross-match data, and custom ML scores.
 
@@ -37,25 +48,32 @@ An aggregation pipeline is represented as a list of dictionaries, each correspon
 ]
 ```
 
+Documents pass through the stages in sequence. Different stages can appear multiple times in a pipeline.
+
 As of MongoDB version 4.2, there are 30 different types of aggregation pipeline stages, please see 
 [the official documentation](https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline/) for a detailed
 description.
 
-#### User interfaces
+To manipulate documents, each stage uses 
+[expressions](https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#expressions),
+which can include field paths, literals, system variables, expression objects, and expression operators. 
+Expressions can be nested.
+
+#### Testing your filter
 
 To ease the process of writing and debugging the filters, we have set up two live *public* `MongoDB Atlas` databases 
 in the cloud: 
-1. The first one contains a small curated set of ~300 sample public ZTF alerts originating from SNe, variable stars,
+- The first one contains a small curated set of ~300 sample public ZTF alerts originating from SNe, variable stars,
 AGN, and bogus detections. The auxiliary information is limited to the detection history present in the alert packets.
-2. The second one contains ~120,000 public ZTF alerts from July 6, 2020. The auxiliary information contains a ~100-day 
+- The second one contains ~120,000 public ZTF alerts from July 6, 2020. The auxiliary information contains a ~100-day 
 history of detections (limited to reduce the test database size), cross-matches with external catalogs, and a few 
-additional quantities.
+additional computed quantities.
 
 We recommend to begin exploring filtering on the first database and then move onto the second one.
 
-In this tutorial, we will show how to use a tool called [MongoDB Compass](https://www.mongodb.com/try/download/compass) 
-(the full version is now free) to construct and debug aggregation pipelines (aka alert filters) using the two cloud
-databases that can be then plugged into `Fritz`.
+We will show how to use a tool called [MongoDB Compass](https://www.mongodb.com/try/download/compass) 
+(the full version is now free) to construct and debug aggregation pipelines (aka alert filters), using the two cloud
+databases, that can be then plugged into `Fritz`.
 
 Filters will be managed on a dedicated page on `Fritz`. A detailed description of the interface and its capabilities
 (including, for example, filter versioning and diff'ing) will be covered elsewhere -- please stay tuned.
@@ -99,7 +117,7 @@ The upstream stages also take care of the ACLs.
 
 `Fritz` uses the following four stages: 
 
-1. The first [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/) 
+- The first [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/) 
 stage selects the alert by its candid and ensures the ACLs are respected. 
 
 For example, for a program that has access to the partnership data:
@@ -115,7 +133,7 @@ For example, for a program that has access to the partnership data:
 }
 ```
 
-2. The image cutouts are stored per alert, but generally not needed for the filtering purposes. 
+- The image cutouts are stored per alert, but generally not needed for the filtering purposes. 
 The [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage
 removes them:  
 
@@ -129,7 +147,7 @@ removes them:
 }
 ```
 
-3. Using the [`$lookup`](https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/) stage, 
+- Using the [`$lookup`](https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/) stage, 
 the alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` collection, which uses the alert's
 `objectId`s as unique document identifiers (`_id` - a concept in MongoDB similar to primary keys in SQL):
 
@@ -144,7 +162,7 @@ the alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` col
   }
 ```
 
-4. The final [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage reshapes 
+- The final [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage reshapes 
 the joined data for convenience, selects the last 100 days of photometry history (which is done having practical
 considerations in mind and may be relaxed in the future), 
 and applies ACLs to the detection history stored in `prv_candidates`:
@@ -215,7 +233,7 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 #### Limitations
 
-`$lookup` and `$unionWith` stages are not allowed in the user-defined part of the filters.
+`$lookup`, `$unionWith`, `$out`, and `$merge` stages are not allowed in the user-defined part of the filters.
 
 ### Filter examples
 
@@ -431,6 +449,9 @@ The `Fritz`-implementation that can be loaded into Compass can be found here:
 
 Let us explore it step-by-step and look at the individual user-defined stages, again omitting 
 the upstream part.
+
+Note: try turning off the first stage of the pipeline that is pre-configured to select alerts by `objectId`
+for demo purposes. When working with the 20200706 database, try a different `objectId`, for example `ZTF20abczsex`.
 
 In the first [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) 
 stage, we define the variables that will be used by the downstream stages.
