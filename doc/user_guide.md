@@ -102,6 +102,10 @@ Upon connection:
 Note that Compass shows the output of all stages interactively and also displays/explains any errors in the code, 
 which is extremely helpful for debugging and experimentation.
 
+By default, Compass' aggregation pipeline builder works in Sample Mode, showing up to 20 documents that pass any 
+given stage. You can change the default settings, including the default timeout by clicking the button 
+with a little gear next to the "Auto Preview" toggle switch.
+
 #### "Upstream" aggregation pipeline stages
 
 [OPTIONAL READ]
@@ -132,6 +136,11 @@ For example, for a program that has access to the partnership data:
   }
 }
 ```
+
+TIP: When debugging your filter with Compass, you may want to play around with this stage: try selecting an object
+that must have passed the filter (when using the second database, that must have happened on July 6, 2020) by 
+specifying `"objectId": "<ZTF object id>"`, or turning it off altogether to make Mongo look at all the alerts stored
+in the sample database.
 
 - The image cutouts are stored per alert, but generally not needed for the filtering purposes. 
 The [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage
@@ -451,9 +460,22 @@ Let us explore it step-by-step and look at the individual user-defined stages, a
 the upstream part.
 
 Note: try turning off the first stage of the pipeline that is pre-configured to select alerts by `objectId`
-for demo purposes. When working with the 20200706 database, try a different `objectId`, for example `ZTF20abczsex`.
+for demo purposes. When working with the 20200706 database, try a different `objectId`, for example `ZTF20abjoqjy`.
 
-In the first [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) 
+The first [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/) stage checks whether
+the alert has at least one match with the CLU catalog:
+
+```json
+{
+  "$match": {
+    "cross_matches.CLU_20190625.0": {
+      "$exists": true
+    }
+  }
+}
+```
+
+In the following [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) 
 stage, we define the variables that will be used by the downstream stages.
 Note how we are using the [`$subtract`](https://docs.mongodb.com/manual/reference/operator/aggregation/subtract/) 
 operator for the `deltajd` and `psfminap` fields. 
@@ -1533,6 +1555,520 @@ As another example, below you will find a simplified version of the Bright Trans
       }, 
       "annotations.age": "$age", 
       "annotations.drb": "$drbscore"
+    }
+  }
+]
+```
+
+#### Fast Transients program filter
+
+In this example, we will see how to adapt the Fast Transients' program filter that has been using Kowalski for the
+initial search.
+
+[fritz_filter_fast.json](data/filter_examples/fritz_filter_fast.json)
+
+In the `python` code snippet below, courtesy of Anna Ho and Yuhan Yao, a coarse search is run using Kowalski and then a 
+number of logical expressions would be evaluated on the query result:
+
+```python
+# Set search window
+obst = obs['UT_START'].values
+start = Time(obst[0], format='isot').jd - 0.02
+end = Time(obst[-1], format='isot').jd + 0.02
+# gt is greater than, lt is lower than
+q = {"query_type": "find",
+     "query": {
+         "catalog": "ZTF_alerts",
+         "filter": {
+                 'candidate.jd': {'$gt': start, '$lt': end},
+                 'candidate.magpsf': {'$lt': 20},
+                 'candidate.isdiffpos': {'$in': ['1', 't']},
+                 'candidate.programid': {'$gt': 0},
+                 'candidate.ssdistnr': {'$lt': -1},
+                 'candidate.drb': {'$gt': 0.65}, # That gives a 1.7% FNR and FPR.
+         },
+         "projection": {
+                 "objectId": 1,
+                 "candidate.distpsnr1": 1,
+                 "candidate.sgscore1": 1,
+                 "candidate.srmag1": 1,
+                 "candidate.sgmag1": 1,
+                 "candidate.simag1": 1,
+                 "candidate.szmag1": 1,
+         }
+     }
+     }
+query_result = kowalski.query(query=q)
+out = query_result['data']
+names_all = np.array([val['objectId'] for val in out])
+names = np.unique(names_all)
+print(f"There are {len(names} unique cands from this initial filter.")
+
+dist = np.array([val['candidate']['distpsnr1'] for val in out]) 
+sg = np.array([val['candidate']['sgscore1'] for val in out]) 
+rmag = np.array([val['candidate']['srmag1'] for val in out])
+gmag = np.array([val['candidate']['sgmag1'] for val in out])
+imag = np.array([val['candidate']['simag1'] for val in out])
+zmag = np.array([val['candidate']['szmag1'] for val in out])
+
+pointunderneath = np.zeros(len(names_all), dtype=bool)
+
+crit = np.logical_and.reduce((dist>0, dist<2, sg>0.76))
+pointunderneath[crit] = True
+
+crit = np.logical_and(
+        np.logical_and.reduce((sg==0.5, dist>0, dist<0.5)),
+        np.logical_or.reduce((
+            np.logical_and(rmag>0,rmag<17),
+            np.logical_and(gmag>0,gmag<17),
+            np.logical_and(imag>0,imag<17),
+            np.logical_and(zmag>0,zmag<17),
+        )))
+pointunderneath[crit] = True
+
+crit = np.logical_or.reduce((
+    np.logical_and.reduce((rmag > 0, rmag < 12, sg > 0.49, dist < 20)),
+    np.logical_and.reduce((rmag > 0, rmag < 15, sg > 0.49, dist < 5)),
+    np.logical_and.reduce((rmag > 0, rmag < 15, sg > 0.8, dist < 20)),
+    np.logical_and.reduce((gmag > 0, gmag < 12, sg > 0.49, dist < 20)),
+    np.logical_and.reduce((gmag > 0, gmag < 15, sg > 0.8, dist < 20)),
+    np.logical_and.reduce((imag > 0, imag < 12, sg > 0.49, dist < 20)),
+    np.logical_and.reduce((imag > 0, imag < 11.5, sg > 0.49, dist < 20)),
+    np.logical_and.reduce((imag > 0, imag < 14.5, sg > 0.49, dist < 5)),
+    np.logical_and.reduce((imag > 0, imag < 15, sg > 0.8, dist < 20)),
+    np.logical_and.reduce((zmag > 0, zmag < 11.5, sg > 0.49, dist < 10)),
+    np.logical_and.reduce((zmag > 0, zmag < 14.0, sg > 0.49, dist < 2.5)),
+    np.logical_and.reduce((zmag > 0, zmag < 15, sg > 0.8, dist < 20))))
+pointunderneath[crit] = True
+
+names_no_star = np.unique(names_all[pointunderneath==False])
+print(f"There are {len(names_no_star)} that are not stars.")
+passed = np.array(names_no_star)
+
+```
+
+As we have seen above, we can build these kinds of logical expressions right into our filter: 
+
+```js
+[
+  {
+    "$project": {
+      "cutoutScience": 0, 
+      "cutoutTemplate": 0, 
+      "cutoutDifference": 0
+    }
+  }, {
+    "$lookup": {
+      "from": "ZTF_alerts_aux", 
+      "localField": "objectId", 
+      "foreignField": "_id", 
+      "as": "aux"
+    }
+  }, {
+    "$project": {
+      "cross_matches": {
+        "$arrayElemAt": [
+          "$aux.cross_matches", 0
+        ]
+      }, 
+      "prv_candidates": {
+        "$filter": {
+          "input": {
+            "$arrayElemAt": [
+              "$aux.prv_candidates", 0
+            ]
+          }, 
+          "as": "item", 
+          "cond": {
+            "$and": [
+              {
+                "$in": [
+                  "$$item.programid", [
+                    1, 2, 3
+                  ]
+                ]
+              }, {
+                "$lt": [
+                  {
+                    "$subtract": [
+                      "$candidate.jd", "$$item.jd"
+                    ]
+                  }, 100
+                ]
+              }
+            ]
+          }
+        }
+      }, 
+      "schemavsn": 1, 
+      "publisher": 1, 
+      "objectId": 1, 
+      "candid": 1, 
+      "candidate": 1, 
+      "classifications": 1, 
+      "coordinates": 1
+    }
+  }, {
+    "$match": {
+      "candidate.magpsf": {
+        "$lt": 20
+      }, 
+      "candidate.isdiffpos": {
+        "$in": [
+          "1", "t"
+        ]
+      }, 
+      "candidate.programid": {
+        "$gt": 0
+      }, 
+      "candidate.ssdistnr": {
+        "$lt": -1
+      }, 
+      "candidate.drb": {
+        "$gt": 0.65
+      }
+    }
+  }, {
+    "$project": {
+      "objectId": 1, 
+      "dist": "$candidate.distpsnr1", 
+      "sg": "$candidate.sgscore1", 
+      "rmag": "$candidate.srmag1", 
+      "gmag": "$candidate.sgmag1", 
+      "imag": "$candidate.simag1", 
+      "zmag": "$candidate.szmag1"
+    }
+  }, {
+    "$project": {
+      "_id": 0, 
+      "objectId": 1, 
+      "pointunderneath": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "$gt": [
+                  "$dist", 0
+                ]
+              }, {
+                "$lt": [
+                  "$dist", 2
+                ]
+              }, {
+                "$gt": [
+                  "sg", 0.76
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$dist", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 0.5
+                    ]
+                  }, {
+                    "$eq": [
+                      "sg", 0.5
+                    ]
+                  }
+                ]
+              }, {
+                "$or": [
+                  {
+                    "$and": [
+                      {
+                        "$gt": [
+                          "$rmag", 0
+                        ]
+                      }, {
+                        "$lt": [
+                          "$rmag", 17
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$gt": [
+                          "$gmag", 0
+                        ]
+                      }, {
+                        "$lt": [
+                          "$gmag", 17
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$gt": [
+                          "$imag", 0
+                        ]
+                      }, {
+                        "$lt": [
+                          "$imag", 17
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$gt": [
+                          "$zmag", 0
+                        ]
+                      }, {
+                        "$lt": [
+                          "$zmag", 17
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }, {
+            "$or": [
+              {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$rmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$rmag", 12
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$rmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$rmag", 15
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 5
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$rmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$rmag", 15
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$gmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$gmag", 12
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$gmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$gmag", 12
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$imag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$imag", 12
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$imag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$imag", 14.5
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 5
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$imag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$imag", 15
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$zmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$zmag", 11.5
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 10
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$zmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$zmag", 14
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.49
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 2.5
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$zmag", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$zmag", 15
+                    ]
+                  }, {
+                    "$gt": [
+                      "sg", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$dist", 20
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }, {
+    "$match": {
+      "pointunderneath": false
+    }
+  }, {
+    "$project": {
+      "candid": 1, 
+      "objectId": 1, 
+      "annotations.comment": "fast!"
     }
   }
 ]
