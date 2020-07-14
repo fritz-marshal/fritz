@@ -13,7 +13,11 @@ imaging analysis and are distributed to the world at low latency via a Kafka ale
 and supplementing them with other useful quantities such as Galactic coordinates, external catalog cross-matches, 
 machine learning scores etc. Next, `Kowalski` executes a series of user-defined filters on each new ("enhanced") 
 incoming alert accessible to the filter. Users create filters on the `SkyPortal` frontend and they are executed 
-on the K backend. If an alert passes a filter, it is pushed up to `SkyPortal` and appears on a program's scanning page.    
+on the `Kowalski` backend. If an alert passes a filter, it is pushed up to `SkyPortal` and appears on a program's 
+scanning page.
+
+Note: for a detailed description of the ZTF alerts and their contents, please see 
+[here](https://github.com/ZwickyTransientFacility/ztf-avro-alert).
 
 #### Implementation of Filters as MongoDB Aggregation Pipelines
 
@@ -105,6 +109,8 @@ which is extremely helpful for debugging and experimentation.
 By default, Compass' aggregation pipeline builder works in Sample Mode, showing up to 20 documents that pass any 
 given stage. You can change the default settings, including the default timeout by clicking the button 
 with a little gear next to the "Auto Preview" toggle switch.
+
+![fritz-filters-01](https://user-images.githubusercontent.com/7557205/87487417-6f66ff80-c5f2-11ea-8d7b-49c51b6a502d.gif)
 
 #### "Upstream" aggregation pipeline stages
 
@@ -1602,7 +1608,7 @@ query_result = kowalski.query(query=q)
 out = query_result['data']
 names_all = np.array([val['objectId'] for val in out])
 names = np.unique(names_all)
-print(f"There are {len(names} unique cands from this initial filter.")
+print(f"There are {len(names)} unique cands from this initial filter.")
 
 dist = np.array([val['candidate']['distpsnr1'] for val in out]) 
 sg = np.array([val['candidate']['sgscore1'] for val in out]) 
@@ -2080,3 +2086,55 @@ As we have seen above, we can build these kinds of logical expressions right int
   }
 ]
 ```
+
+### Tips and tricks
+
+#### `prv_candidates` array sorting
+
+The `prv_candidates` are stored as a set and are thus not sorted. To do that, you may use the following stages 
+immediately after the default `Fritz`'s upstream stages:
+
+```js
+[
+  {
+    '$project': {
+      'prv_candidates': {
+        '$concatArrays': [
+          '$prv_candidates', [
+            {
+              'fid': '$candidate.fid', 
+              'jd': '$candidate.jd', 
+              'magpsf': '$candidate.magpsf'
+            }
+          ]
+        ]
+      }
+    }
+  }, 
+  {
+    '$unwind': {
+      'path': '$prv_candidates'
+    }
+  }, 
+  {
+    '$sort': {
+      'prv_candidates.jd': 1
+    }
+  }, 
+  {
+    '$group': {
+      '_id': '$_id', 
+      'prv_candidates': {
+        '$push': '$prv_candidates'
+      }
+    }
+  }
+]
+```
+
+These will:
+
+- Squeeze in the current candidate into `prv_candidates` (as it may or may not be there already)
+- Unwind the `prv_candidates` array into a bunch of documents
+- Sort them by `jd`
+- Group back into a single document with the `prv_candidates` in sorted order
