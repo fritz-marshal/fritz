@@ -15,16 +15,16 @@
   },
   {
     "$project": {
-      "cutoutScience": 0, 
-      "cutoutTemplate": 0, 
+      "cutoutScience": 0,
+      "cutoutTemplate": 0,
       "cutoutDifference": 0
     }
   },
   {
     "$lookup": {
-      "from": "ZTF_alerts_aux", 
-      "localField": "objectId", 
-      "foreignField": "_id", 
+      "from": "ZTF_alerts_aux",
+      "localField": "objectId",
+      "foreignField": "_id",
       "as": "aux"
     }
   },
@@ -34,15 +34,15 @@
         "$arrayElemAt": [
           "$aux.cross_matches", 0
         ]
-      }, 
+      },
       "prv_candidates": {
         "$filter": {
           "input": {
             "$arrayElemAt": [
               "$aux.prv_candidates", 0
             ]
-          }, 
-          "as": "item", 
+          },
+          "as": "item",
           "cond": {
             "$and": [
               {
@@ -63,13 +63,13 @@
             ]
           }
         }
-      }, 
-      "schemavsn": 1, 
-      "publisher": 1, 
-      "objectId": 1, 
-      "candid": 1, 
-      "candidate": 1, 
-      "classifications": 1, 
+      },
+      "schemavsn": 1,
+      "publisher": 1,
+      "objectId": 1,
+      "candid": 1,
+      "candidate": 1,
+      "classifications": 1,
       "coordinates": 1
     }
   },
@@ -82,61 +82,61 @@
   },
   {
     "$project": {
-      "_id": 0, 
-      "candid": 1, 
-      "objectId": 1, 
-      "cross_matches_CLU": "$cross_matches.CLU_20190625", 
-      "prv_candidates.jd": 1, 
-      "prv_candidates.magpsf": 1, 
-      "prv_candidates.fid": 1, 
-      "prv_candidates.isdiffpos": 1, 
-      "isdiffpos": "$candidate.isdiffpos", 
-      "m_now": "$candidate.magpsf", 
-      "m_app": "$candidate.magap", 
-      "t_now": "$candidate.jd", 
-      "fid_now": "$candidate.fid", 
-      "sgscore": "$candidate.sgscore1", 
-      "sgscore2": "$candidate.sgscore2", 
-      "sgscore3": "$candidate.sgscore3", 
-      "srmag": "$candidate.srmag1", 
-      "srmag2": "$candidate.srmag2", 
-      "srmag3": "$candidate.srmag3", 
-      "sgmag": "$candidate.sgmag1", 
-      "simag": "$candidate.simag1", 
-      "rbscore": "$candidate.rb", 
-      "drb": "$candidate.drb", 
-      "magnr": "$candidate.magnr", 
-      "distnr": "$candidate.distnr", 
-      "distpsnr1": "$candidate.distpsnr1", 
-      "distpsnr2": "$candidate.distpsnr2", 
-      "distpsnr3": "$candidate.distpsnr3", 
-      "scorr": "$candidate.scorr", 
-      "fwhm": "$candidate.fwhm", 
-      "elong": "$candidate.elong", 
-      "nbad": "$candidate.nbad", 
-      "chipsf": "$candidate.chipsf", 
-      "gal_lat": "$coordinates.b", 
-      "ssdistnr": "$candidate.ssdistnr", 
-      "ssmagnr": "$candidate.ssmagnr", 
-      "ssnamenr": "$candidate.ssnamenr", 
-      "jdstarthist": "$candidate.jdstarthist", 
-      "jdendhist": "$candidate.jdendhist", 
+      "_id": 0,
+      "candid": 1,
+      "objectId": 1,
+      "cross_matches_CLU": "$cross_matches.CLU_20190625",
+      "prv_candidates.jd": 1,
+      "prv_candidates.magpsf": 1,
+      "prv_candidates.fid": 1,
+      "prv_candidates.isdiffpos": 1,
+      "isdiffpos": "$candidate.isdiffpos",
+      "m_now": "$candidate.magpsf",
+      "m_app": "$candidate.magap",
+      "t_now": "$candidate.jd",
+      "fid_now": "$candidate.fid",
+      "sgscore": "$candidate.sgscore1",
+      "sgscore2": "$candidate.sgscore2",
+      "sgscore3": "$candidate.sgscore3",
+      "srmag": "$candidate.srmag1",
+      "srmag2": "$candidate.srmag2",
+      "srmag3": "$candidate.srmag3",
+      "sgmag": "$candidate.sgmag1",
+      "simag": "$candidate.simag1",
+      "rbscore": "$candidate.rb",
+      "drb": "$candidate.drb",
+      "magnr": "$candidate.magnr",
+      "distnr": "$candidate.distnr",
+      "distpsnr1": "$candidate.distpsnr1",
+      "distpsnr2": "$candidate.distpsnr2",
+      "distpsnr3": "$candidate.distpsnr3",
+      "scorr": "$candidate.scorr",
+      "fwhm": "$candidate.fwhm",
+      "elong": "$candidate.elong",
+      "nbad": "$candidate.nbad",
+      "chipsf": "$candidate.chipsf",
+      "gal_lat": "$coordinates.b",
+      "ssdistnr": "$candidate.ssdistnr",
+      "ssmagnr": "$candidate.ssmagnr",
+      "ssnamenr": "$candidate.ssnamenr",
+      "jdstarthist": "$candidate.jdstarthist",
+      "jdendhist": "$candidate.jdendhist",
       "deltajd": {
         "$subtract": [
           "$candidate.jdendhist", "$candidate.jdstarthist"
         ]
-      }, 
+      },
       "psfminap": {
         "$subtract": [
           "$candidate.magpsf", "$candidate.magap"
         ]
-      }, 
+      },
       "candidates_fid": {
         "$concatArrays": [
           {
             "$filter": {
-              "input": "$prv_candidates", 
-              "as": "cand", 
+              "input": "$prv_candidates",
+              "as": "cand",
               "cond": {
                 "$and": [
                   {
@@ -157,7 +157,7 @@
             }
           }, [
             {
-              "jd": "$candidate.jd", 
+              "jd": "$candidate.jd",
               "magpsf": "$candidate.magpsf"
             }
           ]
@@ -167,33 +167,33 @@
   },
   {
     "$project": {
-      "objectId": 1, 
-      "cross_matches_CLU": 1, 
-      "t_now": 1, 
-      "m_now": 1, 
-      "fid_now": 1, 
-      "sgscore": 1, 
-      "drbscore": 1, 
-      "magnr": 1, 
-      "distnr": 1, 
-      "scorr": 1, 
-      "ssdistnr": 1, 
-      "ssnamenr": 1, 
-      "rbscore": 1, 
-      "drb": 1, 
-      "sgmag": 1, 
-      "srmag": 1, 
-      "simag": 1, 
-      "distpsnr1": 1, 
-      "distpsnr2": 1, 
-      "distpsnr3": 1, 
-      "fwhm": 1, 
-      "elong": 1, 
-      "gal_lat": 1, 
-      "jdstarthist": 1, 
-      "jdendhist": 1, 
-      "psfminap": 1, 
-      "candidates_fid": 1, 
+      "objectId": 1,
+      "cross_matches_CLU": 1,
+      "t_now": 1,
+      "m_now": 1,
+      "fid_now": 1,
+      "sgscore": 1,
+      "drbscore": 1,
+      "magnr": 1,
+      "distnr": 1,
+      "scorr": 1,
+      "ssdistnr": 1,
+      "ssnamenr": 1,
+      "rbscore": 1,
+      "drb": 1,
+      "sgmag": 1,
+      "srmag": 1,
+      "simag": 1,
+      "distpsnr1": 1,
+      "distpsnr2": 1,
+      "distpsnr3": 1,
+      "fwhm": 1,
+      "elong": 1,
+      "gal_lat": 1,
+      "jdstarthist": 1,
+      "jdendhist": 1,
+      "psfminap": 1,
+      "candidates_fid": 1,
       "m_max_index": {
         "$indexOfArray": [
           "$candidates_fid.magpsf", {
@@ -202,7 +202,7 @@
             ]
           }
         ]
-      }, 
+      },
       "m_min_index": {
         "$indexOfArray": [
           "$candidates_fid.magpsf", {
@@ -211,19 +211,19 @@
             ]
           }
         ]
-      }, 
+      },
       "bright": {
         "$lt": [
           "$m_now", 99
         ]
-      }, 
+      },
       "positivesubtraction": {
         "$in": [
           "$isdiffpos", [
             1, "1", "t", true
           ]
         ]
-      }, 
+      },
       "real": {
         "$and": [
           {
@@ -254,7 +254,7 @@
             ]
           }
         ]
-      }, 
+      },
       "nopointunderneath": {
         "$not": [
           {
@@ -271,7 +271,7 @@
             ]
           }
         ]
-      }, 
+      },
       "brightstar": {
         "$or": [
           {
@@ -364,7 +364,7 @@
             ]
           }
         ]
-      }, 
+      },
       "variablesource": {
         "$or": [
           {
@@ -417,7 +417,7 @@
             ]
           }
         ]
-      }, 
+      },
       "rock": {
         "$and": [
           {
@@ -436,12 +436,12 @@
             ]
           }
         ]
-      }, 
+      },
       "stationary": {
         "$anyElementTrue": {
           "$map": {
-            "input": "$prv_candidates", 
-            "as": "cand", 
+            "input": "$prv_candidates",
+            "as": "cand",
             "in": {
               "$and": [
                 {
@@ -490,99 +490,99 @@
         "$arrayElemAt": [
           "$candidates_fid.magpsf", "$m_max_index"
         ]
-      }, 
+      },
       "m_min": {
         "$arrayElemAt": [
           "$candidates_fid.magpsf", "$m_min_index"
         ]
-      }, 
+      },
       "t_max": {
         "$arrayElemAt": [
           "$candidates_fid.jd", "$m_max_index"
         ]
-      }, 
+      },
       "t_min": {
         "$arrayElemAt": [
           "$candidates_fid.jd", "$m_min_index"
         ]
-      }, 
-      "objectId": 1, 
-      "cross_matches_CLU": 1, 
-      "t_now": 1, 
-      "m_now": 1, 
-      "fid_now": 1, 
-      "sgscore": 1, 
-      "drbscore": 1, 
-      "magnr": 1, 
-      "distnr": 1, 
-      "scorr": 1, 
-      "gal_lat": 1, 
-      "ssdistnr": 1, 
-      "ssnamenr": 1, 
-      "rbscore": 1, 
-      "drb": 1, 
-      "sgmag": 1, 
-      "srmag": 1, 
-      "simag": 1, 
-      "distpsnr1": 1, 
-      "distpsnr2": 1, 
-      "distpsnr3": 1, 
-      "fwhm": 1, 
-      "elong": 1, 
-      "jdstarthist": 1, 
-      "jdendhist": 1, 
-      "psfminap": 1, 
-      "bright": 1, 
-      "positivesubtraction": 1, 
-      "real": 1, 
-      "nopointunderneath": 1, 
-      "brightstar": 1, 
-      "variablesource": 1, 
-      "rock": 1, 
+      },
+      "objectId": 1,
+      "cross_matches_CLU": 1,
+      "t_now": 1,
+      "m_now": 1,
+      "fid_now": 1,
+      "sgscore": 1,
+      "drbscore": 1,
+      "magnr": 1,
+      "distnr": 1,
+      "scorr": 1,
+      "gal_lat": 1,
+      "ssdistnr": 1,
+      "ssnamenr": 1,
+      "rbscore": 1,
+      "drb": 1,
+      "sgmag": 1,
+      "srmag": 1,
+      "simag": 1,
+      "distpsnr1": 1,
+      "distpsnr2": 1,
+      "distpsnr3": 1,
+      "fwhm": 1,
+      "elong": 1,
+      "jdstarthist": 1,
+      "jdendhist": 1,
+      "psfminap": 1,
+      "bright": 1,
+      "positivesubtraction": 1,
+      "real": 1,
+      "nopointunderneath": 1,
+      "brightstar": 1,
+      "variablesource": 1,
+      "rock": 1,
       "stationary": 1
     }
   },
   {
     "$match": {
-      "bright": true, 
-      "nopointunderneath": true, 
-      "positivesubtraction": true, 
-      "real": true, 
-      "stationary": true, 
-      "brightstar": false, 
+      "bright": true,
+      "nopointunderneath": true,
+      "positivesubtraction": true,
+      "real": true,
+      "stationary": true,
+      "brightstar": false,
       "rock": false
     }
   },
   {
     "$project": {
-      "objectId": 1, 
-      "cross_matches_CLU": 1, 
-      "annotations.FWHM": "$fwhm", 
-      "annotations.drb": "$drb", 
+      "objectId": 1,
+      "cross_matches_CLU": 1,
+      "annotations.FWHM": "$fwhm",
+      "annotations.drb": "$drb",
       "annotations.host g-r": {
         "$subtract": [
           "$sgmag", "$srmag"
         ]
-      }, 
+      },
       "annotations.host r-i": {
         "$subtract": [
           "$srmag", "$simag"
         ]
-      }, 
-      "annotations.mag at max": "$m_max", 
-      "annotations.time at max": "$t_max", 
-      "annotations.min-mag": "$m_min", 
-      "annotations.min-time": "$t_min", 
+      },
+      "annotations.mag at max": "$m_max",
+      "annotations.time at max": "$t_max",
+      "annotations.min-mag": "$m_min",
+      "annotations.min-time": "$t_min",
       "annotations.time difference": {
         "$subtract": [
           "$t_max", "$t_min"
         ]
-      }, 
+      },
       "annotations.mag diff": {
         "$subtract": [
           "$m_min", "$m_max"
         ]
-      }, 
+      },
       "annotations.rise rate": {
         "$cond": {
           "if": {
@@ -593,7 +593,7 @@
                 ]
               }, 0
             ]
-          }, 
+          },
           "then": {
             "$divide": [
               {
@@ -606,10 +606,10 @@
                 ]
               }
             ]
-          }, 
+          },
           "else": null
         }
-      }, 
+      },
       "annotations.decay rate": {
         "$cond": {
           "if": {
@@ -620,7 +620,7 @@
                 ]
               }, 0
             ]
-          }, 
+          },
           "then": {
             "$divide": [
               {
@@ -633,22 +633,22 @@
                 ]
               }
             ]
-          }, 
+          },
           "else": null
         }
-      }, 
-      "annotations.host ZTF ref PSF r-mag": "$magnr", 
-      "annotations.PS1 psf r-mag": "$srmag", 
-      "annotations.rb score": "$rbscore", 
-      "annotations.sgscore1": "$sgscore", 
-      "annotations.ZOGI scorr": "$scorr", 
-      "annotations.distpsnr1": "$distpsnr1", 
-      "annotations.distpsnr2": "$distpsnr2", 
-      "annotations.distpsnr3": "$distpsnr3", 
-      "annotations.magpsf": "$m_now", 
-      "annotations.elongation": "$elong", 
-      "annotations.magap_min_magpsf": "$psfminap", 
-      "annotations.gal_lat": "$gal_lat", 
+      },
+      "annotations.host ZTF ref PSF r-mag": "$magnr",
+      "annotations.PS1 psf r-mag": "$srmag",
+      "annotations.rb score": "$rbscore",
+      "annotations.sgscore1": "$sgscore",
+      "annotations.ZOGI scorr": "$scorr",
+      "annotations.distpsnr1": "$distpsnr1",
+      "annotations.distpsnr2": "$distpsnr2",
+      "annotations.distpsnr3": "$distpsnr3",
+      "annotations.magpsf": "$m_now",
+      "annotations.elongation": "$elong",
+      "annotations.magap_min_magpsf": "$psfminap",
+      "annotations.gal_lat": "$gal_lat",
       "annotations.deltajd": {
         "$subtract": [
           "$jdendhist", "$jdstarthist"

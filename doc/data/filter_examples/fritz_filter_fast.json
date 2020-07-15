@@ -1,15 +1,15 @@
 [
   {
     "$project": {
-      "cutoutScience": 0, 
-      "cutoutTemplate": 0, 
+      "cutoutScience": 0,
+      "cutoutTemplate": 0,
       "cutoutDifference": 0
     }
   }, {
     "$lookup": {
-      "from": "ZTF_alerts_aux", 
-      "localField": "objectId", 
-      "foreignField": "_id", 
+      "from": "ZTF_alerts_aux",
+      "localField": "objectId",
+      "foreignField": "_id",
       "as": "aux"
     }
   }, {
@@ -18,15 +18,15 @@
         "$arrayElemAt": [
           "$aux.cross_matches", 0
         ]
-      }, 
+      },
       "prv_candidates": {
         "$filter": {
           "input": {
             "$arrayElemAt": [
               "$aux.prv_candidates", 0
             ]
-          }, 
-          "as": "item", 
+          },
+          "as": "item",
           "cond": {
             "$and": [
               {
@@ -47,49 +47,49 @@
             ]
           }
         }
-      }, 
-      "schemavsn": 1, 
-      "publisher": 1, 
-      "objectId": 1, 
-      "candid": 1, 
-      "candidate": 1, 
-      "classifications": 1, 
+      },
+      "schemavsn": 1,
+      "publisher": 1,
+      "objectId": 1,
+      "candid": 1,
+      "candidate": 1,
+      "classifications": 1,
       "coordinates": 1
     }
   }, {
     "$match": {
       "candidate.magpsf": {
         "$lt": 20
-      }, 
+      },
       "candidate.isdiffpos": {
         "$in": [
           "1", "t"
         ]
-      }, 
+      },
       "candidate.programid": {
         "$gt": 0
-      }, 
+      },
       "candidate.ssdistnr": {
         "$lt": -1
-      }, 
+      },
       "candidate.drb": {
         "$gt": 0.65
       }
     }
   }, {
     "$project": {
-      "objectId": 1, 
-      "dist": "$candidate.distpsnr1", 
-      "sg": "$candidate.sgscore1", 
-      "rmag": "$candidate.srmag1", 
-      "gmag": "$candidate.sgmag1", 
-      "imag": "$candidate.simag1", 
+      "objectId": 1,
+      "dist": "$candidate.distpsnr1",
+      "sg": "$candidate.sgscore1",
+      "rmag": "$candidate.srmag1",
+      "gmag": "$candidate.sgmag1",
+      "imag": "$candidate.simag1",
       "zmag": "$candidate.szmag1"
     }
   }, {
     "$project": {
-      "_id": 0, 
-      "objectId": 1, 
+      "_id": 0,
+      "objectId": 1,
       "pointunderneath": {
         "$or": [
           {
@@ -414,8 +414,8 @@
     }
   }, {
     "$project": {
-      "candid": 1, 
-      "objectId": 1, 
+      "candid": 1,
+      "objectId": 1,
       "annotations.comment": "fast!"
     }
   }
