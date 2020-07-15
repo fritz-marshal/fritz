@@ -257,7 +257,6 @@ def test(args):
 
 def doc(args):
     subprocess.run(["make", "html"], cwd="doc", check=True)
-    Path("doc/_build/html/.nojekyll").touch()
 
     if args.upload:
         subprocess.run(
