@@ -248,14 +248,9 @@ EnhancedTableHead.propTypes = {
     orderBy: PropTypes.string.isRequired,
 };
 
-/*
-- if no candid is specified, assemble lc, show table with detection history
-  - actual alerts from ZTF_alerts have links that load in the thumbnails + alert contents on the right side
-  - the latest candid is displayed on the right, lc plot shows a dashed vertical line for <jd>
-- if candid is specified, display it on the right-hand side right away
-  - on error (e.g., wrong candid) display the default, show error
-- if objectId does not exist on K, display that info
-*/
+function isString(x) {
+  return Object.prototype.toString.call(x) === "[object String]"
+}
 
 
 const ZTFAlert = ({route}) => {
@@ -269,7 +264,9 @@ const ZTFAlert = ({route}) => {
     const alert_data = useSelector((state) => state.alert_data);
     // let candid = null;
     let rows = [];
-    if (alert_data !== null) {
+
+    if ((alert_data !== null) && !isString(alert_data)) {
+        // console.log(alert_data);
         // const candids = alert_data.map(a => a.candid).sort();
         // candid = candids[candids.length-1];
         rows = alert_data.map(a => createRows(
@@ -293,13 +290,14 @@ const ZTFAlert = ({route}) => {
     const alert_aux_data = useSelector((state) => state.alert_aux_data);
     let prv_candidates = {};
     let cross_matches = {};
-    if (alert_aux_data !== null) {
+
+    if ((alert_aux_data !== null) && !isString(alert_aux_data)) {
         prv_candidates = alert_aux_data.prv_candidates;
         cross_matches = alert_aux_data.cross_matches;
         // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
     }
 
-    const cachedObjectId = alert_data ? route.id : null;
+    const cachedObjectId = ((alert_aux_data !== null) && !isString(alert_aux_data)) ? route.id : null;
     const isCached = (route.id === cachedObjectId);
 
     useEffect(() => {
@@ -346,6 +344,9 @@ const ZTFAlert = ({route}) => {
 
     if (alert_data === null) {
         return (<div>Loading...</div>)
+    }
+    else if ((isString(alert_data)) || (isString(alert_aux_data))) {
+        return (<div>Failed to fetch alert data, please try again later.</div>)
     }
     else if (alert_data.length === 0) {
         return (

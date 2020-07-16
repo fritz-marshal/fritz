@@ -104,7 +104,9 @@ class ZTFAlertHandler(BaseHandler):
 
             resp = s.post(
                 os.path.join(base_url, 'api/queries'),
-                json=query, headers=headers
+                json=query,
+                headers=headers,
+                timeout=7
             )
 
             if resp.status_code == requests.codes.ok:
@@ -209,7 +211,9 @@ class ZTFAlertAuxHandler(BaseHandler):
 
             resp = s.post(
                 os.path.join(base_url, 'api/queries'),
-                json=query, headers=headers
+                json=query,
+                headers=headers,
+                timeout=7
             )
 
             if resp.status_code == requests.codes.ok:
@@ -255,7 +259,9 @@ class ZTFAlertAuxHandler(BaseHandler):
 
             resp = s.post(
                 os.path.join(base_url, 'api/queries'),
-                json=query, headers=headers
+                json=query,
+                headers=headers,
+                timeout=7
             )
 
             if resp.status_code == requests.codes.ok:
@@ -369,7 +375,9 @@ class ZTFAlertCutoutHandler(BaseHandler):
 
             resp = s.post(
                 os.path.join(base_url, 'api/queries'),
-                json=query, headers=headers
+                json=query,
+                headers=headers,
+                timeout=7
             )
 
             if resp.status_code == requests.codes.ok:
