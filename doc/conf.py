@@ -14,8 +14,6 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-from recommonmark.transform import AutoStructify
-
 
 # -- Project information -----------------------------------------------------
 
@@ -29,7 +27,7 @@ author = "The Fritz Marshal authors"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["recommonmark"]
+extensions = ["myst_parser"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -57,4 +55,4 @@ def setup(app):
     app.add_config_value(
         "recommonmark_config", {"auto_toc_tree_section": "Contents"}, True
     )
-    app.add_transform(AutoStructify)
+    app.add_css_file('custom.css')

@@ -259,7 +259,7 @@ text below for brevity.
 
 Let us start with a very simplistic example:
 
-[fritz_filter_101.json](data/filter_examples/fritz_filter_101.json)
+{download}`fritz_filter_101.json <data/filter_examples/fritz_filter_101.json>`
 
 The first user-defined [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/)
 stage selects alerts with deep-learning-based real-bogus scores (`candidate.drb`) greater than 0.9999999
@@ -460,7 +460,7 @@ def clu_filter(current_observation):
 
 The `Fritz`-implementation that can be loaded into Compass can be found here:
 
-[fritz_filter_clu.json](data/filter_examples/fritz_filter_clu.json)
+{download}`fritz_filter_clu.json <data/filter_examples/fritz_filter_clu.json>`
 
 Let us explore it step-by-step and look at the individual user-defined stages, again omitting
 the upstream part.
@@ -1112,7 +1112,7 @@ The final stage adds annotations to a passing alert:
 As another example, below you will find a simplified version of the Bright Transient Survey filter
 (the Redshift Completeness Factor program)
 
-[fritz_filter_rcf.json](data/filter_examples/fritz_filter_rcf.json)
+{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
 
 ```js
 [
@@ -1571,7 +1571,7 @@ As another example, below you will find a simplified version of the Bright Trans
 In this example, we will see how to adapt the Fast Transients' program filter that has been using Kowalski for the
 initial search.
 
-[fritz_filter_fast.json](data/filter_examples/fritz_filter_fast.json)
+{download}`fritz_filter_fast.json <data/filter_examples/fritz_filter_fast.json>`
 
 In the `python` code snippet below, courtesy of Anna Ho and Yuhan Yao, a coarse search is run using Kowalski and then a
 number of logical expressions would be evaluated on the query result:
