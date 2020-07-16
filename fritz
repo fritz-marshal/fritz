@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-from copy import deepcopy
 import datetime
 from distutils.dir_util import copy_tree
 import os

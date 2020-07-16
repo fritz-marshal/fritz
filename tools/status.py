@@ -8,7 +8,7 @@ def status(message):
     sys.stdout.flush()
     try:
         yield
-    except Exception as e:
+    except Exception:
         print(f'\r[✗] {message}')
         raise
     else:

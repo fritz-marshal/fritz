@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 from distutils.version import LooseVersion as Version
-import os
 import subprocess
-import sys
-import textwrap
 
 from .status import status
 
@@ -40,7 +37,7 @@ def deps_ok():
                 try:
                     version = get_version(out.decode('utf-8').strip())
                     print(f'[{version.rjust(8)}]'.rjust(40 - len(query)), end='')
-                except:
+                except Exception:
                     raise ValueError('Could not parse version')
 
                 if not (Version(version) >= Version(min_version)):

@@ -6,12 +6,12 @@ from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 from numpy import array, flipud, median, nan_to_num
 import os
-import pandas as pd
+# import pandas as pd
 import pathlib
 import requests
 import traceback
 
-from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.access import auth_or_token  # , permissions
 from ..base import BaseHandler
 
 
@@ -114,7 +114,7 @@ class ZTFAlertHandler(BaseHandler):
                 alert_data = []
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-        except Exception as _e:
+        except Exception:
             _err = traceback.format_exc()
             return self.error(f'failure: {_err}')
 
@@ -273,7 +273,7 @@ class ZTFAlertAuxHandler(BaseHandler):
 
             return self.success(data=alert_data)
 
-        except Exception as _e:
+        except Exception:
             _err = traceback.format_exc()
             return self.error(f'failure: {_err}')
 
@@ -428,6 +428,6 @@ class ZTFAlertCutoutHandler(BaseHandler):
                 self.set_header("Content-Type", 'image/png')
                 self.write(buff.getvalue())
 
-        except Exception as _e:
+        except Exception:
             _err = traceback.format_exc()
             return self.error(f'failure: {_err}')
