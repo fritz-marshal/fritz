@@ -93,8 +93,7 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
     with open("kowalski/config.yaml", 'w') as cyaml:
         yaml.dump(config_kowalski, cyaml)
 
-    config_skyportal = deepcopy(config)
-    config_skyportal.pop('kowalski', None)  # don't need the K stuff
+    config_skyportal = config['skyportal']  # don't need the SP stuff
     # Docker-specific stuff:
     config_skyportal['database']['host'] = "db"
     config_skyportal['server']['url'] = "http://localhost:5000"
