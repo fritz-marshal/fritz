@@ -280,7 +280,6 @@ class ZTFAlertAuxHandler(BaseHandler):
 
 class ZTFAlertCutoutHandler(BaseHandler):
     @auth_or_token
-    # @routes.get('/lab/ztf-alerts/{candid}/cutout/{cutout}/{file_format}', allow_head=False)
     def get(self, objectId: str = None):
         """
         ---

@@ -35,8 +35,8 @@ app:
       component: UploadPhotometry
     - path: "/about"
       component: About
-#    - path: "/alerts"
-#      component: Alerts
+    - path: "/alerts"
+      component: Alerts
     - path: "/alerts/ztf/:id"
       component: ZTFAlert
 

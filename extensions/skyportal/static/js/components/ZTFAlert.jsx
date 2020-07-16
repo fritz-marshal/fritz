@@ -21,7 +21,6 @@ import TableSortLabel from '@material-ui/core/TableSortLabel';
 import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
 
-// import Plot from './Plot';
 import Responsive from "./Responsive";
 import FoldBox from "./FoldBox";
 
@@ -31,7 +30,7 @@ import FoldBox from "./FoldBox";
 import * as Actions from '../ducks/alert';
 import {FETCH_ALERT_ERROR, FETCH_ALERT_FAIL, FETCH_ALERT_OK} from "../ducks/alert";
 
-const VegaPlot = React.lazy(() => import(/* webpackChunkName: "VegaPlot" */ './VegaPlotZTFAlert'));
+const VegaPlot = React.lazy(() => import('./VegaPlotZTFAlert'));
 
 
 const StyledTableCell = withStyles((theme) => ({

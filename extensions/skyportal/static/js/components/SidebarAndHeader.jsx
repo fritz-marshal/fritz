@@ -13,8 +13,11 @@ import ListItemText from "@material-ui/core/ListItemText";
 import { blue } from "@material-ui/core/colors";
 import HomeIcon from "@material-ui/icons/Home";
 import SearchIcon from "@material-ui/icons/Search";
+import ExploreIcon from '@material-ui/icons/Explore';
 import InfoIcon from "@material-ui/icons/Info";
 import MenuIcon from "@material-ui/icons/Menu";
+import StorageIcon from '@material-ui/icons/Storage';
+import GroupWorkIcon from '@material-ui/icons/GroupWork';
 import IconButton from "@material-ui/core/IconButton";
 import { makeStyles } from "@material-ui/core/styles";
 
@@ -129,12 +132,36 @@ const SidebarAndHeader = ({ open, root }) => {
               <ListItemText primary="Dashboard" />
             </ListItem>
           </Link>
+          <Link to="/sources" className={classes.link}>
+            <ListItem button name="sidebarSourcesButton">
+              <ListItemIcon>
+                <StorageIcon style={{ color: blue[200] }} />
+              </ListItemIcon>
+              <ListItemText primary="Sources" />
+            </ListItem>
+          </Link>
           <Link to="/candidates" className={classes.link}>
             <ListItem button name="sidebarCandidatesButton">
               <ListItemIcon>
                 <SearchIcon style={{ color: blue[200] }} />
               </ListItemIcon>
               <ListItemText primary="Candidates" />
+            </ListItem>
+          </Link>
+          <Link to="/alerts" className={classes.link}>
+            <ListItem button name="sidebarAlertsButton">
+              <ListItemIcon>
+                <ExploreIcon style={{ color: blue[200] }} />
+              </ListItemIcon>
+              <ListItemText primary="Alerts" />
+            </ListItem>
+          </Link>
+          <Link to="/groups" className={classes.link}>
+            <ListItem button name="sidebarGroupsButton">
+              <ListItemIcon>
+                <GroupWorkIcon style={{ color: blue[200] }} />
+              </ListItemIcon>
+              <ListItemText primary="Groups" />
             </ListItem>
           </Link>
           <Link to="/about" className={classes.link}>
