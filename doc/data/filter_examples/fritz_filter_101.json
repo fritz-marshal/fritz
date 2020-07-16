@@ -1,0 +1,91 @@
+[
+  {
+    "$project": {
+      "cutoutScience": 0,
+      "cutoutTemplate": 0,
+      "cutoutDifference": 0
+    }
+  },
+  {
+    "$lookup": {
+      "from": "ZTF_alerts_aux",
+      "localField": "objectId",
+      "foreignField": "_id",
+      "as": "aux"
+    }
+  },
+  {
+    "$project": {
+      "cross_matches": {
+        "$arrayElemAt": [
+          "$aux.cross_matches",
+          0
+        ]
+      },
+      "prv_candidates": {
+        "$filter": {
+          "input": {
+            "$arrayElemAt": [
+              "$aux.prv_candidates",
+              0
+            ]
+          },
+          "as": "item",
+          "cond": {
+            "$and": [
+              {
+                "$in": [
+                  "$$item.programid",
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ]
+              },
+              {
+                "$lt": [
+                  {
+                    "$subtract": [
+                      "$candidate.jd",
+                      "$$item.jd"
+                    ]
+                  },
+                  100
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "schemavsn": 1,
+      "publisher": 1,
+      "objectId": 1,
+      "candid": 1,
+      "candidate": 1,
+      "classifications": 1,
+      "coordinates": 1
+    }
+  },
+  {
+    "$match": {
+      "candidate.drb": {
+        "$gt": 0.9999999
+      },
+      "cross_matches.Gaia_DR2.0": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "candid": 1,
+      "objectId": 1,
+      "annotations.author": "dd",
+      "annotations.mean_rb": {
+        "$avg": "$prv_candidates.rb"
+      }
+    }
+  }
+]
