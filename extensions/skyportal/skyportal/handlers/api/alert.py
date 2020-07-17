@@ -1,24 +1,17 @@
 from astropy.io import fits
-from bson.json_util import loads, dumps
+import bson.json_util as bj
 import gzip
 import io
-from matplotlib.colors import LogNorm
+import matplotlib.colors as mplc
 import matplotlib.pyplot as plt
-from numpy import array, flipud, median, nan_to_num
+import numpy as np
 import os
-# import pandas as pd
 import pathlib
 import requests
 import traceback
 
-from baselayer.app.access import auth_or_token  # , permissions
+from baselayer.app.access import auth_or_token
 from ..base import BaseHandler
-
-
-# from ...models import (
-#     DBSession,
-#     Filter,
-# )
 
 
 s = requests.Session()
@@ -63,7 +56,6 @@ class ZTFAlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        # print(objectId)
         try:
             query = {
                 "query_type": "aggregate",
@@ -110,10 +102,9 @@ class ZTFAlertHandler(BaseHandler):
             )
 
             if resp.status_code == requests.codes.ok:
-                alert_data = loads(resp.text).get('data')
+                alert_data = bj.loads(resp.text).get('data')
                 return self.success(data=alert_data)
             else:
-                alert_data = []
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
         except Exception:
@@ -156,7 +147,6 @@ class ZTFAlertAuxHandler(BaseHandler):
                   schema: Error
         """
 
-        # print(objectId, 'aux')
         try:
             query = {
                 "query_type": "aggregate",
@@ -217,7 +207,7 @@ class ZTFAlertAuxHandler(BaseHandler):
             )
 
             if resp.status_code == requests.codes.ok:
-                alert_data = loads(resp.text).get('data', list(dict()))[0]
+                alert_data = bj.loads(resp.text).get('data', list(dict()))[0]
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
@@ -265,17 +255,12 @@ class ZTFAlertAuxHandler(BaseHandler):
             )
 
             if resp.status_code == requests.codes.ok:
-                latest_alert_data = loads(resp.text).get('data', list(dict()))[0]
+                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))[0]
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
             if len(latest_alert_data) > 0:
                 alert_data['prv_candidates'].append(latest_alert_data['candidate'])
-
-            # fixme? populate empty fields for vega?
-            # if len(alert_data) > 0:
-            #     df = pd.DataFrame.from_records(alert_data['prv_candidates'])
-            #     alert_data['prv_candidates'] = df.to_dict(orient='records')
 
             return self.success(data=alert_data)
 
@@ -381,11 +366,11 @@ class ZTFAlertCutoutHandler(BaseHandler):
             )
 
             if resp.status_code == requests.codes.ok:
-                alert = loads(resp.text).get('data', list(dict()))[0]
+                alert = bj.loads(resp.text).get('data', list(dict()))[0]
             else:
                 alert = dict()
 
-            cutout_data = loads(dumps([alert[f'cutout{cutout}']['stampData']]))[0]
+            cutout_data = bj.loads(bj.dumps([alert[f'cutout{cutout}']['stampData']]))[0]
 
             # unzipped fits name
             fits_name = pathlib.Path(alert[f"cutout{cutout}"]["fileName"]).with_suffix('')
@@ -394,11 +379,10 @@ class ZTFAlertCutoutHandler(BaseHandler):
             with gzip.open(io.BytesIO(cutout_data), 'rb') as f:
                 with fits.open(io.BytesIO(f.read())) as hdu:
                     header = hdu[0].header
-                    data_flipped_y = flipud(hdu[0].data)
+                    data_flipped_y = np.flipud(hdu[0].data)
 
             if file_format == 'fits':
                 hdu = fits.PrimaryHDU(data_flipped_y, header=header)
-                # hdu = fits.PrimaryHDU(data_flipped_y)
                 hdul = fits.HDUList([hdu])
 
                 stamp_fits = io.BytesIO()
@@ -411,24 +395,20 @@ class ZTFAlertCutoutHandler(BaseHandler):
             if file_format == 'png':
                 buff = io.BytesIO()
                 plt.close('all')
-                fig = plt.figure()
-                fig.set_size_inches(4, 4, forward=False)
-                ax = plt.Axes(fig, [0., 0., 1., 1.])
+
+                fig, ax = plt.subplots(figsize=(4, 4))
+                fig.subplots_adjust(0, 0, 1, 1)
                 ax.set_axis_off()
-                fig.add_axes(ax)
 
                 # remove nans:
-                img = array(data_flipped_y)
-                img = nan_to_num(img)
+                img = np.array(data_flipped_y)
+                img = np.nan_to_num(img)
 
                 if cutout != 'Difference':
-                    # img += np.min(img)
-                    img[img <= 0] = median(img)
-                    # plt.imshow(img, cmap='gray', norm=LogNorm(), origin='lower')
-                    plt.imshow(img, cmap=plt.cm.bone, norm=LogNorm(), origin='lower')
+                    img[img <= 0] = np.median(img)
+                    ax.imshow(img, cmap='bone', norm=mplc.LogNorm(), origin='lower')
                 else:
-                    # plt.imshow(img, cmap='gray', origin='lower')
-                    plt.imshow(img, cmap=plt.cm.bone, origin='lower')
+                    ax.imshow(img, cmap='bone', origin='lower')
                 plt.savefig(buff, dpi=42)
 
                 buff.seek(0)
