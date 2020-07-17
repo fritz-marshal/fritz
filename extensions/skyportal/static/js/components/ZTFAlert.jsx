@@ -1,14 +1,13 @@
 // import React from 'react';
 // import React, {useEffect, useState, Suspense} from 'react';
-import React, {useEffect, useState, Suspense} from 'react';
-import {useDispatch, useSelector} from 'react-redux';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 
-import styles from "./ZTFAlert.css";
 
 import Button from '@material-ui/core/Button';
 import SaveIcon from '@material-ui/icons/Save';
 import PropTypes from 'prop-types';
-import {lighten, withStyles, makeStyles} from '@material-ui/core/styles';
+import { withStyles, makeStyles } from '@material-ui/core/styles';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -27,12 +26,11 @@ import FoldBox from "./FoldBox";
 
 // Import action creators from `static/js/ducks/alert.js`
 import * as Actions from '../ducks/alert';
-import {FETCH_ALERT_ERROR, FETCH_ALERT_FAIL, FETCH_ALERT_OK} from "../ducks/alert";
 
 const VegaPlot = React.lazy(() => import('./VegaPlotZTFAlert'));
 
 
-const StyledTableCell = withStyles((theme) => ({
+const StyledTableCell = withStyles(() => ({
   head: {
     // backgroundColor: theme.palette.common.black,
     // backgroundColor: "#111",
@@ -88,7 +86,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions) {
-  return {id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions};
+  return { id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions };
 }
 
 const columns = [
@@ -190,9 +188,9 @@ function descendingComparator(a, b, orderBy) {
 }
 
 function getComparator(order, orderBy) {
-  return order === 'desc'
-    ? (a, b) => descendingComparator(a, b, orderBy)
-    : (a, b) => -descendingComparator(a, b, orderBy);
+  return order === 'desc' ?
+    (a, b) => descendingComparator(a, b, orderBy) :
+    (a, b) => -descendingComparator(a, b, orderBy);
 }
 
 function stableSort(array, comparator) {
@@ -206,7 +204,7 @@ function stableSort(array, comparator) {
 }
 
 function EnhancedTableHead(props) {
-  const {classes, order, orderBy, onRequestSort} = props;
+  const { classes, order, orderBy, onRequestSort } = props;
   const createSortHandler = (property) => (event) => {
     onRequestSort(event, property);
   };
@@ -241,19 +239,20 @@ function EnhancedTableHead(props) {
 }
 
 EnhancedTableHead.propTypes = {
-  classes: PropTypes.object.isRequired,
+  classes: PropTypes.shape({
+    visuallyHidden: PropTypes.any
+  }).isRequired,
   onRequestSort: PropTypes.func.isRequired,
   order: PropTypes.oneOf(['asc', 'desc']).isRequired,
   orderBy: PropTypes.string.isRequired,
 };
 
 function isString(x) {
-  return Object.prototype.toString.call(x) === "[object String]"
+  return Object.prototype.toString.call(x) === "[object String]";
 }
 
 
-const ZTFAlert = ({route}) => {
-
+const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
 
@@ -268,7 +267,7 @@ const ZTFAlert = ({route}) => {
     // console.log(alert_data);
     // const candids = alert_data.map(a => a.candid).sort();
     // candid = candids[candids.length-1];
-    rows = alert_data.map(a => createRows(
+    rows = alert_data.map((a) => createRows(
       a.candid,
       a.candidate.jd,
       a.candidate.fid,
@@ -281,20 +280,19 @@ const ZTFAlert = ({route}) => {
       // <Link to={'lol/'}>{a.candid}</Link>
       <Button onClick={() => {
         setCandid(a.candid);
-        setJd(a.candidate.jd)
-      }}>
-        {"Show thumbnails"}
+        setJd(a.candidate.jd);
+      }}
+      >
+        Show thumbnails
       </Button>
     ));
   }
   // const candid = null
 
   const alert_aux_data = useSelector((state) => state.alert_aux_data);
-  let prv_candidates = {};
   let cross_matches = {};
 
   if ((alert_aux_data !== null) && !isString(alert_aux_data)) {
-    prv_candidates = alert_aux_data.prv_candidates;
     cross_matches = alert_aux_data.cross_matches;
     // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
   }
@@ -306,22 +304,19 @@ const ZTFAlert = ({route}) => {
     const fetchAlert = async () => {
       const data = await dispatch(Actions.fetchAlertData(objectId));
       if (data.status === "success") {
-        const data_aux = await dispatch(Actions.fetchAuxData(objectId));
         // dispatch(Actions.fetchAlertThumbnails(candid));
-        const candids = Array.from(new Set(data.data.map(c => c.candid))).sort()
-        const jds = Array.from(new Set(data.data.map(c => c.candidate.jd))).sort()
+        const candids = Array.from(new Set(data.data.map((c) => c.candid))).sort();
+        const jds = Array.from(new Set(data.data.map((c) => c.candidate.jd))).sort();
         // grab the latest candid's thumbnails by default
         setCandid(candids[candids.length - 1]);
         setJd(jds[jds.length - 1]);
-        // console.log(candid)
-        // console.log(candids)
       }
     };
 
     if (!isCached) {
       fetchAlert();
     }
-  }, [dispatch, isCached, route.id]);
+  }, [dispatch, isCached, route.id, objectId]);
 
   const classes = useStyles();
   const [order, setOrder] = React.useState('desc');
@@ -345,17 +340,19 @@ const ZTFAlert = ({route}) => {
   };
 
   if (alert_data === null) {
-    return (<div>Loading...</div>)
+    return (<div>Loading...</div>);
   } else if ((isString(alert_data)) || (isString(alert_aux_data))) {
-    return (<div>Failed to fetch alert data, please try again later.</div>)
+    return (<div>Failed to fetch alert data, please try again later.</div>);
   } else if (alert_data.length === 0) {
     return (
       <div>
         <h2>
-          {objectId} not found
+          {objectId}
+          {' '}
+          not found
         </h2>
       </div>
-    )
+    );
   } else if (alert_data.length > 0) {
     return (
       <div>
@@ -366,7 +363,7 @@ const ZTFAlert = ({route}) => {
               variant="contained"
               color="primary"
               className={classes.margin_left}
-              startIcon={<SaveIcon/>}
+              startIcon={<SaveIcon />}
               // todo: save as a source to one of my programs button
               // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
             >
@@ -379,41 +376,48 @@ const ZTFAlert = ({route}) => {
           <Responsive
             element={FoldBox}
             title="Photometry and cutouts"
-            mobileProps={{folded: true}}
+            mobileProps={{ folded: true }}
           >
             <Grid container spacing={2}>
               <Grid item sm={12} md={6}>
                 <Suspense fallback={<div>Loading plot...</div>}>
-                  {/*<div style={{width: "100%"}}>*/}
+                  {/* <div style={{width: "100%"}}> */}
                   <VegaPlot
                     dataUrl={`/api/alerts/ztf/${objectId}/aux`}
                     jd={jd}
                   />
-                  {/*</div>*/}
+                  {/* </div> */}
                 </Suspense>
               </Grid>
               <Grid container item sm={12} md={6} spacing={1} className={classes.image}>
                 <Grid item xs={4}>
-                  <img alt="science"
-                       src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null}
+                  <img
+                    alt="science"
+                    src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null}
                   />
-                  <br/>Science
+                  <br />
+                  Science
                 </Grid>
                 <Grid item xs={4}>
-                  <img alt="reference"
-                       src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null}
+                  <img
+                    alt="reference"
+                    src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null}
                   />
-                  <br/>Reference
+                  <br />
+                  Reference
                 </Grid>
                 <Grid item xs={4}>
-                  <img alt="difference"
-                       src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
+                  <img
+                    alt="difference"
+                    src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
                   />
-                  <br/>Difference
+                  <br />
+                  Difference
                 </Grid>
                 <Paper className={classes.paper}>
-                  Cross-matches:<br/>
-                  {/*todo: plot interleaved on PS1 cutout?*/}
+                  Cross-matches:
+                  <br />
+                  {/* todo: plot interleaved on PS1 cutout? */}
                   {JSON.stringify(cross_matches, null, 2)}
                 </Paper>
               </Grid>
@@ -433,27 +437,26 @@ const ZTFAlert = ({route}) => {
               <TableBody>
                 {stableSort(rows, getComparator(order, orderBy))
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row, index) => {
-
-                    return (
-                      <TableRow
-                        hover
-                        role="checkbox"
-                        tabIndex={-1}
-                        key={row.name}
-                      >
-                        {columns.map((column) => {
-                          const value = row[column.id];
-                          return (
-                            <TableCell key={column.id}
-                                       align={column.numeric ? 'right' : 'left'}>
-                              {column.format && typeof value === 'number' ? column.format(value) : value}
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    );
-                  })}
+                  .map((row) => (
+                    <TableRow
+                      hover
+                      role="checkbox"
+                      tabIndex={-1}
+                      key={row.name}
+                    >
+                      {columns.map((column) => {
+                        const value = row[column.id];
+                        return (
+                          <TableCell
+                            key={column.id}
+                            align={column.numeric ? 'right' : 'left'}
+                          >
+                            {column.format && typeof value === 'number' ? column.format(value) : value}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -469,6 +472,12 @@ const ZTFAlert = ({route}) => {
         </Paper>
       </div>
 
+    );
+  } else {
+    return (
+      <div>
+        Error rendering page...
+      </div>
     );
   }
 };

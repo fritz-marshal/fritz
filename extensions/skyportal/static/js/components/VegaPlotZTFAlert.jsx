@@ -3,39 +3,6 @@ import PropTypes from 'prop-types';
 import embed from 'vega-embed';
 
 
-function lc_colors(fid) {
-  switch (fid) {
-    case 1: {
-      return '#28a745';
-    }
-    case 2: {
-      return '#dc3545';
-    }
-    case 3: {
-      return '#f3dc11';
-    }
-    default:
-      return '#222';
-  }
-}
-
-function filter_name(fid) {
-  switch (fid) {
-    case 1: {
-      return 'ztfg';
-    }
-    case 2: {
-      return 'ztfr';
-    }
-    case 3: {
-      return 'ztfi';
-    }
-    default:
-      return fid.toString();
-  }
-}
-
-
 const spec = (url, jd) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: 500,
@@ -95,8 +62,8 @@ const spec = (url, jd) => ({
           field: "fid",
           type: "nominal",
           scale: {
-            "domain": [1, 2, 3],
-            "range": ["#28a745", "#dc3545", "#f3dc11"]
+            domain: [1, 2, 3],
+            range: ["#28a745", "#dc3545", "#f3dc11"]
           },
         },
         tooltip: [
@@ -212,8 +179,8 @@ const spec = (url, jd) => ({
 
     // render selected candid date
     {
-      data: {values: [{}]},
-      mark: {type: "rule", strokeDash: [4, 4], size: 2},
+      data: { values: [{}] },
+      mark: { type: "rule", strokeDash: [4, 4], size: 2 },
       encoding: {
         x: {
           datum: jd,
@@ -226,19 +193,20 @@ const spec = (url, jd) => ({
 
 
 const VegaPlot = ({ dataUrl, jd }) => (
-    <div
-        ref={
+  <div
+    ref={
           (node) => {
             embed(node, spec(dataUrl, jd), {
               actions: false
             });
           }
         }
-    />
+  />
 );
 
 VegaPlot.propTypes = {
-  dataUrl: PropTypes.string.isRequired
+  dataUrl: PropTypes.string.isRequired,
+  jd: PropTypes.number.isRequired
 };
 
 export default VegaPlot;
