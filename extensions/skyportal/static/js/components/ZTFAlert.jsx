@@ -260,13 +260,9 @@ const ZTFAlert = ({ route }) => {
   const [jd, setJd] = useState(0);
 
   const alert_data = useSelector((state) => state.alert_data);
-  // let candid = null;
   let rows = [];
 
   if ((alert_data !== null) && !isString(alert_data)) {
-    // console.log(alert_data);
-    // const candids = alert_data.map(a => a.candid).sort();
-    // candid = candids[candids.length-1];
     rows = alert_data.map((a) => createRows(
       a.candid,
       a.candidate.jd,
@@ -277,7 +273,6 @@ const ZTFAlert = ({ route }) => {
       a.candidate.drb,
       a.candidate.isdiffpos,
       a.candidate.programid,
-      // <Link to={'lol/'}>{a.candid}</Link>
       <Button onClick={() => {
         setCandid(a.candid);
         setJd(a.candidate.jd);
@@ -287,7 +282,6 @@ const ZTFAlert = ({ route }) => {
       </Button>
     ));
   }
-  // const candid = null
 
   const alert_aux_data = useSelector((state) => state.alert_aux_data);
   let cross_matches = {};
@@ -304,7 +298,9 @@ const ZTFAlert = ({ route }) => {
     const fetchAlert = async () => {
       const data = await dispatch(Actions.fetchAlertData(objectId));
       if (data.status === "success") {
-        // dispatch(Actions.fetchAlertThumbnails(candid));
+        // fetch aux data
+        await dispatch(Actions.fetchAuxData(objectId));
+
         const candids = Array.from(new Set(data.data.map((c) => c.candid))).sort();
         const jds = Array.from(new Set(data.data.map((c) => c.candidate.jd))).sort();
         // grab the latest candid's thumbnails by default
