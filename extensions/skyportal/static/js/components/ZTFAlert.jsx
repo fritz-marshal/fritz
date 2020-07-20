@@ -135,7 +135,7 @@ const columns = [
     id: 'rb',
     numeric: true,
     disablePadding: false,
-    label: 'rb score',
+    label: 'rb',
     // minWidth: 170,
     align: 'left',
     format: (value) => value.toFixed(5),
@@ -144,7 +144,7 @@ const columns = [
     id: 'drb',
     numeric: true,
     disablePadding: false,
-    label: 'drb score',
+    label: 'drb',
     // minWidth: 170,
     align: 'left',
     format: (value) => value.toFixed(5),
@@ -273,12 +273,12 @@ const ZTFAlert = ({ route }) => {
       a.candidate.drb,
       a.candidate.isdiffpos,
       a.candidate.programid,
-      <Button onClick={() => {
+      <Button size="small" onClick={() => {
         setCandid(a.candid);
         setJd(a.candidate.jd);
       }}
       >
-        Show thumbnails
+        Show&nbsp;thumbnails
       </Button>
     ));
   }
