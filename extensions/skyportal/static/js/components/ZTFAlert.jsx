@@ -291,7 +291,7 @@ const ZTFAlert = ({ route }) => {
     // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
   }
 
-  const cachedObjectId = ((alert_aux_data !== null) && !isString(alert_aux_data)) ? route.id : null;
+  const cachedObjectId = ((alert_data !== null) && !isString(alert_data) && (candid > 0)) ? route.id : null;
   const isCached = (route.id === cachedObjectId);
 
   useEffect(() => {
@@ -299,7 +299,7 @@ const ZTFAlert = ({ route }) => {
       const data = await dispatch(Actions.fetchAlertData(objectId));
       if (data.status === "success") {
         // fetch aux data
-        await dispatch(Actions.fetchAuxData(objectId));
+        const data_aux = await dispatch(Actions.fetchAuxData(objectId));
 
         const candids = Array.from(new Set(data.data.map((c) => c.candid))).sort();
         const jds = Array.from(new Set(data.data.map((c) => c.candidate.jd))).sort();

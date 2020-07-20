@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useHistory } from "react-router-dom";
 
 import TextField from '@material-ui/core/TextField';
 import InputLabel from '@material-ui/core/InputLabel';
@@ -74,6 +75,8 @@ const Alerts = () => {
   const [stream, setStream] = useState('ztf');
   const [objectId, setObjectId] = useState('');
 
+   const history = useHistory();
+
   const handleStreamChange = (event) => {
     setStream(event.target.value);
   };
@@ -81,6 +84,13 @@ const Alerts = () => {
   const handleObjectIdChange = (event) => {
     setObjectId(event.target.value);
   };
+
+  const submitForm = (event) => {
+    if (objectId.length > 0) {
+      let path = `/alerts/${stream}/${objectId}`;
+      history.push(path);
+    }
+  }
 
 
   return (
@@ -101,6 +111,7 @@ const Alerts = () => {
               className={classes.selectEmpty}
             >
               <MenuItem value="ztf">ZTF</MenuItem>
+              {/*<MenuItem value="zuds">ZUDS</MenuItem>*/}
             </Select>
             <FormHelperText>Required</FormHelperText>
           </FormControl>
@@ -122,11 +133,12 @@ const Alerts = () => {
       </Grid>
 
       <Button
-        component={Link}
-        to={`/alerts/${stream}/${objectId}`}
+        // component={Link}
+        // to={`/alerts/${stream}/${objectId}`}
         variant="contained"
         color="primary"
         className={classes.search_button}
+        onClick={submitForm}
       >
         Search
       </Button>

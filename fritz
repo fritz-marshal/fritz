@@ -82,7 +82,7 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
         user_id=config['kowalski']['server']['admin_username'],
         jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
     )
-    config['app']['kowalski']['token'] = kowalski_token
+    config['skyportal']['app']['kowalski']['token'] = kowalski_token
 
     with open(c, 'w') as cyaml:
         yaml.dump(config, cyaml)  # default_flow_style=False
