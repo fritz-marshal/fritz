@@ -291,7 +291,10 @@ const ZTFAlert = ({ route }) => {
     // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
   }
 
-  const cachedObjectId = ((alert_data !== null) && !isString(alert_data) && (candid > 0)) ? route.id : null;
+  const cachedObjectId = (
+    (alert_data !== null) && !isString(alert_data) && (candid > 0)
+  ) ? route.id : null;
+
   const isCached = (route.id === cachedObjectId);
 
   useEffect(() => {
@@ -299,7 +302,7 @@ const ZTFAlert = ({ route }) => {
       const data = await dispatch(Actions.fetchAlertData(objectId));
       if (data.status === "success") {
         // fetch aux data
-        const data_aux = await dispatch(Actions.fetchAuxData(objectId));
+        await dispatch(Actions.fetchAuxData(objectId));
 
         const candids = Array.from(new Set(data.data.map((c) => c.candid))).sort();
         const jds = Array.from(new Set(data.data.map((c) => c.candidate.jd))).sort();
@@ -389,7 +392,10 @@ const ZTFAlert = ({ route }) => {
                 <Grid item xs={4}>
                   <img
                     alt="science"
-                    src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null}
+                    src={
+                      candid > 0 ?
+                        `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null
+                    }
                   />
                   <br />
                   Science
@@ -397,7 +403,10 @@ const ZTFAlert = ({ route }) => {
                 <Grid item xs={4}>
                   <img
                     alt="reference"
-                    src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null}
+                    src={
+                      candid > 0 ?
+                        `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null
+                    }
                   />
                   <br />
                   Reference
@@ -405,7 +414,10 @@ const ZTFAlert = ({ route }) => {
                 <Grid item xs={4}>
                   <img
                     alt="difference"
-                    src={candid > 0 ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null}
+                    src={
+                      candid > 0 ?
+                        `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null
+                    }
                   />
                   <br />
                   Difference

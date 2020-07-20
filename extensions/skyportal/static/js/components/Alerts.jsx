@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useHistory } from "react-router-dom";
 
 import TextField from '@material-ui/core/TextField';
@@ -75,7 +74,7 @@ const Alerts = () => {
   const [stream, setStream] = useState('ztf');
   const [objectId, setObjectId] = useState('');
 
-   const history = useHistory();
+  const history = useHistory();
 
   const handleStreamChange = (event) => {
     setStream(event.target.value);
@@ -85,12 +84,12 @@ const Alerts = () => {
     setObjectId(event.target.value);
   };
 
-  const submitForm = (event) => {
+  const submitForm = () => {
     if (objectId.length > 0) {
-      let path = `/alerts/${stream}/${objectId}`;
+      const path = `/alerts/${stream}/${objectId}`;
       history.push(path);
     }
-  }
+  };
 
 
   return (
@@ -111,7 +110,7 @@ const Alerts = () => {
               className={classes.selectEmpty}
             >
               <MenuItem value="ztf">ZTF</MenuItem>
-              {/*<MenuItem value="zuds">ZUDS</MenuItem>*/}
+              {/* <MenuItem value="zuds">ZUDS</MenuItem> */}
             </Select>
             <FormHelperText>Required</FormHelperText>
           </FormControl>
