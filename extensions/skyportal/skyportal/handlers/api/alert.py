@@ -207,7 +207,9 @@ class ZTFAlertAuxHandler(BaseHandler):
             )
 
             if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data', list(dict()))[0]
+                alert_data = bj.loads(resp.text).get('data', list(dict()))
+                if len(alert_data) > 0:
+                    alert_data = alert_data[0]
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
@@ -255,7 +257,9 @@ class ZTFAlertAuxHandler(BaseHandler):
             )
 
             if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))[0]
+                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
+                if len(latest_alert_data) > 0:
+                    latest_alert_data = latest_alert_data[0]
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
