@@ -46,7 +46,7 @@ def generate_skyportal_token():
          """from skyportal.models import init_db; """
          """from skyportal.model_util import create_token; """
          """conn = init_db(**load_config(['config.yaml'])['database']); """
-         """print(create_token(['Upload data', 'Manage sources', 'Manage groups'], 1, 'kowalski'))" """
+         """print(create_token(['Upload data', 'Manage sources', 'Manage groups', 'Comment'], 1, 'kowalski'))" """
          ],
         cwd="skyportal",
         capture_output=True,
