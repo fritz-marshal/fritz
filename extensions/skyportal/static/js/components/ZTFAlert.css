@@ -1,0 +1,22 @@
+.leftColumn {
+    display: inline-block;
+    vertical-align: top;
+    width: 900px;
+    padding-right: 1em;
+}
+
+.rightColumn {
+    display: inline-block;
+    min-width: 20em;
+    vertical-align: top;
+}
+
+.plot {
+    width: 900px;
+    overflow: auto;
+}
+
+.smallPlot {
+    width: 350px;
+    overflow: auto;
+}
