@@ -46,7 +46,8 @@ def generate_skyportal_token():
          """from skyportal.models import init_db; """
          """from skyportal.model_util import create_token; """
          """conn = init_db(**load_config(['config.yaml'])['database']); """
-         """print(create_token(['Upload data', 'Manage sources', 'Manage groups', 'Comment'], 1, 'kowalski'))" """
+         """print(create_token(['Classify', 'Comment', 'Manage groups', 'Manage sources', """
+         """'Manage users', 'Post taxonomy', 'Upload data'], 1, 'kowalski'))" """
          ],
         cwd="skyportal",
         capture_output=True,
@@ -189,6 +190,7 @@ def stop(args):
     print('Shutting fritz down...')
     subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
     subprocess.run(["docker-compose", "down"], cwd="skyportal")
+    subprocess.run(["docker", "network", "remove", "kowalski_kowalski"])
 
 
 def log(args):
