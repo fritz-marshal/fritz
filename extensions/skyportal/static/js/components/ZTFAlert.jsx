@@ -1,5 +1,3 @@
-// import React from 'react';
-// import React, {useEffect, useState, Suspense} from 'react';
 import React, { useEffect, useState, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
