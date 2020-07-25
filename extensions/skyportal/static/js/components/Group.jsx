@@ -156,10 +156,9 @@ const Group = ({ route }) => {
 
     return (
       <div>
-        <h2>
-          {/*Group:&nbsp;&nbsp;<span style={{fontVariant: "small-caps"}}>{group.name}</span>*/}
+        <Typography variant="h5" style={{paddingBottom: 10}}>
           Group:&nbsp;&nbsp;{group.name}
-        </h2>
+        </Typography>
 
         <Accordion
           expanded={expanded1 === 'panel1'} onChange={handleChange1('panel1')}
