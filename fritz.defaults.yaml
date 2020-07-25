@@ -40,6 +40,8 @@ skyportal:
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
+      - path: "/filter/:fid"
+          component: Filter
 
     kowalski:
       protocol: "http"

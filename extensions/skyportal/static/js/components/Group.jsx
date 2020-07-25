@@ -2,16 +2,16 @@ import React, {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
 import { Link, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { makeStyles } from '@material-ui/core/styles';
-import Paper from '@material-ui/core/Paper';
+import { makeStyles, useTheme } from '@material-ui/core/styles';
+// import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 import DeleteIcon from '@material-ui/icons/Delete';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
+// import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
 import ListItemText from '@material-ui/core/ListItemText';
-import ListSubheader from '@material-ui/core/ListSubheader';
+// import ListSubheader from '@material-ui/core/ListSubheader';
 import IconButton from '@material-ui/core/IconButton';
 import ExpandLess from '@material-ui/icons/ExpandLess';
 import ExpandMore from '@material-ui/icons/ExpandMore';
@@ -23,8 +23,22 @@ import AccordionSummary from '@material-ui/core/AccordionSummary';
 import AccordionDetails from '@material-ui/core/AccordionDetails';
 import Typography from '@material-ui/core/Typography';
 
-import Responsive from "./Responsive";
-import FoldBox from "./FoldBox";
+import Dialog from '@material-ui/core/Dialog';
+import DialogActions from '@material-ui/core/DialogActions';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import DialogTitle from '@material-ui/core/DialogTitle';
+import useMediaQuery from '@material-ui/core/useMediaQuery';
+import TextField from '@material-ui/core/TextField';
+import TextareaAutosize from '@material-ui/core/TextareaAutosize';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+
+import InputLabel from '@material-ui/core/InputLabel';
+import MenuItem from '@material-ui/core/MenuItem';
+import FormHelperText from '@material-ui/core/FormHelperText';
+import FormControl from '@material-ui/core/FormControl';
+import Select from '@material-ui/core/Select';
+import Divider from '@material-ui/core/Divider';
 
 
 import * as groupActions from '../ducks/group';
@@ -52,16 +66,40 @@ const useStyles = makeStyles((theme) => ({
   },
   button_add: {
     maxWidth: "120px"
-  }
+  },
+  selectEmpty: {
+    width: "100%",
+    marginTop: theme.spacing(2),
+  },
 }));
 
-const Group = () => {
+const Group = ({ route }) => {
   const classes = useStyles();
   const dispatch = useDispatch();
   const [groupLoadError, setGroupLoadError] = useState("");
   const [open, setOpen] = React.useState(true);
   const [expanded1, setExpanded1] = React.useState('panel1');
   const [expanded2, setExpanded2] = React.useState('panel2');
+
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
+
+  const [stream, setStream] = useState('ztf');
+  const [scroll, setScroll] = React.useState('paper');
+
+  const handleStreamChange = (event) => {
+    setStream(event.target.value);
+  };
+
+  const handleClickDialogOpen = (scrollType) => {
+    setDialogOpen(true);
+    setScroll(scrollType);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+  };
 
   const handleChange1 = (panel) => (event, isExpanded) => {
     setExpanded1(isExpanded ? panel : false);
@@ -119,7 +157,8 @@ const Group = () => {
     return (
       <div>
         <h2>
-          Group:&nbsp;&nbsp;<span style={{fontVariant: "small-caps"}}>{group.name}</span>
+          {/*Group:&nbsp;&nbsp;<span style={{fontVariant: "small-caps"}}>{group.name}</span>*/}
+          Group:&nbsp;&nbsp;{group.name}
         </h2>
 
         <Accordion
@@ -127,8 +166,9 @@ const Group = () => {
         >
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel1a-content"
-            id="panel1a-header"
+            aria-controls="panel1-content"
+            id="panel1-header"
+            style={{borderBottom: '1px solid rgba(0, 0, 0, .125)',}}
           >
             <Typography className={classes.heading}>Members</Typography>
           </AccordionSummary>
@@ -191,6 +231,7 @@ const Group = () => {
                   )
                 }
               </List>
+              <Divider />
               <div className={classes.paper}>
                 {
                   (currentUser.roles.includes('Super admin') ||
@@ -206,8 +247,9 @@ const Group = () => {
         >
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel1a-content"
-            id="panel1a-header"
+            aria-controls="panel2-content"
+            id="panel2-header"
+            style={{borderBottom: '1px solid rgba(0, 0, 0, .125)',}}
           >
             <Typography className={classes.heading}>Alert stream filters</Typography>
           </AccordionSummary>
@@ -224,11 +266,13 @@ const Group = () => {
               </ListItem>
               <Collapse in={open} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
-                  <ListItem button className={classes.nested}>
-                    {/*<ListItemIcon />*/}
-                    {/*todo: fetch filters defined for streams*/}
-                    <ListItemText className={classes.nested} primary="Green transients"/>
-                  </ListItem>
+                  <Link to={`/filter/1`} role="link">
+                    <ListItem button className={classes.nested}>
+                      {/*<ListItemIcon />*/}
+                      {/*todo: fetch filters defined for streams*/}
+                      <ListItemText className={classes.nested} primary="Green transients"/>
+                    </ListItem>
+                  </Link>
                 </List>
               </Collapse>
             </List>
@@ -239,6 +283,7 @@ const Group = () => {
                   variant="contained"
                   color="primary"
                   className={classes.button_add}
+                  onClick={handleClickDialogOpen}
                 >
                   Add filter
                 </Button>
@@ -263,6 +308,76 @@ const Group = () => {
             </Button>
           )
         }
+
+        <Dialog
+          fullScreen={fullScreen}
+          open={dialogOpen}
+          onClose={handleDialogClose}
+          aria-labelledby="responsive-dialog-title"
+        >
+          <DialogTitle id="responsive-dialog-title">{"Create a new alert stream filter"}</DialogTitle>
+          <DialogContent dividers={true}>
+            <DialogContentText>
+              Please refer to the &nbsp;
+              <a href={"https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"} target={'_blank'}>
+                docs <OpenInNewIcon style={{fontSize: "small"}}/>
+              </a>
+              &nbsp; for an extensive guide on Alert filters in Fritz.
+            </DialogContentText>
+            <TextField
+              autoFocus
+              required
+              margin="dense"
+              id="name"
+              label="Filter Name"
+              type="text"
+              fullWidth
+            />
+            <FormControl required className={classes.selectEmpty}>
+              <InputLabel id="alert-stream-select-required-label">Alert stream</InputLabel>
+              <Select
+                labelId="alert-stream-select-required-label"
+                id="alert-stream-select"
+                value={stream}
+                onChange={handleStreamChange}
+                className={classes.selectEmpty}
+              >
+                <MenuItem value="ztf">ZTF</MenuItem>
+                {/* <MenuItem value="zuds">ZUDS</MenuItem> */}
+              </Select>
+              <FormHelperText>Required</FormHelperText>
+            </FormControl>
+            <br /><br />
+            Filter definition:
+            <TextareaAutosize
+                rowsMax={10000}
+                rowsMin={5}
+                placeholder="Filter definition (aggregation pipeline, see the docs)"
+                style={{width: "100%"}}
+              />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="contained"
+              color="primary"
+              className={classes.button_add}
+            >
+              Test
+            </Button>
+            <br /><br />
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={true}
+              className={classes.button_add}
+            >
+              Save
+            </Button>
+            <Button autoFocus onClick={handleDialogClose} color="primary">
+              Dismiss
+            </Button>
+          </DialogActions>
+        </Dialog>
       </div>
     );
   }
