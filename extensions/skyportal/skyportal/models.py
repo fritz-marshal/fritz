@@ -67,19 +67,15 @@ class NumpyArray(sa.types.TypeDecorator):
 class Group(Base):
     name = sa.Column(sa.String, unique=True, nullable=False)
 
-    streams = relationship('Stream', secondary='stream_groups',
-                           back_populates='groups',
-                           passive_deletes=True)
-    telescopes = relationship('Telescope', secondary='group_telescopes',
-                              passive_deletes=True)
-    users = relationship('User', secondary='group_users',
-                         back_populates='groups',
-                         passive_deletes=True)
+    streams = relationship('Stream', secondary='stream_groups', back_populates='groups', passive_deletes=True)
+    telescopes = relationship('Telescope', secondary='group_telescopes', passive_deletes=True)
+    users = relationship('User', secondary='group_users', back_populates='groups', passive_deletes=True)
     group_users = relationship('GroupUser', back_populates='group',
                                cascade='save-update, merge, refresh-expire, expunge',
                                passive_deletes=True)
 
-    filter = relationship("Filter", uselist=False, back_populates="group")
+    filters = relationship('Filter', back_populates='group', passive_deletes=True)
+    # filters = relationship("Filter", uselist=False, back_populates="group")
     photometry = relationship("Photometry", secondary="group_photometry",
                               back_populates="groups",
                               cascade="save-update, merge, refresh-expire, expunge",
@@ -92,14 +88,14 @@ GroupUser.admin = sa.Column(sa.Boolean, nullable=False, default=False)
 
 
 class Stream(Base):
+    # e.g.: name = "ZTF_Partnership", collection = "ZTF_alerts", selector = [1, 2];
     name = sa.Column(sa.String, unique=True, nullable=False)
-    url = sa.Column(sa.String, unique=True, nullable=False)
-    username = sa.Column(sa.String)
-    password = sa.Column(sa.String)
-
+    collection = sa.Column(sa.String, unique=False, nullable=False)
+    selector = sa.Column(sa.ARRAY, unique=False, nullable=False)
     groups = relationship('Group', secondary='stream_groups',
                           back_populates='streams',
                           passive_deletes=True)
+    filters = relationship('Filter', back_populates='stream', passive_deletes=True)
 
 
 StreamGroup = join_model('stream_groups', Stream, Group)
@@ -214,9 +210,14 @@ class Obj(Base, ha.Point):
 
 
 class Filter(Base):
-    query_string = sa.Column(sa.String, nullable=False, unique=False)
+    name = sa.Column(sa.String, nullable=False, unique=False)
+    stream_id = sa.Column(sa.ForeignKey("streams.id"))
+    stream = relationship("Stream", foreign_keys=[stream_id], back_populates="filters")
     group_id = sa.Column(sa.ForeignKey("groups.id"))
-    group = relationship("Group", foreign_keys=[group_id], back_populates="filter")
+    group = relationship("Group", foreign_keys=[group_id], back_populates="filters")
+
+
+StreamFilter = join_model('stream_filters', Stream, Filter)
 
 
 Candidate = join_model("candidates", Filter, Obj)
