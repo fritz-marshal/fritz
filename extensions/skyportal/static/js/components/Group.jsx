@@ -173,7 +173,7 @@ const Group = ({ route }) => {
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
             {/*<Paper className={classes.paper}>*/}
-              <List component="nav" aria-label="main mailbox folders" className={classes.paper}>
+              <List component="nav" aria-label="main mailbox folders" className={classes.paper} dense>
                 {
                   group.users.map((user) => (
                     <ListItemLink href={`/user/${user.id}`}>
