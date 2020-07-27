@@ -2,8 +2,6 @@ import arrow
 import uuid
 import re
 from datetime import datetime
-from astropy import units as u
-import astroplan
 import numpy as np
 import sqlalchemy as sa
 from sqlalchemy import cast
@@ -15,7 +13,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_utils import ArrowType, URLType
 
-from astropy import coordinates as ap_coord
 import healpix_alchemy as ha
 
 from baselayer.app.env import load_env
@@ -70,19 +67,15 @@ class NumpyArray(sa.types.TypeDecorator):
 class Group(Base):
     name = sa.Column(sa.String, unique=True, nullable=False)
 
-    streams = relationship('Stream', secondary='stream_groups',
-                           back_populates='groups',
-                           passive_deletes=True)
-    telescopes = relationship('Telescope', secondary='group_telescopes',
-                              passive_deletes=True)
-    users = relationship('User', secondary='group_users',
-                         back_populates='groups',
-                         passive_deletes=True)
+    streams = relationship('Stream', secondary='stream_groups', back_populates='groups', passive_deletes=True)
+    telescopes = relationship('Telescope', secondary='group_telescopes', passive_deletes=True)
+    users = relationship('User', secondary='group_users', back_populates='groups', passive_deletes=True)
     group_users = relationship('GroupUser', back_populates='group',
                                cascade='save-update, merge, refresh-expire, expunge',
                                passive_deletes=True)
 
-    filter = relationship("Filter", uselist=False, back_populates="group")
+    filters = relationship('Filter', back_populates='group', passive_deletes=True)
+    # filters = relationship("Filter", uselist=False, back_populates="group")
     photometry = relationship("Photometry", secondary="group_photometry",
                               back_populates="groups",
                               cascade="save-update, merge, refresh-expire, expunge",
@@ -95,14 +88,14 @@ GroupUser.admin = sa.Column(sa.Boolean, nullable=False, default=False)
 
 
 class Stream(Base):
+    # e.g.: name = "ZTF_Partnership", collection = "ZTF_alerts", selector = [1, 2];
     name = sa.Column(sa.String, unique=True, nullable=False)
-    url = sa.Column(sa.String, unique=True, nullable=False)
-    username = sa.Column(sa.String)
-    password = sa.Column(sa.String)
-
+    collection = sa.Column(sa.String, unique=False, nullable=False)
+    selector = sa.Column(sa.ARRAY, unique=False, nullable=False)
     groups = relationship('Group', secondary='stream_groups',
                           back_populates='streams',
                           passive_deletes=True)
+    filters = relationship('Filter', back_populates='stream', passive_deletes=True)
 
 
 StreamGroup = join_model('stream_groups', Stream, Group)
@@ -215,80 +208,16 @@ class Obj(Base, ha.Point):
         return (f"http://legacysurvey.org/viewer/jpeg-cutout?ra={self.ra}"
                 f"&dec={self.dec}&size=200&layer=dr8&pixscale=0.262&bands=grz")
 
-    def airmass(self, telescope, time, below_horizon=np.inf):
-        """Return the airmass of the object at a given time. Uses the Pickering
-        (2002) interpolation of the Rayleigh (molecular atmosphere) airmass.
-
-        The Pickering interpolation tends toward 38.7494 as the altitude
-        approaches zero.
-
-        Parameters
-        ----------
-        telescope : `skyportal.models.Telescope`
-            The telescope to use for the airmass calculation
-        time : `astropy.time.Time` or list of astropy.time.Time`
-            The time or times at which to calculate the airmass
-        below_horizon : scalar, Numeric
-            Airmass value to assign when an object is below the horizon.
-            An object is "below the horizon" when its altitude is less than
-            zero degrees.
-
-        Returns
-        -------
-        airmass : ndarray
-           The airmass of the Obj at the requested times
-        """
-
-        output_shape = np.shape(time)
-        time = np.atleast_1d(time)
-        altitude = self.altitude(telescope, time).to('degree').value
-        above = altitude > 0
-
-        # use Pickering (2002) interpolation to calculate the airmass
-        # The Pickering interpolation tends toward 38.7494 as the altitude
-        # approaches zero.
-        sinarg = np.zeros_like(altitude)
-        airmass = np.ones_like(altitude) * np.inf
-        sinarg[above] = altitude[above] + 244 / (165 + 47 * altitude[above] ** 1.1)
-        airmass[above] = 1. / np.sin(np.deg2rad(sinarg[above]))
-
-        # set objects below the horizon to an airmass of infinity
-        airmass[~above] = below_horizon
-        airmass = airmass.reshape(output_shape)
-
-        return airmass
-
-    def altitude(self, telescope, time):
-        """Return the altitude of the object at a given time.
-
-        Parameters
-        ----------
-        telescope : `skyportal.models.Telescope`
-            The telescope to use for the altitude calculation
-
-        time : `astropy.time.Time`
-            The time or times at which to calculate the altitude
-
-        Returns
-        -------
-        alt : `astropy.coordinates.AltAz`
-           The altitude of the Obj at the requested times
-        """
-
-        coord = ap_coord.SkyCoord(self.ra, self.dec, unit='deg')
-        target = astroplan.FixedTarget(name=self.id, coord=coord)
-        observer = astroplan.Observer(latitude=telescope.lat * u.deg,
-                                      longitude=telescope.lon * u.deg,
-                                      elevation=telescope.elevation * u.m)
-
-        alt = observer.altaz(time, target).alt
-        return alt
-
 
 class Filter(Base):
-    query_string = sa.Column(sa.String, nullable=False, unique=False)
+    name = sa.Column(sa.String, nullable=False, unique=False)
+    stream_id = sa.Column(sa.ForeignKey("streams.id"))
+    stream = relationship("Stream", foreign_keys=[stream_id], back_populates="filters")
     group_id = sa.Column(sa.ForeignKey("groups.id"))
-    group = relationship("Group", foreign_keys=[group_id], back_populates="filter")
+    group = relationship("Group", foreign_keys=[group_id], back_populates="filters")
+
+
+StreamFilter = join_model('stream_filters', Stream, Filter)
 
 
 Candidate = join_model("candidates", Filter, Obj)

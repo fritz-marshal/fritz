@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import { useHistory } from "react-router-dom";
 import PropTypes from 'prop-types';
 import { Link, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -88,6 +89,10 @@ const Group = ({ route }) => {
   const [stream, setStream] = useState('ztf');
   const [scroll, setScroll] = React.useState('paper');
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+
+  const history = useHistory();
+
   const handleStreamChange = (event) => {
     setStream(event.target.value);
   };
@@ -99,6 +104,10 @@ const Group = ({ route }) => {
 
   const handleDialogClose = () => {
     setDialogOpen(false);
+  };
+
+  const handleConfirmDeleteDialogClose = () => {
+    setConfirmDeleteOpen(false);
   };
 
   const handleChange1 = (panel) => (event, isExpanded) => {
@@ -153,6 +162,14 @@ const Group = ({ route }) => {
     function ListItemLink(props) {
       return <ListItem button component="a" {...props} />;
     }
+
+    const handleCancel = () => {
+      onClose();
+    };
+
+    const handleOk = () => {
+      onClose(value);
+    };
 
     return (
       <div>
@@ -299,9 +316,7 @@ const Group = ({ route }) => {
             <Button
               variant="contained"
               color="secondary"
-              onClick={() => dispatch(
-                groupsActions.deleteGroup(group.id)
-              )}
+              onClick={() => setConfirmDeleteOpen(true)}
             >
               Delete Group
             </Button>
@@ -377,6 +392,35 @@ const Group = ({ route }) => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Dialog fullWidth open={confirmDeleteOpen} onClose={handleConfirmDeleteDialogClose}>
+          <DialogTitle>Delete Group?</DialogTitle>
+          <DialogContent dividers>
+            <DialogContentText>
+              Are you sure you want to delete this Group?
+              <br />
+              Warning! This will delete the group and all of its filters.
+              All source data will be transferred to the Site-wide group.
+            </DialogContentText>
+          </DialogContent>
+
+          <DialogActions>
+            <Button autoFocus onClick={() => setConfirmDeleteOpen(false)}>
+              Dismiss
+            </Button>
+            <Button
+              color="primary"
+              onClick={() => {
+                dispatch(groupsActions.deleteGroup(group.id));
+                setConfirmDeleteOpen(false);
+                history.push("/groups");
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+
       </div>
     );
   }
