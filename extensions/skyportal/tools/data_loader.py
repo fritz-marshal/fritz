@@ -122,6 +122,23 @@ if __name__ == "__main__":
             verify_server_availability(server_url)
             print("App running - continuing with API calls")
 
+            if src.get("streams") is not None:
+                with status("Creating streams"):
+                    stream_ids = []
+                    stream_dict = dict()
+                    for stream in src.get('streams', []):
+                        data = assert_post(
+                            "streams",
+                            {
+                                "name": stream["name"],
+                                "collection": stream["collection"],
+                                "selector": stream["selector"],
+                            },
+                            tokens[stream["token"]]
+                        )
+                        stream_ids.append(data["data"]["id"])
+                        stream_dict[stream["name"]] = stream_ids[-1]
+
             if src.get("groups") is not None:
                 with status("Creating groups"):
                     group_ids = []
@@ -143,8 +160,9 @@ if __name__ == "__main__":
                             data = assert_post(
                                 "filters",
                                 {
+                                    "name": filt["name"],
                                     "group_id": group_ids[-1],
-                                    "query_string": filt["query_string"]
+                                    "stream_id": stream_dict[filt["stream"]],
                                 },
                                 tokens[group["token"]]
                             )

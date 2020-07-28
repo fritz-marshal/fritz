@@ -43,13 +43,16 @@ class StreamHandler(BaseHandler):
                   schema: Error
         """
         if stream_id is not None:
-            s = Stream.get_if_owned_by(stream_id, self.current_user)
-            if s is None:
+            # fixme: add ACLs! Users should be created with specific Stream permissions
+            # s = Stream.get_if_owned_by(stream_id, self.current_user)
+            s = DBSession().query(Stream).filter(Stream.id == stream_id).all()
+            if s is None or len(s) == 0:
                 return self.error("Invalid stream ID.")
-            return self.success(data=s)
+            return self.success(data=s[0])
         streams = (
             DBSession().query(Stream)
-            .filter(Stream.id.in_([s.id for s in self.current_user.streams]))
+            # fixme: results in error "'Token' object has no attribute 'streams'"
+            # .filter(Stream.id.in_([s.id for s in self.current_user.streams]))
             .all()
         )
         return self.success(data=streams)

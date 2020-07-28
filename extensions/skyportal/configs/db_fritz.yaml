@@ -37,9 +37,9 @@ groups:
         admin: false
       - username: rico
         admin: false
-#    filters:
-#      - query_string: "sample_query_string"
-#        name: "example filter"
+    filters:
+      - name: "Yellow transients"
+        stream: ZTF Public
 streams:
   - name: ZTF Public
     collection: ZTF_alerts

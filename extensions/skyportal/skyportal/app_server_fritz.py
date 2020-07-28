@@ -35,7 +35,7 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
         (r'/api/alerts/ztf/(.+)/cutout', ZTFAlertCutoutHandler),  # most descriptive path must be defined first
         (r'/api/alerts/ztf/(.+)', ZTFAlertHandler),
         # Alert Streams:
-        (r'/api/streams', StreamHandler)
+        (r'/api/streams(/.*)?', StreamHandler)
     ]
 
     app.add_handlers(
