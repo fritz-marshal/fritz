@@ -1,0 +1,71 @@
+drop_tables: true
+create_tables: true
+print_tables: true
+create_permissions: true
+users:
+  - username: skipper
+    role_ids:
+      - Super admin
+    tokens:
+      - name: "db_fritz token"
+        print: true
+        permissions:
+          - "Manage groups"
+          - "Manage sources"
+          - "Upload data"
+          - "Comment"
+          - "Post taxonomy"
+          - "Manage users"
+          - "System admin"
+  - username: kowalski
+    role_ids:
+      - Group admin
+  - username: rico
+    role_ids:
+      - Full user
+  - username: private
+    role_ids:
+      - View only
+groups:
+  - name: Genossenschaft
+    group_admins:
+      - skipper
+      - kowalski
+    token: "db_fritz token"
+    members:
+      - username: private
+        admin: false
+      - username: rico
+        admin: false
+#    filters:
+#      - query_string: "sample_query_string"
+#        name: "example filter"
+streams:
+  - name: ZTF Public
+    collection: ZTF_alerts
+    selector: [1]
+    token: "db_fritz token"
+  - name: ZTF Partnership
+    collection: ZTF_alerts
+    selector: [1, 2]
+    token: "db_fritz token"
+  - name: ZTF Caltech
+    collection: ZTF_alerts
+    selector: [1, 2, 3]
+    token: "db_fritz token"
+telescopes:
+  file: configs/telescopes.yaml
+  token: "db_fritz token"
+  group_names:
+    - Genossenschaft
+instruments:
+  file: configs/instruments.yaml
+  token: "db_fritz token"
+taxonomies:
+  - name: Sitewide taxonomy
+    tdtax: true
+    version: latest
+    provenance: https://github.com/profjsb/timedomain-taxonomy
+    token: "db_fritz token"
+    groups:
+      - Genossenschaft

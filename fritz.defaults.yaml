@@ -109,9 +109,10 @@ skyportal:
       script: jobs/delete_unsaved_candidates.py
       limit: ["01:00", "02:00"]
 
-
   # Data loader configurations
   data_load:
+    db_fritz:
+      file: configs/db_fritz.yaml
     db_seed:
       file: configs/db_seed.yaml
     db_demo:
