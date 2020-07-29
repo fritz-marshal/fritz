@@ -39,7 +39,7 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
         (r'/api/alerts/ztf/(.+)', ZTFAlertHandler),
         # Alert Streams:
         (r'/api/streams(/.*)?', StreamHandler),
-        (r'/api/groups/(.*)/streams/(.*)?', GroupStreamHandler),
+        (r'/api/groups/(.*)/streams?', GroupStreamHandler),
     ]
 
     app.add_handlers(

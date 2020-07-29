@@ -365,7 +365,7 @@ class GroupUserHandler(BaseHandler):
 
 class GroupStreamHandler(BaseHandler):
     @permissions(['System admin'])
-    def post(self, group_id, stream_name):
+    def post(self, group_id):
         """
         ---
         description: Add stream access to group
@@ -375,11 +375,16 @@ class GroupStreamHandler(BaseHandler):
             required: true
             schema:
               type: integer
-          - in: path
-            name: stream_name
-            required: true
-            schema:
-              type: string
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_id:
+                    type: integer
+                required:
+                  - stream_id
         responses:
           200:
             content:
@@ -402,16 +407,16 @@ class GroupStreamHandler(BaseHandler):
         """
         data = self.get_json()
         group_id = int(group_id)
-        group = Group.query.get(group_id)
+        # group = Group.query.get(group_id)
         # if group.single_user_group:
         #     return self.error("Cannot add streams to single user groups.")
-        stream = Stream.query.filter(Stream.name == stream_name).first()
+        stream_id = data.get('stream_id')
+        stream = Stream.query.filter(Stream.id == stream_id).first()
         if stream is None:
             return self.error(
                 "Specified stream_id does not exist."
             )
         else:
-            stream_id = stream.id
             # Add new GroupStream
             gs = GroupStream.query.filter(
                 GroupStream.group_id == group_id
@@ -433,7 +438,7 @@ class GroupStreamHandler(BaseHandler):
         return self.success(data={'group_id': group_id, 'stream_id': stream_id})
 
     @permissions(['System admin'])
-    def delete(self, group_id, stream_name):
+    def delete(self, group_id, stream_id):
         """
         ---
         description: Delete a stream from group
@@ -444,10 +449,10 @@ class GroupStreamHandler(BaseHandler):
             schema:
               type: integer
           - in: path
-            name: stream_name
+            name: stream_id
             required: true
             schema:
-              type: string
+              type: integer
         responses:
           200:
             content:
@@ -455,13 +460,18 @@ class GroupStreamHandler(BaseHandler):
                 schema: Success
         """
         group = Group.query.get(group_id)
-        stream = Stream.query.filter(Stream.name == stream_name.lower()).first()
+        stream = Stream.query.filter(Stream.id == int(stream_id)).first()
         stream_id = stream.id
-        if group.single_user_group:
-            return self.error("Cannot delete users from single user groups.")
-        (GroupStream.query.filter(GroupStream.group_id == group_id)
-         .filter(GroupStream.stream_id == stream_id).delete())
-        DBSession().commit()
-        self.push_all(action='skyportal/REFRESH_GROUP',
-                      payload={'group_id': int(group_id)})
-        return self.success()
+        if stream is None:
+            return self.error(
+                "Specified stream_id does not exist."
+            )
+        else:
+            if group.single_user_group:
+                return self.error("Cannot delete streams from single user groups.")
+            (GroupStream.query.filter(GroupStream.group_id == group_id)
+             .filter(GroupStream.stream_id == stream_id).delete())
+            DBSession().commit()
+            self.push_all(action='skyportal/REFRESH_GROUP',
+                          payload={'group_id': int(group_id)})
+            return self.success()

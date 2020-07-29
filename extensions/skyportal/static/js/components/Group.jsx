@@ -41,9 +41,12 @@ import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import Divider from '@material-ui/core/Divider';
 
+import { useForm } from "react-hook-form";
+
 
 import * as groupActions from '../ducks/group';
 import * as groupsActions from '../ducks/groups';
+import * as streamsActions from '../ducks/streams';
 import NewGroupUserForm from './NewGroupUserForm';
 
 import styles from './Group.css';
@@ -69,7 +72,7 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column"
   },
   button_add: {
-    maxWidth: "120px"
+    maxWidth: "140px",
   },
   selectEmpty: {
     width: "100%",
@@ -80,13 +83,20 @@ const useStyles = makeStyles((theme) => ({
 const Group = ({ route }) => {
   const classes = useStyles();
   const dispatch = useDispatch();
+  const theme = useTheme();
+  const history = useHistory();
+
+  const { register, handleSubmitAddStream, watch, errors } = useForm();
+  const onSubmitAddStream = data => {
+    console.log(data)
+  };
+
   const [groupLoadError, setGroupLoadError] = useState("");
-  const [open, setOpen] = React.useState(true);
+
   const [expanded1, setExpanded1] = React.useState('panel1');
   const [expanded2, setExpanded2] = React.useState('panel2');
-
+  const [open, setOpen] = React.useState(true);
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
   const [stream, setStream] = useState(null);
@@ -94,10 +104,18 @@ const Group = ({ route }) => {
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  const history = useHistory();
+  const [addStreamOpen, setAddStreamOpen] = useState(false)
 
   const handleStreamChange = (event) => {
     setStream(event.target.value);
+  };
+
+  const handleClick = () => {
+    setOpen(!open);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
   };
 
   const handleClickDialogOpen = (scrollType) => {
@@ -105,12 +123,16 @@ const Group = ({ route }) => {
     setScroll(scrollType);
   };
 
-  const handleDialogClose = () => {
-    setDialogOpen(false);
-  };
-
   const handleConfirmDeleteDialogClose = () => {
     setConfirmDeleteOpen(false);
+  };
+
+  const handleAddStreamOpen = () => {
+    setAddStreamOpen(true);
+  };
+
+  const handleAddStreamClose = () => {
+    setAddStreamOpen(false);
   };
 
   const handleChange1 = (panel) => (event, isExpanded) => {
@@ -120,9 +142,6 @@ const Group = ({ route }) => {
     setExpanded2(isExpanded ? panel : false);
   };
 
-  const handleClick = () => {
-    setOpen(!open);
-  };
 
   const {id} = useParams();
   const loadedId = useSelector((state) => state.group.id);
@@ -147,6 +166,21 @@ const Group = ({ route }) => {
       </div>
     );
   }
+
+  // fetch streams:
+  const streams = useSelector((state) => state.streams);
+
+  useEffect(() => {
+    const fetchStreams = async () => {
+      const data = await dispatch(streamsActions.fetchStreams());
+      if (data.status === "error") {
+        setGroupLoadError(data.message);
+      }
+    };
+    if (currentUser.roles.includes('Super admin')) {
+      fetchStreams();
+    }
+  }, [currentUser, dispatch]);
 
   if (group && group.users) {
     const isAdmin = (aUser, aGroup) => (
@@ -174,7 +208,7 @@ const Group = ({ route }) => {
       onClose(value);
     };
 
-    const stream_ids = group.streams.map((stream) => (stream.id))
+    const stream_ids = group.streams.map((stream) => (stream.id));
 
     return (
       <div>
@@ -272,7 +306,7 @@ const Group = ({ route }) => {
             id="panel2-header"
             style={{borderBottom: '1px solid rgba(0, 0, 0, .125)',}}
           >
-            <Typography className={classes.heading}>Alert stream filters</Typography>
+            <Typography className={classes.heading}>Alert streams and filters</Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
             <List component="nav"
@@ -305,8 +339,26 @@ const Group = ({ route }) => {
               }
             </List>
 
+            <div>
+            {/*only Super admins can add streams to groups*/}
             {
-              (currentUser.roles.includes('Super admin') || currentUser.roles.includes('Group admin')) && (
+              (currentUser.roles.includes('Super admin')) && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  className={classes.button_add}
+                  onClick={handleAddStreamOpen}
+                  style={{marginRight: 10}}
+                >
+                  Add stream
+                </Button>
+              )
+            }
+
+            {
+              (currentUser.roles.includes('Super admin') || currentUser.roles.includes('Group admin'))
+              && (group.streams.length > 0)
+              && (
                 <Button
                   variant="contained"
                   color="primary"
@@ -317,6 +369,7 @@ const Group = ({ route }) => {
                 </Button>
               )
             }
+            </div>
           </AccordionDetails>
         </Accordion>
 
@@ -334,6 +387,56 @@ const Group = ({ route }) => {
             </Button>
           )
         }
+
+        <Dialog
+          fullScreen={fullScreen}
+          open={addStreamOpen}
+          onClose={handleAddStreamClose}
+          aria-labelledby="responsive-dialog-title"
+        >
+          <DialogTitle id="responsive-dialog-title">{"Add alert stream to group"}</DialogTitle>
+          <DialogContent dividers={true}>
+            {/*<form> onSubmit={handleSubmitAddStream(onSubmitAddStream)}>*/}
+            {/*  <input name="steam_name" ref={register({ required: true })} />*/}
+            {/*  /!* errors will return when field validation fails  *!/*/}
+            {/*  {errors.stream_name && <span>This field is required</span>}*/}
+
+            {/*  <input type="submit" />*/}
+              {/*<FormControl required className={classes.selectEmpty}>*/}
+              {/*  <InputLabel id="alert-stream-select-required-label">Alert stream</InputLabel>*/}
+              {/*  <Select*/}
+              {/*    labelId="alert-stream-select-required-label"*/}
+              {/*    id="alert-stream-select"*/}
+              {/*    value={stream}*/}
+              {/*    onChange={handleStreamChange}*/}
+              {/*    className={classes.selectEmpty}*/}
+              {/*    ref={register({required: true})}*/}
+              {/*  >*/}
+              {/*    {*/}
+              {/*      streams.map((stream) => (*/}
+              {/*          <MenuItem value={stream.id}>{stream.name}</MenuItem>*/}
+              {/*        )*/}
+              {/*      )*/}
+              {/*    }*/}
+              {/*  </Select>*/}
+              {/*  <FormHelperText>Required</FormHelperText>*/}
+              {/*</FormControl>*/}
+            {/*</form>*/}
+            <br /><br />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="contained"
+              color="primary"
+              className={classes.button_add}
+            >
+              Add
+            </Button>
+            <Button autoFocus onClick={handleAddStreamClose} color="primary">
+              Dismiss
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog
           fullScreen={fullScreen}
@@ -377,14 +480,14 @@ const Group = ({ route }) => {
               </Select>
               <FormHelperText>Required</FormHelperText>
             </FormControl>
-            <br /><br />
-            Filter definition:
-            <TextareaAutosize
-                rowsMax={10000}
-                rowsMin={5}
-                placeholder="Filter definition (aggregation pipeline, see the docs)"
-                style={{width: "100%"}}
-              />
+            {/*<br /><br />*/}
+            {/*Filter definition:*/}
+            {/*<TextareaAutosize*/}
+            {/*    rowsMax={10000}*/}
+            {/*    rowsMin={5}*/}
+            {/*    placeholder="Filter definition (aggregation pipeline, see the docs)"*/}
+            {/*    style={{width: "100%"}}*/}
+            {/*  />*/}
           </DialogContent>
           <DialogActions>
             <Button

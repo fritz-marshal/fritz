@@ -158,10 +158,9 @@ if __name__ == "__main__":
 
                         for stream_name in group.get("streams", []):
                             data = assert_post(
-                                f"groups/{group_ids[-1]}/streams/{stream_name}",
+                                f"groups/{group_ids[-1]}/streams",
                                 {
-                                    "group_id": group_ids[-1],
-                                    "stream_name": stream_name,
+                                    "stream_id": stream_dict[stream_name],
                                 },
                                 tokens[group["token"]]
                             )

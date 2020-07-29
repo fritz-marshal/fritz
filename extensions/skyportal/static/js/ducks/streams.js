@@ -12,11 +12,11 @@ export const ADD_STREAM_OK = 'skyportal/ADD_STREAM_OK';
 export const DELETE_STREAM = 'skyportal/DELETE_STREAM';
 export const DELETE_STREAM_OK = 'skyportal/DELETE_STREAM_OK';
 
-export const ADD_STREAM_USER = 'skyportal/ADD_STREAM_USER';
-export const ADD_STREAM_USER_OK = 'skyportal/ADD_STREAM_USER_OK';
+export const ADD_GROUP_STREAM = 'skyportal/ADD_GROUP_STREAM';
+export const ADD_GROUP_STREAM_OK = 'skyportal/ADD_GROUP_STREAM_OK';
 
-export const DELETE_STREAM_USER = 'skyportal/DELETE_STREAM_USER';
-export const DELETE_STREAM_USER_OK = 'skyportal/DELETE_STREAM_USER_OK';
+export const DELETE_GROUP_STREAM = 'skyportal/DELETE_GROUP_STREAM';
+export const DELETE_GROUP_STREAM_OK = 'skyportal/DELETE_GROUP_STREAM_OK';
 
 export function fetchStreams() {
   return API.GET('/api/streams', FETCH_STREAMS);
@@ -30,19 +30,18 @@ export function deleteStream(stream_id) {
   return API.DELETE(`/api/streams/${stream_id}`, DELETE_STREAM);
 }
 
-export function addStreamUser({ username, admin, stream_id }) {
+export function addGroupStream({ group_id, stream_id }) {
   return API.POST(
-    `/api/streams/${stream_id}/users/${username}`,
-    ADD_STREAM_USER,
-    { username, admin, stream_id }
+    `/api/groups/${group_id}/streams`,
+    ADD_GROUP_STREAM,
+    { stream_id }
   );
 }
 
-export function deleteStreamUser({ username, stream_id }) {
+export function deleteGroupStream({ group_id, stream_id }) {
   return API.DELETE(
-    `/api/streams/${stream_id}/users/${username}`,
-    DELETE_STREAM_USER,
-    { username, stream_id }
+    `/api/groups/${group_id}/streams/${stream_id}`,
+    DELETE_GROUP_STREAM
   );
 }
 
@@ -53,15 +52,10 @@ messageHandler.add((actionType, payload, dispatch) => {
   }
 });
 
-function reducer(state={ user: [], all: null }, action) {
+function reducer(state= null, action) {
   switch (action.type) {
     case FETCH_STREAMS_OK: {
-      const { user_streams, all_streams } = action.data;
-      return {
-        ...state,
-        user: user_streams,
-        all: all_streams
-      };
+      return action.data;
     }
     default:
       return state;

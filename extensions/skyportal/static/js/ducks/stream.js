@@ -30,8 +30,7 @@ messageHandler.add((actionType, payload, dispatch, getState) => {
 const reducer = (state={}, action) => {
   switch (action.type) {
     case FETCH_STREAM_OK: {
-      const stream = action.data;
-      return stream;
+      return action.data;
     }
     case FETCH_STREAM_FAIL:
     case FETCH_STREAM_ERROR:
