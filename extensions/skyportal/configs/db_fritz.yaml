@@ -37,6 +37,9 @@ groups:
         admin: false
       - username: rico
         admin: false
+    streams:
+      - ZTF Public
+      - ZTF Partnership
     filters:
       - name: "Yellow transients"
         stream: ZTF Public

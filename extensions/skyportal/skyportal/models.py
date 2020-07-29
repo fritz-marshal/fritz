@@ -70,7 +70,7 @@ class NumpyArray(sa.types.TypeDecorator):
 class Group(Base):
     name = sa.Column(sa.String, unique=True, nullable=False)
 
-    streams = relationship('Stream', secondary='stream_groups',
+    streams = relationship('Stream', secondary='group_streams',
                            back_populates='groups',
                            passive_deletes=True)
     filters = relationship("Filter",
@@ -101,7 +101,7 @@ class Stream(Base):
     collection = sa.Column(sa.String, unique=False, nullable=False)
     selector = sa.Column(sa.ARRAY(sa.Integer), unique=False, nullable=True, default=None)
 
-    groups = relationship('Group', secondary='stream_groups',
+    groups = relationship('Group', secondary='group_streams',
                           back_populates='streams',
                           passive_deletes=True)
     users = relationship('User', secondary='stream_users',
@@ -112,7 +112,7 @@ class Stream(Base):
                            passive_deletes=True)
 
 
-StreamGroup = join_model('stream_groups', Stream, Group)
+GroupStream = join_model('group_streams', Group, Stream)
 
 
 StreamUser = join_model('stream_users', Stream, User)

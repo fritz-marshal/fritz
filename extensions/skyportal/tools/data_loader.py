@@ -156,6 +156,16 @@ if __name__ == "__main__":
                         group_ids.append(data["data"]["id"])
                         group_dict[group["name"]] = group_ids[-1]
 
+                        for stream_name in group.get("streams", []):
+                            data = assert_post(
+                                f"groups/{group_ids[-1]}/streams/{stream_name}",
+                                {
+                                    "group_id": group_ids[-1],
+                                    "stream_name": stream_name,
+                                },
+                                tokens[group["token"]]
+                            )
+
                         for filt in group.get("filters", []):
                             data = assert_post(
                                 "filters",

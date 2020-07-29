@@ -3,7 +3,7 @@ from marshmallow.exceptions import ValidationError
 from baselayer.app.access import permissions, auth_or_token
 from .user import add_user_and_setup_groups
 from ..base import BaseHandler
-from ...models import DBSession, Group, GroupUser, Filter, User, Token
+from ...models import DBSession, Group, GroupUser, GroupStream, Filter, Stream, User, Token
 
 
 class GroupHandler(BaseHandler):
@@ -87,6 +87,20 @@ class GroupHandler(BaseHandler):
                 # Do not include User.groups to avoid circular reference
                 group['users'] = [{'id': user.id, 'username': user.username}
                                   for user in group['users']]
+                # grab streams:
+                print(group)
+                group_streams = (
+                    DBSession().query(GroupStream)
+                    .filter(GroupStream.group_id.in_([group_id]))
+                    .all()
+                )
+                stream_ids = [gs.stream_id for gs in group_streams]
+                streams = (
+                    DBSession().query(Stream)
+                    .filter(Stream.id.in_(stream_ids))
+                    .all()
+                )
+                group['streams'] = streams
                 # grab filters:
                 filters = (
                     DBSession().query(Filter)
@@ -343,6 +357,110 @@ class GroupUserHandler(BaseHandler):
         user_id = User.query.filter(User.username == username).first().id
         (GroupUser.query.filter(GroupUser.group_id == group_id)
          .filter(GroupUser.user_id == user_id).delete())
+        DBSession().commit()
+        self.push_all(action='skyportal/REFRESH_GROUP',
+                      payload={'group_id': int(group_id)})
+        return self.success()
+
+
+class GroupStreamHandler(BaseHandler):
+    @permissions(['System admin'])
+    def post(self, group_id, stream_name):
+        """
+        ---
+        description: Add stream access to group
+        parameters:
+          - in: path
+            name: group_id
+            required: true
+            schema:
+              type: integer
+          - in: path
+            name: stream_name
+            required: true
+            schema:
+              type: string
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            group_id:
+                              type: integer
+                              description: Group ID
+                            stream_id:
+                              type: integer
+                              description: Stream ID
+
+        """
+        data = self.get_json()
+        group_id = int(group_id)
+        group = Group.query.get(group_id)
+        # if group.single_user_group:
+        #     return self.error("Cannot add streams to single user groups.")
+        stream = Stream.query.filter(Stream.name == stream_name).first()
+        if stream is None:
+            return self.error(
+                "Specified stream_id does not exist."
+            )
+        else:
+            stream_id = stream.id
+            # Add new GroupStream
+            gs = GroupStream.query.filter(
+                GroupStream.group_id == group_id
+            ).filter(
+                GroupStream.stream_id == stream_id
+            ).first()
+            if gs is None:
+                DBSession.add(
+                    GroupStream(group_id=group_id, stream_id=stream_id)
+                )
+            else:
+                return self.error(
+                    "Specified stream is already associated with this group."
+                )
+        DBSession().commit()
+
+        self.push_all(action='skyportal/REFRESH_GROUP',
+                      payload={'group_id': group_id})
+        return self.success(data={'group_id': group_id, 'stream_id': stream_id})
+
+    @permissions(['System admin'])
+    def delete(self, group_id, stream_name):
+        """
+        ---
+        description: Delete a stream from group
+        parameters:
+          - in: path
+            name: group_id
+            required: true
+            schema:
+              type: integer
+          - in: path
+            name: stream_name
+            required: true
+            schema:
+              type: string
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+        group = Group.query.get(group_id)
+        stream = Stream.query.filter(Stream.name == stream_name.lower()).first()
+        stream_id = stream.id
+        if group.single_user_group:
+            return self.error("Cannot delete users from single user groups.")
+        (GroupStream.query.filter(GroupStream.group_id == group_id)
+         .filter(GroupStream.stream_id == stream_id).delete())
         DBSession().commit()
         self.push_all(action='skyportal/REFRESH_GROUP',
                       payload={'group_id': int(group_id)})

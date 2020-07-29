@@ -49,6 +49,9 @@ import NewGroupUserForm from './NewGroupUserForm';
 import styles from './Group.css';
 
 const useStyles = makeStyles((theme) => ({
+  padding_bottom: {
+    paddingBottom: "2em"
+  },
   paper: {
     width: "100%",
     padding: theme.spacing(1),
@@ -86,7 +89,7 @@ const Group = ({ route }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [stream, setStream] = useState('ztf');
+  const [stream, setStream] = useState(null);
   const [scroll, setScroll] = React.useState('paper');
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -170,6 +173,8 @@ const Group = ({ route }) => {
     const handleOk = () => {
       onClose(value);
     };
+
+    const stream_ids = group.streams.map((stream) => (stream.id))
 
     return (
       <div>
@@ -270,27 +275,34 @@ const Group = ({ route }) => {
             <Typography className={classes.heading}>Alert stream filters</Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
-            <List
-              component="nav"
-              aria-labelledby="nested-list-subheader"
-              className={classes.root}
+            <List component="nav"
+              className={classes.padding_bottom}
             >
               {/*todo: fetch streams that the group has access to*/}
-              <ListItem button onClick={handleClick}>
-                <ListItemText primary="ZTF"/>
-                {open ? <ExpandLess/> : <ExpandMore/>}
-              </ListItem>
-              <Collapse in={open} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                  <Link to={`/filter/1`} role="link">
-                    <ListItem button className={classes.nested}>
-                      {/*<ListItemIcon />*/}
-                      {/*todo: fetch filters defined for streams*/}
-                      <ListItemText className={classes.nested} primary="Green transients"/>
+              {
+                group.streams.map((stream) => (
+                  <div>
+                    <ListItem>
+                      <ListItemText primary={stream.name}/>
                     </ListItem>
-                  </Link>
-                </List>
-              </Collapse>
+                    <List component="nav" disablePadding>
+                      {
+                        group.filters.map((filter) => (
+                          filter.stream_id === stream.id ?
+                            <Link to={`/filter/${filter.id}`} role="link">
+                              <ListItem button className={classes.nested}>
+                                {/*<ListItemIcon />*/}
+                                <ListItemText className={classes.nested} primary={filter.name}/>
+                              </ListItem>
+                            </Link> : "" /*<div style={{paddingLeft: "2em"}}>No filters defined on stream</div>*/
+                          )
+                        )
+                      }
+                    </List>
+                  </div>
+                  )
+                )
+              }
             </List>
 
             {
@@ -356,8 +368,12 @@ const Group = ({ route }) => {
                 onChange={handleStreamChange}
                 className={classes.selectEmpty}
               >
-                <MenuItem value="ztf">ZTF</MenuItem>
-                {/* <MenuItem value="zuds">ZUDS</MenuItem> */}
+                {
+                  group.streams.map((stream) => (
+                      <MenuItem value={stream.id}>{stream.name}</MenuItem>
+                    )
+                  )
+                }
               </Select>
               <FormHelperText>Required</FormHelperText>
             </FormControl>
