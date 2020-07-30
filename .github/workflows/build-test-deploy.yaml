@@ -40,7 +40,7 @@ jobs:
 
     - name: Deploy docs
       if: github.ref == 'refs/heads/master'
-      uses: JamesIves/github-pages-deploy-action@releases/v3
+      uses: JamesIves/github-pages-deploy-action@3.5.9
       with:
         FOLDER: doc/_build/html
         REPOSITORY_NAME: fritz-marshal/doc
