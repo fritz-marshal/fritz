@@ -41,7 +41,7 @@ import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import Divider from '@material-ui/core/Divider';
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 
 
 import * as groupActions from '../ducks/group';
@@ -86,10 +86,7 @@ const Group = ({ route }) => {
   const theme = useTheme();
   const history = useHistory();
 
-  const { register, handleSubmitAddStream, watch, errors } = useForm();
-  const onSubmitAddStream = data => {
-    console.log(data)
-  };
+  const { register, handleSubmit, control, errors } = useForm();
 
   const [groupLoadError, setGroupLoadError] = useState("");
 
@@ -99,16 +96,16 @@ const Group = ({ route }) => {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [stream, setStream] = useState(null);
+  // const [stream, setStream] = useState(null);
   const [scroll, setScroll] = React.useState('paper');
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   const [addStreamOpen, setAddStreamOpen] = useState(false)
 
-  const handleStreamChange = (event) => {
-    setStream(event.target.value);
-  };
+  // const handleStreamChange = (event) => {
+  //   setStream(event.target.value);
+  // };
 
   const handleClick = () => {
     setOpen(!open);
@@ -182,7 +179,15 @@ const Group = ({ route }) => {
     }
   }, [currentUser, dispatch]);
 
-  if (group && group.users) {
+  // forms
+  // add stream to group
+  const onSubmitAddStream = data => {
+    dispatch(streamsActions.addGroupStream({group_id: group.id, stream_id: data.stream_id}));
+    setAddStreamOpen(false);
+  };
+
+  // renders
+  if (group && group.users && streams) {
     const isAdmin = (aUser, aGroup) => (
       aGroup.group_users && aGroup.group_users.filter(
         (group_user) => (group_user.user_id === aUser.id)
@@ -208,7 +213,9 @@ const Group = ({ route }) => {
       onClose(value);
     };
 
-    const stream_ids = group.streams.map((stream) => (stream.id));
+    const group_stream_ids = group.streams.map((stream) => (stream.id));
+
+    const isGoed = (sid) => streams.map((stream) => (stream.id)).includes(sid);
 
     return (
       <div>
@@ -248,17 +255,19 @@ const Group = ({ route }) => {
                       {
                         isAdmin(user, group) && (numAdmins > 1) && (
                           <ListItemSecondaryAction>
-                            <IconButton edge="end" aria-label="delete">
-                              <DeleteIcon
-                                onClick={() => dispatch(
-                                  groupsActions.deleteGroupUser(
-                                    {
-                                      username: user.username,
-                                      group_id: group.id
-                                    }
-                                  )
-                                )}
-                              />
+                            <IconButton
+                              edge="end"
+                              aria-label="delete"
+                              onClick={() => dispatch(
+                                groupsActions.deleteGroupUser(
+                                  {
+                                    username: user.username,
+                                    group_id: group.id
+                                  }
+                                )
+                              )}
+                            >
+                              <DeleteIcon/>
                             </IconButton>
                           </ListItemSecondaryAction>
                         )
@@ -266,17 +275,19 @@ const Group = ({ route }) => {
                       {
                         !isAdmin(user, group) && (
                           <ListItemSecondaryAction>
-                            <IconButton edge="end" aria-label="delete">
-                              <DeleteIcon
-                                onClick={() => dispatch(
-                                  groupsActions.deleteGroupUser(
-                                    {
-                                      username: user.username,
-                                      group_id: group.id
-                                    }
-                                  )
-                                )}
-                              />
+                            <IconButton
+                              edge="end"
+                              aria-label="delete"
+                              onClick={() => dispatch(
+                                groupsActions.deleteGroupUser(
+                                  {
+                                    username: user.username,
+                                    group_id: group.id
+                                  }
+                                )
+                              )}
+                            >
+                              <DeleteIcon/>
                             </IconButton>
                           </ListItemSecondaryAction>
                         )
@@ -342,7 +353,8 @@ const Group = ({ route }) => {
             <div>
             {/*only Super admins can add streams to groups*/}
             {
-              (currentUser.roles.includes('Super admin')) && (
+              (currentUser.roles.includes('Super admin') && (streams.length > 0) &&
+                (group.streams.length < streams.length)) && (
                 <Button
                   variant="contained"
                   color="primary"
@@ -394,123 +406,120 @@ const Group = ({ route }) => {
           onClose={handleAddStreamClose}
           aria-labelledby="responsive-dialog-title"
         >
-          <DialogTitle id="responsive-dialog-title">{"Add alert stream to group"}</DialogTitle>
-          <DialogContent dividers={true}>
-            {/*<form> onSubmit={handleSubmitAddStream(onSubmitAddStream)}>*/}
-            {/*  <input name="steam_name" ref={register({ required: true })} />*/}
-            {/*  /!* errors will return when field validation fails  *!/*/}
-            {/*  {errors.stream_name && <span>This field is required</span>}*/}
-
-            {/*  <input type="submit" />*/}
-              {/*<FormControl required className={classes.selectEmpty}>*/}
-              {/*  <InputLabel id="alert-stream-select-required-label">Alert stream</InputLabel>*/}
-              {/*  <Select*/}
-              {/*    labelId="alert-stream-select-required-label"*/}
-              {/*    id="alert-stream-select"*/}
-              {/*    value={stream}*/}
-              {/*    onChange={handleStreamChange}*/}
-              {/*    className={classes.selectEmpty}*/}
-              {/*    ref={register({required: true})}*/}
-              {/*  >*/}
-              {/*    {*/}
-              {/*      streams.map((stream) => (*/}
-              {/*          <MenuItem value={stream.id}>{stream.name}</MenuItem>*/}
-              {/*        )*/}
-              {/*      )*/}
-              {/*    }*/}
-              {/*  </Select>*/}
-              {/*  <FormHelperText>Required</FormHelperText>*/}
-              {/*</FormControl>*/}
-            {/*</form>*/}
-            <br /><br />
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="contained"
-              color="primary"
-              className={classes.button_add}
-            >
-              Add
-            </Button>
-            <Button autoFocus onClick={handleAddStreamClose} color="primary">
-              Dismiss
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog
-          fullScreen={fullScreen}
-          open={dialogOpen}
-          onClose={handleDialogClose}
-          aria-labelledby="responsive-dialog-title"
-        >
-          <DialogTitle id="responsive-dialog-title">{"Create a new alert stream filter"}</DialogTitle>
-          <DialogContent dividers={true}>
-            <DialogContentText>
-              Please refer to the &nbsp;
-              <a href={"https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"} target={'_blank'}>
-                docs <OpenInNewIcon style={{fontSize: "small"}}/>
-              </a>
-              &nbsp; for an extensive guide on Alert filters in Fritz.
-            </DialogContentText>
-            <TextField
-              autoFocus
-              required
-              margin="dense"
-              id="name"
-              label="Filter Name"
-              type="text"
-              fullWidth
-            />
-            <FormControl required className={classes.selectEmpty}>
-              <InputLabel id="alert-stream-select-required-label">Alert stream</InputLabel>
-              <Select
+          <form onSubmit={handleSubmit(onSubmitAddStream)}>
+            <DialogTitle id="responsive-dialog-title">{"Add alert stream to group"}</DialogTitle>
+            <DialogContent dividers={true}>
+              <FormControl required className={classes.selectEmpty}>
+              <InputLabel name="alert-stream-select-required-label">Alert stream</InputLabel>
+              <Controller
                 labelId="alert-stream-select-required-label"
-                id="alert-stream-select"
-                value={stream}
-                onChange={handleStreamChange}
-                className={classes.selectEmpty}
+                name="stream_id"
+                as={Select}
+                defaultValue={0}
+                control={control}
+                rules={{ validate: isGoed}}
               >
                 {
-                  group.streams.map((stream) => (
-                      <MenuItem value={stream.id}>{stream.name}</MenuItem>
-                    )
-                  )
+                  streams.map((stream) => (
+                    // display only streams that are not yet added
+                    !group_stream_ids.includes(stream.id) &&
+                    <MenuItem value={stream.id}>{stream.name}</MenuItem>
+                  ))
                 }
-              </Select>
+              </Controller>
               <FormHelperText>Required</FormHelperText>
-            </FormControl>
-            {/*<br /><br />*/}
-            {/*Filter definition:*/}
-            {/*<TextareaAutosize*/}
-            {/*    rowsMax={10000}*/}
-            {/*    rowsMin={5}*/}
-            {/*    placeholder="Filter definition (aggregation pipeline, see the docs)"*/}
-            {/*    style={{width: "100%"}}*/}
-            {/*  />*/}
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="contained"
-              color="primary"
-              className={classes.button_add}
-            >
-              Test
-            </Button>
-            <br /><br />
-            <Button
-              variant="contained"
-              color="primary"
-              disabled={true}
-              className={classes.button_add}
-            >
-              Save
-            </Button>
-            <Button autoFocus onClick={handleDialogClose} color="primary">
-              Dismiss
-            </Button>
-          </DialogActions>
+              </FormControl>
+
+            </DialogContent>
+            <DialogActions>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                className={classes.button_add}
+              >
+                Add
+              </Button>
+              <Button autoFocus onClick={handleAddStreamClose} color="primary">
+                Dismiss
+              </Button>
+            </DialogActions>
+          </form>
         </Dialog>
+
+        {/*<Dialog*/}
+        {/*  fullScreen={fullScreen}*/}
+        {/*  open={dialogOpen}*/}
+        {/*  onClose={handleDialogClose}*/}
+        {/*  aria-labelledby="responsive-dialog-title"*/}
+        {/*>*/}
+        {/*  <DialogTitle id="responsive-dialog-title">{"Create a new alert stream filter"}</DialogTitle>*/}
+        {/*  <DialogContent dividers={true}>*/}
+        {/*    <DialogContentText>*/}
+        {/*      Please refer to the &nbsp;*/}
+        {/*      <a href={"https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"} target={'_blank'}>*/}
+        {/*        docs <OpenInNewIcon style={{fontSize: "small"}}/>*/}
+        {/*      </a>*/}
+        {/*      &nbsp; for an extensive guide on Alert filters in Fritz.*/}
+        {/*    </DialogContentText>*/}
+        {/*    <TextField*/}
+        {/*      autoFocus*/}
+        {/*      required*/}
+        {/*      margin="dense"*/}
+        {/*      id="name"*/}
+        {/*      label="Filter Name"*/}
+        {/*      type="text"*/}
+        {/*      fullWidth*/}
+        {/*    />*/}
+        {/*    <FormControl required className={classes.selectEmpty}>*/}
+        {/*      <InputLabel id="alert-stream-select-required-label">Alert stream</InputLabel>*/}
+        {/*      <Select*/}
+        {/*        labelId="alert-stream-select-required-label"*/}
+        {/*        id="alert-stream-select"*/}
+        {/*        value={stream}*/}
+        {/*        onChange={handleStreamChange}*/}
+        {/*        className={classes.selectEmpty}*/}
+        {/*      >*/}
+        {/*        {*/}
+        {/*          group.streams.map((stream) => (*/}
+        {/*              <MenuItem value={stream.id}>{stream.name}</MenuItem>*/}
+        {/*            )*/}
+        {/*          )*/}
+        {/*        }*/}
+        {/*      </Select>*/}
+        {/*      <FormHelperText>Required</FormHelperText>*/}
+        {/*    </FormControl>*/}
+        {/*    /!*<br /><br />*!/*/}
+        {/*    /!*Filter definition:*!/*/}
+        {/*    /!*<TextareaAutosize*!/*/}
+        {/*    /!*    rowsMax={10000}*!/*/}
+        {/*    /!*    rowsMin={5}*!/*/}
+        {/*    /!*    placeholder="Filter definition (aggregation pipeline, see the docs)"*!/*/}
+        {/*    /!*    style={{width: "100%"}}*!/*/}
+        {/*    /!*  />*!/*/}
+        {/*  </DialogContent>*/}
+        {/*  <DialogActions>*/}
+        {/*    <Button*/}
+        {/*      variant="contained"*/}
+        {/*      color="primary"*/}
+        {/*      className={classes.button_add}*/}
+        {/*    >*/}
+        {/*      Test*/}
+        {/*    </Button>*/}
+        {/*    <br /><br />*/}
+        {/*    <Button*/}
+        {/*      variant="contained"*/}
+        {/*      color="primary"*/}
+        {/*      disabled={true}*/}
+        {/*      className={classes.button_add}*/}
+        {/*    >*/}
+        {/*      Save*/}
+        {/*    </Button>*/}
+        {/*    <Button autoFocus onClick={handleDialogClose} color="primary">*/}
+        {/*      Dismiss*/}
+        {/*    </Button>*/}
+        {/*  </DialogActions>*/}
+        {/*</Dialog>*/}
 
         <Dialog fullWidth open={confirmDeleteOpen} onClose={handleConfirmDeleteDialogClose}>
           <DialogTitle>Delete Group?</DialogTitle>
