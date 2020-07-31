@@ -1,5 +1,6 @@
 import React, {useEffect, useState, Suspense} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
+import {Link, useParams} from 'react-router-dom';
 
 import Paper from '@material-ui/core/Paper';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
@@ -20,8 +21,15 @@ import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import Button from '@material-ui/core/Button';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
+import Card from '@material-ui/core/Card';
+import CardActions from '@material-ui/core/CardActions';
+import CardContent from '@material-ui/core/CardContent';
 
 import ReactDiffViewer from 'react-diff-viewer';
+import {useForm, Controller} from "react-hook-form";
+
+import * as filterActions from '../ducks/filter';
+
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -49,6 +57,20 @@ const useStyles = makeStyles((theme) => ({
   },
   selectEmpty: {
     marginTop: theme.spacing(2),
+  },
+  root: {
+    minWidth: 275,
+  },
+  bullet: {
+    display: 'inline-block',
+    margin: '0 2px',
+    transform: 'scale(0.8)',
+  },
+  title: {
+    fontSize: 14,
+  },
+  pos: {
+    marginBottom: 12,
   },
 }));
 
@@ -112,6 +134,9 @@ const newCode = `
 const Filter = ({route}) => {
   const classes = useStyles();
   const dispatch = useDispatch();
+  const {register, handleSubmit, control, errors} = useForm();
+
+  const [filterLoadError, setFilterLoadError] = useState("");
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === 'dark';
@@ -122,106 +147,160 @@ const Filter = ({route}) => {
     setExpanded1(isExpanded ? panel : false);
   };
 
-  const filter_id = route.id;
+  // const filter_id = route.fid;
 
-  const [state, setState] = useState({
-    checkedA: true,
-  });
+  const {fid} = useParams();
+  const loadedId = useSelector((state) => state.filter.id);
 
-  const handleChange = (event) => {
-    setState({ ...state, [event.target.name]: event.target.checked });
-  };
+  useEffect(() => {
+    const fetchFilter = async () => {
+      const data = await dispatch(filterActions.fetchFilter(fid));
+      if (data.status === "error") {
+        setFilterLoadError(data.message);
+      }
+    };
+    fetchFilter();
+  }, [fid, loadedId, dispatch]);
 
-  return (
-    <div>
-      <h2>
-        Filter: GREEN TRANSIENTS
-      </h2>
-      <Paper className={classes.paper}>
+  useEffect(() => {
+    const fetchFilterV = async () => {
+      const data = await dispatch(filterActions.fetchFilterV(fid));
+      // if (data.status === "error") {
+      //   setFilterLoadError(data.message);
+      // }
+    };
+    fetchFilterV();
+  }, [fid, loadedId, dispatch]);
+
+  const filter = useSelector((state) => state.filter);
+  const filter_v = useSelector((state) => state.filter_v);
+  const group = useSelector((state) => state.filter.group)
+  const stream = useSelector((state) => state.filter.stream)
+
+  // const [state, setState] = useState({
+  //   filterActive: false,
+  // });
+  //
+  // const handleChange = (event) => {
+  //   setState({ ...state, [event.target.name]: event.target.checked });
+  // };
+
+  if (filterLoadError) {
+    return (
+      <div>
+        {filterLoadError}
+      </div>
+    );
+  }
+
+  if (filter) {
+    return (
+      <div>
+        <Typography variant="h5" style={{paddingBottom: 10}}>
+          Filter:&nbsp;&nbsp;{filter.name}
+        </Typography>
+
         <Grid container spacing={2}>
-          <Grid item sm={12} md={6}>
-            Group: Program A
-            <br />
-            Alert stream: ZTF
-            <br />
-            Permissions: [1, 2]
+          <Grid item sm={12} md={3}>
+            <Card className={classes.root}>
+              <CardContent>
+                {
+                 (group) && (stream) &&
+                  <Typography className={classes.title} color="textSecondary" gutterBottom>
+                    Group: <Link to={`/group/${group.id}`}>{group.name}</Link><br />
+                    {/*Group id: {group.id}*/}
+                    Stream: {stream.name}
+                  </Typography>
+                }
+              </CardContent>
+              {
+                (filter_v) && (filter_v.catalog) &&
+                <CardActions>
+                {/*<Button size="small">Learn More</Button>*/}
+                <FormControlLabel style={{marginLeft: 5}}
+                  // control={<Switch checked={filter_v.active} size="small" onChange={handleChange} name="filterActive"/>}
+                  control={<Switch checked={filter_v.active} size="small" name="filterActive"/>}
+                  label="Active"
+                />
+                <FormControl className={classes.formControl}>
+                  <InputLabel id="alert-stream-select-required-label">Active version</InputLabel>
+                  <Select
+                    labelId="alert-stream-select-required-label"
+                    id="alert-stream-select"
+                    value={filter_v.active_fid}
+                    // onChange={handleFidChange}
+                    className={classes.selectEmpty}
+                  >
+                    {
+                      filter_v.fv.map((fv) => (
+                        <MenuItem value={fv.fid}>{fv.fid}</MenuItem>
+                      ))
+                    }
+                  </Select>
+                  {/*<FormHelperText>Required</FormHelperText>*/}
+                </FormControl>
+              </CardActions>
+              }
+            </Card>
           </Grid>
-          <Grid item sm={12} md={6}>
-            <FormGroup row>
-              <FormControlLabel
-                control={<Switch checked={state.checkedA} onChange={handleChange} name="checkedA" />}
-                label="Active"
-              />
-              <FormControl required className={classes.formControl}>
-                <InputLabel id="alert-stream-select-required-label">Active version</InputLabel>
-                <Select
-                  labelId="alert-stream-select-required-label"
-                  id="alert-stream-select"
-                  value="nn6sun"
-                  // onChange={handleFidChange}
-                  className={classes.selectEmpty}
-                >
-                  <MenuItem value="nn6sun">nn6sun</MenuItem>
-                  <MenuItem value="aelulu">aelulu</MenuItem>
-                  <MenuItem value="vgh6sg">vgh6sg</MenuItem>
-                </Select>
-                <FormHelperText>Required</FormHelperText>
-              </FormControl>
-            </FormGroup>
-          </Grid>
+          {/*/!* Filter stats go here? *!/*/}
+          {/*<Grid item sm={12} md={9}>*/}
+          {/*</Grid>*/}
         </Grid>
-      </Paper>
 
-      <Accordion
-        expanded={expanded1 === 'panel1'} onChange={handleChange1('panel1')}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="panel1a-content"
-          id="panel1a-header"
+
+        <br/>
+
+        <Accordion
+          expanded={expanded1 === 'panel1'} onChange={handleChange1('panel1')}
         >
-          <Typography className={classes.heading}>Save new version</Typography>
-        </AccordionSummary>
-        <AccordionDetails className={classes.accordion_details}>
-          <Grid container spacing={2}>
-            <Grid item sm={12} md={10}>
-              <TextareaAutosize
-                rowsMax={10000}
-                rowsMin={6}
-                placeholder="Filter definition (aggregation pipeline, see the docs)"
-                style={{width: "100%"}}
-              />
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon/>}
+            aria-controls="panel1a-content"
+            id="panel1a-header"
+          >
+            <Typography className={classes.heading}>Save new version</Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordion_details}>
+            <Grid container spacing={2}>
+              <Grid item sm={12} md={10}>
+                <TextareaAutosize
+                  rowsMax={10000}
+                  rowsMin={6}
+                  placeholder="Filter definition (aggregation pipeline, see the docs)"
+                  style={{width: "100%"}}
+                />
+              </Grid>
+              <Grid item sm={12} md={2}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  className={classes.button_add}
+                  style={{marginRight: 5}}
+                >
+                  Test
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  className={classes.button_add}
+                >
+                  Save
+                </Button>
+              </Grid>
             </Grid>
-            <Grid item sm={12} md={2}>
-              <Button
-                variant="contained"
-                color="primary"
-                className={classes.button_add}
-              >
-                Test
-              </Button>
-              <br /><br />
-              <Button
-                variant="contained"
-                color="primary"
-                disabled={true}
-                className={classes.button_add}
-              >
-                Save
-              </Button>
-            </Grid>
-          </Grid>
-        </AccordionDetails>
-      </Accordion>
+          </AccordionDetails>
+        </Accordion>
 
-      <br />
+        <br/>
 
-      <ReactDiffViewer
-        oldValue={oldCode} newValue={newCode} splitView={true} useDarkTheme={darkTheme}
-        leftTitle="Active version: nn6sun" rightTitle="Version: dropdown; make active"
-      />
-    </div>
-  );
+        <ReactDiffViewer
+          oldValue={oldCode} newValue={newCode} splitView={true} useDarkTheme={darkTheme}
+          leftTitle="Active version: nn6sun" rightTitle="Version: dropdown; make active"
+        />
+      </div>
+    );
+  }
 }
 
 export default Filter;

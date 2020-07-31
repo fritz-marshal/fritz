@@ -40,6 +40,7 @@ import FormHelperText from '@material-ui/core/FormHelperText';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import Divider from '@material-ui/core/Divider';
+import Chip from '@material-ui/core/Chip';
 
 import {useForm, Controller} from "react-hook-form";
 
@@ -93,24 +94,14 @@ const Group = ({route}) => {
 
   const [expanded1, setExpanded1] = React.useState('panel1');
   const [expanded2, setExpanded2] = React.useState('panel2');
-  const [open, setOpen] = React.useState(true);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
-  // const [stream, setStream] = useState(null);
   const [scroll, setScroll] = React.useState('paper');
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   const [addStreamOpen, setAddStreamOpen] = useState(false)
-
-  // const handleStreamChange = (event) => {
-  //   setStream(event.target.value);
-  // };
-
-  const handleClick = () => {
-    setOpen(!open);
-  };
 
   const handleDialogClose = () => {
     setDialogOpen(false);
@@ -252,9 +243,7 @@ const Group = ({route}) => {
                         isAdmin(user, group) &&
                         (
                           <div style={{display: "inline-block"}}>
-                          <span className={styles.badge}>
-                            Admin
-                          </span>
+                            <Chip label="Admin" size="small" color="secondary" />
                             &nbsp;&nbsp;
                           </div>
                         )

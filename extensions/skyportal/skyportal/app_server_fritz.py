@@ -11,6 +11,9 @@ from skyportal.handlers.api.stream import (
 from skyportal.handlers.api.group import (
     GroupStreamHandler
 )
+from skyportal.handlers.api.filter import (
+    FilterVHandler
+)
 
 
 def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
@@ -34,12 +37,14 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
     handlers = [
         # Fritz-specific API endpoints
         # ZTF Alerts
-        (r'/api/alerts/ztf/(.+)/aux', ZTFAlertAuxHandler),  # most descriptive path must be defined first
-        (r'/api/alerts/ztf/(.+)/cutout', ZTFAlertCutoutHandler),  # most descriptive path must be defined first
-        (r'/api/alerts/ztf/(.+)', ZTFAlertHandler),
+        (r'/api/alerts/ztf/(.*)/aux', ZTFAlertAuxHandler),  # most descriptive path must be defined first
+        (r'/api/alerts/ztf/(.*)/cutout', ZTFAlertCutoutHandler),  # most descriptive path must be defined first
+        (r'/api/alerts/ztf/(.*)', ZTFAlertHandler),
         # Alert Streams:
         (r'/api/streams(/.*)?', StreamHandler),
-        (r'/api/groups/(.*)/streams?', GroupStreamHandler),
+        (r'/api/groups/(.*)/streams', GroupStreamHandler),
+        # Alert Stream filter versioning via K:
+        (r'/api/filters/(.*)/v', FilterVHandler),
     ]
 
     app.add_handlers(

@@ -1,6 +1,5 @@
 import * as API from '../API';
 import store from '../store';
-import {ADD_GROUP_STREAM, DELETE_GROUP_STREAM} from "./streams";
 
 
 export const FETCH_FILTER = 'skyportal/FETCH_FILTER';
@@ -13,6 +12,11 @@ export const ADD_GROUP_FILTER_OK = 'skyportal/ADD_GROUP_FILTER_OK';
 
 export const DELETE_GROUP_FILTER = 'skyportal/DELETE_GROUP_FILTER';
 export const DELETE_GROUP_FILTER_OK = 'skyportal/DELETE_GROUP_FILTER_OK';
+
+export const FETCH_FILTER_V = 'skyportal/FETCH_FILTER_V';
+export const FETCH_FILTER_V_OK = 'skyportal/FETCH_FILTER_V_OK';
+export const FETCH_FILTER_V_ERROR = 'skyportal/FETCH_FILTER_V_ERROR';
+export const FETCH_FILTER_V_FAIL = 'skyportal/FETCH_FILTER_V_FAIL';
 
 export function fetchFilter(id) {
   return API.GET(`/api/filters/${id}`, FETCH_FILTER);
@@ -32,3 +36,40 @@ export function deleteGroupFilter({ filter_id }) {
     DELETE_GROUP_FILTER
   );
 }
+
+export function fetchFilterV(id) {
+  return API.GET(`/api/filters/${id}/v`, FETCH_FILTER_V);
+}
+
+const reducer = (state={}, action) => {
+  switch (action.type) {
+    case FETCH_FILTER_OK: {
+      return action.data;
+    }
+    case FETCH_FILTER_FAIL:
+    case FETCH_FILTER_ERROR:
+    {
+      return {};
+    }
+    default:
+      return state;
+  }
+};
+
+const reducerV = (state={}, action) => {
+  switch (action.type) {
+    case FETCH_FILTER_V_OK: {
+      return action.data;
+    }
+    case FETCH_FILTER_V_FAIL:
+    case FETCH_FILTER_V_ERROR:
+    {
+      return {};
+    }
+    default:
+      return state;
+  }
+};
+
+store.injectReducer('filter', reducer);
+store.injectReducer('filter_v', reducerV);
