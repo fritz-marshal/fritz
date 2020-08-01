@@ -7,6 +7,7 @@ import astroplan
 import numpy as np
 import sqlalchemy as sa
 from sqlalchemy import cast
+from sqlalchemy.orm.session import object_session
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects import postgresql as psql
 from sqlalchemy.orm import relationship
@@ -18,7 +19,8 @@ from astropy import coordinates as ap_coord
 import healpix_alchemy as ha
 
 from baselayer.app.env import load_env
-from baselayer.app.models import (join_model, Base, DBSession, User, Token)
+from baselayer.app.models import (init_db, join_model, Base, DBSession, ACL,
+                                  Role, User, Token)
 from baselayer.app.custom_exceptions import AccessError
 
 from . import schema

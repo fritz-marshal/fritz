@@ -1,10 +1,9 @@
-import React, {useEffect, useState, Suspense} from 'react';
-import {useDispatch, useSelector} from 'react-redux';
-import {Link, useParams} from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Link, useParams } from 'react-router-dom';
 
 import Paper from '@material-ui/core/Paper';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
-import FormGroup from '@material-ui/core/FormGroup';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import Switch from '@material-ui/core/Switch';
 import FormHelperText from '@material-ui/core/FormHelperText';
@@ -20,14 +19,13 @@ import Typography from '@material-ui/core/Typography';
 import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import Button from '@material-ui/core/Button';
-import useMediaQuery from '@material-ui/core/useMediaQuery';
 import Card from '@material-ui/core/Card';
 import CardActions from '@material-ui/core/CardActions';
 import CardContent from '@material-ui/core/CardContent';
-import Divider from '@material-ui/core/Divider';
+import CircularProgress from '@material-ui/core/CircularProgress';
 
 import ReactDiffViewer from 'react-diff-viewer';
-import {useForm, Controller} from "react-hook-form";
+import { useForm } from "react-hook-form";
 
 import * as filterActions from '../ducks/filter';
 
@@ -79,17 +77,17 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 
-const Filter = ({route}) => {
+const Filter = () => {
   const classes = useStyles();
   const dispatch = useDispatch();
-  const {register, handleSubmit, control, errors} = useForm();
+  const { register, handleSubmit } = useForm();
 
   const [filterLoadError, setFilterLoadError] = useState("");
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === 'dark';
 
-  const [expanded1, setExpanded1] = React.useState(false);  // 'panel1'
+  const [expanded1, setExpanded1] = React.useState(false); // 'panel1'
 
   const handleChange1 = (panel) => (event, isExpanded) => {
     setExpanded1(isExpanded ? panel : false);
@@ -97,7 +95,7 @@ const Filter = ({route}) => {
 
   // const filter_id = route.fid;
 
-  const {fid} = useParams();
+  const { fid } = useParams();
   const loadedId = useSelector((state) => state.filter.id);
 
   useEffect(() => {
@@ -113,35 +111,42 @@ const Filter = ({route}) => {
   useEffect(() => {
     const fetchFilterV = async () => {
       const data = await dispatch(filterActions.fetchFilterV(fid));
+      if (data.status === "error") {
+        // setFilterLoadError(data.message);
+      }
     };
     fetchFilterV();
   }, [fid, loadedId, dispatch]);
 
   const filter = useSelector((state) => state.filter);
   const filter_v = useSelector((state) => state.filter_v);
-  const group = useSelector((state) => state.filter.group)
-  const stream = useSelector((state) => state.filter.stream)
+  const group = useSelector((state) => state.filter.group);
+  const stream = useSelector((state) => state.filter.stream);
 
   const [otherVersion, setOtherVersion] = React.useState("");
 
   const handleSelectFilterVersionDiff = (event) => {
-    setOtherVersion(event.target.value)
+    setOtherVersion(event.target.value);
   };
 
   const handleActive = (event) => {
-    dispatch(filterActions.editActiveFilterV({"filter_id": filter.id, "active": event.target.checked}));
+    dispatch(filterActions.editActiveFilterV(
+      { filter_id: filter.id, active: event.target.checked })
+    );
     dispatch(filterActions.fetchFilterV(fid));
   };
 
   const handleFidChange = (event) => {
-    dispatch(filterActions.editActiveFidFilterV({"filter_id": filter.id, "active_fid": event.target.value}));
+    dispatch(filterActions.editActiveFidFilterV(
+      { filter_id: filter.id, active_fid: event.target.value })
+    );
     dispatch(filterActions.fetchFilterV(fid));
   };
 
   // forms
   // add stream to group
-  const onSubmitSaveFilterVersion = data => {
-    dispatch(filterActions.addFilterV({"filter_id": filter.id, "pipeline": data.pipeline}));
+  const onSubmitSaveFilterVersion = (data) => {
+    dispatch(filterActions.addFilterV({ filter_id: filter.id, pipeline: data.pipeline }));
     dispatch(filterActions.fetchFilterV(fid));
   };
 
@@ -154,11 +159,11 @@ const Filter = ({route}) => {
   }
 
   if (filter && filter_v) {
-
     return (
       <div>
-        <Typography variant="h5" style={{paddingBottom: 10}}>
-          Filter:&nbsp;&nbsp;{filter.name}
+        <Typography variant="h5" style={{ paddingBottom: 10 }}>
+          Filter:&nbsp;&nbsp;
+          {filter.name}
         </Typography>
 
         <Grid container spacing={2}>
@@ -166,56 +171,65 @@ const Filter = ({route}) => {
             <Card className={classes.root}>
               <CardContent>
                 {
-                 (group) && (stream) &&
-                  <Typography className={classes.title} color="textSecondary" gutterBottom>
-                    Group: <Link to={`/group/${group.id}`}>{group.name}</Link><br />
-                    {/*Group id: {group.id}*/}
-                    Stream: {stream.name}
-                  </Typography>
-                }
+                 (group) && (stream) && (
+                 <Typography className={classes.title} color="textSecondary" gutterBottom>
+                   Group:
+                   {' '}
+                   <Link to={`/group/${group.id}`}>{group.name}</Link>
+                   <br />
+                   {/* Group id: {group.id} */}
+                   Stream:
+                   {' '}
+                   {stream.name}
+                 </Typography>
+                 )
+}
               </CardContent>
               {
-                (filter_v) && (filter_v.catalog) &&
+                (filter_v) && (filter_v.catalog) && (
                 <CardActions>
-                {/*<Button size="small">Delete</Button>*/}
-                <FormControlLabel style={{marginLeft: 5}}
-                  control={<Switch checked={filter_v.active} size="small" onChange={handleActive} name="filterActive"/>}
-                  label="Active"
-                />
-                <FormControl className={classes.formControl}>
-                  <InputLabel id="alert-stream-select-required-label">Active version id</InputLabel>
-                  <Select
-                    labelId="alert-stream-select-required-label"
-                    id="alert-stream-select"
-                    value={filter_v.active_fid}
-                    onChange={handleFidChange}
-                    className={classes.selectEmpty}
-                  >
-                    {
-                      filter_v.fv.map((fv) => (
-                        <MenuItem value={fv.fid}>{fv.fid}</MenuItem>
+                  {/* <Button size="small">Delete</Button> */}
+                  <FormControlLabel
+                    style={{ marginLeft: 5 }}
+                    control={<Switch checked={filter_v.active} size="small" onChange={handleActive} name="filterActive" />}
+                    label="Active"
+                  />
+                  <FormControl className={classes.formControl}>
+                    <InputLabel id="alert-stream-select-required-label">Active version id</InputLabel>
+                    <Select
+                      labelId="alert-stream-select-required-label"
+                      id="alert-stream-select"
+                      value={filter_v.active_fid}
+                      onChange={handleFidChange}
+                      className={classes.selectEmpty}
+                    >
+                      {
+                      filter_v.fv.map(fv => (
+                        <MenuItem key={fv.fid} value={fv.fid}>{fv.fid}</MenuItem>
                       ))
                     }
-                  </Select>
-                  {/*<FormHelperText>Required</FormHelperText>*/}
-                </FormControl>
-              </CardActions>
-              }
+                    </Select>
+                    {/* <FormHelperText>Required</FormHelperText> */}
+                  </FormControl>
+                </CardActions>
+                )
+}
             </Card>
           </Grid>
-          {/*/!* Filter stats go here? *!/*/}
-          {/*<Grid item sm={12} md={9}>*/}
-          {/*</Grid>*/}
+          {/* /!* Filter stats go here? *!/ */}
+          {/* <Grid item sm={12} md={9}> */}
+          {/* </Grid> */}
         </Grid>
 
 
-        <br/>
+        <br />
 
         <Accordion
-          expanded={expanded1 === 'panel1'} onChange={handleChange1('panel1')}
+          expanded={expanded1 === 'panel1'}
+          onChange={handleChange1('panel1')}
         >
           <AccordionSummary
-            expandIcon={<ExpandMoreIcon/>}
+            expandIcon={<ExpandMoreIcon />}
             aria-controls="panel1a-content"
             id="panel1a-header"
           >
@@ -230,7 +244,7 @@ const Filter = ({route}) => {
                     rowsMin={6}
                     placeholder="Filter definition (please refer to the docs)"
                     name="pipeline"
-                    style={{width: "100%"}}
+                    style={{ width: "100%" }}
                     ref={register}
                   />
                 </Grid>
@@ -239,7 +253,7 @@ const Filter = ({route}) => {
                     variant="outlined"
                     color="primary"
                     className={classes.button_add}
-                    style={{marginRight: 5}}
+                    style={{ marginRight: 5 }}
                   >
                     Test
                   </Button>
@@ -257,17 +271,17 @@ const Filter = ({route}) => {
           </AccordionDetails>
         </Accordion>
 
-        <br/>
+        <br />
 
         {
-          (filter_v) && (filter_v.active_fid) &&
+          (filter_v) && (filter_v.active_fid) && (
           <Paper className={classes.paper}>
             <Typography className={classes.heading}>Versions/diff</Typography>
             <Grid container spacing={2}>
               <Grid item xs={6} align="center">
-                {/*<Divider orientation="vertical" flexItem />*/}
+                {/* <Divider orientation="vertical" flexItem /> */}
                 <FormControl className={classes.formControl}>
-                  {/*<InputLabel id="fv-diff-label">Other version</InputLabel>*/}
+                  {/* <InputLabel id="fv-diff-label">Other version</InputLabel> */}
                   <Select
                     labelId="fv-diff-label"
                     id="fv-diff"
@@ -279,8 +293,8 @@ const Filter = ({route}) => {
                   >
                     {
                       filter_v.fv.map((fv) => (
-                        (fv.fid !== filter_v.active_fid) &&
-                        <MenuItem value={fv.fid}>{fv.fid}</MenuItem>
+                        // (fv.fid !== filter_v.active_fid) &&
+                        <MenuItem key={fv.fid} value={fv.fid}>{fv.fid}</MenuItem>
                       ))
                     }
                   </Select>
@@ -288,30 +302,32 @@ const Filter = ({route}) => {
                 </FormControl>
               </Grid>
               <Grid item xs={6} align="center">
-                <Typography className={classes.big_font} color="textSecondary" gutterBottom style={{paddingTop: 20}}>
+                <Typography className={classes.big_font} color="textSecondary" gutterBottom style={{ paddingTop: 20 }}>
                   {`Active version id: ${filter_v.active_fid}`}
                 </Typography>
               </Grid>
               <Grid item xs={12}>
                 <ReactDiffViewer
-                  newValue={filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline}
+                  newValue={filter_v.fv.filter((fv) => fv.fid === filter_v.active_fid)[0].pipeline}
                   oldValue={
                     otherVersion.length > 0 ?
-                      filter_v.fv.filter(fv => fv.fid === otherVersion)[0].pipeline :
+                      filter_v.fv.filter((fv) => fv.fid === otherVersion)[0].pipeline :
                       otherVersion
                   }
-                  splitView={true}
+                  splitView
                   showDiffOnly={false}
                   useDarkTheme={darkTheme}
                 />
               </Grid>
             </Grid>
           </Paper>
-        }
+          )
+}
 
       </div>
     );
   }
-}
+  return <div><CircularProgress color="secondary" /></div>;
+};
 
 export default Filter;
