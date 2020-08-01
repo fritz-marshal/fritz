@@ -159,10 +159,27 @@ class FilterHandler(BaseHandler):
               application/json:
                 schema: Success
         """
-        DBSession().delete(Filter.query.get(filter_id))
-        DBSession().commit()
+        f = Filter.get_if_owned_by(filter_id, self.current_user)
+        group_id = f.group_id
 
-        return self.success()
+        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+
+        resp = s.delete(
+            os.path.join(base_url, f'api/filters'),
+            headers=headers,
+            json={"group_id": group_id, "filter_id": filter_id},
+            timeout=5,
+        )
+
+        if resp.status_code == requests.codes.ok:
+            DBSession().delete(Filter.query.get(filter_id))
+            DBSession().commit()
+
+            return self.success()
+        else:
+            return self.error(f"Failed to fetch data from Kowalski")
 
 
 class FilterVHandler(BaseHandler):

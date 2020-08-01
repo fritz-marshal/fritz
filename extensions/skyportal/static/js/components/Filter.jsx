@@ -265,11 +265,6 @@ const Filter = ({route}) => {
             <Typography className={classes.heading}>Versions/diff</Typography>
             <Grid container spacing={2}>
               <Grid item xs={6} align="center">
-                <Typography className={classes.big_font} color="textSecondary" gutterBottom style={{paddingTop: 20}}>
-                  {`Active version id: ${filter_v.active_fid}`}
-                </Typography>
-              </Grid>
-              <Grid item xs={6} align="center">
                 {/*<Divider orientation="vertical" flexItem />*/}
                 <FormControl className={classes.formControl}>
                   {/*<InputLabel id="fv-diff-label">Other version</InputLabel>*/}
@@ -277,12 +272,14 @@ const Filter = ({route}) => {
                     labelId="fv-diff-label"
                     id="fv-diff"
                     name="filter_diff"
-                    defaultValue={filter_v.active_fid}
+                    // defaultValue={filter_v.active_fid}
+                    value={otherVersion}
                     onChange={handleSelectFilterVersionDiff}
                     className={classes.selectEmpty}
                   >
                     {
                       filter_v.fv.map((fv) => (
+                        (fv.fid !== filter_v.active_fid) &&
                         <MenuItem value={fv.fid}>{fv.fid}</MenuItem>
                       ))
                     }
@@ -290,13 +287,18 @@ const Filter = ({route}) => {
                   <FormHelperText>Select version id to diff</FormHelperText>
                 </FormControl>
               </Grid>
+              <Grid item xs={6} align="center">
+                <Typography className={classes.big_font} color="textSecondary" gutterBottom style={{paddingTop: 20}}>
+                  {`Active version id: ${filter_v.active_fid}`}
+                </Typography>
+              </Grid>
               <Grid item xs={12}>
                 <ReactDiffViewer
-                  oldValue={filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline}
-                  newValue={
+                  newValue={filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline}
+                  oldValue={
                     otherVersion.length > 0 ?
                       filter_v.fv.filter(fv => fv.fid === otherVersion)[0].pipeline :
-                      filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline
+                      otherVersion
                   }
                   splitView={true}
                   showDiffOnly={false}
