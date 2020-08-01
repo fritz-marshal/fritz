@@ -304,7 +304,6 @@ class FilterVHandler(BaseHandler):
         else:
             return self.error(f"Failed to post filter to Kowalski: {resp.text}")
 
-
     @permissions(["Manage groups"])
     def patch(self, filter_id):
         """

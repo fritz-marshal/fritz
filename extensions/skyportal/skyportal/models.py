@@ -7,7 +7,6 @@ import astroplan
 import numpy as np
 import sqlalchemy as sa
 from sqlalchemy import cast
-from sqlalchemy.orm.session import object_session
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects import postgresql as psql
 from sqlalchemy.orm import relationship
@@ -19,8 +18,7 @@ from astropy import coordinates as ap_coord
 import healpix_alchemy as ha
 
 from baselayer.app.env import load_env
-from baselayer.app.models import (init_db, join_model, Base, DBSession, ACL,
-                                  Role, User, Token)
+from baselayer.app.models import (join_model, Base, DBSession, User, Token)
 from baselayer.app.custom_exceptions import AccessError
 
 from . import schema
@@ -459,7 +457,7 @@ class ArrayOfEnum(ARRAY):
         super_rp = super(ArrayOfEnum, self).result_processor(dialect, coltype)
 
         def handle_raw_string(value):
-            if value == None or value == '{}':  # 2nd case, empty array
+            if value is None or value == '{}':  # 2nd case, empty array
                 return []
             inner = re.match(r"^{(.*)}$", value).group(1)
             return inner.split(",")
@@ -649,7 +647,7 @@ class Photometry(Base, ha.Point):
     def mag(cls):
         return sa.case(
             [
-                sa.and_(cls.flux != None, cls.flux > 0),
+                sa.and_(cls.flux is not None, cls.flux > 0),
                 -2.5 * sa.func.log(cls.flux) + PHOT_ZP,
             ],
             else_=None
@@ -659,7 +657,7 @@ class Photometry(Base, ha.Point):
     def e_mag(cls):
         return sa.case(
             [
-                (sa.and_(cls.flux != None, cls.flux > 0, cls.fluxerr > 0),
+                (sa.and_(cls.flux is not None, cls.flux > 0, cls.fluxerr > 0),
                  2.5 / sa.func.ln(10) * cls.fluxerr / cls.flux)
             ],
             else_=None
