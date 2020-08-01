@@ -15,7 +15,7 @@ const GroupList = ({ title, groups }) => (
     <List component="nav" aria-label="main mailbox folders">
       {
         groups && groups.filter((group) => !group.single_user_group).map((group) => (
-          <ListItem button component="a" href={`/group/${group.id}`}>
+          <ListItem key={group.id} button component="a" href={`/group/${group.id}`}>
             <ListItemText primary={group.name} />
           </ListItem>
 
