@@ -18,6 +18,9 @@ export const FETCH_FILTER_V_OK = 'skyportal/FETCH_FILTER_V_OK';
 export const FETCH_FILTER_V_ERROR = 'skyportal/FETCH_FILTER_V_ERROR';
 export const FETCH_FILTER_V_FAIL = 'skyportal/FETCH_FILTER_V_FAIL';
 
+export const ADD_FILTER_V = 'skyportal/ADD_FILTER_V';
+export const ADD_FILTER_V_OK = 'skyportal/ADD_FILTER_V_OK';
+
 export function fetchFilter(id) {
   return API.GET(`/api/filters/${id}`, FETCH_FILTER);
 }
@@ -39,6 +42,14 @@ export function deleteGroupFilter({ filter_id }) {
 
 export function fetchFilterV(id) {
   return API.GET(`/api/filters/${id}/v`, FETCH_FILTER_V);
+}
+
+export function addFilterV({ filter_id, pipeline }) {
+  return API.POST(
+    `/api/filters/${filter_id}/v`,
+    ADD_FILTER_V,
+    {"filter_id": filter_id, "pipeline": pipeline}
+  );
 }
 
 const reducer = (state={}, action) => {

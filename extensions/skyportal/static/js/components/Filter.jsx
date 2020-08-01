@@ -24,6 +24,7 @@ import useMediaQuery from '@material-ui/core/useMediaQuery';
 import Card from '@material-ui/core/Card';
 import CardActions from '@material-ui/core/CardActions';
 import CardContent from '@material-ui/core/CardContent';
+import Divider from '@material-ui/core/Divider';
 
 import ReactDiffViewer from 'react-diff-viewer';
 import {useForm, Controller} from "react-hook-form";
@@ -34,7 +35,7 @@ import * as filterActions from '../ducks/filter';
 const useStyles = makeStyles((theme) => ({
   paper: {
     width: "100%",
-    padding: theme.spacing(1),
+    padding: theme.spacing(2),
     textAlign: 'left',
     color: theme.palette.text.primary,
   },
@@ -69,67 +70,14 @@ const useStyles = makeStyles((theme) => ({
   title: {
     fontSize: 14,
   },
+  big_font: {
+    fontSize: 16,
+  },
   pos: {
     marginBottom: 12,
   },
 }));
 
-const oldCode = `
-[
-  {
-    "$match": {
-      "candid": 1282486330015015001,
-      "candidate.programid": {
-        "$in": [1, 2, 3]
-      }
-    }
-  },
-  {
-    "$lookup": {
-      "from": "ZTF_alerts_aux",
-      "localField": "objectId",
-      "foreignField": "_id",
-      "as": "aux"
-    }
-  }
-]
-`;
-const newCode = `
-[
-  {
-    "$match": {
-      "candid": 1282486310015015001,
-      "candidate.programid": {
-        "$in": [1, 2]
-      }
-    }
-  },
-  {
-    "$lookup": {
-      "from": "ZTF_alerts_aux",
-      "localField": "objectId",
-      "foreignField": "_id",
-      "as": "aux"
-    }
-  },
-  {
-    "$project": {
-      "objectId": 1,
-      "annotations.jd": "$t_now",
-      "annotations.magnitude": "$m_now",
-      "annotations.sgscore": "$sgscore",
-      "annotations.peakmag": "$peakmag",
-      "annotations.atpeak": {
-        "$eq": [
-          "$m_now", "$peakmag"
-        ]
-      },
-      "annotations.age": "$age",
-      "annotations.drb": "$drbscore"
-    }
-  }
-]
-`;
 
 const Filter = ({route}) => {
   const classes = useStyles();
@@ -141,7 +89,7 @@ const Filter = ({route}) => {
   const theme = useTheme();
   const darkTheme = theme.palette.type === 'dark';
 
-  const [expanded1, setExpanded1] = React.useState('panel1');
+  const [expanded1, setExpanded1] = React.useState(false);  // 'panel1'
 
   const handleChange1 = (panel) => (event, isExpanded) => {
     setExpanded1(isExpanded ? panel : false);
@@ -177,13 +125,27 @@ const Filter = ({route}) => {
   const group = useSelector((state) => state.filter.group)
   const stream = useSelector((state) => state.filter.stream)
 
-  // const [state, setState] = useState({
-  //   filterActive: false,
-  // });
-  //
-  // const handleChange = (event) => {
-  //   setState({ ...state, [event.target.name]: event.target.checked });
-  // };
+  const [otherVersion, setOtherVersion] = React.useState("");
+
+  const handleSelectFilterVersionDiff = (event) => {
+    setOtherVersion(event.target.value)
+
+  };
+
+  const [filterActive, setFilterActive] = useState(false);
+
+  const handleActive = (event) => {
+    console.log(event.target.checked)
+    // setState({ ...state, [event.target.name]: event.target.checked });
+  };
+
+  // forms
+  // add stream to group
+  const onSubmitSaveFilterVersion = data => {
+    // console.log({"filter_id": filter.id, "pipeline": data.pipeline})
+    dispatch(filterActions.addFilterV({"filter_id": filter.id, "pipeline": data.pipeline}));
+    dispatch(filterActions.fetchFilterV(fid));
+  };
 
   if (filterLoadError) {
     return (
@@ -193,7 +155,11 @@ const Filter = ({route}) => {
     );
   }
 
-  if (filter) {
+  if (filter && filter_v) {
+    // if (filter_v.catalog) {
+    //   setCurrentVersion(filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline)
+    // }
+
     return (
       <div>
         <Typography variant="h5" style={{paddingBottom: 10}}>
@@ -218,12 +184,11 @@ const Filter = ({route}) => {
                 <CardActions>
                 {/*<Button size="small">Learn More</Button>*/}
                 <FormControlLabel style={{marginLeft: 5}}
-                  // control={<Switch checked={filter_v.active} size="small" onChange={handleChange} name="filterActive"/>}
-                  control={<Switch checked={filter_v.active} size="small" name="filterActive"/>}
+                  control={<Switch checked={filter_v.active} size="small" onChange={handleActive} name="filterActive"/>}
                   label="Active"
                 />
                 <FormControl className={classes.formControl}>
-                  <InputLabel id="alert-stream-select-required-label">Active version</InputLabel>
+                  <InputLabel id="alert-stream-select-required-label">Active version id</InputLabel>
                   <Select
                     labelId="alert-stream-select-required-label"
                     id="alert-stream-select"
@@ -262,42 +227,91 @@ const Filter = ({route}) => {
             <Typography className={classes.heading}>Save new version</Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
-            <Grid container spacing={2}>
-              <Grid item sm={12} md={10}>
-                <TextareaAutosize
-                  rowsMax={10000}
-                  rowsMin={6}
-                  placeholder="Filter definition (aggregation pipeline, see the docs)"
-                  style={{width: "100%"}}
-                />
+            <form onSubmit={handleSubmit(onSubmitSaveFilterVersion)}>
+              <Grid container spacing={2}>
+                <Grid item sm={12} md={10}>
+                  <TextareaAutosize
+                    rowsMax={10000}
+                    rowsMin={6}
+                    placeholder="Filter definition (please refer to the docs)"
+                    name="pipeline"
+                    style={{width: "100%"}}
+                    ref={register}
+                  />
+                </Grid>
+                <Grid item sm={12} md={2}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    className={classes.button_add}
+                    style={{marginRight: 5}}
+                  >
+                    Test
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    type="submit"
+                    className={classes.button_add}
+                  >
+                    Save
+                  </Button>
+                </Grid>
               </Grid>
-              <Grid item sm={12} md={2}>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  className={classes.button_add}
-                  style={{marginRight: 5}}
-                >
-                  Test
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  className={classes.button_add}
-                >
-                  Save
-                </Button>
-              </Grid>
-            </Grid>
+            </form>
           </AccordionDetails>
         </Accordion>
 
         <br/>
 
-        <ReactDiffViewer
-          oldValue={oldCode} newValue={newCode} splitView={true} useDarkTheme={darkTheme}
-          leftTitle="Active version: nn6sun" rightTitle="Version: dropdown; make active"
-        />
+        {
+          (filter_v) && (filter_v.active_fid) &&
+          <Paper className={classes.paper}>
+            <Typography className={classes.heading}>Versions/diff</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6} align="center">
+                <Typography className={classes.big_font} color="textSecondary" gutterBottom style={{paddingTop: 20}}>
+                  {`Active version id: ${filter_v.active_fid}`}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} align="center">
+                {/*<Divider orientation="vertical" flexItem />*/}
+                <FormControl className={classes.formControl}>
+                  {/*<InputLabel id="fv-diff-label">Other version</InputLabel>*/}
+                  <Select
+                    labelId="fv-diff-label"
+                    id="fv-diff"
+                    name="filter_diff"
+                    defaultValue={filter_v.active_fid}
+                    onChange={handleSelectFilterVersionDiff}
+                    className={classes.selectEmpty}
+                  >
+                    {
+                      filter_v.fv.map((fv) => (
+                        <MenuItem value={fv.fid}>{fv.fid}</MenuItem>
+                      ))
+                    }
+                  </Select>
+                  <FormHelperText>Select version id to diff</FormHelperText>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <ReactDiffViewer
+                  oldValue={filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline}
+                  newValue={
+                    otherVersion.length > 0 ?
+                      filter_v.fv.filter(fv => fv.fid === otherVersion)[0].pipeline :
+                      filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline
+                  }
+                  splitView={true}
+                  showDiffOnly={false}
+                  useDarkTheme={darkTheme}
+                />
+              </Grid>
+            </Grid>
+          </Paper>
+        }
+
       </div>
     );
   }

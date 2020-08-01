@@ -220,8 +220,9 @@ class FilterVHandler(BaseHandler):
             return self.error(f"Failed to fetch data from Kowalski")
 
     @permissions(["Manage groups"])
-    def post(self):
+    def post(self, filter_id):
         """
+        fixme:
         ---
         description: POST a new filter version.
         requestBody:
@@ -245,19 +246,47 @@ class FilterVHandler(BaseHandler):
                               description: New filter ID
         """
         data = self.get_json()
-        schema = Filter.__schema__()
-        try:
-            fil = schema.load(data)
-            print(fil)
-        except ValidationError as e:
+        pipeline = data.get('pipeline', None)
+        if not pipeline:
             return self.error(
-                "Invalid/missing parameters: " f"{e.normalized_messages()}"
+                "Missing pipeline parameter"
             )
-        # DBSession().add(fil)
-        # DBSession().commit()
 
-        # return self.success(data={"id": fil.id})
-        return self.success(data=fil)
+        f = Filter.get_if_owned_by(filter_id, self.current_user)
+        group_id = f.group_id
+
+        # get stream:
+        stream = (
+            DBSession().query(Stream)
+            .filter(Stream.id == f.stream_id)
+            .first()
+        )
+
+        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+
+        data = {
+            "group_id": group_id,
+            "filter_id": filter_id,
+            "catalog": stream.collection,
+            "permissions": stream.selector,
+            "pipeline": pipeline
+        }
+
+        resp = s.post(
+            os.path.join(base_url, f'api/filters'),
+            headers=headers,
+            json=data,
+            timeout=5
+        )
+
+        if resp.status_code == requests.codes.ok:
+            data = bj.loads(resp.text).get('data')
+            return self.success(data=data)
+        else:
+            return self.error(f"Failed to post filter to Kowalski: {resp.text}")
+
 
     @permissions(["Manage groups"])
     def patch(self, filter_id):
