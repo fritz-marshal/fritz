@@ -113,9 +113,6 @@ const Filter = ({route}) => {
   useEffect(() => {
     const fetchFilterV = async () => {
       const data = await dispatch(filterActions.fetchFilterV(fid));
-      // if (data.status === "error") {
-      //   setFilterLoadError(data.message);
-      // }
     };
     fetchFilterV();
   }, [fid, loadedId, dispatch]);
@@ -129,21 +126,21 @@ const Filter = ({route}) => {
 
   const handleSelectFilterVersionDiff = (event) => {
     setOtherVersion(event.target.value)
-
   };
-
-  const [filterActive, setFilterActive] = useState(false);
 
   const handleActive = (event) => {
     dispatch(filterActions.editActiveFilterV({"filter_id": filter.id, "active": event.target.checked}));
-    setFilterActive(event.target.checked);
+    dispatch(filterActions.fetchFilterV(fid));
+  };
+
+  const handleFidChange = (event) => {
+    dispatch(filterActions.editActiveFidFilterV({"filter_id": filter.id, "active_fid": event.target.value}));
     dispatch(filterActions.fetchFilterV(fid));
   };
 
   // forms
   // add stream to group
   const onSubmitSaveFilterVersion = data => {
-    // console.log({"filter_id": filter.id, "pipeline": data.pipeline})
     dispatch(filterActions.addFilterV({"filter_id": filter.id, "pipeline": data.pipeline}));
     dispatch(filterActions.fetchFilterV(fid));
   };
@@ -157,9 +154,6 @@ const Filter = ({route}) => {
   }
 
   if (filter && filter_v) {
-    // if (filter_v.catalog) {
-    //   setCurrentVersion(filter_v.fv.filter(fv => fv.fid === filter_v.active_fid)[0].pipeline)
-    // }
 
     return (
       <div>
@@ -183,7 +177,7 @@ const Filter = ({route}) => {
               {
                 (filter_v) && (filter_v.catalog) &&
                 <CardActions>
-                {/*<Button size="small">Learn More</Button>*/}
+                {/*<Button size="small">Delete</Button>*/}
                 <FormControlLabel style={{marginLeft: 5}}
                   control={<Switch checked={filter_v.active} size="small" onChange={handleActive} name="filterActive"/>}
                   label="Active"
@@ -194,7 +188,7 @@ const Filter = ({route}) => {
                     labelId="alert-stream-select-required-label"
                     id="alert-stream-select"
                     value={filter_v.active_fid}
-                    // onChange={handleFidChange}
+                    onChange={handleFidChange}
                     className={classes.selectEmpty}
                   >
                     {
