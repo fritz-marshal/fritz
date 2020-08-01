@@ -135,8 +135,9 @@ const Filter = ({route}) => {
   const [filterActive, setFilterActive] = useState(false);
 
   const handleActive = (event) => {
-    console.log(event.target.checked)
-    // setState({ ...state, [event.target.name]: event.target.checked });
+    dispatch(filterActions.editActiveFilterV({"filter_id": filter.id, "active": event.target.checked}));
+    setFilterActive(event.target.checked);
+    dispatch(filterActions.fetchFilterV(fid));
   };
 
   // forms

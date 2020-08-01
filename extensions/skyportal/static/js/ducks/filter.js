@@ -21,6 +21,15 @@ export const FETCH_FILTER_V_FAIL = 'skyportal/FETCH_FILTER_V_FAIL';
 export const ADD_FILTER_V = 'skyportal/ADD_FILTER_V';
 export const ADD_FILTER_V_OK = 'skyportal/ADD_FILTER_V_OK';
 
+export const EDIT_ACTIVE_FILTER_V = 'skyportal/EDIT_ACTIVE_FILTER_V';
+export const EDIT_ACTIVE_FILTER_V_OK = 'skyportal/EDIT_ACTIVE_FILTER_V_OK';
+
+export const EDIT_ACTIVE_FID_FILTER_V = 'skyportal/EDIT_ACTIVE_FID_FILTER_V';
+export const EDIT_ACTIVE_FID_FILTER_V_OK = 'skyportal/EDIT_ACTIVE_FID_FILTER_V_OK';
+
+export const DELETE_FILTER_V = 'skyportal/DELETE_FILTER_V';
+export const DELETE_FILTER_V_OK = 'skyportal/DELETE_FILTER_V_OK';
+
 export function fetchFilter(id) {
   return API.GET(`/api/filters/${id}`, FETCH_FILTER);
 }
@@ -48,7 +57,30 @@ export function addFilterV({ filter_id, pipeline }) {
   return API.POST(
     `/api/filters/${filter_id}/v`,
     ADD_FILTER_V,
-    {"filter_id": filter_id, "pipeline": pipeline}
+    {"pipeline": pipeline}
+  );
+}
+
+export function editActiveFilterV({filter_id, active}) {
+  return API.PATCH(
+    `/api/filters/${filter_id}/v`,
+    EDIT_ACTIVE_FILTER_V,
+    {"active": active}
+  );
+}
+
+export function editActiveFidFilterV({filter_id, active_fid}) {
+  return API.PATCH(
+    `/api/filters/${filter_id}/v`,
+    EDIT_ACTIVE_FID_FILTER_V,
+    {"active_fid": active_fid}
+  );
+}
+
+export function deleteFilterV(filter_id) {
+  return API.DELETE(
+    `/api/filters/${filter_id}/v`,
+    DELETE_FILTER_V
   );
 }
 

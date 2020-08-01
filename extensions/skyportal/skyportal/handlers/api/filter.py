@@ -291,8 +291,9 @@ class FilterVHandler(BaseHandler):
     @permissions(["Manage groups"])
     def patch(self, filter_id):
         """
+        fixme:
         ---
-        description: Update a filter
+        description: Update a filter on K
         parameters:
           - in: path
             name: filter_id
@@ -314,15 +315,42 @@ class FilterVHandler(BaseHandler):
                 schema: Error
         """
         data = self.get_json()
-        data["id"] = filter_id
-        schema = Filter.__schema__()
-        try:
-            schema.load(data)
-        except ValidationError as e:
-            return self.error('Invalid/missing parameters: '
-                              f'{e.normalized_messages()}')
-        DBSession().commit()
-        return self.success()
+        active = data.get('active', None)
+        active_fid = data.get('active_fid', None)
+        if (active, active_fid).count(None) != 1:
+            return self.error(
+                "One and only one of (active, active_fid) must be set"
+            )
+
+        f = Filter.get_if_owned_by(filter_id, self.current_user)
+        group_id = f.group_id
+
+        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+
+        data = {
+            "group_id": group_id,
+            "filter_id": filter_id,
+        }
+
+        if active is not None:
+            data["active"] = bool(active)
+        if active_fid is not None:
+            data["active_fid"] = str(active_fid)
+
+        resp = s.put(
+            os.path.join(base_url, f'api/filters'),
+            headers=headers,
+            json=data,
+            timeout=5
+        )
+
+        if resp.status_code == requests.codes.ok:
+            data = bj.loads(resp.text).get('data')
+            return self.success(data=data)
+        else:
+            return self.error(f"Failed to update filter on Kowalski: {resp.text}")
 
     @permissions(["System admin"])
     def delete(self, filter_id):
@@ -341,7 +369,27 @@ class FilterVHandler(BaseHandler):
               application/json:
                 schema: Success
         """
-        DBSession().delete(Filter.query.get(filter_id))
-        DBSession().commit()
+        f = Filter.get_if_owned_by(filter_id, self.current_user)
+        group_id = f.group_id
 
-        return self.success()
+        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
+                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+
+        data = {
+            "group_id": group_id,
+            "filter_id": filter_id,
+        }
+
+        resp = s.delete(
+            os.path.join(base_url, f'api/filters'),
+            headers=headers,
+            json=data,
+            timeout=5
+        )
+
+        if resp.status_code == requests.codes.ok:
+            data = bj.loads(resp.text).get('data')
+            return self.success(data=data)
+        else:
+            return self.error(f"Failed to update filter on Kowalski: {resp.text}")
