@@ -1,23 +1,17 @@
 import React, {useEffect, useState} from 'react';
 import {useHistory} from "react-router-dom";
 import PropTypes from 'prop-types';
-import {Link, useParams} from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {useDispatch, useSelector} from 'react-redux';
 import {makeStyles, useTheme} from '@material-ui/core/styles';
-// import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 import DeleteIcon from '@material-ui/icons/Delete';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
-// import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
 import ListItemText from '@material-ui/core/ListItemText';
-// import ListSubheader from '@material-ui/core/ListSubheader';
 import IconButton from '@material-ui/core/IconButton';
-import ExpandLess from '@material-ui/icons/ExpandLess';
-import ExpandMore from '@material-ui/icons/ExpandMore';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import Collapse from '@material-ui/core/Collapse';
 
 import Accordion from '@material-ui/core/Accordion';
 import AccordionSummary from '@material-ui/core/AccordionSummary';
@@ -31,7 +25,6 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
 import TextField from '@material-ui/core/TextField';
-import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 
 import InputLabel from '@material-ui/core/InputLabel';
@@ -41,6 +34,7 @@ import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import Divider from '@material-ui/core/Divider';
 import Chip from '@material-ui/core/Chip';
+import CircularProgress from '@material-ui/core/CircularProgress';
 
 import {useForm, Controller} from "react-hook-form";
 
@@ -51,7 +45,6 @@ import * as streamsActions from '../ducks/streams';
 import * as filterActions from '../ducks/filter';
 import NewGroupUserForm from './NewGroupUserForm';
 
-import styles from './Group.css';
 
 const useStyles = makeStyles((theme) => ({
   padding_bottom: {
@@ -82,13 +75,17 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const Group = ({route}) => {
+function ListItemLink(props) {
+  return <ListItem button component="a" {...props} />;
+}
+
+const Group = () => {
   const classes = useStyles();
   const dispatch = useDispatch();
   const theme = useTheme();
   const history = useHistory();
 
-  const {register, handleSubmit, control, errors} = useForm();
+  const {register, handleSubmit, control} = useForm();
 
   const [groupLoadError, setGroupLoadError] = useState("");
 
@@ -148,14 +145,6 @@ const Group = ({route}) => {
   const group = useSelector((state) => state.group);
   const currentUser = useSelector((state) => state.profile);
 
-  if (groupLoadError) {
-    return (
-      <div>
-        {groupLoadError}
-      </div>
-    );
-  }
-
   // fetch streams:
   const streams = useSelector((state) => state.streams);
 
@@ -179,9 +168,19 @@ const Group = ({route}) => {
   };
   // add filter to group
   const onSubmitAddFilter = data => {
-    dispatch(filterActions.addGroupFilter({name: data.name, group_id: group.id, stream_id: data.stream_id}));
+    dispatch(filterActions.addGroupFilter(
+      {name: data.name, group_id: group.id, stream_id: data.stream_id})
+    );
     handleDialogClose();
     dispatch(groupActions.fetchGroup(loadedId))
+  }
+
+  if (groupLoadError) {
+    return (
+      <div>
+        {groupLoadError}
+      </div>
+    );
   }
 
   // renders
@@ -198,18 +197,6 @@ const Group = ({route}) => {
         numAdmins += 1;
       }
     });
-
-    function ListItemLink(props) {
-      return <ListItem button component="a" {...props} />;
-    }
-
-    const handleCancel = () => {
-      onClose();
-    };
-
-    const handleOk = () => {
-      onClose(value);
-    };
 
     const group_stream_ids = group.streams.map((stream) => (stream.id));
 
@@ -237,7 +224,7 @@ const Group = ({route}) => {
             <List component="nav" aria-label="main mailbox folders" className={classes.paper} dense>
               {
                 group.users.map((user) => (
-                    <ListItemLink href={`/user/${user.id}`}>
+                    <ListItemLink key={user.id} href={`/user/${user.id}`}>
                       <ListItemText primary={user.username}/>
                       {
                         isAdmin(user, group) &&
@@ -321,7 +308,7 @@ const Group = ({route}) => {
                 group.streams.map((stream) => (
                     <div>
                       <ListItem>
-                        <ListItemText primary={stream.name}/>
+                        <ListItemText key={stream.name} primary={stream.name}/>
                       </ListItem>
                       <List component="nav" disablePadding>
                         {
@@ -475,7 +462,11 @@ const Group = ({route}) => {
             <DialogContent dividers={true}>
               <DialogContentText>
                 Please refer to the &nbsp;
-                <a href={"https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"} target={'_blank'}>
+                <a
+                  href={"https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"}
+                  target={'_blank'}
+                  rel="noreferrer"
+                >
                   docs <OpenInNewIcon style={{fontSize: "small"}}/>
                 </a>
                 &nbsp; for an extensive guide on Alert filters in Fritz.
@@ -502,7 +493,7 @@ const Group = ({route}) => {
                 >
                   {
                     group.streams.map((stream) => (
-                      <MenuItem value={stream.id}>{stream.name}</MenuItem>
+                      <MenuItem key={stream.id} value={stream.id}>{stream.name}</MenuItem>
                     ))
                   }
                 </Controller>
@@ -556,7 +547,7 @@ const Group = ({route}) => {
       </div>
     );
   }
-  return <div>Loading group</div>;
+  return <div><CircularProgress color="secondary" /></div>;
 };
 
 Group.propTypes = {
