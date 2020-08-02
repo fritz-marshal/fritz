@@ -26,6 +26,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 
 import ReactDiffViewer from 'react-diff-viewer';
 import { useForm } from "react-hook-form";
+import { showNotification } from "baselayer/components/Notifications";
 
 import * as filterActions from '../ducks/filter';
 
@@ -129,24 +130,35 @@ const Filter = () => {
     setOtherVersion(event.target.value);
   };
 
-  const handleActive = (event) => {
-    dispatch(filterActions.editActiveFilterV(
-      { filter_id: filter.id, active: event.target.checked })
+  const handleActive = async (event) => {
+    const active_target = event.target.checked;
+    const result = await dispatch(filterActions.editActiveFilterV(
+      { filter_id: filter.id, active: active_target })
     );
+    if (result.status === "success") {
+      dispatch(showNotification(`Set active to ${active_target}`));
+    }
     dispatch(filterActions.fetchFilterV(fid));
   };
 
-  const handleFidChange = (event) => {
-    dispatch(filterActions.editActiveFidFilterV(
-      { filter_id: filter.id, active_fid: event.target.value })
+  const handleFidChange = async (event) => {
+    const active_fid_target = event.target.value;
+    const result = await dispatch(filterActions.editActiveFidFilterV(
+      { filter_id: filter.id, active_fid: active_fid_target })
     );
+    if (result.status === "success") {
+      dispatch(showNotification(`Set active_fid to ${active_fid_target}`));
+    }
     dispatch(filterActions.fetchFilterV(fid));
   };
 
   // forms
   // add stream to group
-  const onSubmitSaveFilterVersion = (data) => {
-    dispatch(filterActions.addFilterV({ filter_id: filter.id, pipeline: data.pipeline }));
+  const onSubmitSaveFilterVersion = async (data) => {
+    const result = await dispatch(filterActions.addFilterV({ filter_id: filter.id, pipeline: data.pipeline }));
+    if (result.status === "success") {
+      dispatch(showNotification(`Saved new filter version`));
+    }
     dispatch(filterActions.fetchFilterV(fid));
   };
 

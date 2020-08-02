@@ -166,20 +166,34 @@ class FilterHandler(BaseHandler):
                    f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
+        # check that a filter exists on Kowalski:
         resp = s.delete(
-            os.path.join(base_url, f'api/filters'),
+            os.path.join(base_url, f'api/filters/{group_id}/{filter_id}'),
             headers=headers,
-            json={"group_id": group_id, "filter_id": filter_id},
             timeout=5,
         )
 
         if resp.status_code == requests.codes.ok:
+
+            resp = s.delete(
+                os.path.join(base_url, f'api/filters'),
+                headers=headers,
+                json={"group_id": group_id, "filter_id": filter_id},
+                timeout=5,
+            )
+
+            if resp.status_code == requests.codes.ok:
+                DBSession().delete(Filter.query.get(filter_id))
+                DBSession().commit()
+
+                return self.success()
+            else:
+                return self.error(f"Failed to fetch data from Kowalski")
+        else:
             DBSession().delete(Filter.query.get(filter_id))
             DBSession().commit()
 
             return self.success()
-        else:
-            return self.error(f"Failed to fetch data from Kowalski")
 
 
 class FilterVHandler(BaseHandler):

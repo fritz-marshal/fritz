@@ -37,7 +37,7 @@ import Chip from '@material-ui/core/Chip';
 import CircularProgress from '@material-ui/core/CircularProgress';
 
 import {useForm, Controller} from "react-hook-form";
-
+import { showNotification } from "baselayer/components/Notifications";
 
 import * as groupActions from '../ducks/group';
 import * as groupsActions from '../ducks/groups';
@@ -162,15 +162,21 @@ const Group = () => {
 
   // forms
   // add stream to group
-  const onSubmitAddStream = data => {
-    dispatch(streamsActions.addGroupStream({group_id: group.id, stream_id: data.stream_id}));
+  const onSubmitAddStream = async data => {
+    const result = await dispatch(streamsActions.addGroupStream({group_id: group.id, stream_id: data.stream_id}));
+    if (result.status === "success") {
+      dispatch(showNotification("Added stream to group"));
+    }
     setAddStreamOpen(false);
   };
   // add filter to group
-  const onSubmitAddFilter = data => {
-    dispatch(filterActions.addGroupFilter(
+  const onSubmitAddFilter = async data => {
+    const result = await dispatch(filterActions.addGroupFilter(
       {name: data.name, group_id: group.id, stream_id: data.stream_id})
     );
+    if (result.status === "success") {
+      dispatch(showNotification("Added filter to group"));
+    }
     handleDialogClose();
     dispatch(groupActions.fetchGroup(loadedId))
   }
@@ -307,14 +313,14 @@ const Group = () => {
               {
                 group.streams.map((stream) => (
                     <div>
-                      <ListItem>
-                        <ListItemText key={stream.name} primary={stream.name}/>
+                      <ListItem key={stream.name} >
+                        <ListItemText primary={stream.name}/>
                       </ListItem>
                       <List component="nav" disablePadding>
                         {
                           group.filters.map((filter) => (
                               filter.stream_id === stream.id ?
-                                <ListItemLink href={`/filter/${filter.id}`}>
+                                <ListItemLink key={filter.id} href={`/filter/${filter.id}`}>
                                   <ListItemText className={classes.nested} primary={filter.name}/>
                                   {
                                     (currentUser.roles.includes('Super admin')
@@ -325,14 +331,17 @@ const Group = () => {
                                           edge="end"
                                           aria-label="delete"
                                           onClick={
-                                            () => {
-                                              dispatch(
+                                            async () => {
+                                              const result = await dispatch(
                                                 filterActions.deleteGroupFilter(
                                                   {
                                                     filter_id: filter.id
                                                   }
                                                 )
                                               );
+                                              if (result.status === "success") {
+                                                dispatch(showNotification("Deleted filter from group"));
+                                              }
                                               dispatch(groupActions.fetchGroup(loadedId))
                                             }
                                           }
