@@ -152,7 +152,7 @@ def run(args):
     if args.init:
         # init skyportal and load test data
         p = subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                            "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
+                            "source /skyportal_env/bin/activate; make load_fritz_data"], cwd="skyportal")
         if p.returncode != 0:
             raise RuntimeError("Failed to init skyportal and load test data")
 
