@@ -203,7 +203,7 @@ class FilterVHandler(BaseHandler):
         fixme:
         ---
         single:
-          description: Retrieve a filter
+          description: Retrieve a filter as stored on Kowalski
           parameters:
             - in: path
               name: filter_id
@@ -215,17 +215,6 @@ class FilterVHandler(BaseHandler):
               content:
                 application/json:
                   schema: SingleFilter
-            400:
-              content:
-                application/json:
-                  schema: Error
-        multiple:
-          description: Retrieve all filters
-          responses:
-            200:
-              content:
-                application/json:
-                  schema: ArrayOfFilters
             400:
               content:
                 application/json:

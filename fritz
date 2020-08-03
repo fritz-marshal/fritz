@@ -47,7 +47,7 @@ def generate_skyportal_token():
          """from skyportal.model_util import create_token; """
          """conn = init_db(**load_config(['config.yaml'])['database']); """
          """print(create_token(['Classify', 'Comment', 'Manage groups', 'Manage sources', """
-         """'Manage users', 'Post taxonomy', 'Upload data'], 1, 'kowalski'))" """
+         """'Manage users', 'Post taxonomy', 'Upload data', 'System admin'], 1, 'kowalski'))" """
          ],
         cwd="skyportal",
         capture_output=True,
