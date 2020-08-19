@@ -36,6 +36,8 @@ skyportal:
         component: UploadPhotometry
       - path: "/about"
         component: About
+      - path: "/share_data/:id"
+        component: ShareDataForm
       - path: "/alerts"
         component: Alerts
       - path: "/alerts/ztf/:id"

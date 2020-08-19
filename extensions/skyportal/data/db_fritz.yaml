@@ -1,0 +1,64 @@
+user:
+  - username: skipper@caltech.edu
+    roles:
+      - Super admin
+  - username: kowalski@caltech.edu
+    roles:
+      - Group admin
+  - username: rico@caltech.edu
+    roles:
+      - Full user
+  - username: private@caltech.edu
+    roles:
+      - View only
+  - username: sitewide_group_admin
+    roles:
+      - Group admin
+
+streams:
+  - name: ZTF Public
+    altdata:
+      collection: ZTF_alerts
+      selector: [1]
+    =id: ztf_public
+  - name: ZTF Public+Partnership
+    altdata:
+      collection: ZTF_alerts
+      selector: [1, 2]
+    =id: ztf_partnership
+  - name: ZTF Public+Partnership+Caltech
+    altdata:
+      collection: ZTF_alerts
+      selector: [1, 2, 3]
+    =id: ztf_caltech
+
+groups:
+  - name: ZTF Science Validation
+    group_admins:
+      - skipper@caltech.edu
+      - kowalski@caltech.edu
+    =id: ztf_science_validation
+
+groups/=ztf_science_validation/users:
+  - username: rico@caltech.edu
+    admin: false
+  - username: private@caltech.edu
+    admin: false
+
+groups/=ztf_science_validation/streams:
+  - stream_id: =ztf_public
+
+filters:
+  - name: Transients
+    group_id: =ztf_science_validation
+    stream_id: =ztf_public
+    =id: transient_filter
+
+telescope:
+  file: telescopes_fritz.yaml
+
+instrument:
+  file: instruments_fritz.yaml
+
+taxonomy:
+  file: taxonomy_sitewide.yaml
