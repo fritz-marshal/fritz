@@ -75,7 +75,7 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
         else:
             raise IOError(f'{c} does not exist, aborting')
 
-    # generate a token for SkyPortal to talk to Kowalski:
+    # generate a token for SkyPortal to talk to Kowalski
     with open(c) as cyaml:
         config = yaml.load(cyaml, Loader=yaml.FullLoader)
 
@@ -114,18 +114,18 @@ def run(args):
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
     # initialize/update fritz's submodules kowalski and skyportal
-    if args.init:
-        # pull skyportal and kowalski
-        p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
-        if p.returncode != 0:
-            raise RuntimeError("Failed to initialize fritz's submodules")
-        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
-        if p.returncode != 0:
-            raise RuntimeError("Failed to update fritz's submodules")
-    else:
-        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
-        if p.returncode != 0:
-            raise RuntimeError("Failed to update fritz's submodules")
+    # if args.init:
+    #     # pull skyportal and kowalski
+    #     p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+    #     if p.returncode != 0:
+    #         raise RuntimeError("Failed to initialize fritz's submodules")
+    #     p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
+    #     if p.returncode != 0:
+    #         raise RuntimeError("Failed to update fritz's submodules")
+    # else:
+    #     p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
+    #     if p.returncode != 0:
+    #         raise RuntimeError("Failed to update fritz's submodules")
 
     if args.init:
         # check config
@@ -133,6 +133,18 @@ def run(args):
 
         # add Fritz-specific K and SP extensions:
         copy_tree('extensions/skyportal/', 'skyportal/')
+
+        # fix absolute path in docker-compose.skyportal.yaml
+        with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
+            dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
+        dc["services"]["web"]["volumes"][0] = dc["services"]["web"]["volumes"][0].replace(
+            "${PWD}",
+            str(Path(__file__).parent.absolute())
+        )
+        print(dc["services"]["web"]["volumes"])
+        with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
+            yaml.dump(dc, dcyaml)
+
         # copy over the additional requirements:
         subprocess.run(["cp", ".requirements/ext.txt", f"skyportal/requirements.fritz.txt"], check=True)
 
@@ -149,38 +161,38 @@ def run(args):
     if p.returncode != 0:
         raise RuntimeError("Failed to start skyportal")
 
-    if args.init:
-        # init skyportal and load test data
-        p = subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                            "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
-        if p.returncode != 0:
-            raise RuntimeError("Failed to init skyportal and load test data")
-
-        # generate a token for Kowalski to talk to SkyPortal:
-        with open('kowalski/config.yaml') as cyaml:
-            config = yaml.load(cyaml, Loader=yaml.FullLoader)
-
-        token = generate_skyportal_token()
-        config['kowalski']['skyportal']['token'] = token
-
-        with open('kowalski/config.yaml', 'w') as cyaml:
-            yaml.dump(config, cyaml)
-
-        # Build kowalski's images
-        c = ["python", "kowalski.py", "build", "--fritz"]
-        if args.yes:
-            c.append("--yes")
-        p = subprocess.run(c, cwd="kowalski")
-        if p.returncode != 0:
-            raise RuntimeError("Failed to build kowalski's docker images")
-
-    # start up kowalski
-    c = ["python", "kowalski.py", "up", "--fritz"]
-    if args.yes:
-        c.append("--yes")
-    p = subprocess.run(c, cwd="kowalski")
-    if p.returncode != 0:
-        raise RuntimeError("Failed to start kowalski")
+    # if args.init:
+    #     # init skyportal and load test data
+    #     p = subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+    #                         "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
+    #     if p.returncode != 0:
+    #         raise RuntimeError("Failed to init skyportal and load test data")
+    #
+    #     # generate a token for Kowalski to talk to SkyPortal:
+    #     with open('kowalski/config.yaml') as cyaml:
+    #         config = yaml.load(cyaml, Loader=yaml.FullLoader)
+    #
+    #     token = generate_skyportal_token()
+    #     config['kowalski']['skyportal']['token'] = token
+    #
+    #     with open('kowalski/config.yaml', 'w') as cyaml:
+    #         yaml.dump(config, cyaml)
+    #
+    #     # Build kowalski's images
+    #     c = ["python", "kowalski.py", "build", "--fritz"]
+    #     if args.yes:
+    #         c.append("--yes")
+    #     p = subprocess.run(c, cwd="kowalski")
+    #     if p.returncode != 0:
+    #         raise RuntimeError("Failed to build kowalski's docker images")
+    #
+    # # start up kowalski
+    # c = ["python", "kowalski.py", "up", "--fritz"]
+    # if args.yes:
+    #     c.append("--yes")
+    # p = subprocess.run(c, cwd="kowalski")
+    # if p.returncode != 0:
+    #     raise RuntimeError("Failed to start kowalski")
 
 
 def stop(args):
