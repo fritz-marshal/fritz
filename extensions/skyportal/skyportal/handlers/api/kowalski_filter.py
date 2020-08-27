@@ -77,7 +77,7 @@ class KowalskiFilterHandler(BaseHandler):
             else:
                 return self.error(f"Failed to fetch data from Kowalski")
 
-    @permissions(["Manage groups"])
+    @auth_or_token
     def post(self, filter_id):
         """
         fixme:
@@ -110,7 +110,25 @@ class KowalskiFilterHandler(BaseHandler):
                 "Missing pipeline parameter"
             )
 
-        f = Filter.get_if_owned_by(filter_id, self.current_user)
+        acls = [acl.id for acl in self.current_user.acls]
+
+        if "System admin" in acls or "Manage groups" in acls:
+            f = DBSession().query(Filter).get(filter_id)
+        else:
+            f = (
+                DBSession()
+                .query(Filter)
+                .filter(
+                    Filter.id == filter_id,
+                    Filter.group_id.in_(
+                        [g.id for g in self.current_user.accessible_groups]
+                    ),
+                )
+                .first()
+            )
+        if f is None:
+            return self.error("Invalid filter ID.")
+
         group_id = f.group_id
 
         # get stream:
@@ -127,8 +145,8 @@ class KowalskiFilterHandler(BaseHandler):
         data = {
             "group_id": group_id,
             "filter_id": filter_id,
-            "catalog": stream.collection,
-            "permissions": stream.selector,
+            "catalog": stream.altdata["collection"],
+            "permissions": stream.altdata["selector"],
             "pipeline": pipeline
         }
 
@@ -145,7 +163,7 @@ class KowalskiFilterHandler(BaseHandler):
         else:
             return self.error(f"Failed to post filter to Kowalski: {resp.text}")
 
-    @permissions(["Manage groups"])
+    @auth_or_token
     def patch(self, filter_id):
         """
         fixme:
@@ -179,7 +197,25 @@ class KowalskiFilterHandler(BaseHandler):
                 "One and only one of (active, active_fid) must be set"
             )
 
-        f = Filter.get_if_owned_by(filter_id, self.current_user)
+        acls = [acl.id for acl in self.current_user.acls]
+
+        if "System admin" in acls or "Manage groups" in acls:
+            f = DBSession().query(Filter).get(filter_id)
+        else:
+            f = (
+                DBSession()
+                .query(Filter)
+                .filter(
+                    Filter.id == filter_id,
+                    Filter.group_id.in_(
+                        [g.id for g in self.current_user.accessible_groups]
+                    ),
+                )
+                .first()
+            )
+        if f is None:
+            return self.error("Invalid filter ID.")
+
         group_id = f.group_id
 
         base_url = f"{self.cfg['app.kowalski.protocol']}://" \
@@ -209,7 +245,7 @@ class KowalskiFilterHandler(BaseHandler):
         else:
             return self.error(f"Failed to update filter on Kowalski: {resp.text}")
 
-    @permissions(["System admin"])
+    @auth_or_token
     def delete(self, filter_id):
         """
         ---
