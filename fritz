@@ -114,18 +114,18 @@ def run(args):
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
     # initialize/update fritz's submodules kowalski and skyportal
-    # if args.init:
-    #     # pull skyportal and kowalski
-    #     p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
-    #     if p.returncode != 0:
-    #         raise RuntimeError("Failed to initialize fritz's submodules")
-    #     p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
-    #     if p.returncode != 0:
-    #         raise RuntimeError("Failed to update fritz's submodules")
-    # else:
-    #     p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
-    #     if p.returncode != 0:
-    #         raise RuntimeError("Failed to update fritz's submodules")
+    if args.init:
+        # pull skyportal and kowalski
+        p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to initialize fritz's submodules")
+        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to update fritz's submodules")
+    else:
+        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to update fritz's submodules")
 
     if args.init:
         # check config
@@ -134,14 +134,14 @@ def run(args):
         # add Fritz-specific K and SP extensions:
         copy_tree('extensions/skyportal/', 'skyportal/')
 
-        # fix absolute path in docker-compose.skyportal.yaml
+        # fix absolute paths in docker-compose.skyportal.yaml
         with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
             dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
-        dc["services"]["web"]["volumes"][0] = dc["services"]["web"]["volumes"][0].replace(
-            "${PWD}",
-            str(Path(__file__).parent.absolute())
-        )
-        print(dc["services"]["web"]["volumes"])
+        for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
+            dc["services"]["web"]["volumes"][vi] = volume.replace(
+                "${PWD}",
+                str(Path(__file__).parent.absolute())
+            )
         with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
             yaml.dump(dc, dcyaml)
 
@@ -155,18 +155,27 @@ def run(args):
 
     # start up skyportal
     # create kowalski_kowalski network if it does not exist yet
-    p = subprocess.run(["docker", "network", 'create', "kowalski_kowalski"])
-    # docker-compose.skyportal.yaml bind-mounts the fritz-created config.yaml
-    p = subprocess.run(["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"], cwd="skyportal")
+    subprocess.run(["docker", "network", 'create', "kowalski_kowalski"], check=True)
+    # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
+    p = subprocess.run(
+        ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
+        cwd="skyportal",
+        check=True
+    )
     if p.returncode != 0:
         raise RuntimeError("Failed to start skyportal")
 
-    # if args.init:
-    #     # init skyportal and load test data
-    #     p = subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-    #                         "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
-    #     if p.returncode != 0:
-    #         raise RuntimeError("Failed to init skyportal and load test data")
+    if args.init:
+        # init skyportal and load test data
+        p = subprocess.run(
+            [
+                "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+                "source /skyportal_env/bin/activate; make db_init; make load_seed_data"
+            ],
+            cwd="skyportal"
+        )
+        if p.returncode != 0:
+            raise RuntimeError("Failed to init skyportal and load test data")
     #
     #     # generate a token for Kowalski to talk to SkyPortal:
     #     with open('kowalski/config.yaml') as cyaml:
