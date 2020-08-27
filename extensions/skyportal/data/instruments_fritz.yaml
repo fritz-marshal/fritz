@@ -63,7 +63,7 @@
   telescope_id: =HET
   type: spectrograph
 - band: optical
-  name: FORS2
+  name: FORS2_VLT
   telescope_id: =VLT
   type: spectrograph
 - band: optical
@@ -75,7 +75,7 @@
   telescope_id: =VLT
   type: spectrograph
 - band: optical
-  name: GMOS
+  name: GMOS_GS
   telescope_id: =GS
   type: imaging spectrograph
   filters: ['sdssu', 'sdssg', 'sdssr', 'sdssi', 'sdssz', 'desy']
@@ -124,10 +124,6 @@
   telescope_id: =NOT
   type: imager
   filters: ['cspjs', 'csphs', 'cspk']
-- band: optical
-  name: IDS
-  telescope_id: =INT
-  type: spectrograph
 - band: optical
   name: IDS
   telescope_id: =INT

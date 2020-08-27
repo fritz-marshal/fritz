@@ -42,6 +42,8 @@ skyportal:
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
+#      - component: Filter
+#        path: /filter/:fid
 
     kowalski:
       protocol: "http"
@@ -108,14 +110,6 @@ skyportal:
     - interval: 1440
       script: jobs/delete_unsaved_candidates.py
       limit: ["01:00", "02:00"]
-
-
-  # Data loader configurations
-  data_load:
-    db_seed:
-      file: configs/db_seed.yaml
-    db_demo:
-      file: configs/db_demo.yaml
 
 
 kowalski:
