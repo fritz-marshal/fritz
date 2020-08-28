@@ -84,6 +84,7 @@ const Filter = () => {
   const { register, handleSubmit } = useForm();
 
   const [filterLoadError, setFilterLoadError] = useState("");
+  const [filterVersionLoadError, setFilterVersionLoadError] = useState("");
   const [groupLoadError, setGroupLoadError] = useState("");
 
   const theme = useTheme();
@@ -114,7 +115,7 @@ const Filter = () => {
     const fetchFilterVersion = async () => {
       const data = await dispatch(filterVersionActions.fetchFilterVersion(fid));
       if (data.status === "error") {
-        setFilterLoadError(data.message);
+        setFilterVersionLoadError(data.message);
       }
     };
     fetchFilterVersion();
