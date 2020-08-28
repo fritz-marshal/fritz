@@ -1,9 +1,8 @@
 import bson.json_util as bj
-from marshmallow.exceptions import ValidationError
 import os
 import requests
 
-from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.access import auth_or_token
 from ..base import BaseHandler
 from ...models import (
     DBSession,

@@ -1,43 +1,42 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Link, useParams } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link, useParams } from "react-router-dom";
 
-import Paper from '@material-ui/core/Paper';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Switch from '@material-ui/core/Switch';
-import FormHelperText from '@material-ui/core/FormHelperText';
-import FormControl from '@material-ui/core/FormControl';
-import Select from '@material-ui/core/Select';
-import InputLabel from '@material-ui/core/InputLabel';
-import MenuItem from '@material-ui/core/MenuItem';
-import Grid from '@material-ui/core/Grid';
-import Accordion from '@material-ui/core/Accordion';
-import AccordionSummary from '@material-ui/core/AccordionSummary';
-import AccordionDetails from '@material-ui/core/AccordionDetails';
-import Typography from '@material-ui/core/Typography';
-import TextareaAutosize from '@material-ui/core/TextareaAutosize';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import Button from '@material-ui/core/Button';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
-import CircularProgress from '@material-ui/core/CircularProgress';
+import Paper from "@material-ui/core/Paper";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
+import Switch from "@material-ui/core/Switch";
+import FormHelperText from "@material-ui/core/FormHelperText";
+import FormControl from "@material-ui/core/FormControl";
+import Select from "@material-ui/core/Select";
+import InputLabel from "@material-ui/core/InputLabel";
+import MenuItem from "@material-ui/core/MenuItem";
+import Grid from "@material-ui/core/Grid";
+import Accordion from "@material-ui/core/Accordion";
+import AccordionSummary from "@material-ui/core/AccordionSummary";
+import AccordionDetails from "@material-ui/core/AccordionDetails";
+import Typography from "@material-ui/core/Typography";
+import TextareaAutosize from "@material-ui/core/TextareaAutosize";
+import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
+import Button from "@material-ui/core/Button";
+import Card from "@material-ui/core/Card";
+import CardActions from "@material-ui/core/CardActions";
+import CardContent from "@material-ui/core/CardContent";
+import CircularProgress from "@material-ui/core/CircularProgress";
 
-import ReactDiffViewer from 'react-diff-viewer';
+import ReactDiffViewer from "react-diff-viewer";
 import { useForm } from "react-hook-form";
 import { showNotification } from "baselayer/components/Notifications";
 
 import * as groupActions from "../ducks/group";
-import * as filterActions from '../ducks/filter';
-import * as filterVersionActions from '../ducks/kowalski_filter';
-
+import * as filterActions from "../ducks/filter";
+import * as filterVersionActions from "../ducks/kowalski_filter";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
     width: "100%",
     padding: theme.spacing(1),
-    textAlign: 'left',
+    textAlign: "left",
     color: theme.palette.text.primary,
   },
   nested: {
@@ -48,10 +47,10 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 500,
   },
   accordion_details: {
-    flexDirection: "column"
+    flexDirection: "column",
   },
   button_add: {
-    maxWidth: "8.75rem"
+    maxWidth: "8.75rem",
   },
   formControl: {
     margin: theme.spacing(1),
@@ -64,9 +63,9 @@ const useStyles = makeStyles((theme) => ({
     minWidth: "18rem",
   },
   bullet: {
-    display: 'inline-block',
-    margin: '0 2px',
-    transform: 'scale(0.8)',
+    display: "inline-block",
+    margin: "0 2px",
+    transform: "scale(0.8)",
   },
   title: {
     fontSize: "0.875rem",
@@ -79,7 +78,6 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-
 const Filter = () => {
   const classes = useStyles();
   const dispatch = useDispatch();
@@ -89,7 +87,7 @@ const Filter = () => {
   const [groupLoadError, setGroupLoadError] = useState("");
 
   const theme = useTheme();
-  const darkTheme = theme.palette.type === 'dark';
+  const darkTheme = theme.palette.type === "dark";
 
   const [panelExpanded, setPanelExpanded] = React.useState(false);
 
@@ -147,8 +145,11 @@ const Filter = () => {
 
   const handleActive = async (event) => {
     const active_target = event.target.checked;
-    const result = await dispatch(filterVersionActions.editActiveFilterVersion(
-      { filter_id: filter.id, active: active_target })
+    const result = await dispatch(
+      filterVersionActions.editActiveFilterVersion({
+        filter_id: filter.id,
+        active: active_target,
+      })
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set active to ${active_target}`));
@@ -158,8 +159,11 @@ const Filter = () => {
 
   const handleFidChange = async (event) => {
     const active_fid_target = event.target.value;
-    const result = await dispatch(filterVersionActions.editActiveFidFilterVersion(
-      { filter_id: filter.id, active_fid: active_fid_target })
+    const result = await dispatch(
+      filterVersionActions.editActiveFidFilterVersion({
+        filter_id: filter.id,
+        active_fid: active_fid_target,
+      })
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set active_fid to ${active_fid_target}`));
@@ -170,7 +174,12 @@ const Filter = () => {
   // forms
   // save new filter version
   const onSubmitSaveFilterVersion = async (data) => {
-    const result = await dispatch(filterVersionActions.addFilterVersion({ filter_id: filter.id, pipeline: data.pipeline }));
+    const result = await dispatch(
+      filterVersionActions.addFilterVersion({
+        filter_id: filter.id,
+        pipeline: data.pipeline,
+      })
+    );
     if (result.status === "success") {
       dispatch(showNotification(`Saved new filter version`));
     }
@@ -178,11 +187,7 @@ const Filter = () => {
   };
 
   if (filterLoadError) {
-    return (
-      <div>
-        {filterLoadError}
-      </div>
-    );
+    return <div>{filterLoadError}</div>;
   }
 
   // renders
@@ -205,32 +210,38 @@ const Filter = () => {
         <Grid item sm={12} md={4}>
           <Card className={classes.root}>
             <CardContent>
-              {
-               (group) && (stream) && (
-               <Typography className={classes.title} color="textSecondary" gutterBottom>
-                 Group:
-                 {' '}
-                 <Link to={`/group/${group.id}`}>{group.name}</Link>
-                 <br />
-                 {/* Group id: {group.id} */}
-                 Stream:
-                 {' '}
-                 {stream.name}
-               </Typography>
-               )
-}
+              {group && stream && (
+                <Typography
+                  className={classes.title}
+                  color="textSecondary"
+                  gutterBottom
+                >
+                  Group: <Link to={`/group/${group.id}`}>{group.name}</Link>
+                  <br />
+                  {/* Group id: {group.id} */}
+                  Stream: {stream.name}
+                </Typography>
+              )}
             </CardContent>
-            {
-              (filter_v) && (filter_v.catalog) && (
+            {filter_v && filter_v.catalog && (
               <CardActions>
                 {/* <Button size="small">Delete</Button> */}
                 <FormControlLabel
                   style={{ marginLeft: 5 }}
-                  control={<Switch checked={filter_v.active} size="small" onChange={handleActive} name="filterActive" />}
+                  control={
+                    <Switch
+                      checked={filter_v.active}
+                      size="small"
+                      onChange={handleActive}
+                      name="filterActive"
+                    />
+                  }
                   label="Active"
                 />
                 <FormControl className={classes.formControl}>
-                  <InputLabel id="alert-stream-select-required-label">Active version</InputLabel>
+                  <InputLabel id="alert-stream-select-required-label">
+                    Active version
+                  </InputLabel>
                   <Select
                     labelId="alert-stream-select-required-label"
                     id="alert-stream-select"
@@ -238,17 +249,16 @@ const Filter = () => {
                     onChange={handleFidChange}
                     className={classes.selectEmpty}
                   >
-                    {
-                    filter_v.fv.map(fv => (
-                      <MenuItem key={fv.fid} value={fv.fid}>{fv.fid}: {fv.created_at.slice(0, 19)}</MenuItem>
-                    ))
-                  }
+                    {filter_v.fv.map((fv) => (
+                      <MenuItem key={fv.fid} value={fv.fid}>
+                        {fv.fid}: {fv.created_at.slice(0, 19)}
+                      </MenuItem>
+                    ))}
                   </Select>
                   {/* <FormHelperText>Required</FormHelperText> */}
                 </FormControl>
               </CardActions>
-              )
-}
+            )}
           </Card>
         </Grid>
         {/* /!* Filter stats go here? *!/ */}
@@ -256,12 +266,11 @@ const Filter = () => {
         {/* </Grid> */}
       </Grid>
 
-
       <br />
 
       <Accordion
-        expanded={panelExpanded === 'panel'}
-        onChange={handlePanelChange('panel')}
+        expanded={panelExpanded === "panel"}
+        onChange={handlePanelChange("panel")}
       >
         <AccordionSummary
           expandIcon={<ExpandMoreIcon />}
@@ -284,14 +293,14 @@ const Filter = () => {
                 />
               </Grid>
               <Grid item sm={12} md={2}>
-                {/*<Button*/}
-                {/*  variant="outlined"*/}
-                {/*  color="primary"*/}
-                {/*  className={classes.button_add}*/}
-                {/*  style={{ marginRight: 5 }}*/}
-                {/*>*/}
-                {/*  Test*/}
-                {/*</Button>*/}
+                {/* <Button */}
+                {/*  variant="outlined" */}
+                {/*  color="primary" */}
+                {/*  className={classes.button_add} */}
+                {/*  style={{ marginRight: 5 }} */}
+                {/* > */}
+                {/*  Test */}
+                {/* </Button> */}
                 <Button
                   variant="contained"
                   color="primary"
@@ -308,8 +317,7 @@ const Filter = () => {
 
       <br />
 
-      {
-        (filter_v) && (filter_v.active_fid) && (
+      {filter_v && filter_v.active_fid && (
         <Paper className={classes.paper}>
           <Typography className={classes.heading}>Versions/diff</Typography>
           <Grid container spacing={2}>
@@ -326,31 +334,56 @@ const Filter = () => {
                   onChange={handleSelectFilterVersionDiff}
                   className={classes.selectEmpty}
                 >
-                  {
-                    filter_v.fv.map((fv) => (
-                      // (fv.fid !== filter_v.active_fid) &&
-                      <MenuItem key={fv.fid} value={fv.fid}>{fv.fid}: {fv.created_at.slice(0, 19)}</MenuItem>
-                    ))
-                  }
+                  {filter_v.fv.map((fv) => (
+                    // (fv.fid !== filter_v.active_fid) &&
+                    <MenuItem key={fv.fid} value={fv.fid}>
+                      {fv.fid}: {fv.created_at.slice(0, 19)}
+                    </MenuItem>
+                  ))}
                 </Select>
                 <FormHelperText>Select version to diff</FormHelperText>
               </FormControl>
             </Grid>
             <Grid item xs={6} align="center">
-              <Typography className={classes.big_font} color="textSecondary" gutterBottom>
+              <Typography
+                className={classes.big_font}
+                color="textSecondary"
+                gutterBottom
+              >
                 Active version:
               </Typography>
-              <Typography className={classes.big_font} color="textPrimary" gutterBottom>
-                {`${filter_v.active_fid}: ${filter_v.fv.filter((fv) => fv.fid === filter_v.active_fid)[0].created_at.slice(0, 19)}`}
+              <Typography
+                className={classes.big_font}
+                color="textPrimary"
+                gutterBottom
+              >
+                {`${filter_v.active_fid}: ${filter_v.fv
+                  .filter((fv) => fv.fid === filter_v.active_fid)[0]
+                  .created_at.slice(0, 19)}`}
               </Typography>
             </Grid>
             <Grid item xs={12}>
               <ReactDiffViewer
-                newValue={JSON.stringify(JSON.parse(filter_v.fv.filter((fv) => fv.fid === filter_v.active_fid)[0].pipeline), null, 2)}
+                newValue={JSON.stringify(
+                  JSON.parse(
+                    filter_v.fv.filter(
+                      (fv) => fv.fid === filter_v.active_fid
+                    )[0].pipeline
+                  ),
+                  null,
+                  2
+                )}
                 oldValue={
-                  otherVersion.length > 0 ?
-                    JSON.stringify(JSON.parse(filter_v.fv.filter((fv) => fv.fid === otherVersion)[0].pipeline), null, 2) :
-                    otherVersion
+                  otherVersion.length > 0
+                    ? JSON.stringify(
+                        JSON.parse(
+                          filter_v.fv.filter((fv) => fv.fid === otherVersion)[0]
+                            .pipeline
+                        ),
+                        null,
+                        2
+                      )
+                    : otherVersion
                 }
                 splitView
                 showDiffOnly={false}
@@ -359,12 +392,9 @@ const Filter = () => {
             </Grid>
           </Grid>
         </Paper>
-        )
-}
-
+      )}
     </div>
   );
-
 };
 
 export default Filter;
