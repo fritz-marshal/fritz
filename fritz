@@ -200,8 +200,11 @@ def run(args):
         with open('kowalski/config.yaml', 'w') as cyaml:
             yaml.dump(config, cyaml)
 
+        # install Kowalski's deps:
+        c = ["pip", "install", "-r", "requirements.txt"]
+        subprocess.run(c, cwd="kowalski", check=True)
         # Build kowalski's images
-        c = ["python", "kowalski.py", "build", "--fritz"]
+        c = ["python", "kowalski.py", "build"]
         if args.yes:
             c.append("--yes")
         p = subprocess.run(c, cwd="kowalski")
@@ -209,7 +212,7 @@ def run(args):
             raise RuntimeError("Failed to build Kowalski's docker images")
 
     # start up kowalski
-    c = ["python", "kowalski.py", "up", "--fritz"]
+    c = ["python", "kowalski.py", "up"]
     if args.yes:
         c.append("--yes")
     p = subprocess.run(c, cwd="kowalski")
@@ -222,7 +225,7 @@ def stop(args):
     Shut down Fritz
     """
     print('Shutting fritz down...')
-    subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
+    subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
     subprocess.run(["docker-compose", "down"], cwd="skyportal")
     subprocess.run(["docker", "network", "remove", "kowalski_kowalski"])
 

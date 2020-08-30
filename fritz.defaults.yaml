@@ -311,6 +311,15 @@ kowalski:
             Teff: 1
             eTeff: 1
 
+        galaxy_redshifts_20200522:
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            z: 1
+            l: 1
+            b: 1
+
         GALEX:
           filter: {}
           projection:
@@ -421,16 +430,16 @@ kowalski:
         serverurl: unix:///dev/shm/supervisor.sock
 
       "program:gunicorn":
-        # fixme: adjust number of workers -w for your case (e.g. -w 20 for kowalski.caltech.edu)
+        # fixme: adjust number of workers -w for your system (e.g. -w 20 for kowalski.caltech.edu)
         command: >
           /usr/local/bin/gunicorn
-          -w 2
+          -w 10
           --bind 0.0.0.0:4000
           --worker-tmp-dir /dev/shm
           --worker-class aiohttp.GunicornUVLoopWebWorker
           --log-level=DEBUG
           --timeout 36000
-          --max-requests 10000
+          --max-requests 100000
           api:app_factory
         directory: /app
         user: root
@@ -471,5 +480,17 @@ kowalski:
         stdout_logfile: /data/logs/alert_watcher_ztf_stdout.log
         stdout_logfile_maxbytes: 30MB
         stderr_logfile: /data/logs/alert_watcher_ztf_stderr.log
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
+      "program:ops-watcher-ztf":
+        command: /usr/local/bin/python ops_watcher_ztf.py
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/ops_watcher_ztf_stdout.log
+        stdout_logfile_maxbytes: 30MB
+        stderr_logfile: /data/logs/ops_watcher_ztf_stderr.log
         redirect_stderr: True
         environment: "PRODUCTION=1"
