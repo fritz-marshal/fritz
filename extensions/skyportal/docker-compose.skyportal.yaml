@@ -21,6 +21,9 @@ services:
       && cat js-requirements.fritz.txt | xargs npm install
       && pip install -r requirements.fritz.txt
       && (make log &) && make run"
+    restart: on-failure:3
+    depends_on:
+      - db
     networks:
       - default
       - kowalski
