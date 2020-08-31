@@ -66,7 +66,7 @@ services:
 #      - "traefik.enable=true"
 #      # The domain the service will respond to
 #      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
-#      - "traefik.http.services.fritz.loadbalancer.server.port=5000"
+      - "traefik.http.services.fritz.loadBalancer.server.port=5000"
 #      # Allow request only from the predefined entry point named "fritz"
 #      - "traefik.http.routers.fritz.entrypoints=websecure"
 #      # Uses the Host rule to define which certificate to issue
