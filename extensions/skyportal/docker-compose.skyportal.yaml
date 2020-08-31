@@ -47,8 +47,8 @@ services:
       bash -c "source /skyportal_env/bin/activate
       && cat js-requirements.fritz.txt | xargs npm install
       && pip install -r requirements.fritz.txt
-#      && (make log &) && make run_production"
       && (make log &) && make run"
+    #      && (make log &) && make run_production"
     labels:
 #       Explicitly tell Traefik to expose this container
       - "traefik.enable=true"
