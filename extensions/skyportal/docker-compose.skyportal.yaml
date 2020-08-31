@@ -56,12 +56,12 @@ services:
       - "traefik.http.routers.fritz.entrypoints=websecure"
       - "traefik.http.routers.fritz.tls.certresolver=myresolver"
 #      # middleware redirect
-#      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
-#      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
 #      # global redirect to https
-#      - "traefik.http.routers.http_catchall.rule=hostregexp(`{host:.+}`)"
-#      - "traefik.http.routers.http_catchall.entrypoints=web"
-#      - "traefik.http.routers.http_catchall.middlewares=https_redirect"
+      - "traefik.http.routers.http_catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http_catchall.entrypoints=web"
+      - "traefik.http.routers.http_catchall.middlewares=https_redirect"
 #      # Explicitly tell Traefik to expose this container
 #      - "traefik.enable=true"
 #      # The domain the service will respond to
