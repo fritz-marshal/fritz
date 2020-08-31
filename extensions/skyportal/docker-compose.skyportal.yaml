@@ -37,6 +37,8 @@ services:
 
   web:
     image: skyportal/web
+    expose:
+      - "5000"
 #    ports:
 #      - "9000:5000"
 #      - "9001:5001"
