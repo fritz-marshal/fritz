@@ -7,11 +7,39 @@ networks:
   default:
 
 services:
+  traefik:
+    image: "traefik:2.1"
+    container_name: "traefik"
+    command:
+      # fixme: comment out if do not want the traefik dashboard on port 8081
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Enable a http challenge named "myhttpchallenge"
+      - "--certificatesresolvers.myhttpchallenge.acme.httpchallenge=true"
+      # Tell it to use our predefined entrypoint named "web"
+      - "--certificatesresolvers.myhttpchallenge.acme.httpchallenge.entrypoint=web"
+      # The email to provide to let's encrypt
+      - "--certificatesresolvers.myhttpchallenge.acme.email=private@caltech.edu"
+      # Tell to store the certificate on a path under our volume
+      - "--certificatesresolvers.myhttpchallenge.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      # fixme: traefik dashboard
+      - "8081:8080"
+    volumes:
+      # Create a letsencrypt dir within the folder where the docker-compose file is
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
   web:
     image: skyportal/web
-    ports:
-      - "9000:5000"
-      - "9001:5001"
+#    ports:
+#      - "9000:5000"
+#      - "9001:5001"
     volumes:
       # fritz takes care of making a docker-appropriate config.yaml with Fritz-specific additions
       - ${PWD}/skyportal/config.yaml:/skyportal/config.yaml
@@ -20,7 +48,25 @@ services:
       bash -c "source /skyportal_env/bin/activate
       && cat js-requirements.fritz.txt | xargs npm install
       && pip install -r requirements.fritz.txt
-      && (make log &) && make run"
+      && (make log &) && make run_production"
+#      && (make log &) && make run"
+    labels:
+      # middleware redirect
+      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
+      # global redirect to https
+      - "traefik.http.routers.http_catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http_catchall.entrypoints=web"
+      - "traefik.http.routers.http_catchall.middlewares=https_redirect"
+      # Explicitly tell Traefik to expose this container
+      - "traefik.enable=true"
+      # The domain the service will respond to
+      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
+      - "traefik.http.services.fritz.loadbalancer.server.port=5000"
+      # Allow request only from the predefined entry point named "fritz"
+      - "traefik.http.routers.fritz.entrypoints=websecure"
+      # Uses the Host rule to define which certificate to issue
+      - "traefik.http.routers.fritz.tls.certresolver=myhttpchallenge"
     restart: on-failure:3
     depends_on:
       - db

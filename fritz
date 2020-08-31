@@ -103,11 +103,6 @@ def run(args):
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
-    # check environment
-    env_ok = deps_ok()
-    if not env_ok:
-        raise RuntimeError("Halting because of unsatisfied system dependencies")
-
     # initialize/update fritz's submodules kowalski and skyportal
     if args.init:
         # pull skyportal and kowalski
@@ -121,6 +116,11 @@ def run(args):
         p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
+
+    # check environment
+    env_ok = deps_ok()
+    if not env_ok:
+        raise RuntimeError("Halting because of unsatisfied system dependencies")
 
     if args.init:
         # check config
