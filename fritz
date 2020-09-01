@@ -137,14 +137,14 @@ def run(args):
         raise RuntimeError("Failed to create network fritz_net")
 
     # check traefik's config
-    check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
-    # fire up traefik
-    p = subprocess.run(
-        ["docker-compose", "-f", 'docker-compose.traefik.yaml', "up", "-d"],
-        check=True
-    )
-    if p.returncode != 0:
-        raise RuntimeError("Failed to start SkyPortal")
+    # check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
+    # # fire up traefik
+    # p = subprocess.run(
+    #     ["docker-compose", "-f", 'docker-compose.traefik.yaml', "up", "-d"],
+    #     check=True
+    # )
+    # if p.returncode != 0:
+    #     raise RuntimeError("Failed to start SkyPortal")
 
     if args.init:
         # check config
