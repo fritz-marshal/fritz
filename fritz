@@ -136,17 +136,6 @@ def run(args):
     if (p.returncode != 0) and ("already exists" not in p.stderr):
         raise RuntimeError("Failed to create network fritz_net")
 
-    if args.traefik:
-        # check traefik's config
-        check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
-        # fire up traefik
-        p = subprocess.run(
-            ["docker-compose", "-f", 'docker-compose.traefik.yaml', "up", "-d"],
-            check=True
-        )
-        if p.returncode != 0:
-            raise RuntimeError("Failed to start Traefik")
-
     if args.init:
         # check config
         check_config(cfg='fritz.defaults.yaml', yes=args.yes)
@@ -242,6 +231,17 @@ def run(args):
     p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
         raise RuntimeError("Failed to start Kowalski")
+
+    if args.traefik:
+        # check traefik's config
+        check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
+        # fire up traefik
+        p = subprocess.run(
+            ["docker-compose", "-f", 'docker-compose.traefik.yaml', "up", "-d"],
+            check=True
+        )
+        if p.returncode != 0:
+            raise RuntimeError("Failed to start Traefik")
 
 
 def stop(args):
