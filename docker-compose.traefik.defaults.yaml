@@ -19,6 +19,7 @@ services:
       #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.myresolver.acme.email=private@caltech.edu"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+
     ports:
       - "80:80"
       - "443:443"

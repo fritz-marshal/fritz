@@ -27,20 +27,21 @@ services:
       && pip install -r requirements.fritz.txt
       && (make log &) && make run"
     #      && (make log &) && make run_production"
-#    labels:
+    labels:
 #       Explicitly tell Traefik to expose this container
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
-#      - "traefik.http.routers.fritz.entrypoints=websecure"
-#      - "traefik.http.routers.fritz.tls.certresolver=myresolver"
-#      - "traefik.http.services.fritz.loadBalancer.server.port=5000"
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
+      - "traefik.http.routers.fritz.entrypoints=websecure"
+      - "traefik.http.routers.fritz.tls.certresolver=myresolver"
+      - "traefik.http.services.fritz.loadBalancer.server.port=5000"
 #      # middleware redirect
-#      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
-#      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
 #      # global redirect to https
-#      - "traefik.http.routers.http_catchall.rule=hostregexp(`{host:.+}`)"
-#      - "traefik.http.routers.http_catchall.entrypoints=web"
-#      - "traefik.http.routers.http_catchall.middlewares=https_redirect"
+      - "traefik.http.routers.http_catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http_catchall.entrypoints=web"
+      - "traefik.http.routers.http_catchall.middlewares=https_redirect"
     restart: on-failure:3
     depends_on:
       - db
