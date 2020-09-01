@@ -4,40 +4,18 @@ networks:
   kowalski:
     external:
       name: kowalski_kowalski
+  traefik:
+    external:
+      name: traefik_proxy
   default:
 
 services:
-  traefik:
-    image: "traefik:v2.2"
-    container_name: "traefik"
-    command:
-      # fixme: comment out if do not want the traefik dashboard on port 8090
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.myresolver.acme.email=private@caltech.edu"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-    ports:
-      - "80:80"
-      - "443:443"
-      # fixme: traefik dashboard
-      - "8090:8080"
-    volumes:
-      # Create a letsencrypt dir within the folder where the docker-compose file is
-      - "../letsencrypt:/letsencrypt"
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-
   web:
     image: skyportal/web
-    expose:
-      - "5000"
-#    ports:
-#      - "9000:5000"
+#    expose:
+#      - "5000"
+    ports:
+      - "9000:5000"
     volumes:
       # fritz takes care of making a docker-appropriate config.yaml with Fritz-specific additions
       - ${PWD}/skyportal/config.yaml:/skyportal/config.yaml
@@ -51,11 +29,11 @@ services:
     #      && (make log &) && make run_production"
     labels:
 #       Explicitly tell Traefik to expose this container
-      - "traefik.enable=true"
-      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
-      - "traefik.http.routers.fritz.entrypoints=websecure"
-      - "traefik.http.routers.fritz.tls.certresolver=myresolver"
-      - "traefik.http.services.fritz.loadBalancer.server.port=5000"
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
+#      - "traefik.http.routers.fritz.entrypoints=websecure"
+#      - "traefik.http.routers.fritz.tls.certresolver=myresolver"
+#      - "traefik.http.services.fritz.loadBalancer.server.port=5000"
 #      # middleware redirect
 #      - "traefik.http.middlewares.https_redirect.redirectscheme.scheme=https"
 #      - "traefik.http.middlewares.https_redirect.redirectscheme.permanent=true"
@@ -80,8 +58,8 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data/pgdata
     restart: on-failure:3
-    depends_on:
-      - traefik
+#    depends_on:
+#      - traefik
     networks:
       - default
 
