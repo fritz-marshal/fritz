@@ -4,9 +4,9 @@ networks:
 #  kowalski:
 #    external:
 #      name: kowalski_kowalski
-#  traefik:
-#    external:
-#      name: traefik_proxy
+  traefik:
+    external:
+      name: traefik_proxy
   default:
 
 services:
@@ -46,6 +46,7 @@ services:
       - db
     networks:
       - default
+      - traefik
 #      - kowalski
 
   db:
