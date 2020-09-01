@@ -1,12 +1,12 @@
 version: "3.7"
 
 networks:
-  kowalski:
-    external:
-      name: kowalski_kowalski
-  traefik:
-    external:
-      name: traefik_proxy
+#  kowalski:
+#    external:
+#      name: kowalski_kowalski
+#  traefik:
+#    external:
+#      name: traefik_proxy
   default:
 
 services:
@@ -27,7 +27,7 @@ services:
       && pip install -r requirements.fritz.txt
       && (make log &) && make run"
     #      && (make log &) && make run_production"
-    labels:
+#    labels:
 #       Explicitly tell Traefik to expose this container
 #      - "traefik.enable=true"
 #      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
@@ -46,7 +46,7 @@ services:
       - db
     networks:
       - default
-      - kowalski
+#      - kowalski
 
   db:
     image: postgres:12.2
