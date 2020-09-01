@@ -127,6 +127,15 @@ def run(args):
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
+    # create common docker network (if it does not exist yet)
+    p = subprocess.run(
+        ["docker", "network", 'create', "fritz_net"],
+        capture_output=True,
+        universal_newlines=True
+    )
+    if p.returncode != 0 and "already exists" not in p.stderr:
+        raise RuntimeError("Failed to create network fritz_net")
+
     # check traefik's config
     check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
     # fire up traefik

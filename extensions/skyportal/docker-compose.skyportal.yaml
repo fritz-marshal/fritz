@@ -1,13 +1,9 @@
 version: "3.7"
 
 networks:
-  kowalski:
-    external:
-      name: kowalski_kowalski
-  traefik:
-    external:
-      name: fritz_proxy
   default:
+    external:
+      name: fritz_net
 
 services:
   web:
@@ -45,10 +41,6 @@ services:
     restart: on-failure:3
     depends_on:
       - db
-    networks:
-      - default
-      - traefik
-      - kowalski
 
   db:
     image: postgres:12.2
@@ -60,8 +52,6 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data/pgdata
     restart: on-failure:3
-    networks:
-      - default
 
 volumes:
   dbdata:

@@ -1,7 +1,9 @@
 version: "3.7"
 
 networks:
-  proxy:
+  default:
+    external:
+      name: fritz_net
 
 services:
   traefik:
@@ -12,6 +14,7 @@ services:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=proxy"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
@@ -29,5 +32,3 @@ services:
       # Create a letsencrypt dir within the folder where the docker-compose file is
       - "./letsencrypt:/letsencrypt"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-    networks:
-      proxy:
