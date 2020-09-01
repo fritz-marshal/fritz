@@ -248,7 +248,7 @@ def stop(args):
     """
     Shut down Fritz
     """
-    print('Shutting fritz down...')
+    print('Shutting down Fritz...')
 
     # stop traefik if it is running
     running_container_images = subprocess.check_output([
@@ -257,6 +257,7 @@ def stop(args):
     ]).decode('utf-8').strip().split('\n')
     traefik_is_running = any("traefik" in x.lower() for x in running_container_images)
     if traefik_is_running:
+        print('Shutting down Traefik')
         subprocess.run(["docker-compose", "-f", "docker-compose.traefik.yaml", "down"])
 
     # stop Kowalski and SkyPortal
