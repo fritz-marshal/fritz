@@ -18,7 +18,6 @@ class KowalskiFilterHandler(BaseHandler):
     @auth_or_token
     def get(self, filter_id):
         """
-        fixme:
         ---
         single:
           description: Retrieve a filter as stored on Kowalski
@@ -32,7 +31,20 @@ class KowalskiFilterHandler(BaseHandler):
             200:
               content:
                 application/json:
-                  schema: SingleFilter
+                  schema:
+                    type: object
+                    required:
+                      - status
+                      - message
+                      - data
+                    properties:
+                      status:
+                        type: string
+                        enum: [success]
+                      message:
+                        type: string
+                      data:
+                        type: object
             400:
               content:
                 application/json:
@@ -79,7 +91,6 @@ class KowalskiFilterHandler(BaseHandler):
     @auth_or_token
     def post(self, filter_id):
         """
-        fixme:
         ---
         description: POST a new filter version.
         requestBody:
@@ -97,10 +108,37 @@ class KowalskiFilterHandler(BaseHandler):
                       properties:
                         data:
                           type: object
+                          required:
+                            - group_id
+                            - filter_id
+                            - catalog
+                            - permissions
+                            - pipeline
                           properties:
-                            id:
+                            group_id:
                               type: integer
-                              description: New filter ID
+                              description: "[fritz] user group (science program) id"
+                              minimum: 1
+                            filter_id:
+                              type: integer
+                              description: "[fritz] science program filter id for this user group id"
+                              minimum: 1
+                            catalog:
+                              type: string
+                              description: "alert stream to filter"
+                              enum: [ZTF_alerts, ZUDS_alerts]
+                            permissions:
+                              type: array
+                              items:
+                                type: integer
+                              description: "permissions to access streams"
+                              minItems: 1
+                            pipeline:
+                              type: array
+                              items:
+                                type: object
+                              description: "user-defined aggregation pipeline stages in MQL"
+                              minItems: 1
         """
         data = self.get_json()
         pipeline = data.get('pipeline', None)
@@ -165,7 +203,6 @@ class KowalskiFilterHandler(BaseHandler):
     @auth_or_token
     def patch(self, filter_id):
         """
-        fixme:
         ---
         description: Update a filter on K
         parameters:
@@ -177,7 +214,44 @@ class KowalskiFilterHandler(BaseHandler):
         requestBody:
           content:
             application/json:
-              schema: FilterNoID
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - group_id
+                      - filter_id
+                      - active
+                    properties:
+                      group_id:
+                        type: integer
+                        description: "[fritz] user group (science program) id"
+                        minimum: 1
+                      filter_id:
+                        type: integer
+                        description: "[fritz] science program filter id for this user group id"
+                        minimum: 1
+                      active:
+                        type: boolean
+                        description: "activate or deactivate filter"
+                  - type: object
+                    required:
+                      - group_id
+                      - filter_id
+                      - active_fid
+                    properties:
+                      group_id:
+                        type: integer
+                        description: "[fritz] user group (science program) id"
+                        minimum: 1
+                      filter_id:
+                        type: integer
+                        description: "[fritz] science program filter id for this user group id"
+                        minimum: 1
+                      active_fid:
+                        description: "set fid as active version"
+                        type: string
+                        minLength: 6
+                        maxLength: 6
         responses:
           200:
             content:
