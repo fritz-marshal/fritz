@@ -95,6 +95,8 @@ skyportal:
     #
     # You need to have Google+ API enabled; it takes a few minutes to activate.
 
+    host: private.caltech.edu
+
     auth:
       debug_login: True
       google_oauth2_key:
