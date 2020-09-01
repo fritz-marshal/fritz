@@ -10,8 +10,8 @@ services:
     image: skyportal/web
     expose:
       - "5000"
-    ports:
-      - "9000:5000"
+#    ports:
+#      - "9000:5000"
     volumes:
       # fritz takes care of making a docker-appropriate config.yaml with Fritz-specific additions
       - ${PWD}/skyportal/config.yaml:/skyportal/config.yaml
