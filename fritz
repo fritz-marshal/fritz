@@ -249,16 +249,20 @@ def stop(args):
     Shut down Fritz
     """
     print('Shutting fritz down...')
+
     # stop traefik if it is running
-    p1 = subprocess.Popen(['docker', 'ps', '-a'], stdout=subprocess.PIPE)
-    traefik_is_running = len(
-        subprocess.check_output(['grep', 'traefik'], stdin=p1.stdout, universal_newlines=True).strip()
-    ) > 0
+    running_container_images = subprocess.check_output([
+        'docker', 'ps', '-a',
+        '--format', '{{.Image}}'
+    ]).decode('utf-8').strip().split('\n')
+    traefik_is_running = any("traefik" in x.lower() for x in running_container_images)
     if traefik_is_running:
         subprocess.run(["docker-compose", "-f", "docker-compose.traefik.yaml", "down"])
+
     # stop Kowalski and SkyPortal
     subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
     subprocess.run(["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"], cwd="skyportal")
+
     # remove common network
     subprocess.run(["docker", "network", "remove", "fritz_net"])
 
