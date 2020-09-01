@@ -6,7 +6,7 @@ networks:
 #      name: kowalski_kowalski
   traefik:
     external:
-      name: traefik_proxy
+      name: fritz_proxy
   default:
 
 services:
