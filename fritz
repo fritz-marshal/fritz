@@ -189,9 +189,6 @@ def run(args):
             p = subprocess.run(
                 [
                     "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                    # wait for SP to be up and running:
-                    # 'while [[ $(ps -ef | grep "make" | wc -l) -lt 4 ]]; '
-                    # 'do echo "waiting for SkyPortal to come up"; sleep 5; done;'
                     "source /skyportal_env/bin/activate; make db_init; make load_seed_data"
                 ],
                 cwd="skyportal"

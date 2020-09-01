@@ -116,6 +116,7 @@ const Filter = () => {
       const data = await dispatch(filterVersionActions.fetchFilterVersion(fid));
       if (data.status === "error") {
         setFilterVersionLoadError(data.message);
+        dispatch(showNotification(filterVersionLoadError, "error"));
       }
     };
     fetchFilterVersion();
@@ -128,6 +129,7 @@ const Filter = () => {
       const data = await dispatch(groupActions.fetchGroup(group_id));
       if (data.status === "error") {
         setGroupLoadError(data.message);
+        dispatch(showNotification(groupLoadError, "error"));
       }
     };
     if (group_id) fetchGroup();
@@ -226,7 +228,6 @@ const Filter = () => {
             </CardContent>
             {filter_v && filter_v.catalog && (
               <CardActions>
-                {/* <Button size="small">Delete</Button> */}
                 <FormControlLabel
                   style={{ marginLeft: 5 }}
                   control={
@@ -256,7 +257,6 @@ const Filter = () => {
                       </MenuItem>
                     ))}
                   </Select>
-                  {/* <FormHelperText>Required</FormHelperText> */}
                 </FormControl>
               </CardActions>
             )}
@@ -324,20 +324,16 @@ const Filter = () => {
           <Typography className={classes.heading}>Versions/diff</Typography>
           <Grid container spacing={2}>
             <Grid item xs={6} align="center">
-              {/* <Divider orientation="vertical" flexItem /> */}
               <FormControl className={classes.formControl}>
-                {/* <InputLabel id="fv-diff-label">Other version</InputLabel> */}
                 <Select
                   labelId="fv-diff-label"
                   id="fv-diff"
                   name="filter_diff"
-                  // defaultValue={filter_v.active_fid}
                   value={otherVersion}
                   onChange={handleSelectFilterVersionDiff}
                   className={classes.selectEmpty}
                 >
                   {filter_v.fv.map((fv) => (
-                    // (fv.fid !== filter_v.active_fid) &&
                     <MenuItem key={fv.fid} value={fv.fid}>
                       {fv.fid}: {fv.created_at.slice(0, 19)}
                     </MenuItem>

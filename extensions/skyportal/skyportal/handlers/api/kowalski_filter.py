@@ -204,7 +204,7 @@ class KowalskiFilterHandler(BaseHandler):
     def patch(self, filter_id):
         """
         ---
-        description: Update a filter on K
+        description: Update a filter on Kowalski
         parameters:
           - in: path
             name: filter_id
