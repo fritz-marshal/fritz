@@ -173,15 +173,6 @@ def run(args):
             raise RuntimeError("Failed to build skyportal's docker images")
 
     # start up skyportal
-    # create kowalski_kowalski network if it does not exist yet
-    p = subprocess.run(
-        ["docker", "network", 'create', "kowalski_kowalski"],
-        capture_output=True,
-        universal_newlines=True
-    )
-    if p.returncode != 0 and "already exists" not in p.stderr:
-        raise RuntimeError("Failed to create network kowalski_kowalski")
-
     # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
     p = subprocess.run(
         ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
@@ -251,7 +242,7 @@ def stop(args):
     print('Shutting fritz down...')
     subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
     subprocess.run(["docker-compose", "down"], cwd="skyportal")
-    subprocess.run(["docker", "network", "remove", "kowalski_kowalski"])
+    subprocess.run(["docker", "network", "remove", "fritz_net"])
 
 
 def log(args):

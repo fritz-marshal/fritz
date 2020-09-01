@@ -202,7 +202,7 @@ const Filter = () => {
 
   return (
     <div>
-      <Typography variant="h5" style={{ paddingBottom: 10 }}>
+      <Typography variant="h6" style={{ paddingBottom: 10 }}>
         Filter:&nbsp;&nbsp;
         {filter.name}
       </Typography>
@@ -287,7 +287,8 @@ const Filter = () => {
                 <TextareaAutosize
                   rowsMax={10000}
                   rowsMin={6}
-                  placeholder="Filter definition (please refer to the docs)"
+                  placeholder="Filter definition (please refer to the docs at
+                  https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz))"
                   name="pipeline"
                   style={{ width: "100%" }}
                   ref={register}

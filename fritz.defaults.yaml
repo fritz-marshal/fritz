@@ -1,5 +1,6 @@
 skyportal:
   app:
+    title: Fritz
     # This secret key can be any random string of
     # characters.
     #
