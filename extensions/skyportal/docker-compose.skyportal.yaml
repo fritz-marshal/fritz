@@ -1,9 +1,9 @@
 version: "3.7"
 
 networks:
-#  kowalski:
-#    external:
-#      name: kowalski_kowalski
+  kowalski:
+    external:
+      name: kowalski_kowalski
   traefik:
     external:
       name: fritz_proxy
@@ -28,7 +28,7 @@ services:
       && (make log &) && make run"
     #      && (make log &) && make run_production"
     labels:
-#       Explicitly tell Traefik to expose this container
+#      # Explicitly tell Traefik to expose this container
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
       - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
@@ -48,7 +48,7 @@ services:
     networks:
       - default
       - traefik
-#      - kowalski
+      - kowalski
 
   db:
     image: postgres:12.2
@@ -60,8 +60,6 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data/pgdata
     restart: on-failure:3
-#    depends_on:
-#      - traefik
     networks:
       - default
 
