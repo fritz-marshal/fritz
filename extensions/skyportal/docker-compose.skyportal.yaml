@@ -8,8 +8,8 @@ networks:
 services:
   web:
     image: skyportal/web
-#    expose:
-#      - "5000"
+    expose:
+      - "5000"
     ports:
       - "9000:5000"
     volumes:
@@ -26,7 +26,7 @@ services:
     labels:
 #      # Explicitly tell Traefik to expose this container
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
+      - "traefik.docker.network=default"
       - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
       - "traefik.http.routers.fritz.entrypoints=websecure"
       - "traefik.http.routers.fritz.tls.certresolver=myresolver"

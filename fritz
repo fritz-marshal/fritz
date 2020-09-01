@@ -238,7 +238,7 @@ def stop(args):
     """
     print('Shutting fritz down...')
     subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
-    subprocess.run(["docker-compose", "down"], cwd="skyportal")
+    subprocess.run(["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"], cwd="skyportal")
     subprocess.run(["docker", "network", "remove", "fritz_net"])
 
 
