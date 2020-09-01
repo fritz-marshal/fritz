@@ -116,7 +116,9 @@ const Filter = () => {
       const data = await dispatch(filterVersionActions.fetchFilterVersion(fid));
       if (data.status === "error") {
         setFilterVersionLoadError(data.message);
-        dispatch(showNotification(filterVersionLoadError, "error"));
+        if (filterVersionLoadError.length > 1) {
+          dispatch(showNotification(filterVersionLoadError, "error"));
+        }
       }
     };
     fetchFilterVersion();
@@ -129,7 +131,9 @@ const Filter = () => {
       const data = await dispatch(groupActions.fetchGroup(group_id));
       if (data.status === "error") {
         setGroupLoadError(data.message);
-        dispatch(showNotification(groupLoadError, "error"));
+        if (groupLoadError.length > 1) {
+          dispatch(showNotification(groupLoadError, "error"));
+        }
       }
     };
     if (group_id) fetchGroup();
