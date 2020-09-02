@@ -2,6 +2,7 @@ import bson.json_util as bj
 import os
 import requests
 
+from baselayer.log import make_log
 from baselayer.app.access import auth_or_token
 from ..base import BaseHandler
 from ...models import (
@@ -9,6 +10,9 @@ from ...models import (
     Filter,
     Stream
 )
+
+
+log = make_log("kowalski_filter")
 
 
 s = requests.Session()
@@ -76,8 +80,10 @@ class KowalskiFilterHandler(BaseHandler):
                        f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
             headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
+            url = os.path.join(base_url, f'api/filters/{group_id}/{filter_id}')
+
             resp = s.get(
-                os.path.join(base_url, f'api/filters/{group_id}/{filter_id}'),
+                url,
                 headers=headers,
                 timeout=5
             )
@@ -86,7 +92,9 @@ class KowalskiFilterHandler(BaseHandler):
                 data = bj.loads(resp.text).get('data')
                 return self.success(data=data)
             else:
-                return self.error(f"Failed to fetch data from Kowalski")
+                message = bj.loads(resp.text).get('message')
+                log(f"Failed to fetch data from Kowalski: {message}")
+                return self.error(f"Failed to fetch data from Kowalski: {message}")
 
     @auth_or_token
     def post(self, filter_id):
@@ -187,8 +195,10 @@ class KowalskiFilterHandler(BaseHandler):
             "pipeline": pipeline
         }
 
+        url = os.path.join(base_url, f'api/filters')
+
         resp = s.post(
-            os.path.join(base_url, f'api/filters'),
+            url,
             headers=headers,
             json=data,
             timeout=5
@@ -198,7 +208,9 @@ class KowalskiFilterHandler(BaseHandler):
             data = bj.loads(resp.text).get('data')
             return self.success(data=data)
         else:
-            return self.error(f"Failed to post filter to Kowalski: {resp.text}")
+            message = bj.loads(resp.text).get('message')
+            log(f"Failed to post filter to Kowalski: {message}")
+            return self.error(f"Failed to post filter to Kowalski: {message}")
 
     @auth_or_token
     def patch(self, filter_id):
@@ -305,8 +317,10 @@ class KowalskiFilterHandler(BaseHandler):
         if active_fid is not None:
             data["active_fid"] = str(active_fid)
 
+        url = os.path.join(base_url, f'api/filters')
+
         resp = s.put(
-            os.path.join(base_url, f'api/filters'),
+            url,
             headers=headers,
             json=data,
             timeout=5
@@ -316,7 +330,9 @@ class KowalskiFilterHandler(BaseHandler):
             data = bj.loads(resp.text).get('data')
             return self.success(data=data)
         else:
-            return self.error(f"Failed to update filter on Kowalski: {resp.text}")
+            message = bj.loads(resp.text).get('message')
+            log(f"Failed to update filter on Kowalski: {message}")
+            return self.error(f"Failed to update filter on Kowalski: {message}")
 
     @auth_or_token
     def delete(self, filter_id):
@@ -365,8 +381,10 @@ class KowalskiFilterHandler(BaseHandler):
             "filter_id": filter_id,
         }
 
+        url = os.path.join(base_url, f'api/filters')
+
         resp = s.delete(
-            os.path.join(base_url, f'api/filters'),
+            url,
             headers=headers,
             json=data,
             timeout=5
@@ -376,4 +394,6 @@ class KowalskiFilterHandler(BaseHandler):
             data = bj.loads(resp.text).get('data')
             return self.success(data=data)
         else:
-            return self.error(f"Failed to delete filter on Kowalski: {resp.text}")
+            message = bj.loads(resp.text).get('message')
+            log(f"Failed to update filter on Kowalski: {message}")
+            return self.error(f"Failed to delete filter on Kowalski: {message}")
