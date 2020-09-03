@@ -1,34 +1,27 @@
-// import React from 'react';
-// import React, {useEffect, useState, Suspense} from 'react';
-import React, { useEffect, useState, Suspense } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useEffect, useState, Suspense } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
-
-import Button from '@material-ui/core/Button';
-import SaveIcon from '@material-ui/icons/Save';
-import PropTypes from 'prop-types';
-import { withStyles, makeStyles } from '@material-ui/core/styles';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableContainer from '@material-ui/core/TableContainer';
-import TableHead from '@material-ui/core/TableHead';
-import TablePagination from '@material-ui/core/TablePagination';
-import TableRow from '@material-ui/core/TableRow';
-import TableSortLabel from '@material-ui/core/TableSortLabel';
-import Paper from '@material-ui/core/Paper';
-import Grid from '@material-ui/core/Grid';
+import Button from "@material-ui/core/Button";
+import SaveIcon from "@material-ui/icons/Save";
+import PropTypes from "prop-types";
+import { withStyles, makeStyles } from "@material-ui/core/styles";
+import Table from "@material-ui/core/Table";
+import TableBody from "@material-ui/core/TableBody";
+import TableCell from "@material-ui/core/TableCell";
+import TableContainer from "@material-ui/core/TableContainer";
+import TableHead from "@material-ui/core/TableHead";
+import TablePagination from "@material-ui/core/TablePagination";
+import TableRow from "@material-ui/core/TableRow";
+import TableSortLabel from "@material-ui/core/TableSortLabel";
+import Paper from "@material-ui/core/Paper";
+import Grid from "@material-ui/core/Grid";
 
 import Responsive from "./Responsive";
 import FoldBox from "./FoldBox";
 
-// import Moment from 'react-moment';
+import * as Actions from "../ducks/alert";
 
-// Import action creators from `static/js/ducks/alert.js`
-import * as Actions from '../ducks/alert';
-
-const VegaPlot = React.lazy(() => import('./VegaPlotZTFAlert'));
-
+const VegaPlot = React.lazy(() => import("./VegaPlotZTFAlert"));
 
 const StyledTableCell = withStyles(() => ({
   head: {
@@ -42,25 +35,24 @@ const StyledTableCell = withStyles(() => ({
   },
 }))(TableCell);
 
-
 const useStyles = makeStyles((theme) => ({
   root: {
-    width: '100%',
+    width: "100%",
   },
   container: {
     maxHeight: 440,
   },
   whitish: {
-    color: "#f0f0f0"
+    color: "#f0f0f0",
   },
   visuallyHidden: {
     border: 0,
-    clip: 'rect(0 0 0 0)',
+    clip: "rect(0 0 0 0)",
     height: 1,
     margin: -1,
-    overflow: 'hidden',
+    overflow: "hidden",
     padding: 0,
-    position: 'absolute',
+    position: "absolute",
     top: 20,
     width: 1,
   },
@@ -72,110 +64,131 @@ const useStyles = makeStyles((theme) => ({
   },
   image: {
     padding: theme.spacing(1),
-    textAlign: 'center',
+    textAlign: "center",
     color: theme.palette.text.secondary,
   },
   paper: {
     padding: theme.spacing(2),
-    textAlign: 'center',
+    textAlign: "center",
     color: theme.palette.text.secondary,
   },
-// table: {
-//     minWidth: 650,
-// },
+  // table: {
+  //     minWidth: 650,
+  // },
 }));
 
-function createRows(id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions) {
-  return { id, jd, fid, mag, emag, rb, drb, isdiffpos, programid, alert_actions };
+function createRows(
+  id,
+  jd,
+  fid,
+  mag,
+  emag,
+  rb,
+  drb,
+  isdiffpos,
+  programid,
+  alert_actions
+) {
+  return {
+    id,
+    jd,
+    fid,
+    mag,
+    emag,
+    rb,
+    drb,
+    isdiffpos,
+    programid,
+    alert_actions,
+  };
 }
 
 const columns = [
   {
-    id: 'id',
-    label: 'candid',
+    id: "id",
+    label: "candid",
     numeric: false,
     disablePadding: false,
     // minWidth: 170
   },
   {
-    id: 'jd',
+    id: "jd",
     numeric: true,
     disablePadding: false,
-    label: 'JD',
+    label: "JD",
     // minWidth: 170,
-    align: 'left',
+    align: "left",
     format: (value) => value.toFixed(5),
   },
   {
-    id: 'fid',
+    id: "fid",
     numeric: true,
     disablePadding: false,
-    label: 'fid',
-    align: 'left',
+    label: "fid",
+    align: "left",
   },
   {
-    id: 'mag',
+    id: "mag",
     numeric: true,
     disablePadding: false,
-    label: 'mag',
+    label: "mag",
     // minWidth: 170,
-    align: 'left',
+    align: "left",
     format: (value) => value.toFixed(3),
   },
   {
-    id: 'emag',
+    id: "emag",
     numeric: true,
     disablePadding: false,
-    label: 'e_mag',
+    label: "e_mag",
     // minWidth: 170,
-    align: 'left',
+    align: "left",
     format: (value) => value.toFixed(3),
   },
   {
-    id: 'rb',
+    id: "rb",
     numeric: true,
     disablePadding: false,
-    label: 'rb',
+    label: "rb",
     // minWidth: 170,
-    align: 'left',
+    align: "left",
     format: (value) => value.toFixed(5),
   },
   {
-    id: 'drb',
+    id: "drb",
     numeric: true,
     disablePadding: false,
-    label: 'drb',
+    label: "drb",
     // minWidth: 170,
-    align: 'left',
+    align: "left",
     format: (value) => value.toFixed(5),
   },
   {
-    id: 'isdiffpos',
+    id: "isdiffpos",
     numeric: false,
     disablePadding: false,
-    label: 'isdiffpos',
+    label: "isdiffpos",
     // minWidth: 170,
-    align: 'left'
+    align: "left",
   },
   {
-    id: 'programid',
+    id: "programid",
     numeric: true,
     disablePadding: false,
-    label: 'programid',
+    label: "programid",
     // minWidth: 170,
-    align: 'left'
+    align: "left",
   },
   {
-    id: 'alert_actions',
+    id: "alert_actions",
     numeric: false,
     disablePadding: false,
-    label: 'actions',
-    align: 'right',
+    label: "actions",
+    align: "right",
     // render: ({ row }) => <Link to={'lol/'}>lolol</Link>,
     // render: ({ row }) => (<Link to={{ pathname: `/foo/${row.id}` }}>{row.label}</Link>)
   },
 ];
-
 
 function descendingComparator(a, b, orderBy) {
   if (b[orderBy] < a[orderBy]) {
@@ -188,9 +201,9 @@ function descendingComparator(a, b, orderBy) {
 }
 
 function getComparator(order, orderBy) {
-  return order === 'desc' ?
-    (a, b) => descendingComparator(a, b, orderBy) :
-    (a, b) => -descendingComparator(a, b, orderBy);
+  return order === "desc"
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
 }
 
 function stableSort(array, comparator) {
@@ -215,19 +228,19 @@ function EnhancedTableHead(props) {
         {columns.map((headCell) => (
           <StyledTableCell
             key={headCell.id}
-            align={headCell.numeric ? 'right' : 'left'}
-            padding={headCell.disablePadding ? 'none' : 'default'}
+            align={headCell.numeric ? "right" : "left"}
+            padding={headCell.disablePadding ? "none" : "default"}
             sortDirection={orderBy === headCell.id ? order : false}
           >
             <TableSortLabel
               active={orderBy === headCell.id}
-              direction={orderBy === headCell.id ? order : 'asc'}
+              direction={orderBy === headCell.id ? order : "asc"}
               onClick={createSortHandler(headCell.id)}
             >
               {headCell.label}
               {orderBy === headCell.id ? (
                 <span className={classes.visuallyHidden}>
-                  {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                  {order === "desc" ? "sorted descending" : "sorted ascending"}
                 </span>
               ) : null}
             </TableSortLabel>
@@ -240,17 +253,16 @@ function EnhancedTableHead(props) {
 
 EnhancedTableHead.propTypes = {
   classes: PropTypes.shape({
-    visuallyHidden: PropTypes.any
+    visuallyHidden: PropTypes.any,
   }).isRequired,
   onRequestSort: PropTypes.func.isRequired,
-  order: PropTypes.oneOf(['asc', 'desc']).isRequired,
+  order: PropTypes.oneOf(["asc", "desc"]).isRequired,
   orderBy: PropTypes.string.isRequired,
 };
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
 }
-
 
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
@@ -262,40 +274,45 @@ const ZTFAlert = ({ route }) => {
   const alert_data = useSelector((state) => state.alert_data);
   let rows = [];
 
-  if ((alert_data !== null) && !isString(alert_data)) {
-    rows = alert_data.map((a) => createRows(
-      a.candid,
-      a.candidate.jd,
-      a.candidate.fid,
-      a.candidate.magpsf,
-      a.candidate.sigmapsf,
-      a.candidate.rb,
-      a.candidate.drb,
-      a.candidate.isdiffpos,
-      a.candidate.programid,
-      <Button size="small" onClick={() => {
-        setCandid(a.candid);
-        setJd(a.candidate.jd);
-      }}
-      >
-        Show&nbsp;thumbnails
-      </Button>
-    ));
+  if (alert_data !== null && !isString(alert_data)) {
+    rows = alert_data.map((a) =>
+      createRows(
+        a.candid,
+        a.candidate.jd,
+        a.candidate.fid,
+        a.candidate.magpsf,
+        a.candidate.sigmapsf,
+        a.candidate.rb,
+        a.candidate.drb,
+        a.candidate.isdiffpos,
+        a.candidate.programid,
+        <Button
+          size="small"
+          onClick={() => {
+            setCandid(a.candid);
+            setJd(a.candidate.jd);
+          }}
+        >
+          Show&nbsp;thumbnails
+        </Button>
+      )
+    );
   }
 
   const alert_aux_data = useSelector((state) => state.alert_aux_data);
   let cross_matches = {};
 
-  if ((alert_aux_data !== null) && !isString(alert_aux_data)) {
+  if (alert_aux_data !== null && !isString(alert_aux_data)) {
     cross_matches = alert_aux_data.cross_matches;
     // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
   }
 
-  const cachedObjectId = (
-    (alert_data !== null) && !isString(alert_data) && (candid > 0)
-  ) ? route.id : null;
+  const cachedObjectId =
+    alert_data !== null && !isString(alert_data) && candid > 0
+      ? route.id
+      : null;
 
-  const isCached = (route.id === cachedObjectId);
+  const isCached = route.id === cachedObjectId;
 
   useEffect(() => {
     const fetchAlert = async () => {
@@ -304,8 +321,12 @@ const ZTFAlert = ({ route }) => {
         // fetch aux data
         await dispatch(Actions.fetchAuxData(objectId));
 
-        const candids = Array.from(new Set(data.data.map((c) => c.candid))).sort();
-        const jds = Array.from(new Set(data.data.map((c) => c.candidate.jd))).sort();
+        const candids = Array.from(
+          new Set(data.data.map((c) => c.candid))
+        ).sort();
+        const jds = Array.from(
+          new Set(data.data.map((c) => c.candidate.jd))
+        ).sort();
         // grab the latest candid's thumbnails by default
         setCandid(candids[candids.length - 1]);
         setJd(jds[jds.length - 1]);
@@ -318,14 +339,14 @@ const ZTFAlert = ({ route }) => {
   }, [dispatch, isCached, route.id, objectId]);
 
   const classes = useStyles();
-  const [order, setOrder] = React.useState('desc');
-  const [orderBy, setOrderBy] = React.useState('jd');
+  const [order, setOrder] = React.useState("desc");
+  const [orderBy, setOrderBy] = React.useState("jd");
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
 
   const handleRequestSort = (event, property) => {
-    const isAsc = orderBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
     setOrderBy(property);
   };
 
@@ -339,20 +360,16 @@ const ZTFAlert = ({ route }) => {
   };
 
   if (alert_data === null) {
-    return (<div>Loading...</div>);
-  } else if ((isString(alert_data)) || (isString(alert_aux_data))) {
-    return (<div>Failed to fetch alert data, please try again later.</div>);
-  } else if (alert_data.length === 0) {
+    return <div>Loading...</div>;
+  } if (isString(alert_data) || isString(alert_aux_data)) {
+    return <div>Failed to fetch alert data, please try again later.</div>;
+  } if (alert_data.length === 0) {
     return (
       <div>
-        <h2>
-          {objectId}
-          {' '}
-          not found
-        </h2>
+        <h2>{objectId} not found</h2>
       </div>
     );
-  } else if (alert_data.length > 0) {
+  } if (alert_data.length > 0) {
     return (
       <div>
         <div>
@@ -371,7 +388,6 @@ const ZTFAlert = ({ route }) => {
           </h2>
         </div>
         <div className={classes.margin_bottom}>
-
           <Responsive
             element={FoldBox}
             title="Photometry and cutouts"
@@ -388,13 +404,21 @@ const ZTFAlert = ({ route }) => {
                   {/* </div> */}
                 </Suspense>
               </Grid>
-              <Grid container item sm={12} md={6} spacing={1} className={classes.image}>
+              <Grid
+                container
+                item
+                sm={12}
+                md={6}
+                spacing={1}
+                className={classes.image}
+              >
                 <Grid item xs={4}>
                   <img
                     alt="science"
                     src={
-                      candid > 0 ?
-                        `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png` : null
+                      candid > 0
+                        ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`
+                        : null
                     }
                   />
                   <br />
@@ -404,8 +428,9 @@ const ZTFAlert = ({ route }) => {
                   <img
                     alt="reference"
                     src={
-                      candid > 0 ?
-                        `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png` : null
+                      candid > 0
+                        ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`
+                        : null
                     }
                   />
                   <br />
@@ -415,8 +440,9 @@ const ZTFAlert = ({ route }) => {
                   <img
                     alt="difference"
                     src={
-                      candid > 0 ?
-                        `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png` : null
+                      candid > 0
+                        ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`
+                        : null
                     }
                   />
                   <br />
@@ -457,9 +483,11 @@ const ZTFAlert = ({ route }) => {
                         return (
                           <TableCell
                             key={column.id}
-                            align={column.numeric ? 'right' : 'left'}
+                            align={column.numeric ? "right" : "left"}
                           >
-                            {column.format && typeof value === 'number' ? column.format(value) : value}
+                            {column.format && typeof value === "number"
+                              ? column.format(value)
+                              : value}
                           </TableCell>
                         );
                       })}
@@ -479,15 +507,16 @@ const ZTFAlert = ({ route }) => {
           />
         </Paper>
       </div>
-
-    );
-  } else {
-    return (
-      <div>
-        Error rendering page...
-      </div>
     );
   }
+    return <div>Error rendering page...</div>;
+
+};
+
+ZTFAlert.propTypes = {
+  route: PropTypes.shape({
+    id: PropTypes.string,
+  }).isRequired,
 };
 
 export default ZTFAlert;

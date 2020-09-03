@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 import yaml
 
 from tools.check_environment import deps_ok
@@ -34,20 +35,14 @@ def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256',
     return jwt_token.decode('utf-8')
 
 
-def generate_skyportal_token():
+def get_skyportal_token():
     """
-    Generate a token for Kowalski to access SkyPortal
-    this is ugly and should be re-done, but gets the work done, so ok for now
+    Get admin token for Kowalski to access SkyPortal
     """
     result = subprocess.run(
-        ["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-         "source /skyportal_env/bin/activate; "
-         """python -c "from baselayer.app.config import load_config; """
-         """from skyportal.models import init_db; """
-         """from skyportal.model_util import create_token; """
-         """conn = init_db(**load_config(['config.yaml'])['database']); """
-         """print(create_token(['Classify', 'Comment', 'Manage groups', 'Manage sources', """
-         """'Manage users', 'Post taxonomy', 'Upload data'], 1, 'kowalski'))" """
+        ["docker", "exec", "-it", "skyportal_web_1",
+         "/bin/bash", "-c",
+         "more /skyportal/.tokens.yaml"
          ],
         cwd="skyportal",
         capture_output=True,
@@ -56,15 +51,12 @@ def generate_skyportal_token():
     token = result.stdout.split()[-1]
 
     if len(token) != 36:
-        raise RuntimeError('Failed to generate a SkyPortal token for Kowalski')
+        raise RuntimeError('Failed to get a SkyPortal token for Kowalski')
 
     return token
 
 
-def check_config(cfg='fritz.defaults.yaml', yes=False):
-    """
-    Check config, generate a K token for SP, adjust cfg and distribute to K and SP
-    """
+def check_config_exists(cfg='fritz.defaults.yaml', yes=False):
     c = cfg.replace('.defaults', '')
     if not Path(c).exists():
         cd = input(
@@ -75,7 +67,15 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
         else:
             raise IOError(f'{c} does not exist, aborting')
 
-    # generate a token for SkyPortal to talk to Kowalski:
+
+def check_config(cfg='fritz.defaults.yaml', yes=False):
+    """
+    Check config, generate a K token for SP, adjust cfg and distribute to K and SP
+    """
+    c = cfg.replace('.defaults', '')
+    check_config_exists(cfg=cfg, yes=yes)
+
+    # generate a token for SkyPortal to talk to Kowalski
     with open(c) as cyaml:
         config = yaml.load(cyaml, Loader=yaml.FullLoader)
 
@@ -108,11 +108,6 @@ def run(args):
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
-    # check environment
-    env_ok = deps_ok()
-    if not env_ok:
-        raise RuntimeError("Halting because of unsatisfied system dependencies")
-
     # initialize/update fritz's submodules kowalski and skyportal
     if args.init:
         # pull skyportal and kowalski
@@ -127,12 +122,49 @@ def run(args):
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
 
+    # check environment
+    env_ok = deps_ok()
+    if not env_ok:
+        raise RuntimeError("Halting because of unsatisfied system dependencies")
+
+    # create common docker network (if it does not exist yet)
+    p = subprocess.run(
+        ["docker", "network", 'create', "fritz_net"],
+        capture_output=True,
+        universal_newlines=True
+    )
+    if (p.returncode != 0) and ("already exists" not in p.stderr):
+        raise RuntimeError("Failed to create network fritz_net")
+
     if args.init:
         # check config
         check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
+        # load config
+        with open("fritz.yaml") as fyaml:
+            fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
+
         # add Fritz-specific K and SP extensions:
         copy_tree('extensions/skyportal/', 'skyportal/')
+
+        # adjust docker-compose.skyportal.yaml
+        with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
+            dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
+        # fix absolute paths in docker-compose.skyportal.yaml
+        for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
+            dc["services"]["web"]["volumes"][vi] = volume.replace(
+                "${PWD}",
+                str(Path(__file__).parent.absolute())
+            )
+        if args.traefik:
+            # fix host for traefik
+            dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
+                "<host>",
+                fritz_config["skyportal"]["server"]["host"]
+            )
+        with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
+            yaml.dump(dc, dcyaml)
+
         # copy over the additional requirements:
         subprocess.run(["cp", ".requirements/ext.txt", f"skyportal/requirements.fritz.txt"], check=True)
 
@@ -142,55 +174,98 @@ def run(args):
             raise RuntimeError("Failed to build skyportal's docker images")
 
     # start up skyportal
-    # create kowalski_kowalski network if it does not exist yet
-    p = subprocess.run(["docker", "network", 'create', "kowalski_kowalski"])
-    # docker-compose.skyportal.yaml bind-mounts the fritz-created config.yaml
-    p = subprocess.run(["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"], cwd="skyportal")
+    # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
+    p = subprocess.run(
+        ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
+        cwd="skyportal",
+        check=True
+    )
     if p.returncode != 0:
-        raise RuntimeError("Failed to start skyportal")
+        raise RuntimeError("Failed to start SkyPortal")
 
     if args.init:
-        # init skyportal and load test data
-        p = subprocess.run(["docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                            "source /skyportal_env/bin/activate; make load_demo_data"], cwd="skyportal")
-        if p.returncode != 0:
-            raise RuntimeError("Failed to init skyportal and load test data")
+        # init skyportal and load seed data
+        mi, max_retires = 1, 3
+        while mi <= max_retires:
+            p = subprocess.run(
+                [
+                    "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+                    "source /skyportal_env/bin/activate; make db_init; make load_seed_data"
+                ],
+                cwd="skyportal"
+            )
+            if p.returncode == 0:
+                break
+            else:
+                print("Failed to load seed data into SkyPortal, waiting to retry...")
+                mi += 1
+                time.sleep(15)
+        if mi == max_retires + 1:
+            raise RuntimeError("Failed to init SkyPortal and load seed data")
 
         # generate a token for Kowalski to talk to SkyPortal:
         with open('kowalski/config.yaml') as cyaml:
             config = yaml.load(cyaml, Loader=yaml.FullLoader)
 
-        token = generate_skyportal_token()
+        token = get_skyportal_token()
         config['kowalski']['skyportal']['token'] = token
 
         with open('kowalski/config.yaml', 'w') as cyaml:
             yaml.dump(config, cyaml)
 
+        # install Kowalski's deps:
+        c = ["pip", "install", "-r", "requirements.txt"]
+        subprocess.run(c, cwd="kowalski", check=True)
         # Build kowalski's images
-        c = ["python", "kowalski.py", "build", "--fritz"]
+        c = ["python", "kowalski.py", "build"]
         if args.yes:
             c.append("--yes")
         p = subprocess.run(c, cwd="kowalski")
         if p.returncode != 0:
-            raise RuntimeError("Failed to build kowalski's docker images")
+            raise RuntimeError("Failed to build Kowalski's docker images")
 
     # start up kowalski
-    c = ["python", "kowalski.py", "up", "--fritz"]
+    c = ["python", "kowalski.py", "up"]
     if args.yes:
         c.append("--yes")
     p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
-        raise RuntimeError("Failed to start kowalski")
+        raise RuntimeError("Failed to start Kowalski")
+
+    if args.traefik:
+        # check traefik's config
+        check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
+        # fire up traefik
+        p = subprocess.run(
+            ["docker-compose", "-f", 'docker-compose.traefik.yaml', "up", "-d"],
+            check=True
+        )
+        if p.returncode != 0:
+            raise RuntimeError("Failed to start Traefik")
 
 
 def stop(args):
     """
     Shut down Fritz
     """
-    print('Shutting fritz down...')
-    subprocess.run(["python", "kowalski.py", "down", "--fritz"], cwd="kowalski")
-    subprocess.run(["docker-compose", "down"], cwd="skyportal")
-    subprocess.run(["docker", "network", "remove", "kowalski_kowalski"])
+    print('Shutting down Fritz...')
+
+    # stop traefik if it is running
+    running_container_images = subprocess.check_output([
+        'docker', 'ps', '-a',
+        '--format', '{{.Image}}'
+    ]).decode('utf-8').strip().split('\n')
+    traefik_is_running = any("traefik" in x.lower() for x in running_container_images)
+    if traefik_is_running:
+        print('Shutting down Traefik')
+        subprocess.run(["docker-compose", "-f", "docker-compose.traefik.yaml", "down"])
+
+    # stop Kowalski and SkyPortal
+    subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
+    subprocess.run(["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"], cwd="skyportal")
+
+    # remove common network
+    subprocess.run(["docker", "network", "remove", "fritz_net"])
 
 
 def log(args):
@@ -226,7 +301,7 @@ def prune(args):
     Prune fritz's docker containers and volumes and reset configs to defaults
     """
     go = input(
-        f"Do you want to prune fritz's docker containers and volumes and deinit submodules? [y/N] "
+        f"Do you want to prune Fritz's docker containers and volumes and deinit submodules? [y/N] "
     ) if not args.yes else 'y'
 
     if go.lower() == 'y':
@@ -245,7 +320,7 @@ def prune(args):
                 print(f'Failed to remove {image_name} docker image')
 
         # remove docker volumes
-        for volume_name in ('kowalski_data', 'kowalski_mongodb', 'skyportal_dbdata'):
+        for volume_name in ('kowalski_data', 'kowalski_mongodb', 'skyportal_dbdata', 'skyportal_thumbnails'):
             p = subprocess.run(['docker', 'volume', 'rm', volume_name])
             if p.returncode == 0:
                 print(f'Removed {volume_name} docker volume')
@@ -318,6 +393,10 @@ if __name__ == "__main__":
 
     parsers["run"].add_argument(
         "--init", action="store_true", help="Initialize Fritz"
+    )
+
+    parsers["run"].add_argument(
+        "--traefik", action="store_true", help="Run Fritz behind Traefik"
     )
 
     parsers["doc"].add_argument(
