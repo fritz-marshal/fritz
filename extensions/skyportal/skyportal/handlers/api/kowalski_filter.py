@@ -54,8 +54,6 @@ class KowalskiFilterHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        acls = [acl.id for acl in self.current_user.acls]
-
         if filter_id is not None:
             f = (
                 DBSession()
@@ -151,8 +149,6 @@ class KowalskiFilterHandler(BaseHandler):
             return self.error(
                 "Missing pipeline parameter"
             )
-
-        acls = [acl.id for acl in self.current_user.acls]
 
         f = (
             DBSession()
@@ -276,8 +272,6 @@ class KowalskiFilterHandler(BaseHandler):
                 "One and only one of (active, active_fid) must be set"
             )
 
-        acls = [acl.id for acl in self.current_user.acls]
-
         f = (
             DBSession()
             .query(Filter)
@@ -342,8 +336,6 @@ class KowalskiFilterHandler(BaseHandler):
               application/json:
                 schema: Success
         """
-        acls = [acl.id for acl in self.current_user.acls]
-
         f = (
             DBSession()
             .query(Filter)
