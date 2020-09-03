@@ -57,20 +57,17 @@ class KowalskiFilterHandler(BaseHandler):
         acls = [acl.id for acl in self.current_user.acls]
 
         if filter_id is not None:
-            if "System admin" in acls or "Manage groups" in acls:
-                f = DBSession().query(Filter).get(filter_id)
-            else:
-                f = (
-                    DBSession()
-                    .query(Filter)
-                    .filter(
-                        Filter.id == filter_id,
-                        Filter.group_id.in_(
-                            [g.id for g in self.current_user.accessible_groups]
-                        ),
-                    )
-                    .first()
+            f = (
+                DBSession()
+                .query(Filter)
+                .filter(
+                    Filter.id == filter_id,
+                    Filter.group_id.in_(
+                        [g.id for g in self.current_user.accessible_groups]
+                    ),
                 )
+                .first()
+            )
             if f is None:
                 return self.error("Invalid filter ID.")
 
@@ -157,20 +154,17 @@ class KowalskiFilterHandler(BaseHandler):
 
         acls = [acl.id for acl in self.current_user.acls]
 
-        if "System admin" in acls or "Manage groups" in acls:
-            f = DBSession().query(Filter).get(filter_id)
-        else:
-            f = (
-                DBSession()
-                .query(Filter)
-                .filter(
-                    Filter.id == filter_id,
-                    Filter.group_id.in_(
-                        [g.id for g in self.current_user.accessible_groups]
-                    ),
-                )
-                .first()
+        f = (
+            DBSession()
+            .query(Filter)
+            .filter(
+                Filter.id == filter_id,
+                Filter.group_id.in_(
+                    [g.id for g in self.current_user.accessible_groups]
+                ),
             )
+            .first()
+        )
         if f is None:
             return self.error("Invalid filter ID.")
 
@@ -284,20 +278,17 @@ class KowalskiFilterHandler(BaseHandler):
 
         acls = [acl.id for acl in self.current_user.acls]
 
-        if "System admin" in acls or "Manage groups" in acls:
-            f = DBSession().query(Filter).get(filter_id)
-        else:
-            f = (
-                DBSession()
-                .query(Filter)
-                .filter(
-                    Filter.id == filter_id,
-                    Filter.group_id.in_(
-                        [g.id for g in self.current_user.accessible_groups]
-                    ),
-                )
-                .first()
+        f = (
+            DBSession()
+            .query(Filter)
+            .filter(
+                Filter.id == filter_id,
+                Filter.group_id.in_(
+                    [g.id for g in self.current_user.accessible_groups]
+                ),
             )
+            .first()
+        )
         if f is None:
             return self.error("Invalid filter ID.")
 
@@ -353,20 +344,17 @@ class KowalskiFilterHandler(BaseHandler):
         """
         acls = [acl.id for acl in self.current_user.acls]
 
-        if "System admin" in acls or "Manage groups" in acls:
-            f = DBSession().query(Filter).get(filter_id)
-        else:
-            f = (
-                DBSession()
-                .query(Filter)
-                .filter(
-                    Filter.id == filter_id,
-                    Filter.group_id.in_(
-                        [g.id for g in self.current_user.accessible_groups]
-                    ),
-                )
-                .first()
+        f = (
+            DBSession()
+            .query(Filter)
+            .filter(
+                Filter.id == filter_id,
+                Filter.group_id.in_(
+                    [g.id for g in self.current_user.accessible_groups]
+                ),
             )
+            .first()
+        )
         if f is None:
             return self.error("Invalid filter ID.")
 
