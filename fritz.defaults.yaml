@@ -97,6 +97,9 @@ skyportal:
 
     host: <host>
 
+    ssl: False
+    processes: 1
+
     auth:
       debug_login: True
       google_oauth2_key:
