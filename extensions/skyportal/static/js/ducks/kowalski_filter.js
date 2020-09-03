@@ -28,22 +28,18 @@ export function fetchFilterVersion(id) {
 }
 
 export function addFilterVersion({ filter_id, pipeline }) {
-  return API.POST(`/api/filters/${filter_id}/v`, ADD_FILTER_VERSION, {
-    pipeline: pipeline,
-  });
+  return API.POST(`/api/filters/${filter_id}/v`, ADD_FILTER_VERSION, { pipeline });
 }
 
 export function editActiveFilterVersion({ filter_id, active }) {
-  return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_ACTIVE_FILTER_VERSION, {
-    active: active,
-  });
+  return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_ACTIVE_FILTER_VERSION, { active });
 }
 
 export function editActiveFidFilterVersion({ filter_id, active_fid }) {
   return API.PATCH(
     `/api/filters/${filter_id}/v`,
     EDIT_ACTIVE_FID_FILTER_VERSION,
-    { active_fid: active_fid }
+    { active_fid }
   );
 }
 

@@ -76,6 +76,9 @@ const useStyles = makeStyles((theme) => ({
   pos: {
     marginBottom: "0.75rem",
   },
+  header: {
+    paddingBottom: 10,
+  },
 }));
 
 const Filter = () => {
@@ -96,8 +99,6 @@ const Filter = () => {
     setPanelExpanded(isExpanded ? panel : false);
   };
 
-  // const filter_id = route.fid;
-
   const { fid } = useParams();
   const loadedId = useSelector((state) => state.filter.id);
 
@@ -108,20 +109,24 @@ const Filter = () => {
         setFilterLoadError(data.message);
       }
     };
-    fetchFilter();
+    if (loadedId !== fid) {
+      fetchFilter();
+    }
   }, [fid, loadedId, dispatch]);
 
   useEffect(() => {
     const fetchFilterVersion = async () => {
       const data = await dispatch(filterVersionActions.fetchFilterVersion(fid));
-      if (data.status === "error") {
+      if ((data.status === "error") && !(data.message.includes("not found"))) {
         setFilterVersionLoadError(data.message);
         if (filterVersionLoadError.length > 1) {
           dispatch(showNotification(filterVersionLoadError, "error"));
         }
       }
     };
-    fetchFilterVersion();
+    if (loadedId !== fid) {
+      fetchFilterVersion();
+    }
   }, [fid, loadedId, dispatch]);
 
   const group_id = useSelector((state) => state.filter.group_id);
@@ -150,7 +155,7 @@ const Filter = () => {
     setOtherVersion(event.target.value);
   };
 
-  const handleActive = async (event) => {
+  const handleChangeActiveFilter = async (event) => {
     const active_target = event.target.checked;
     const result = await dispatch(
       filterVersionActions.editActiveFilterVersion({
@@ -165,15 +170,15 @@ const Filter = () => {
   };
 
   const handleFidChange = async (event) => {
-    const active_fid_target = event.target.value;
+    const activeFidTarget = event.target.value;
     const result = await dispatch(
       filterVersionActions.editActiveFidFilterVersion({
         filter_id: filter.id,
-        active_fid: active_fid_target,
+        active_fid: activeFidTarget,
       })
     );
     if (result.status === "success") {
-      dispatch(showNotification(`Set active_fid to ${active_fid_target}`));
+      dispatch(showNotification(`Set active filter ID to ${activeFidTarget}`));
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
@@ -208,7 +213,7 @@ const Filter = () => {
 
   return (
     <div>
-      <Typography variant="h6" style={{ paddingBottom: 10 }}>
+      <Typography variant="h6" className={classes.header}>
         Filter:&nbsp;&nbsp;
         {filter.name}
       </Typography>
@@ -238,7 +243,7 @@ const Filter = () => {
                     <Switch
                       checked={filter_v.active}
                       size="small"
-                      onChange={handleActive}
+                      onChange={handleChangeActiveFilter}
                       name="filterActive"
                     />
                   }

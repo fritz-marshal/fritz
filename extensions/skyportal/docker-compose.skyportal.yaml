@@ -27,7 +27,7 @@ services:
 #      # Explicitly tell Traefik to expose this container
       - "traefik.enable=true"
       - "traefik.docker.network=default"
-      - "traefik.http.routers.fritz.rule=Host(`private.caltech.edu`)"
+      - "traefik.http.routers.fritz.rule=Host(`<host>`)"
       - "traefik.http.routers.fritz.entrypoints=websecure"
       - "traefik.http.routers.fritz.tls.certresolver=myresolver"
       - "traefik.http.services.fritz.loadBalancer.server.port=5000"

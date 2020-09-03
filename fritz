@@ -159,7 +159,7 @@ def run(args):
         if args.traefik:
             # fix host for traefik
             dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
-                "private.caltech.edu",
+                "<host>",
                 fritz_config["skyportal"]["server"]["host"]
             )
         with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
