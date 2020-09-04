@@ -132,3 +132,58 @@ instrument:
 
 taxonomy:
   file: taxonomy_sitewide.yaml
+
+allocation:
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-01T00:00:00"
+    end_date: "2020-09-14T00:00:00"
+    hours_allocated: 100
+    group_id: =public_group_id
+    instrument_id: =SEDM
+
+observing_run:
+  - pi: Mansi Kasliwal
+    instrument_id: =TSPEC
+    calendar_date: 2020-09-03
+  - pi: Kishore Patra
+    instrument_id: =KAST
+    calendar_date: 2020-09-10
+  - pi: Suvi Gezari
+    instrument_id: =Deveny+LMI
+    calendar_date: 2020-09-12
+  - pi: Mansi Kasliwal
+    instrument_id: =LRIS
+    calendar_date: 2020-09-14
+  - pi: Melissa Graham
+    instrument_id: =DIS
+    calendar_date: 2020-09-14
+  - pi: Lin Yan
+    instrument_id: =DBSP
+    calendar_date: 2020-09-14
+  - pi: Shri Kulkarni
+    instrument_id: =DBSP
+    calendar_date: 2020-09-16
+  - pi: Kishore Patra
+    instrument_id: =KAST
+    calendar_date: 2020-09-18
+  - pi: Shri Kulkarni
+    instrument_id: =LRIS
+    calendar_date: 2020-09-19
+  - pi: Melissa Graham
+    instrument_id: =DIS
+    calendar_date: 2020-09-21
+  - pi: Kishore Patra
+    instrument_id: =KAST
+    calendar_date: 2020-09-24
+  - pi: Mansi Kasliwal
+    instrument_id: =TSPEC
+    calendar_date: 2020-09-28
+  - pi: Mansi Kasliwal
+    instrument_id: =LRIS
+    calendar_date: 2020-11-19
+  - pi: Mansi Kasliwal
+    instrument_id: =NIRES
+    calendar_date: 2020-10-30
+
+  
