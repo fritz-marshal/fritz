@@ -117,10 +117,6 @@ def run(args):
         p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
-    else:
-        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
-        if p.returncode != 0:
-            raise RuntimeError("Failed to update fritz's submodules")
 
     # check environment
     env_ok = deps_ok()
