@@ -96,6 +96,7 @@ skyportal:
     # You need to have Google+ API enabled; it takes a few minutes to activate.
 
     host: <host>
+    port:
 
     ssl: False
     processes: 1
