@@ -2,6 +2,7 @@ user:
   - username: fritz.astro.marshal@gmail.com
     roles:
       - Super admin
+    oauth_uid: fritz.astro.marshal@gmail.com
   - username: kowalski@caltech.edu
     roles:
       - Group admin
