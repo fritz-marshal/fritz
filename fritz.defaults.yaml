@@ -39,12 +39,14 @@ skyportal:
         component: About
       - path: "/share_data/:id"
         component: ShareDataForm
+      - path: "/filter/:fid"
+        component: Filter
+      - path: "/runs"
+        component: ObservingRunList
       - path: "/alerts"
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
-      - path: "/filter/:fid"
-        component: Filter
 
     kowalski:
       protocol: "http"
@@ -74,6 +76,10 @@ skyportal:
       - name: Groups
         icon: GroupWork
         url: /groups
+
+      - name: Observing Runs
+        icon: LocalCafe
+        url: /runs
 
       - name: About
         icon: Info
