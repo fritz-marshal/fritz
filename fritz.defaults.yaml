@@ -43,6 +43,8 @@ skyportal:
         component: Filter
       - path: "/runs"
         component: ObservingRunList
+      - path: "/run/:id"
+        component: RunSummary
       - path: "/alerts"
         component: Alerts
       - path: "/alerts/ztf/:id"
@@ -84,6 +86,84 @@ skyportal:
       - name: About
         icon: Info
         url: /about
+
+  homepage_widgets:
+    # This section describes the specific widgets shown on the Home Page and how
+    # they are laid out by default on the grid of the page.
+    #
+    # The name of section should be the same as the widget's React component.
+    #
+    # The props property should be a set of properties to be passed on to the
+    # underlying React component for the widget. You may run into cases in which
+    # you must pass a more complex, dyamic property (perhaps fetched from the
+    # application redux store). Since you can not know that in the time of the
+    # configuration writing, such properties should be directly coded into the
+    # HomePage.jsx.template file (see the GroupList widget for an example)
+    #
+    # By default, any widget listed here is shown on the Home Page. However, you
+    # can give a widget the property "show: false" to turn off rendering of the
+    # widget.
+    #
+    # The resizable property determines whether the user is able to resize the
+    # widget after it has been rendered based on default layouts.
+    #
+    # Finally, the layouts property provides an array of default sizes/locations
+    # for each screen width breakpoint for the given widget. Layout arrays are
+    # given in the order [x, y, width, height], in units of grid columns/rows.
+    # For example, a layout array of [1, 2, 3, 4] will render a widget 3 grid
+    # columns in width, 4 grid rows in height, and have its upper-left corner at
+    # the column 1 (zero-indexed) and row 2. Note that each row is by default
+    # 150px in height. The row height can be altered in the homepage_grid
+    # section above (as well as other grid characteristics).
+
+    SourceCounts:
+      props:
+        sinceDaysAgo: 7
+      resizeable: false
+      layouts:
+        xlg: [14, 0, 2, 1]
+        lg: [10, 0, 2, 1]
+        md: [8, 0, 2, 1]
+        sm: [4.5, 0, 1.5, 1]
+        xs: [0, 0, 4, 1]
+
+    RecentSources:
+      resizeable: false
+      layouts:
+        xlg: [0, 0, 5, 3]
+        lg: [0, 0, 4, 3]
+        md: [0, 3, 5, 3]
+        sm: [0, 3, 3, 3]
+        xs: [0, 4, 4, 3]
+
+    NewsFeed:
+      resizeable: false
+      layouts:
+        xlg: [10, 0, 4, 3]
+        lg: [7, 0, 3, 3]
+        md: [0, 0, 8, 3]
+        sm: [0, 0, 4.5, 3]
+        xs: [0, 1, 4, 3]
+
+    TopSources:
+      resizeable: false
+      layouts:
+        xlg: [5, 0, 5, 3]
+        lg: [4, 3, 3, 3]
+        md: [5, 3, 5, 3]
+        sm: [3, 3, 3, 3]
+        xs: [0, 7, 4, 3]
+
+    GroupList:
+      props:
+        title: My Groups
+      resizeable: true
+      layouts:
+        xlg: [14, 1, 2, 2]
+        lg: [10, 1, 2, 2]
+        md: [8, 1, 2, 2]
+        sm: [4.5, 1, 1.5, 2]
+        xs: [0, 10, 4, 2]
 
   database:
     database: skyportal
