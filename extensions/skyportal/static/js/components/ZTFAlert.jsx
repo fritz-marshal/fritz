@@ -20,6 +20,7 @@ import AccordionSummary from "@material-ui/core/AccordionSummary";
 import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
+import CircularProgress from "@material-ui/core/CircularProgress";
 
 import ThumbnailList from "./ThumbnailList";
 import ReactJson from "react-json-view";
@@ -390,7 +391,7 @@ const ZTFAlert = ({ route }) => {
   ];
 
   if (alert_data === null) {
-    return <div>Loading...</div>;
+    return <div><CircularProgress color="secondary" /></div>;
   }
   if (isString(alert_data) || isString(alert_aux_data)) {
     return <div>Failed to fetch alert data, please try again later.</div>;
