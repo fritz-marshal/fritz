@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { useHistory } from "react-router-dom";
 
+import Typography from "@material-ui/core/Typography";
+import Card from "@material-ui/core/Card";
+import CardActions from "@material-ui/core/CardActions";
+import CardContent from "@material-ui/core/CardContent";
+
 import TextField from "@material-ui/core/TextField";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
@@ -18,7 +23,7 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
     "& > *": {
       margin: theme.spacing(1),
-      width: "25ch",
+      // width: "25ch",
     },
   },
   container: {
@@ -39,7 +44,6 @@ const useStyles = makeStyles((theme) => ({
     width: 1,
   },
   search_button: {
-    margin: theme.spacing(1),
     color: "#f0f0f0 !important",
   },
   margin_bottom: {
@@ -60,10 +64,14 @@ const useStyles = makeStyles((theme) => ({
   },
   formControl: {
     margin: theme.spacing(1),
-    minWidth: 120,
+    width: "100%",
+    // minWidth: 120,
   },
   selectEmpty: {
     marginTop: theme.spacing(2),
+  },
+  header: {
+    paddingBottom: 10,
   },
 }));
 
@@ -91,52 +99,61 @@ const Alerts = () => {
 
   return (
     <div>
-      <h2>Search objects from alert streams</h2>
+      <Typography variant="h6" className={classes.header}>
+        Search objects from alert streams
+      </Typography>
 
       <Grid container spacing={2}>
-        <Grid item sm={12} md={2}>
-          <FormControl required className={classes.formControl}>
-            <InputLabel id="alert-stream-select-required-label">
-              Alert stream
-            </InputLabel>
-            <Select
-              labelId="alert-stream-select-required-label"
-              id="alert-stream-select"
-              value={stream}
-              onChange={handleStreamChange}
-              className={classes.selectEmpty}
-            >
-              <MenuItem value="ztf">ZTF</MenuItem>
-              {/* <MenuItem value="zuds">ZUDS</MenuItem> */}
-            </Select>
-            <FormHelperText>Required</FormHelperText>
-          </FormControl>
-        </Grid>
-
         <Grid item sm={12} md={4}>
-          <form className={classes.root} noValidate autoComplete="off">
-            <TextField
-              required
-              error={objectId.length === 0}
-              id="objectId"
-              label="objectId"
-              helperText="Required"
-              onChange={handleObjectIdChange}
-            />
-          </form>
+          <Card className={classes.root}>
+            <CardContent>
+              <Grid container spacing={2}>
+                <Grid item sm={12} md={6}>
+                  <FormControl required className={classes.formControl}>
+                    <InputLabel id="alert-stream-select-required-label">
+                      Alert stream
+                    </InputLabel>
+                    <Select
+                      labelId="alert-stream-select-required-label"
+                      id="alert-stream-select"
+                      value={stream}
+                      onChange={handleStreamChange}
+                      className={classes.selectEmpty}
+                    >
+                      <MenuItem value="ztf">ZTF</MenuItem>
+                    </Select>
+                    <FormHelperText>Required</FormHelperText>
+                  </FormControl>
+                </Grid>
+
+                <Grid item sm={12} md={6}>
+                  <form className={classes.formControl} noValidate autoComplete="off">
+                    <TextField
+                      required
+                      error={objectId.length === 0}
+                      id="objectId"
+                      label="objectId"
+                      helperText="Required"
+                      onChange={handleObjectIdChange}
+                    />
+                  </form>
+                </Grid>
+              </Grid>
+            </CardContent>
+            <CardActions>
+              <Button
+                variant="contained"
+                color="primary"
+                className={classes.search_button}
+                onClick={submitForm}
+              >
+                Search
+              </Button>
+            </CardActions>
+          </Card>
         </Grid>
       </Grid>
 
-      <Button
-        // component={Link}
-        // to={`/alerts/${stream}/${objectId}`}
-        variant="contained"
-        color="primary"
-        className={classes.search_button}
-        onClick={submitForm}
-      >
-        Search
-      </Button>
     </div>
   );
 };

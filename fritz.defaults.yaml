@@ -534,7 +534,7 @@ kowalski:
         serverurl: unix:///dev/shm/supervisor.sock
 
       "program:gunicorn":
-        # fixme: adjust number of workers -w for your system (e.g. -w 20 for kowalski.caltech.edu)
+        # fixme: adjust number of workers -w for your system
         command: >
           /usr/local/bin/gunicorn
           -w 10

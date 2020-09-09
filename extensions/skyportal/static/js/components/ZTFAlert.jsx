@@ -21,6 +21,9 @@ import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 
+import ThumbnailList from "./ThumbnailList";
+import ReactJson from 'react-json-view';
+
 import * as Actions from "../ducks/alert";
 
 const VegaPlot = React.lazy(() => import("./VegaPlotZTFAlert"));
@@ -71,6 +74,10 @@ const useStyles = makeStyles((theme) => ({
   heading: {
     fontSize: "1.0625rem",
     fontWeight: 500,
+  },
+  header: {
+    paddingBottom: 10,
+    color: theme.palette.text.secondary,
   },
 }));
 
@@ -255,6 +262,18 @@ const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
 
+  const [panelPhotometryThumbnailsExpanded, setPanelPhotometryThumbnailsExpanded] = useState(true);
+
+  const handlePanelPhotometryThumbnailsChange = (panel) => (event, isExpanded) => {
+    setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
+  };
+
+  const [panelXMatchExpanded, setPanelXMatchExpanded] = useState(true);
+
+  const handlePanelXMatchChange = (panel) => (event, isExpanded) => {
+    setPanelXMatchExpanded(isExpanded ? panel : false);
+  };
+
   const [candid, setCandid] = useState(0);
   const [jd, setJd] = useState(0);
 
@@ -346,6 +365,24 @@ const ZTFAlert = ({ route }) => {
     setPage(0);
   };
 
+  const thumbnails = [
+    {
+      "type": "new",
+      "id": 0,
+      "public_url": `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`
+    },
+    {
+      "type": "ref",
+      "id": 1,
+      "public_url": `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`
+    },
+    {
+      "type": "sub",
+      "id": 2,
+      "public_url": `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`
+    }
+  ];
+
   if (alert_data === null) {
     return <div>Loading...</div>;
   } if (isString(alert_data) || isString(alert_aux_data)) {
@@ -359,148 +396,131 @@ const ZTFAlert = ({ route }) => {
   } if (alert_data.length > 0) {
     return (
       <div>
-        <div>
-          <h2>
-            {objectId}
-            <Button
-              variant="contained"
-              color="primary"
-              className={classes.margin_left}
-              startIcon={<SaveIcon />}
-              // todo: save as a source to one of my programs button
-              // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
-            >
-              Save as a Source
-            </Button>
-          </h2>
-        </div>
-        <div className={classes.margin_bottom}>
-          <Accordion
-            // expanded={panelExpanded === "panel"}
-            // onChange={handlePanelChange("panel")}
+        <Typography variant="h5" className={classes.header}>
+          {objectId}
+          <Button
+            variant="contained"
+            color="primary"
+            className={classes.margin_left}
+            startIcon={<SaveIcon />}
+            // todo: save as a source to one of my programs button
+            // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
+            // fixme: once that is implemented
+            style={{display: "none"}}
           >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-content"
-              id="panel-header"
-            >
-              <Typography className={classes.heading}>Photometry and cutouts</Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordion_details}>
-              <Grid container spacing={2}>
-                <Grid item sm={12} md={6}>
-                  <Suspense fallback={<div>Loading plot...</div>}>
-                    {/* <div style={{width: "100%"}}> */}
+            Save as a Source
+          </Button>
+        </Typography>
+
+        <Accordion
+          expanded={panelPhotometryThumbnailsExpanded}
+          onChange={handlePanelPhotometryThumbnailsChange(true)}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel-content"
+            id="panel-header"
+          >
+            <Typography className={classes.heading}>Photometry and cutouts</Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordion_details}>
+            <Grid container spacing={2}>
+              <Grid item sm={12} md={6}>
+                <Suspense fallback={<div>Loading plot...</div>}>
+                  {/*<div style={{width: "350px"}}>*/}
                     <VegaPlot
                       dataUrl={`/api/alerts/ztf/${objectId}/aux`}
                       jd={jd}
                     />
-                    {/* </div> */}
-                  </Suspense>
-                </Grid>
-                <Grid
-                  container
-                  item
-                  sm={12}
-                  md={6}
-                  spacing={1}
-                  className={classes.image}
-                >
-                  <Grid item xs={4}>
-                    <img
-                      alt="science"
-                      src={
-                        candid > 0
-                          ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`
-                          : null
-                      }
-                    />
-                    <br />
-                    Science
-                  </Grid>
-                  <Grid item xs={4}>
-                    <img
-                      alt="reference"
-                      src={
-                        candid > 0
-                          ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`
-                          : null
-                      }
-                    />
-                    <br />
-                    Reference
-                  </Grid>
-                  <Grid item xs={4}>
-                    <img
-                      alt="difference"
-                      src={
-                        candid > 0
-                          ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`
-                          : null
-                      }
-                    />
-                    <br />
-                    Difference
-                  </Grid>
-                  <Paper className={classes.paper}>
-                    Cross-matches:
-                    <br />
-                    {/* todo: plot interleaved on PS1 cutout? */}
-                    {JSON.stringify(cross_matches, null, 2)}
-                  </Paper>
-                </Grid>
+                   {/*</div>*/}
+                </Suspense>
               </Grid>
-            </AccordionDetails>
-          </Accordion>
-        </div>
+              <Grid
+                container
+                item
+                sm={12}
+                md={6}
+                spacing={1}
+                className={classes.image}
+                alignItems={"stretch"} alignContent={"stretch"}
+              >
+                {
+                  candid > 0 &&
+                  <ThumbnailList
+                    ra={0}
+                    dec={0}
+                    thumbnails={thumbnails}
+                    size="10rem"
+                  />
+                }
+              </Grid>
+            </Grid>
+          </AccordionDetails>
+        </Accordion>
 
         <Paper className={classes.root}>
-          <TableContainer className={classes.container}>
-            <Table stickyHeader size="small" aria-label="sticky table">
-              <EnhancedTableHead
-                classes={classes}
-                order={order}
-                orderBy={orderBy}
-                onRequestSort={handleRequestSort}
-              />
-              <TableBody>
-                {stableSort(rows, getComparator(order, orderBy))
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <TableRow
-                      hover
-                      role="checkbox"
-                      tabIndex={-1}
-                      key={row.name}
-                    >
-                      {columns.map((column) => {
-                        const value = row[column.id];
-                        return (
-                          <TableCell
-                            key={column.id}
-                            align={column.numeric ? "right" : "left"}
-                          >
-                            {column.format && typeof value === "number"
-                              ? column.format(value)
-                              : value}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 100]}
-            component="div"
-            count={rows.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onChangePage={handleChangePage}
-            onChangeRowsPerPage={handleChangeRowsPerPage}
-          />
-        </Paper>
+        <TableContainer className={classes.container}>
+          <Table stickyHeader size="small" aria-label="sticky table">
+            <EnhancedTableHead
+              classes={classes}
+              order={order}
+              orderBy={orderBy}
+              onRequestSort={handleRequestSort}
+            />
+            <TableBody>
+              {stableSort(rows, getComparator(order, orderBy))
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((row) => (
+                  <TableRow
+                    hover
+                    role="checkbox"
+                    tabIndex={-1}
+                    key={row.name}
+                  >
+                    {columns.map((column) => {
+                      const value = row[column.id];
+                      return (
+                        <TableCell
+                          key={column.id}
+                          align={column.numeric ? "right" : "left"}
+                        >
+                          {column.format && typeof value === "number"
+                            ? column.format(value)
+                            : value}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 100]}
+          component="div"
+          count={rows.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onChangePage={handleChangePage}
+          onChangeRowsPerPage={handleChangeRowsPerPage}
+        />
+      </Paper>
+
+        <Accordion
+          expanded={panelXMatchExpanded}
+          onChange={handlePanelXMatchChange(true)}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel-content"
+            id="panel-header"
+          >
+            <Typography className={classes.heading}>Cross matches</Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordion_details}>
+            <ReactJson src={cross_matches} name={false}/>
+          </AccordionDetails>
+        </Accordion>
       </div>
     );
   }

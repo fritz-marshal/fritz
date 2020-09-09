@@ -557,8 +557,18 @@
     "$project": {
       "objectId": 1,
       "cross_matches_CLU": 1,
-      "annotations.FWHM": "$fwhm",
-      "annotations.drb": "$drb",
+      "annotations.FWHM": {
+        "$round": [
+          "$fwhm",
+          3
+        ]
+      },
+      "annotations.drb": {
+        "$round": [
+          "$drb",
+          5
+        ]
+      },
       "annotations.host g-r": {
         "$subtract": [
           "$sgmag", "$srmag"

@@ -2,6 +2,7 @@
 import argparse
 import datetime
 from distutils.dir_util import copy_tree
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -140,8 +141,26 @@ def run(args):
         with open("fritz.yaml") as fyaml:
             fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
 
-        # add Fritz-specific K and SP extensions:
+        # add Fritz-specific K and SP extensions
+        # copy_tree('extensions/kowalski/', 'kowalski/')
         copy_tree('extensions/skyportal/', 'skyportal/')
+
+        # add Fritz-specific dependencies for SP
+        # js
+        with open("extensions/skyportal/package.fritz.json", "r") as fpjf, open("skyportal/package.json", "r") as fpj:
+            pjf = json.load(fpjf)
+            pj = json.load(fpj)
+        for lib, ver in pjf["dependencies"].items():
+            pj["dependencies"][lib] = ver
+        with open("skyportal/package.json", "w") as fpj:
+            json.dump(pj, fpj, indent=2)
+        # python
+        with open(".requirements/ext.txt", "r") as frf, open("skyportal/requirements.txt", "r") as fr:
+            rf = frf.readlines()
+            r = fr.readlines()
+        with open("skyportal/requirements.txt", "w") as fr:
+            for line in rf + r:
+                fr.write(line)
 
         # adjust docker-compose.skyportal.yaml
         with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
@@ -153,16 +172,17 @@ def run(args):
                 str(Path(__file__).parent.absolute())
             )
         if args.traefik:
-            # fix host for traefik
+            # fix host for Traefik
             dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
                 "<host>",
                 fritz_config["skyportal"]["server"]["host"]
             )
+        else:
+            # not running behind Traefik? then publish port 5000 to 9000
+            dc["services"]["web"]["ports"] = ["9000:5000"]
+            pass
         with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
             yaml.dump(dc, dcyaml)
-
-        # copy over the additional requirements:
-        subprocess.run(["cp", ".requirements/ext.txt", f"skyportal/requirements.fritz.txt"], check=True)
 
         # Build skyportal's images
         p = subprocess.run(["make", "docker-local"], cwd="skyportal")
@@ -333,8 +353,6 @@ def prune(args):
 
 def test(args):
     print("Launching tests...")
-
-    # load_demo_data is run as part of ./fritz run --init since it is needed to create a token for kowalski
 
     print("Testing Kowalski...")
     subprocess.run(["python", "kowalski.py", "test"], cwd="kowalski")
