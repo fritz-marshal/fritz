@@ -584,7 +584,7 @@ kowalski:
         stdout_logfile: /data/logs/alert_watcher_ztf_stdout.log
         stdout_logfile_maxbytes: 30MB
         stderr_logfile: /data/logs/alert_watcher_ztf_stderr.log
-        redirect_stderr: True
+        redirect_stderr: true
         environment: "PRODUCTION=1"
 
       "program:ops-watcher-ztf":
@@ -596,5 +596,5 @@ kowalski:
         stdout_logfile: /data/logs/ops_watcher_ztf_stdout.log
         stdout_logfile_maxbytes: 30MB
         stderr_logfile: /data/logs/ops_watcher_ztf_stderr.log
-        redirect_stderr: True
+        redirect_stderr: true
         environment: "PRODUCTION=1"
