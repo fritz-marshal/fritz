@@ -316,7 +316,7 @@ class ZTFAlertAuxHandler(BaseHandler):
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
             if len(latest_alert_data) > 0:
-                candids = {a['candid'] for a in alert_data['prv_candidates']}
+                candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
                 if latest_alert_data['candidate']["candid"] not in candids:
                     alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
