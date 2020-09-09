@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useHistory } from "react-router-dom";
+import React, {useState} from "react";
+import {useHistory} from "react-router-dom";
 
 import Typography from "@material-ui/core/Typography";
 import Card from "@material-ui/core/Card";
@@ -16,7 +16,8 @@ import Select from "@material-ui/core/Select";
 import Grid from "@material-ui/core/Grid";
 
 import Button from "@material-ui/core/Button";
-import { makeStyles } from "@material-ui/core/styles";
+import {makeStyles} from "@material-ui/core/styles";
+import {useForm, Controller} from "react-hook-form";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -27,7 +28,7 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   container: {
-    maxHeight: 440,
+    // maxHeight: 440,
   },
   whitish: {
     color: "#f0f0f0",
@@ -63,12 +64,10 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.text.secondary,
   },
   formControl: {
-    margin: theme.spacing(1),
     width: "100%",
-    // minWidth: 120,
   },
   selectEmpty: {
-    marginTop: theme.spacing(2),
+    width: "100%",
   },
   header: {
     paddingBottom: 10,
@@ -77,24 +76,14 @@ const useStyles = makeStyles((theme) => ({
 
 const Alerts = () => {
   const classes = useStyles();
-  const [stream, setStream] = useState("ztf");
-  const [objectId, setObjectId] = useState("");
 
   const history = useHistory();
 
-  const handleStreamChange = (event) => {
-    setStream(event.target.value);
-  };
+  const {register, handleSubmit, control} = useForm();
 
-  const handleObjectIdChange = (event) => {
-    setObjectId(event.target.value);
-  };
-
-  const submitForm = () => {
-    if (objectId.length > 0) {
-      const path = `/alerts/${stream}/${objectId}`;
-      history.push(path);
-    }
+  const submitForm = (data) => {
+    const path = `/alerts/${data.instrument}/${data.object_id}`;
+    history.push(path);
   };
 
   return (
@@ -104,52 +93,53 @@ const Alerts = () => {
       </Typography>
 
       <Grid container spacing={2}>
-        <Grid item sm={12} md={4}>
+        <Grid item xs={12} md={4}>
           <Card className={classes.root}>
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid item sm={12} md={6}>
-                  <FormControl required className={classes.formControl}>
-                    <InputLabel id="alert-stream-select-required-label">
-                      Alert stream
-                    </InputLabel>
-                    <Select
-                      labelId="alert-stream-select-required-label"
-                      id="alert-stream-select"
-                      value={stream}
-                      onChange={handleStreamChange}
-                      className={classes.selectEmpty}
-                    >
-                      <MenuItem value="ztf">ZTF</MenuItem>
-                    </Select>
-                    <FormHelperText>Required</FormHelperText>
-                  </FormControl>
-                </Grid>
+            <form onSubmit={handleSubmit(submitForm)}>
 
-                <Grid item sm={12} md={6}>
-                  <form className={classes.formControl} noValidate autoComplete="off">
-                    <TextField
-                      required
-                      error={objectId.length === 0}
-                      id="objectId"
-                      label="objectId"
-                      helperText="Required"
-                      onChange={handleObjectIdChange}
-                    />
-                  </form>
-                </Grid>
-              </Grid>
-            </CardContent>
-            <CardActions>
-              <Button
-                variant="contained"
-                color="primary"
-                className={classes.search_button}
-                onClick={submitForm}
-              >
-                Search
-              </Button>
-            </CardActions>
+              <CardContent>
+
+                <FormControl required className={classes.selectEmpty}>
+                  <InputLabel name="alert-stream-select-required-label">
+                    Instrument
+                  </InputLabel>
+                  <Controller
+                    labelId="alert-stream-select-required-label"
+                    name="instrument"
+                    as={Select}
+                    defaultValue="ztf"
+                    control={control}
+                    rules={{required: true}}
+                  >
+                    <MenuItem value="ztf">ZTF</MenuItem>
+                  </Controller>
+                  <FormHelperText>Required</FormHelperText>
+                </FormControl>
+
+                <TextField
+                  autoFocus
+                  required
+                  margin="dense"
+                  name="object_id"
+                  label="objectId"
+                  type="text"
+                  fullWidth
+                  inputRef={register({required: true, minLength: 3})}
+                />
+
+              </CardContent>
+              <CardActions>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  className={classes.button_add}
+                >
+                  Search
+                </Button>
+              </CardActions>
+
+            </form>
           </Card>
         </Grid>
       </Grid>

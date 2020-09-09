@@ -77,7 +77,7 @@ const useStyles = makeStyles((theme) => ({
   },
   header: {
     paddingBottom: 10,
-    color: theme.palette.text.secondary,
+    color: theme.palette.text.primary,
   },
 }));
 
@@ -390,7 +390,9 @@ const ZTFAlert = ({ route }) => {
   } if (alert_data.length === 0) {
     return (
       <div>
-        <h2>{objectId} not found</h2>
+        <Typography variant="h5" className={classes.header}>
+          {objectId} not found
+        </Typography>
       </div>
     );
   } if (alert_data.length > 0) {
@@ -425,7 +427,7 @@ const ZTFAlert = ({ route }) => {
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
             <Grid container spacing={2}>
-              <Grid item sm={12} md={6}>
+              <Grid item xs={12} lg={6}>
                 <Suspense fallback={<div>Loading plot...</div>}>
                   {/*<div style={{width: "350px"}}>*/}
                     <VegaPlot
@@ -438,8 +440,8 @@ const ZTFAlert = ({ route }) => {
               <Grid
                 container
                 item
-                sm={12}
-                md={6}
+                xs={12}
+                lg={6}
                 spacing={1}
                 className={classes.image}
                 alignItems={"stretch"} alignContent={"stretch"}
