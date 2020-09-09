@@ -1,5 +1,5 @@
-import React, {useState} from "react";
-import {useHistory} from "react-router-dom";
+import React from "react";
+import { useHistory } from "react-router-dom";
 
 import Typography from "@material-ui/core/Typography";
 import Card from "@material-ui/core/Card";
@@ -16,8 +16,8 @@ import Select from "@material-ui/core/Select";
 import Grid from "@material-ui/core/Grid";
 
 import Button from "@material-ui/core/Button";
-import {makeStyles} from "@material-ui/core/styles";
-import {useForm, Controller} from "react-hook-form";
+import { makeStyles } from "@material-ui/core/styles";
+import { useForm, Controller } from "react-hook-form";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -79,7 +79,7 @@ const Alerts = () => {
 
   const history = useHistory();
 
-  const {register, handleSubmit, control} = useForm();
+  const { register, handleSubmit, control } = useForm();
 
   const submitForm = (data) => {
     const path = `/alerts/${data.instrument}/${data.object_id}`;
@@ -96,9 +96,7 @@ const Alerts = () => {
         <Grid item xs={12} md={4}>
           <Card className={classes.root}>
             <form onSubmit={handleSubmit(submitForm)}>
-
               <CardContent>
-
                 <FormControl required className={classes.selectEmpty}>
                   <InputLabel name="alert-stream-select-required-label">
                     Instrument
@@ -109,7 +107,7 @@ const Alerts = () => {
                     as={Select}
                     defaultValue="ztf"
                     control={control}
-                    rules={{required: true}}
+                    rules={{ required: true }}
                   >
                     <MenuItem value="ztf">ZTF</MenuItem>
                   </Controller>
@@ -124,9 +122,8 @@ const Alerts = () => {
                   label="objectId"
                   type="text"
                   fullWidth
-                  inputRef={register({required: true, minLength: 3})}
+                  inputRef={register({ required: true, minLength: 3 })}
                 />
-
               </CardContent>
               <CardActions>
                 <Button
@@ -138,12 +135,10 @@ const Alerts = () => {
                   Search
                 </Button>
               </CardActions>
-
             </form>
           </Card>
         </Grid>
       </Grid>
-
     </div>
   );
 };

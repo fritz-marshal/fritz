@@ -22,7 +22,7 @@ import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 
 import ThumbnailList from "./ThumbnailList";
-import ReactJson from 'react-json-view';
+import ReactJson from "react-json-view";
 
 import * as Actions from "../ducks/alert";
 
@@ -262,9 +262,15 @@ const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
 
-  const [panelPhotometryThumbnailsExpanded, setPanelPhotometryThumbnailsExpanded] = useState(true);
+  const [
+    panelPhotometryThumbnailsExpanded,
+    setPanelPhotometryThumbnailsExpanded,
+  ] = useState(true);
 
-  const handlePanelPhotometryThumbnailsChange = (panel) => (event, isExpanded) => {
+  const handlePanelPhotometryThumbnailsChange = (panel) => (
+    event,
+    isExpanded
+  ) => {
     setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
   };
 
@@ -367,27 +373,29 @@ const ZTFAlert = ({ route }) => {
 
   const thumbnails = [
     {
-      "type": "new",
-      "id": 0,
-      "public_url": `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`
+      type: "new",
+      id: 0,
+      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`,
     },
     {
-      "type": "ref",
-      "id": 1,
-      "public_url": `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`
+      type: "ref",
+      id: 1,
+      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`,
     },
     {
-      "type": "sub",
-      "id": 2,
-      "public_url": `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`
-    }
+      type: "sub",
+      id: 2,
+      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`,
+    },
   ];
 
   if (alert_data === null) {
     return <div>Loading...</div>;
-  } if (isString(alert_data) || isString(alert_aux_data)) {
+  }
+  if (isString(alert_data) || isString(alert_aux_data)) {
     return <div>Failed to fetch alert data, please try again later.</div>;
-  } if (alert_data.length === 0) {
+  }
+  if (alert_data.length === 0) {
     return (
       <div>
         <Typography variant="h5" className={classes.header}>
@@ -395,7 +403,8 @@ const ZTFAlert = ({ route }) => {
         </Typography>
       </div>
     );
-  } if (alert_data.length > 0) {
+  }
+  if (alert_data.length > 0) {
     return (
       <div>
         <Typography variant="h5" className={classes.header}>
@@ -408,7 +417,7 @@ const ZTFAlert = ({ route }) => {
             // todo: save as a source to one of my programs button
             // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
             // fixme: once that is implemented
-            style={{display: "none"}}
+            style={{ display: "none" }}
           >
             Save as a Source
           </Button>
@@ -423,18 +432,20 @@ const ZTFAlert = ({ route }) => {
             aria-controls="panel-content"
             id="panel-header"
           >
-            <Typography className={classes.heading}>Photometry and cutouts</Typography>
+            <Typography className={classes.heading}>
+              Photometry and cutouts
+            </Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
             <Grid container spacing={2}>
               <Grid item xs={12} lg={6}>
                 <Suspense fallback={<div>Loading plot...</div>}>
                   {/*<div style={{width: "350px"}}>*/}
-                    <VegaPlot
-                      dataUrl={`/api/alerts/ztf/${objectId}/aux`}
-                      jd={jd}
-                    />
-                   {/*</div>*/}
+                  <VegaPlot
+                    dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                    jd={jd}
+                  />
+                  {/*</div>*/}
                 </Suspense>
               </Grid>
               <Grid
@@ -444,69 +455,69 @@ const ZTFAlert = ({ route }) => {
                 lg={6}
                 spacing={1}
                 className={classes.image}
-                alignItems={"stretch"} alignContent={"stretch"}
+                alignItems={"stretch"}
+                alignContent={"stretch"}
               >
-                {
-                  candid > 0 &&
+                {candid > 0 && (
                   <ThumbnailList
                     ra={0}
                     dec={0}
                     thumbnails={thumbnails}
                     size="10rem"
                   />
-                }
+                )}
               </Grid>
             </Grid>
           </AccordionDetails>
         </Accordion>
 
         <Paper className={classes.root}>
-        <TableContainer className={classes.container}>
-          <Table stickyHeader size="small" aria-label="sticky table">
-            <EnhancedTableHead
-              classes={classes}
-              order={order}
-              orderBy={orderBy}
-              onRequestSort={handleRequestSort}
-            />
-            <TableBody>
-              {stableSort(rows, getComparator(order, orderBy))
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((row) => (
-                  <TableRow
-                    hover
-                    role="checkbox"
-                    tabIndex={-1}
-                    key={row.name}
-                  >
-                    {columns.map((column) => {
-                      const value = row[column.id];
-                      return (
-                        <TableCell
-                          key={column.id}
-                          align={column.numeric ? "right" : "left"}
-                        >
-                          {column.format && typeof value === "number"
-                            ? column.format(value)
-                            : value}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 100]}
-          component="div"
-          count={rows.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onChangePage={handleChangePage}
-          onChangeRowsPerPage={handleChangeRowsPerPage}
-        />
-      </Paper>
+          <TableContainer className={classes.container}>
+            <Table stickyHeader size="small" aria-label="sticky table">
+              <EnhancedTableHead
+                classes={classes}
+                order={order}
+                orderBy={orderBy}
+                onRequestSort={handleRequestSort}
+              />
+              <TableBody>
+                {stableSort(rows, getComparator(order, orderBy))
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((row) => (
+                    <TableRow
+                      hover
+                      role="checkbox"
+                      tabIndex={-1}
+                      key={row.name}
+                    >
+                      {columns.map((column) => {
+                        const value = row[column.id];
+                        return (
+                          <TableCell
+                            key={column.id}
+                            align={column.numeric ? "right" : "left"}
+                          >
+                            {column.format && typeof value === "number"
+                              ? column.format(value)
+                              : value}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 100]}
+            component="div"
+            count={rows.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onChangePage={handleChangePage}
+            onChangeRowsPerPage={handleChangeRowsPerPage}
+          />
+        </Paper>
 
         <Accordion
           expanded={panelXMatchExpanded}
@@ -520,14 +531,13 @@ const ZTFAlert = ({ route }) => {
             <Typography className={classes.heading}>Cross matches</Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
-            <ReactJson src={cross_matches} name={false}/>
+            <ReactJson src={cross_matches} name={false} />
           </AccordionDetails>
         </Accordion>
       </div>
     );
   }
-    return <div>Error rendering page...</div>;
-
+  return <div>Error rendering page...</div>;
 };
 
 ZTFAlert.propTypes = {

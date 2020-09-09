@@ -6,7 +6,6 @@ import embed from 'vega-embed';
 const spec = (url, jd) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: 500,
-  // width: {"step": 100},
   // width: "container",
   height: 250,
   data: {
