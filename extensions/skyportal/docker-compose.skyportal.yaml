@@ -16,8 +16,9 @@ services:
       - ${PWD}/skyportal/data/db_fritz.yaml:/skyportal/data/db_seed.yaml
       - thumbnails:/skyportal/static/thumbnails
 #    command: bash -c "source /skyportal_env/bin/activate && (make log &) && make run"
-#    command: bash -c "source /skyportal_env/bin/activate && (make log &) && make run_production"
-    command: bash -c "./node_modules/.bin/webpack --mode=production --devtool none"
+    command: >
+      bash -c "source /skyportal_env/bin/activate && (make log &) && make run_production &&
+      ./node_modules/.bin/webpack --mode=production --devtool none"
     labels:
 #      # Explicitly tell Traefik to expose this container
       - "traefik.enable=true"
