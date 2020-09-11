@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import Button from "@material-ui/core/Button";
 import SaveIcon from "@material-ui/icons/Save";
 import PropTypes from "prop-types";
-import { withStyles, makeStyles } from "@material-ui/core/styles";
+import { withStyles, makeStyles, useTheme } from "@material-ui/core/styles";
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
@@ -31,7 +31,7 @@ const VegaPlot = React.lazy(() => import("./VegaPlotZTFAlert"));
 
 const StyledTableCell = withStyles(() => ({
   body: {
-    fontSize: 14,
+    fontSize: "0.875rem",
   },
 }))(TableCell);
 
@@ -77,7 +77,7 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: 500,
   },
   header: {
-    paddingBottom: 10,
+    paddingBottom: "0.625rem",
     color: theme.palette.text.primary,
   },
 }));
@@ -263,6 +263,9 @@ const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
 
+  const theme = useTheme();
+  const darkTheme = theme.palette.type === "dark";
+
   const [
     panelPhotometryThumbnailsExpanded,
     setPanelPhotometryThumbnailsExpanded,
@@ -441,12 +444,10 @@ const ZTFAlert = ({ route }) => {
             <Grid container spacing={2}>
               <Grid item xs={12} lg={6}>
                 <Suspense fallback={<div>Loading plot...</div>}>
-                  {/*<div style={{width: "350px"}}>*/}
                   <VegaPlot
                     dataUrl={`/api/alerts/ztf/${objectId}/aux`}
                     jd={jd}
                   />
-                  {/*</div>*/}
                 </Suspense>
               </Grid>
               <Grid
@@ -532,7 +533,7 @@ const ZTFAlert = ({ route }) => {
             <Typography className={classes.heading}>Cross matches</Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
-            <ReactJson src={cross_matches} name={false} />
+            <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
           </AccordionDetails>
         </Accordion>
       </div>

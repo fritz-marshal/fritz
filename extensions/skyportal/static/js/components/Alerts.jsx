@@ -24,11 +24,7 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
     "& > *": {
       margin: theme.spacing(1),
-      // width: "25ch",
     },
-  },
-  container: {
-    // maxHeight: 440,
   },
   whitish: {
     color: "#f0f0f0",
@@ -70,7 +66,7 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
   },
   header: {
-    paddingBottom: 10,
+    paddingBottom: "0.625rem",
   },
 }));
 
