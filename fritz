@@ -102,19 +102,20 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
         yaml.dump(config_skyportal, cyaml)
 
 
-def run(args):
+def build(args):
     """
-    Launch Fritz
+    Build Fritz
     """
     env = os.environ.copy()
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
-    # initialize/update fritz's submodules kowalski and skyportal
-    if args.init:
-        # pull skyportal and kowalski
-        p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
-        if p.returncode != 0:
-            raise RuntimeError("Failed to initialize fritz's submodules")
+    if not args.dev:
+        if args.init:
+            # initialize/update fritz's submodules kowalski and skyportal
+            # pull skyportal and kowalski
+            p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+            if p.returncode != 0:
+                raise RuntimeError("Failed to initialize fritz's submodules")
         p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
         if p.returncode != 0:
             raise RuntimeError("Failed to update fritz's submodules")
@@ -124,82 +125,84 @@ def run(args):
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
-    # create common docker network (if it does not exist yet)
-    p = subprocess.run(
-        ["docker", "network", 'create', "fritz_net"],
-        capture_output=True,
-        universal_newlines=True
-    )
-    if (p.returncode != 0) and ("already exists" not in p.stderr):
-        raise RuntimeError("Failed to create network fritz_net")
+    # check config
+    check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
-    if args.init:
-        # check config
-        check_config(cfg='fritz.defaults.yaml', yes=args.yes)
+    # load config
+    with open("fritz.yaml") as fyaml:
+        fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
 
-        # load config
-        with open("fritz.yaml") as fyaml:
-            fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
+    # add Fritz-specific K and SP extensions
+    # copy_tree('extensions/kowalski/', 'kowalski/')
+    copy_tree('extensions/skyportal/', 'skyportal/')
 
-        # add Fritz-specific K and SP extensions
-        # copy_tree('extensions/kowalski/', 'kowalski/')
-        copy_tree('extensions/skyportal/', 'skyportal/')
+    # add Fritz-specific dependencies for SP
+    # js
+    with open("extensions/skyportal/package.fritz.json", "r") as fpjf, open("skyportal/package.json", "r") as fpj:
+        pjf = json.load(fpjf)
+        pj = json.load(fpj)
+    pj["dependencies"] = {**pj["dependencies"], **pjf["dependencies"]}
+    with open("skyportal/package.json", "w") as fpj:
+        json.dump(pj, fpj, indent=2)
+    # python
+    with open(".requirements/ext.txt", "r") as frf, open("skyportal/requirements.txt", "r") as fr:
+        rf = frf.readlines()
+        r = fr.readlines()
+    with open("skyportal/requirements.txt", "w") as fr:
+        for line in rf + r:
+            fr.write(line)
 
-        # add Fritz-specific dependencies for SP
-        # js
-        with open("extensions/skyportal/package.fritz.json", "r") as fpjf, open("skyportal/package.json", "r") as fpj:
-            pjf = json.load(fpjf)
-            pj = json.load(fpj)
-        for lib, ver in pjf["dependencies"].items():
-            pj["dependencies"][lib] = ver
-        with open("skyportal/package.json", "w") as fpj:
-            json.dump(pj, fpj, indent=2)
-        # python
-        with open(".requirements/ext.txt", "r") as frf, open("skyportal/requirements.txt", "r") as fr:
-            rf = frf.readlines()
-            r = fr.readlines()
-        with open("skyportal/requirements.txt", "w") as fr:
-            for line in rf + r:
-                fr.write(line)
+    # adjust F-specific docker-compose.yaml for SP
+    with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
+        dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
+    # fix absolute paths in docker-compose.skyportal.yaml
+    for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
+        dc["services"]["web"]["volumes"][vi] = volume.replace(
+            "${PWD}",
+            str(Path(__file__).parent.absolute())
+        )
+    if args.traefik:
+        # fix host for Traefik
+        dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
+            "<host>",
+            fritz_config["skyportal"]["server"]["host"]
+        )
+    else:
+        # not running behind Traefik? then publish port 5000 on host
+        port = fritz_config["skyportal"]["server"].get("port", 5000)
+        if port is None:
+            port = 5000
+        dc["services"]["web"]["ports"] = [f"{port}:{port}"]
+        pass
+    with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
+        yaml.dump(dc, dcyaml)
 
-        # adjust docker-compose.skyportal.yaml
-        with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
-            dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
-        # fix absolute paths in docker-compose.skyportal.yaml
-        for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
-            dc["services"]["web"]["volumes"][vi] = volume.replace(
-                "${PWD}",
-                str(Path(__file__).parent.absolute())
-            )
-        if args.traefik:
-            # fix host for Traefik
-            dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
-                "<host>",
-                fritz_config["skyportal"]["server"]["host"]
-            )
-        else:
-            # not running behind Traefik? then publish port 5000 to 9000
-            dc["services"]["web"]["ports"] = ["9000:5000"]
-            pass
-        with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
-            yaml.dump(dc, dcyaml)
-
-        # Build skyportal's images
-        p = subprocess.run(["make", "docker-local"], cwd="skyportal")
-        if p.returncode != 0:
-            raise RuntimeError("Failed to build skyportal's docker images")
-
-    # start up skyportal
-    # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
-    p = subprocess.run(
-        ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
-        cwd="skyportal",
-        check=True
-    )
+    # Build skyportal's images
+    p = subprocess.run(["make", "docker-local"], cwd="skyportal")
     if p.returncode != 0:
-        raise RuntimeError("Failed to start SkyPortal")
+        raise RuntimeError("Failed to build skyportal's docker images")
 
+    # when initializing, must start SP to generate token for K
     if args.init:
+        # create common docker network (if it does not exist yet)
+        p = subprocess.run(
+            ["docker", "network", 'create', "fritz_net"],
+            capture_output=True,
+            universal_newlines=True
+        )
+        if (p.returncode != 0) and ("already exists" not in p.stderr):
+            raise RuntimeError("Failed to create network fritz_net")
+
+        # start up skyportal
+        # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
+        p = subprocess.run(
+            ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
+            cwd="skyportal",
+            check=True
+        )
+        if p.returncode != 0:
+            raise RuntimeError("Failed to start SkyPortal")
+
         # init skyportal and load seed data
         mi, max_retires = 1, 3
         while mi <= max_retires:
@@ -229,16 +232,53 @@ def run(args):
         with open('kowalski/config.yaml', 'w') as cyaml:
             yaml.dump(config, cyaml)
 
-        # install Kowalski's deps:
-        c = ["pip", "install", "-r", "requirements.txt"]
-        subprocess.run(c, cwd="kowalski", check=True)
-        # Build kowalski's images
-        c = ["python", "kowalski.py", "build"]
-        if args.yes:
-            c.append("--yes")
-        p = subprocess.run(c, cwd="kowalski")
-        if p.returncode != 0:
-            raise RuntimeError("Failed to build Kowalski's docker images")
+    # install Kowalski's deps:
+    c = ["pip", "install", "-r", "requirements.txt"]
+    subprocess.run(c, cwd="kowalski", check=True)
+    # Build kowalski's images
+    c = ["python", "kowalski.py", "build"]
+    if args.yes:
+        c.append("--yes")
+    p = subprocess.run(c, cwd="kowalski")
+    if p.returncode != 0:
+        raise RuntimeError("Failed to build Kowalski's docker images")
+
+    if args.init:
+        # stop SkyPortal
+        subprocess.run(["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"], cwd="skyportal")
+
+        # remove common network
+        subprocess.run(["docker", "network", "remove", "fritz_net"])
+
+
+def run(args):
+    """
+    Launch Fritz
+    """
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../fritz.yaml"})
+
+    if args.init:
+        build(args=args)
+
+    # create common docker network (if it does not exist yet)
+    p = subprocess.run(
+        ["docker", "network", 'create', "fritz_net"],
+        capture_output=True,
+        universal_newlines=True
+    )
+    if (p.returncode != 0) and ("already exists" not in p.stderr):
+        raise RuntimeError("Failed to create network fritz_net")
+
+    # start up skyportal
+    # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
+    p = subprocess.run(
+        ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
+        cwd="skyportal",
+        check=True
+    )
+    if p.returncode != 0:
+        raise RuntimeError("Failed to start SkyPortal")
 
     # start up kowalski
     c = ["python", "kowalski.py", "up"]
@@ -288,7 +328,14 @@ def log(args):
     """
     Show colorized logs while the marshal is running
     """
-    p = subprocess.run(["make", "log"], cwd="skyportal")
+    # p = subprocess.run(["make", "log"], cwd="skyportal")
+    p = subprocess.run(
+        [
+            "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+            "source /skyportal_env/bin/activate; make log"
+        ],
+        cwd="skyportal"
+    )
     if p.returncode != 0:
         raise RuntimeError("Failed to display fritz's logs")
 
@@ -394,6 +441,7 @@ if __name__ == "__main__":
         ("run", "🚀 Launch Fritz"),
         ("stop", "✋ Shut Fritz down"),
         ("test", "Run the test suite"),
+        ("build", "Build Fritz"),
         ("develop", "Install tools for developing Fritz"),
         ("lint", "Lint the full code base"),
         ("prune", "☠️ Wipe out containers, volumes, and submodules"),
@@ -408,9 +456,21 @@ if __name__ == "__main__":
     parsers["run"].add_argument(
         "--init", action="store_true", help="Initialize Fritz"
     )
-
+    parsers["run"].add_argument(
+        "--dev", action="store_true", help="Run Fritz in dev mode"
+    )
     parsers["run"].add_argument(
         "--traefik", action="store_true", help="Run Fritz behind Traefik"
+    )
+
+    parsers["build"].add_argument(
+        "--init", action="store_true", help="Initialize before building Fritz"
+    )
+    parsers["run"].add_argument(
+        "--dev", action="store_true", help="Build Fritz for running in dev mode"
+    )
+    parsers["build"].add_argument(
+        "--traefik", action="store_true", help="Build Fritz to run behind Traefik"
     )
 
     parsers["doc"].add_argument(
