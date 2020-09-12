@@ -466,7 +466,7 @@ if __name__ == "__main__":
     parsers["build"].add_argument(
         "--init", action="store_true", help="Initialize before building Fritz"
     )
-    parsers["run"].add_argument(
+    parsers["build"].add_argument(
         "--dev", action="store_true", help="Build Fritz for running in dev mode"
     )
     parsers["build"].add_argument(
