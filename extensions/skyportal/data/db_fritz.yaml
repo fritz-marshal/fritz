@@ -132,7 +132,7 @@ instrument:
   file: instruments_fritz.yaml
 
 taxonomy:
-  file: taxonomy_sitewide.yaml
+  file: taxonomy_fritz.yaml
 
 allocation:
   - pi: none, test allocation only, targets will not be observed
