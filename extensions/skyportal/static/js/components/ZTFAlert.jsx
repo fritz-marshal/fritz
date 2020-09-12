@@ -530,7 +530,7 @@ const ZTFAlert = ({ route }) => {
             aria-controls="panel-content"
             id="panel-header"
           >
-            <Typography className={classes.heading}>Cross matches</Typography>
+            <Typography className={classes.heading}>Cross-matches</Typography>
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
             <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
