@@ -15,8 +15,8 @@ from ..base import BaseHandler
 from ...models import (
     DBSession,
     Group,
-    GroupStream,
-    Stream
+    Stream,
+    StreamUser,
 )
 
 
@@ -25,19 +25,15 @@ s = requests.Session()
 
 class ZTFAlertHandler(BaseHandler):
     def get_user_streams(self):
-        single_user_group = (
-            DBSession().query(Group).filter(Group.name == self.current_user.username).first()
+
+        streams = (
+            DBSession()
+            .query(Stream)
+            .join(StreamUser)
+            .filter(StreamUser.user_id == self.current_user.id)
+            .all()
         )
-        # grab streams accessible to user:
-        if single_user_group is not None:
-            streams = (
-                DBSession()
-                .query(Stream)
-                .join(GroupStream)
-                .filter(GroupStream.group_id == single_user_group.id)
-                .all()
-            )
-        else:
+        if streams is None:
             streams = []
 
         return streams
