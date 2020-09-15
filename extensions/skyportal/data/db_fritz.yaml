@@ -125,6 +125,10 @@ filters:
     group_id: =xray_counterparts
     stream_id: =ztf_partnership
 
+  - name: Outbursting Stars
+    group_id: =outbursting_stars
+    stream_id: =ztf_partnership
+
 telescope:
   file: telescopes_fritz.yaml
 

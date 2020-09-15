@@ -24,6 +24,24 @@ s = requests.Session()
 
 
 class ZTFAlertHandler(BaseHandler):
+    def get_user_streams(self):
+        single_user_group = (
+            DBSession().query(Group).filter(Group.name == self.current_user.username).first()
+        )
+        # grab streams accessible to user:
+        if single_user_group is not None:
+            streams = (
+                DBSession()
+                .query(Stream)
+                .join(GroupStream)
+                .filter(GroupStream.group_id == single_user_group.id)
+                .all()
+            )
+        else:
+            streams = []
+
+        return streams
+
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -62,20 +80,7 @@ class ZTFAlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        single_user_group = (
-            DBSession().query(Group).filter(Group.name == self.current_user.username).first()
-        )
-        # grab streams accessible to user:
-        if single_user_group is not None:
-            streams = (
-                DBSession()
-                .query(Stream)
-                .join(GroupStream)
-                .filter(GroupStream.group_id == single_user_group.id)
-                .all()
-            )
-        else:
-            streams = []
+        streams = self.get_user_streams()
 
         # allow access to public data only by default
         selector = {1}
@@ -142,7 +147,7 @@ class ZTFAlertHandler(BaseHandler):
             return self.error(f'failure: {_err}')
 
 
-class ZTFAlertAuxHandler(BaseHandler):
+class ZTFAlertAuxHandler(ZTFAlertHandler):
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -176,20 +181,7 @@ class ZTFAlertAuxHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        single_user_group = (
-            DBSession().query(Group).filter(Group.name == self.current_user.username).first()
-        )
-        # grab streams accessible to user:
-        if single_user_group is not None:
-            streams = (
-                DBSession()
-                .query(Stream)
-                .join(GroupStream)
-                .filter(GroupStream.group_id == single_user_group.id)
-                .all()
-            )
-        else:
-            streams = []
+        streams = self.get_user_streams()
 
         # allow access to public data only by default
         selector = {1}
@@ -327,7 +319,7 @@ class ZTFAlertAuxHandler(BaseHandler):
             return self.error(f'failure: {_err}')
 
 
-class ZTFAlertCutoutHandler(BaseHandler):
+class ZTFAlertCutoutHandler(ZTFAlertHandler):
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -377,20 +369,7 @@ class ZTFAlertCutoutHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        single_user_group = (
-            DBSession().query(Group).filter(Group.name == self.current_user.username).first()
-        )
-        # grab streams accessible to user:
-        if single_user_group is not None:
-            streams = (
-                DBSession()
-                .query(Stream)
-                .join(GroupStream)
-                .filter(GroupStream.group_id == single_user_group.id)
-                .all()
-            )
-        else:
-            streams = []
+        streams = self.get_user_streams()
 
         # allow access to public data only by default
         selector = {1}
