@@ -141,10 +141,87 @@ taxonomy:
 allocation:
   - pi: none, test allocation only, targets will not be observed
     proposal_id: SEDM-001
-    start_date: "2020-09-01T00:00:00"
-    end_date: "2020-10-01T00:00:00"
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
     hours_allocated: 100
     group_id: =public_group_id
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =ztf_science_validation
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =rcf
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =clu
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =em_gw
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =short_grb
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =infant_sne
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =fast_transients
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =red_transients
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =superluminous_sne
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =xray_counterparts
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =outbursting_stars
     instrument_id: =SEDM
 
 observing_run:
