@@ -2,10 +2,12 @@ user:
   - username: fritz.astro.marshal@gmail.com
     roles:
       - Super admin
+    =id: fritz
     oauth_uid: fritz.astro.marshal@gmail.com
   - username: kowalski@caltech.edu
     roles:
       - Group admin
+    =id: kowalski
 
 streams:
   - name: ZTF Public
@@ -49,6 +51,18 @@ groups:
     =id: superluminous_sne
   - name: X-ray Counterparts
     =id: xray_counterparts
+
+streams/=ztf_public/users:
+  - user_id: =fritz
+  - user_id: =kowalski
+
+streams/=ztf_partnership/users:
+  - user_id: =fritz
+  - user_id: =kowalski
+
+streams/=ztf_caltech/users:
+  - user_id: =fritz
+  - user_id: =kowalski
 
 groups/=ztf_science_validation/streams:
   - stream_id: =ztf_public
