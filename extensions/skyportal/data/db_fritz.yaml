@@ -51,6 +51,8 @@ groups:
     =id: superluminous_sne
   - name: X-ray Counterparts
     =id: xray_counterparts
+  - name: Outbursting Stars
+    =id: outbursting_stars
 
 streams/=ztf_public/users:
   - user_id: =fritz
@@ -96,6 +98,9 @@ groups/=superluminous_sne/streams:
   - stream_id: =ztf_caltech
 
 groups/=xray_counterparts/streams:
+  - stream_id: =ztf_partnership
+
+groups/=outbursting_stars/streams:
   - stream_id: =ztf_partnership
 
 filters:
