@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import Button from "@material-ui/core/Button";
 import SaveIcon from "@material-ui/icons/Save";
 import PropTypes from "prop-types";
-import { withStyles, makeStyles } from "@material-ui/core/styles";
+import { withStyles, makeStyles, useTheme } from "@material-ui/core/styles";
 import Table from "@material-ui/core/Table";
 import TableBody from "@material-ui/core/TableBody";
 import TableCell from "@material-ui/core/TableCell";
@@ -15,23 +15,23 @@ import TableRow from "@material-ui/core/TableRow";
 import TableSortLabel from "@material-ui/core/TableSortLabel";
 import Paper from "@material-ui/core/Paper";
 import Grid from "@material-ui/core/Grid";
+import Accordion from "@material-ui/core/Accordion";
+import AccordionSummary from "@material-ui/core/AccordionSummary";
+import AccordionDetails from "@material-ui/core/AccordionDetails";
+import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
+import Typography from "@material-ui/core/Typography";
+import CircularProgress from "@material-ui/core/CircularProgress";
 
-import Responsive from "./Responsive";
-import FoldBox from "./FoldBox";
+import ThumbnailList from "./ThumbnailList";
+import ReactJson from "react-json-view";
 
 import * as Actions from "../ducks/alert";
 
 const VegaPlot = React.lazy(() => import("./VegaPlotZTFAlert"));
 
 const StyledTableCell = withStyles(() => ({
-  head: {
-    // backgroundColor: theme.palette.common.black,
-    // backgroundColor: "#111",
-    // color: theme.palette.common.white,
-    // color: "#f0f0f0",
-  },
   body: {
-    fontSize: 14,
+    fontSize: "0.875rem",
   },
 }))(TableCell);
 
@@ -72,9 +72,14 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "center",
     color: theme.palette.text.secondary,
   },
-  // table: {
-  //     minWidth: 650,
-  // },
+  heading: {
+    fontSize: "1.0625rem",
+    fontWeight: 500,
+  },
+  header: {
+    paddingBottom: "0.625rem",
+    color: theme.palette.text.primary,
+  },
 }));
 
 function createRows(
@@ -109,14 +114,12 @@ const columns = [
     label: "candid",
     numeric: false,
     disablePadding: false,
-    // minWidth: 170
   },
   {
     id: "jd",
     numeric: true,
     disablePadding: false,
     label: "JD",
-    // minWidth: 170,
     align: "left",
     format: (value) => value.toFixed(5),
   },
@@ -132,7 +135,6 @@ const columns = [
     numeric: true,
     disablePadding: false,
     label: "mag",
-    // minWidth: 170,
     align: "left",
     format: (value) => value.toFixed(3),
   },
@@ -141,7 +143,6 @@ const columns = [
     numeric: true,
     disablePadding: false,
     label: "e_mag",
-    // minWidth: 170,
     align: "left",
     format: (value) => value.toFixed(3),
   },
@@ -150,7 +151,6 @@ const columns = [
     numeric: true,
     disablePadding: false,
     label: "rb",
-    // minWidth: 170,
     align: "left",
     format: (value) => value.toFixed(5),
   },
@@ -159,7 +159,6 @@ const columns = [
     numeric: true,
     disablePadding: false,
     label: "drb",
-    // minWidth: 170,
     align: "left",
     format: (value) => value.toFixed(5),
   },
@@ -168,7 +167,6 @@ const columns = [
     numeric: false,
     disablePadding: false,
     label: "isdiffpos",
-    // minWidth: 170,
     align: "left",
   },
   {
@@ -176,7 +174,6 @@ const columns = [
     numeric: true,
     disablePadding: false,
     label: "programid",
-    // minWidth: 170,
     align: "left",
   },
   {
@@ -185,8 +182,6 @@ const columns = [
     disablePadding: false,
     label: "actions",
     align: "right",
-    // render: ({ row }) => <Link to={'lol/'}>lolol</Link>,
-    // render: ({ row }) => (<Link to={{ pathname: `/foo/${row.id}` }}>{row.label}</Link>)
   },
 ];
 
@@ -267,6 +262,27 @@ function isString(x) {
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
+
+  const theme = useTheme();
+  const darkTheme = theme.palette.type === "dark";
+
+  const [
+    panelPhotometryThumbnailsExpanded,
+    setPanelPhotometryThumbnailsExpanded,
+  ] = useState(true);
+
+  const handlePanelPhotometryThumbnailsChange = (panel) => (
+    event,
+    isExpanded
+  ) => {
+    setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
+  };
+
+  const [panelXMatchExpanded, setPanelXMatchExpanded] = useState(true);
+
+  const handlePanelXMatchChange = (panel) => (event, isExpanded) => {
+    setPanelXMatchExpanded(isExpanded ? panel : false);
+  };
 
   const [candid, setCandid] = useState(0);
   const [jd, setJd] = useState(0);
@@ -359,105 +375,103 @@ const ZTFAlert = ({ route }) => {
     setPage(0);
   };
 
+  const thumbnails = [
+    {
+      type: "new",
+      id: 0,
+      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`,
+    },
+    {
+      type: "ref",
+      id: 1,
+      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`,
+    },
+    {
+      type: "sub",
+      id: 2,
+      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`,
+    },
+  ];
+
   if (alert_data === null) {
-    return <div>Loading...</div>;
-  } if (isString(alert_data) || isString(alert_aux_data)) {
+    return <div><CircularProgress color="secondary" /></div>;
+  }
+  if (isString(alert_data) || isString(alert_aux_data)) {
     return <div>Failed to fetch alert data, please try again later.</div>;
-  } if (alert_data.length === 0) {
+  }
+  if (alert_data.length === 0) {
     return (
       <div>
-        <h2>{objectId} not found</h2>
+        <Typography variant="h5" className={classes.header}>
+          {objectId} not found
+        </Typography>
       </div>
     );
-  } if (alert_data.length > 0) {
+  }
+  if (alert_data.length > 0) {
     return (
       <div>
-        <div>
-          <h2>
-            {objectId}
-            <Button
-              variant="contained"
-              color="primary"
-              className={classes.margin_left}
-              startIcon={<SaveIcon />}
-              // todo: save as a source to one of my programs button
-              // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
-            >
-              Save as a Source
-            </Button>
-          </h2>
-        </div>
-        <div className={classes.margin_bottom}>
-          <Responsive
-            element={FoldBox}
-            title="Photometry and cutouts"
-            mobileProps={{ folded: true }}
+        <Typography variant="h5" className={classes.header}>
+          {objectId}
+          <Button
+            variant="contained"
+            color="primary"
+            className={classes.margin_left}
+            startIcon={<SaveIcon />}
+            // todo: save as a source to one of my programs button
+            // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
+            // fixme: once that is implemented
+            style={{ display: "none" }}
           >
+            Save as a Source
+          </Button>
+        </Typography>
+
+        <Accordion
+          expanded={panelPhotometryThumbnailsExpanded}
+          onChange={handlePanelPhotometryThumbnailsChange(true)}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel-content"
+            id="panel-header"
+          >
+            <Typography className={classes.heading}>
+              Photometry and cutouts
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordion_details}>
             <Grid container spacing={2}>
-              <Grid item sm={12} md={6}>
+              <Grid item xs={12} lg={6}>
                 <Suspense fallback={<div>Loading plot...</div>}>
-                  {/* <div style={{width: "100%"}}> */}
                   <VegaPlot
                     dataUrl={`/api/alerts/ztf/${objectId}/aux`}
                     jd={jd}
                   />
-                  {/* </div> */}
                 </Suspense>
               </Grid>
               <Grid
                 container
                 item
-                sm={12}
-                md={6}
+                xs={12}
+                lg={6}
                 spacing={1}
                 className={classes.image}
+                alignItems={"stretch"}
+                alignContent={"stretch"}
               >
-                <Grid item xs={4}>
-                  <img
-                    alt="science"
-                    src={
-                      candid > 0
-                        ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`
-                        : null
-                    }
+                {candid > 0 && (
+                  <ThumbnailList
+                    ra={0}
+                    dec={0}
+                    thumbnails={thumbnails}
+                    size="10rem"
                   />
-                  <br />
-                  Science
-                </Grid>
-                <Grid item xs={4}>
-                  <img
-                    alt="reference"
-                    src={
-                      candid > 0
-                        ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`
-                        : null
-                    }
-                  />
-                  <br />
-                  Reference
-                </Grid>
-                <Grid item xs={4}>
-                  <img
-                    alt="difference"
-                    src={
-                      candid > 0
-                        ? `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`
-                        : null
-                    }
-                  />
-                  <br />
-                  Difference
-                </Grid>
-                <Paper className={classes.paper}>
-                  Cross-matches:
-                  <br />
-                  {/* todo: plot interleaved on PS1 cutout? */}
-                  {JSON.stringify(cross_matches, null, 2)}
-                </Paper>
+                )}
               </Grid>
             </Grid>
-          </Responsive>
-        </div>
+          </AccordionDetails>
+        </Accordion>
 
         <Paper className={classes.root}>
           <TableContainer className={classes.container}>
@@ -506,11 +520,26 @@ const ZTFAlert = ({ route }) => {
             onChangeRowsPerPage={handleChangeRowsPerPage}
           />
         </Paper>
+
+        <Accordion
+          expanded={panelXMatchExpanded}
+          onChange={handlePanelXMatchChange(true)}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel-content"
+            id="panel-header"
+          >
+            <Typography className={classes.heading}>Cross-matches</Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordion_details}>
+            <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
+          </AccordionDetails>
+        </Accordion>
       </div>
     );
   }
-    return <div>Error rendering page...</div>;
-
+  return <div>Error rendering page...</div>;
 };
 
 ZTFAlert.propTypes = {

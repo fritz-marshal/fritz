@@ -39,12 +39,18 @@ skyportal:
         component: About
       - path: "/share_data/:id"
         component: ShareDataForm
+      - path: "/filter/:fid"
+        component: Filter
+      - path: "/runs"
+        component: ObservingRunList
+      - path: "/run/:id"
+        component: RunSummary
+      - path: "/user_management"
+        component: UserManagement
       - path: "/alerts"
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
-      - path: "/filter/:fid"
-        component: Filter
 
     kowalski:
       protocol: "http"
@@ -75,9 +81,91 @@ skyportal:
         icon: GroupWork
         url: /groups
 
+      - name: Observing Runs
+        icon: LocalCafe
+        url: /runs
+
       - name: About
         icon: Info
         url: /about
+
+  homepage_widgets:
+    # This section describes the specific widgets shown on the Home Page and how
+    # they are laid out by default on the grid of the page.
+    #
+    # The name of section should be the same as the widget's React component.
+    #
+    # The props property should be a set of properties to be passed on to the
+    # underlying React component for the widget. You may run into cases in which
+    # you must pass a more complex, dyamic property (perhaps fetched from the
+    # application redux store). Since you can not know that in the time of the
+    # configuration writing, such properties should be directly coded into the
+    # HomePage.jsx.template file (see the GroupList widget for an example)
+    #
+    # By default, any widget listed here is shown on the Home Page. However, you
+    # can give a widget the property "show: false" to turn off rendering of the
+    # widget.
+    #
+    # The resizable property determines whether the user is able to resize the
+    # widget after it has been rendered based on default layouts.
+    #
+    # Finally, the layouts property provides an array of default sizes/locations
+    # for each screen width breakpoint for the given widget. Layout arrays are
+    # given in the order [x, y, width, height], in units of grid columns/rows.
+    # For example, a layout array of [1, 2, 3, 4] will render a widget 3 grid
+    # columns in width, 4 grid rows in height, and have its upper-left corner at
+    # the column 1 (zero-indexed) and row 2. Note that each row is by default
+    # 150px in height. The row height can be altered in the homepage_grid
+    # section above (as well as other grid characteristics).
+
+    SourceCounts:
+      props:
+        sinceDaysAgo: 7
+      resizeable: false
+      layouts:
+        xlg: [14, 0, 2, 1]
+        lg: [10, 0, 2, 1]
+        md: [8, 0, 2, 1]
+        sm: [4.5, 0, 1.5, 1]
+        xs: [0, 0, 4, 1]
+
+    RecentSources:
+      resizeable: false
+      layouts:
+        xlg: [0, 0, 5, 3]
+        lg: [0, 0, 4, 3]
+        md: [0, 3, 5, 3]
+        sm: [0, 3, 3, 3]
+        xs: [0, 4, 4, 3]
+
+    NewsFeed:
+      resizeable: false
+      layouts:
+        xlg: [10, 0, 4, 3]
+        lg: [7, 0, 3, 3]
+        md: [0, 0, 8, 3]
+        sm: [0, 0, 4.5, 3]
+        xs: [0, 1, 4, 3]
+
+    TopSources:
+      resizeable: false
+      layouts:
+        xlg: [5, 0, 5, 3]
+        lg: [4, 3, 3, 3]
+        md: [5, 3, 5, 3]
+        sm: [3, 3, 3, 3]
+        xs: [0, 7, 4, 3]
+
+    GroupList:
+      props:
+        title: My Groups
+      resizeable: true
+      layouts:
+        xlg: [14, 1, 2, 2]
+        lg: [10, 1, 2, 2]
+        md: [8, 1, 2, 2]
+        sm: [4.5, 1, 1.5, 2]
+        xs: [0, 10, 4, 2]
 
   database:
     database: skyportal
@@ -96,6 +184,10 @@ skyportal:
     # You need to have Google+ API enabled; it takes a few minutes to activate.
 
     host: <host>
+    port:
+
+    ssl: False
+    processes: 1
 
     auth:
       debug_login: True
@@ -113,6 +205,17 @@ skyportal:
     - interval: 1440
       script: jobs/delete_unsaved_candidates.py
       limit: ["01:00", "02:00"]
+
+  invitations:
+    enabled: False  # If debug_login=True above, invite tokens won't be used during auth
+    days_until_expiry: 3
+    email_subject: "You've been invited to collaborate on Fritz"
+    email_body_preamble: | # This can include HTML tags
+      Welcome to <b>Fritz</b>!
+      <br />
+      Dark star crashes, pouring its light into ashes.
+    from_email: # This needs to be set to a valid, Sendgrid-registered address in config.yaml
+    sendgrid_api_key: # This needs to be obtained via Sendgrid setup on their site
 
 
 kowalski:
@@ -146,7 +249,7 @@ kowalski:
   kafka:
     default.topic.config:
       auto.offset.reset: "earliest"
-    group: "kowalski"
+    group: "fritz"
 
     bootstrap.servers: "192.168.0.64:9092,192.168.0.65:9092,192.168.0.66:9092"
     zookeeper: "192.168.0.64:2181"
@@ -433,7 +536,7 @@ kowalski:
         serverurl: unix:///dev/shm/supervisor.sock
 
       "program:gunicorn":
-        # fixme: adjust number of workers -w for your system (e.g. -w 20 for kowalski.caltech.edu)
+        # fixme: adjust number of workers -w for your system
         command: >
           /usr/local/bin/gunicorn
           -w 10
@@ -483,7 +586,7 @@ kowalski:
         stdout_logfile: /data/logs/alert_watcher_ztf_stdout.log
         stdout_logfile_maxbytes: 30MB
         stderr_logfile: /data/logs/alert_watcher_ztf_stderr.log
-        redirect_stderr: True
+        redirect_stderr: true
         environment: "PRODUCTION=1"
 
       "program:ops-watcher-ztf":
@@ -495,5 +598,5 @@ kowalski:
         stdout_logfile: /data/logs/ops_watcher_ztf_stdout.log
         stdout_logfile_maxbytes: 30MB
         stderr_logfile: /data/logs/ops_watcher_ztf_stderr.log
-        redirect_stderr: True
+        redirect_stderr: true
         environment: "PRODUCTION=1"

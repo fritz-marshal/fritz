@@ -2,9 +2,12 @@ user:
   - username: fritz.astro.marshal@gmail.com
     roles:
       - Super admin
+    =id: fritz
+    oauth_uid: fritz.astro.marshal@gmail.com
   - username: kowalski@caltech.edu
     roles:
       - Group admin
+    =id: kowalski
 
 streams:
   - name: ZTF Public
@@ -48,6 +51,20 @@ groups:
     =id: superluminous_sne
   - name: X-ray Counterparts
     =id: xray_counterparts
+  - name: Outbursting Stars
+    =id: outbursting_stars
+
+streams/=ztf_public/users:
+  - user_id: =fritz
+  - user_id: =kowalski
+
+streams/=ztf_partnership/users:
+  - user_id: =fritz
+  - user_id: =kowalski
+
+streams/=ztf_caltech/users:
+  - user_id: =fritz
+  - user_id: =kowalski
 
 groups/=ztf_science_validation/streams:
   - stream_id: =ztf_public
@@ -81,6 +98,9 @@ groups/=superluminous_sne/streams:
   - stream_id: =ztf_caltech
 
 groups/=xray_counterparts/streams:
+  - stream_id: =ztf_partnership
+
+groups/=outbursting_stars/streams:
   - stream_id: =ztf_partnership
 
 filters:
@@ -124,6 +144,10 @@ filters:
     group_id: =xray_counterparts
     stream_id: =ztf_partnership
 
+  - name: Outbursting Stars
+    group_id: =outbursting_stars
+    stream_id: =ztf_partnership
+
 telescope:
   file: telescopes_fritz.yaml
 
@@ -131,15 +155,92 @@ instrument:
   file: instruments_fritz.yaml
 
 taxonomy:
-  file: taxonomy_sitewide.yaml
+  file: taxonomy_fritz.yaml
 
 allocation:
   - pi: none, test allocation only, targets will not be observed
     proposal_id: SEDM-001
-    start_date: "2020-09-01T00:00:00"
-    end_date: "2020-09-14T00:00:00"
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
     hours_allocated: 100
     group_id: =public_group_id
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =ztf_science_validation
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =rcf
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =clu
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =em_gw
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =short_grb
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =infant_sne
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =fast_transients
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =red_transients
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =superluminous_sne
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =xray_counterparts
+    instrument_id: =SEDM
+  - pi: none, test allocation only, targets will not be observed
+    proposal_id: SEDM-001
+    start_date: "2020-09-15T00:00:00"
+    end_date: "2020-10-15T00:00:00"
+    hours_allocated: 100
+    group_id: =outbursting_stars
     instrument_id: =SEDM
 
 observing_run:

@@ -12,12 +12,31 @@ import traceback
 
 from baselayer.app.access import auth_or_token
 from ..base import BaseHandler
+from ...models import (
+    DBSession,
+    Stream,
+    StreamUser,
+)
 
 
 s = requests.Session()
 
 
 class ZTFAlertHandler(BaseHandler):
+    def get_user_streams(self):
+
+        streams = (
+            DBSession()
+            .query(Stream)
+            .join(StreamUser)
+            .filter(StreamUser.user_id == self.current_user.id)
+            .all()
+        )
+        if streams is None:
+            streams = []
+
+        return streams
+
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -56,6 +75,17 @@ class ZTFAlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
+        streams = self.get_user_streams()
+
+        # allow access to public data only by default
+        selector = {1}
+
+        for stream in streams:
+            if "ztf" in stream.name.lower():
+                selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
+
         try:
             query = {
                 "query_type": "aggregate",
@@ -65,7 +95,7 @@ class ZTFAlertHandler(BaseHandler):
                         {
                             "$match": {
                                 "objectId": objectId,
-                                "candidate.programid": {"$in": [1, 2, 3]}  # fixme: ACLs plug in here!
+                                "candidate.programid": {"$in": selector}
                             }
                         },
                         {
@@ -112,7 +142,7 @@ class ZTFAlertHandler(BaseHandler):
             return self.error(f'failure: {_err}')
 
 
-class ZTFAlertAuxHandler(BaseHandler):
+class ZTFAlertAuxHandler(ZTFAlertHandler):
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -146,6 +176,16 @@ class ZTFAlertAuxHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
+        streams = self.get_user_streams()
+
+        # allow access to public data only by default
+        selector = {1}
+
+        for stream in streams:
+            if "ztf" in stream.name.lower():
+                selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
 
         try:
             query = {
@@ -169,9 +209,7 @@ class ZTFAlertAuxHandler(BaseHandler):
                                         "cond": {
                                             "$in": [
                                                 "$$item.programid",
-                                                [
-                                                    1, 2, 3  # fixme: ACLs plug in here!
-                                                ]
+                                                selector
                                             ]
                                         }
                                     }
@@ -221,7 +259,8 @@ class ZTFAlertAuxHandler(BaseHandler):
                     "pipeline": [
                         {
                             "$match": {
-                                "objectId": objectId
+                                "objectId": objectId,
+                                "candidate.programid": {"$in": selector}
                             }
                         },
                         {
@@ -264,7 +303,9 @@ class ZTFAlertAuxHandler(BaseHandler):
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
             if len(latest_alert_data) > 0:
-                alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+                candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
+                if latest_alert_data['candidate']["candid"] not in candids:
+                    alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
             return self.success(data=alert_data)
 
@@ -273,7 +314,7 @@ class ZTFAlertAuxHandler(BaseHandler):
             return self.error(f'failure: {_err}')
 
 
-class ZTFAlertCutoutHandler(BaseHandler):
+class ZTFAlertCutoutHandler(ZTFAlertHandler):
     @auth_or_token
     def get(self, objectId: str = None):
         """
@@ -323,6 +364,17 @@ class ZTFAlertCutoutHandler(BaseHandler):
               application/json:
                 schema: Error
         """
+        streams = self.get_user_streams()
+
+        # allow access to public data only by default
+        selector = {1}
+
+        for stream in streams:
+            if "ztf" in stream.name.lower():
+                selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
+
         try:
             candid = int(self.get_argument('candid'))
             cutout = self.get_argument('cutout').capitalize()
@@ -344,7 +396,7 @@ class ZTFAlertCutoutHandler(BaseHandler):
                     "filter": {
                         "candid": candid,
                         "candidate.programid": {
-                            "$in": [1, 2, 3]  # fixme: ACLs
+                            "$in": selector
                         }
                     },
                     "projection": {
