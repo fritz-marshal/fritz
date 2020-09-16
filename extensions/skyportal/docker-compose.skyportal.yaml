@@ -10,19 +10,11 @@ services:
     image: skyportal/web
     expose:
       - "5000"
-#    ports:
-#      - "9000:5000"
     volumes:
       # fritz takes care of making a docker-appropriate config.yaml with Fritz-specific additions
       - ${PWD}/skyportal/config.yaml:/skyportal/config.yaml
       - ${PWD}/skyportal/data/db_fritz.yaml:/skyportal/data/db_seed.yaml
       - thumbnails:/skyportal/static/thumbnails
-    command: >
-      bash -c "source /skyportal_env/bin/activate
-      && cat js-requirements.fritz.txt | xargs npm install
-      && pip install -r requirements.fritz.txt
-      && (make log &) && make run"
-    #      && (make log &) && make run_production"
     labels:
 #      # Explicitly tell Traefik to expose this container
       - "traefik.enable=true"

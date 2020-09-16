@@ -6,7 +6,6 @@ import embed from 'vega-embed';
 const spec = (url, jd) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: 500,
-  // width: 400,
   // width: "container",
   height: 250,
   data: {
@@ -15,6 +14,11 @@ const spec = (url, jd) => ({
       type: "json",
       property: "data.prv_candidates" // where in the JSON does the data live
     }
+  },
+  autosize: {
+    type: "fit",
+    resize: true,
+    // contains: "padding"
   },
   background: "transparent",
   layer: [

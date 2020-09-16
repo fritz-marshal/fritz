@@ -1,5 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { useHistory } from "react-router-dom";
+
+import Typography from "@material-ui/core/Typography";
+import Card from "@material-ui/core/Card";
+import CardActions from "@material-ui/core/CardActions";
+import CardContent from "@material-ui/core/CardContent";
 
 import TextField from "@material-ui/core/TextField";
 import InputLabel from "@material-ui/core/InputLabel";
@@ -12,17 +17,14 @@ import Grid from "@material-ui/core/Grid";
 
 import Button from "@material-ui/core/Button";
 import { makeStyles } from "@material-ui/core/styles";
+import { useForm, Controller } from "react-hook-form";
 
 const useStyles = makeStyles((theme) => ({
   root: {
     width: "100%",
     "& > *": {
       margin: theme.spacing(1),
-      width: "25ch",
     },
-  },
-  container: {
-    maxHeight: 440,
   },
   whitish: {
     color: "#f0f0f0",
@@ -39,7 +41,6 @@ const useStyles = makeStyles((theme) => ({
     width: 1,
   },
   search_button: {
-    margin: theme.spacing(1),
     color: "#f0f0f0 !important",
   },
   margin_bottom: {
@@ -59,84 +60,81 @@ const useStyles = makeStyles((theme) => ({
     color: theme.palette.text.secondary,
   },
   formControl: {
-    margin: theme.spacing(1),
-    minWidth: 120,
+    width: "100%",
   },
   selectEmpty: {
-    marginTop: theme.spacing(2),
+    width: "100%",
+  },
+  header: {
+    paddingBottom: "0.625rem",
   },
 }));
 
 const Alerts = () => {
   const classes = useStyles();
-  const [stream, setStream] = useState("ztf");
-  const [objectId, setObjectId] = useState("");
 
   const history = useHistory();
 
-  const handleStreamChange = (event) => {
-    setStream(event.target.value);
-  };
+  const { register, handleSubmit, control } = useForm();
 
-  const handleObjectIdChange = (event) => {
-    setObjectId(event.target.value);
-  };
-
-  const submitForm = () => {
-    if (objectId.length > 0) {
-      const path = `/alerts/${stream}/${objectId}`;
-      history.push(path);
-    }
+  const submitForm = (data) => {
+    const path = `/alerts/${data.instrument}/${data.object_id}`;
+    history.push(path);
   };
 
   return (
     <div>
-      <h2>Search objects from alert streams</h2>
+      <Typography variant="h6" className={classes.header}>
+        Search objects from alert streams
+      </Typography>
 
       <Grid container spacing={2}>
-        <Grid item sm={12} md={2}>
-          <FormControl required className={classes.formControl}>
-            <InputLabel id="alert-stream-select-required-label">
-              Alert stream
-            </InputLabel>
-            <Select
-              labelId="alert-stream-select-required-label"
-              id="alert-stream-select"
-              value={stream}
-              onChange={handleStreamChange}
-              className={classes.selectEmpty}
-            >
-              <MenuItem value="ztf">ZTF</MenuItem>
-              {/* <MenuItem value="zuds">ZUDS</MenuItem> */}
-            </Select>
-            <FormHelperText>Required</FormHelperText>
-          </FormControl>
-        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card className={classes.root}>
+            <form onSubmit={handleSubmit(submitForm)}>
+              <CardContent>
+                <FormControl required className={classes.selectEmpty}>
+                  <InputLabel name="alert-stream-select-required-label">
+                    Instrument
+                  </InputLabel>
+                  <Controller
+                    labelId="alert-stream-select-required-label"
+                    name="instrument"
+                    as={Select}
+                    defaultValue="ztf"
+                    control={control}
+                    rules={{ required: true }}
+                  >
+                    <MenuItem value="ztf">ZTF</MenuItem>
+                  </Controller>
+                  <FormHelperText>Required</FormHelperText>
+                </FormControl>
 
-        <Grid item sm={12} md={4}>
-          <form className={classes.root} noValidate autoComplete="off">
-            <TextField
-              required
-              error={objectId.length === 0}
-              id="objectId"
-              label="objectId"
-              helperText="Required"
-              onChange={handleObjectIdChange}
-            />
-          </form>
+                <TextField
+                  autoFocus
+                  required
+                  margin="dense"
+                  name="object_id"
+                  label="objectId"
+                  type="text"
+                  fullWidth
+                  inputRef={register({ required: true, minLength: 3 })}
+                />
+              </CardContent>
+              <CardActions>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  className={classes.button_add}
+                >
+                  Search
+                </Button>
+              </CardActions>
+            </form>
+          </Card>
         </Grid>
       </Grid>
-
-      <Button
-        // component={Link}
-        // to={`/alerts/${stream}/${objectId}`}
-        variant="contained"
-        color="primary"
-        className={classes.search_button}
-        onClick={submitForm}
-      >
-        Search
-      </Button>
     </div>
   );
 };

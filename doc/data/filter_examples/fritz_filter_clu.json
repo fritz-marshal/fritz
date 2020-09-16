@@ -556,104 +556,196 @@
   {
     "$project": {
       "objectId": 1,
-      "cross_matches_CLU": 1,
-      "annotations.FWHM": "$fwhm",
-      "annotations.drb": "$drb",
+      "annotations.FWHM": {
+        "$round": [
+          "$fwhm", 3
+        ]
+      },
+      "annotations.drb": {
+        "$round": [
+          "$drb", 5
+        ]
+      },
       "annotations.host g-r": {
-        "$subtract": [
-          "$sgmag", "$srmag"
+        "$round": [
+          {
+            "$subtract": [
+              "$sgmag", "$srmag"
+            ]
+          }, 3
         ]
       },
       "annotations.host r-i": {
-        "$subtract": [
-          "$srmag", "$simag"
+        "$round": [
+          {
+            "$subtract": [
+              "$srmag", "$simag"
+            ]
+          }, 3
         ]
       },
-      "annotations.mag at max": "$m_max",
+      "annotations.mag at max": {
+        "$round": [
+          "$m_max", 3
+        ]
+      },
       "annotations.time at max": "$t_max",
-      "annotations.min-mag": "$m_min",
+      "annotations.min-mag": {
+        "$round": [
+          "$m_min", 3
+        ]
+      },
       "annotations.min-time": "$t_min",
       "annotations.time difference": {
-        "$subtract": [
-          "$t_max", "$t_min"
+        "$round": [
+          {
+            "$subtract": [
+              "$t_max", "$t_min"
+            ]
+          }, 5
         ]
       },
       "annotations.mag diff": {
-        "$subtract": [
-          "$m_min", "$m_max"
+        "$round": [
+          {
+            "$subtract": [
+              "$m_min", "$m_max"
+            ]
+          }, 3
         ]
       },
       "annotations.rise rate": {
-        "$cond": {
-          "if": {
-            "$gt": [
-              {
-                "$subtract": [
-                  "$t_max", "$t_min"
+        "$round": [
+          {
+            "$cond": {
+              "if": {
+                "$gt": [
+                  {
+                    "$subtract": [
+                      "$t_max", "$t_min"
+                    ]
+                  }, 0
                 ]
-              }, 0
-            ]
-          },
-          "then": {
-            "$divide": [
-              {
-                "$subtract": [
-                  "$m_min", "$m_max"
+              },
+              "then": {
+                "$divide": [
+                  {
+                    "$subtract": [
+                      "$m_min", "$m_max"
+                    ]
+                  }, {
+                    "$subtract": [
+                      "$t_max", "$t_min"
+                    ]
+                  }
                 ]
-              }, {
-                "$subtract": [
-                  "$t_max", "$t_min"
-                ]
-              }
-            ]
-          },
-          "else": null
-        }
+              },
+              "else": null
+            }
+          }, 5
+        ]
       },
       "annotations.decay rate": {
-        "$cond": {
-          "if": {
-            "$lt": [
-              {
-                "$subtract": [
-                  "$t_max", "$t_min"
+        "$round": [
+          {
+            "$cond": {
+              "if": {
+                "$lt": [
+                  {
+                    "$subtract": [
+                      "$t_max", "$t_min"
+                    ]
+                  }, 0
                 ]
-              }, 0
-            ]
-          },
-          "then": {
-            "$divide": [
-              {
-                "$subtract": [
-                  "$m_max", "$m_min"
+              },
+              "then": {
+                "$divide": [
+                  {
+                    "$subtract": [
+                      "$m_max", "$m_min"
+                    ]
+                  }, {
+                    "$subtract": [
+                      "$t_max", "$t_min"
+                    ]
+                  }
                 ]
-              }, {
-                "$subtract": [
-                  "$t_max", "$t_min"
-                ]
-              }
-            ]
-          },
-          "else": null
-        }
-      },
-      "annotations.host ZTF ref PSF r-mag": "$magnr",
-      "annotations.PS1 psf r-mag": "$srmag",
-      "annotations.rb score": "$rbscore",
-      "annotations.sgscore1": "$sgscore",
-      "annotations.ZOGI scorr": "$scorr",
-      "annotations.distpsnr1": "$distpsnr1",
-      "annotations.distpsnr2": "$distpsnr2",
-      "annotations.distpsnr3": "$distpsnr3",
-      "annotations.magpsf": "$m_now",
-      "annotations.elongation": "$elong",
-      "annotations.magap_min_magpsf": "$psfminap",
-      "annotations.gal_lat": "$gal_lat",
-      "annotations.deltajd": {
-        "$subtract": [
-          "$jdendhist", "$jdstarthist"
+              },
+              "else": null
+            }
+          }, 5
         ]
-      }
+      },
+      "annotations.host ZTF ref PSF r-mag": {
+        "$round": [
+          "$magnr", 3
+        ]
+      },
+      "annotations.PS1 psf r-mag": {
+        "$round": [
+          "$srmag", 3
+        ]
+      },
+      "annotations.rb score": {
+        "$round": [
+          "$rbscore", 5
+        ]
+      },
+      "annotations.sgscore1": {
+        "$round": [
+          "$sgscore", 5
+        ]
+      },
+      "annotations.ZOGI scorr": {
+        "$round": [
+          "$scorr", 3
+        ]
+      },
+      "annotations.distpsnr1": {
+        "$round": [
+          "$distpsnr1", 3
+        ]
+      },
+      "annotations.distpsnr2": {
+        "$round": [
+          "$distpsnr2", 3
+        ]
+      },
+      "annotations.distpsnr3": {
+        "$round": [
+          "$distpsnr3", 3
+        ]
+      },
+      "annotations.magpsf": {
+        "$round": [
+          "$m_now", 3
+        ]
+      },
+      "annotations.elongation": {
+        "$round": [
+          "$elong", 3
+        ]
+      },
+      "annotations.magap_min_magpsf": {
+        "$round": [
+          "$psfminap", 3
+        ]
+      },
+      "annotations.gal_lat": {
+        "$round": [
+          "$gal_lat", 5
+        ]
+      },
+      "annotations.deltajd": {
+        "$round": [
+          {
+            "$subtract": [
+              "$jdendhist", "$jdstarthist"
+            ]
+          }, 5
+        ]
+      },
+      "annotations.cross_matches_CLU": "$cross_matches_CLU"
     }
   }
 ]
