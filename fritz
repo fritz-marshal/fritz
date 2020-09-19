@@ -69,7 +69,7 @@ def check_config_exists(cfg='fritz.defaults.yaml', yes=False):
             raise IOError(f'{c} does not exist, aborting')
 
 
-def check_config(cfg='fritz.defaults.yaml', yes=False):
+def check_config(cfg='fritz.defaults.yaml', yes=False, **kwargs):
     """
     Check config, generate a K token for SP, adjust cfg and distribute to K and SP
     """
@@ -100,6 +100,17 @@ def check_config(cfg='fritz.defaults.yaml', yes=False):
     config_skyportal['server']['url'] = "http://localhost:5000"
     with open("skyportal/config.yaml", 'w') as cyaml:
         yaml.dump(config_skyportal, cyaml)
+
+    # todo: update fritz.yaml
+    if kwargs.get("init", False):
+        pass
+
+
+def update(args):
+    """
+    Update Fritz
+    """
+    pass
 
 
 def build(args):
@@ -235,6 +246,8 @@ def build(args):
 
         with open('kowalski/config.yaml', 'w') as cyaml:
             yaml.dump(config, cyaml)
+
+        # todo: update fritz.yaml
 
     # install Kowalski's deps:
     c = ["pip", "install", "-r", "requirements.txt"]
