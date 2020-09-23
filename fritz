@@ -142,7 +142,7 @@ def build(args):
     env_ok = deps_ok()
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
-    input()
+
     # check config
     check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
