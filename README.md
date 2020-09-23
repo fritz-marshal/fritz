@@ -1,4 +1,4 @@
-# fritz
+# Fritz
 
 Frontend for Reviewing Interesting Transients from ZTF-II
 
