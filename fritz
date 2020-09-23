@@ -143,6 +143,10 @@ def build(args):
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
+    # install Kowalski's deps:
+    c = ["pip", "install", "-r", "requirements.txt"]
+    subprocess.run(c, cwd="kowalski", check=True)
+
     # check config
     check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
@@ -256,9 +260,6 @@ def build(args):
         with open("fritz.yaml", 'w') as fyaml:
             yaml.dump(fritz_config, fyaml)
 
-    # install Kowalski's deps:
-    c = ["pip", "install", "-r", "requirements.txt"]
-    subprocess.run(c, cwd="kowalski", check=True)
     # Build kowalski's images
     c = ["python", "kowalski.py", "build"]
     if args.yes:
