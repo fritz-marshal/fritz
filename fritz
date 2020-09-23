@@ -43,7 +43,7 @@ def get_skyportal_token():
     result = subprocess.run(
         ["docker", "exec", "-it", "skyportal_web_1",
          "/bin/bash", "-c",
-         "more /skyportal/.tokens.yaml"
+         "cat /skyportal/.tokens.yaml"
          ],
         cwd="skyportal",
         capture_output=True,
@@ -71,7 +71,7 @@ def check_config_exists(cfg='fritz.defaults.yaml', yes=False):
 
 def check_config(cfg='fritz.defaults.yaml', yes=False, **kwargs):
     """
-    Check config, generate a K token for SP, adjust cfg and distribute to K and SP
+    Check if config exists, generate a K token for SP, adjust cfg and distribute to K and SP
     """
     c = cfg.replace('.defaults', '')
     check_config_exists(cfg=cfg, yes=yes)
@@ -86,31 +86,46 @@ def check_config(cfg='fritz.defaults.yaml', yes=False, **kwargs):
     )
     config['skyportal']['app']['kowalski']['token'] = kowalski_token
 
-    with open(c, 'w') as cyaml:
-        yaml.dump(config, cyaml)  # default_flow_style=False
-
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {'kowalski': config['kowalski']}  # don't need the SP stuff
     with open("kowalski/config.yaml", 'w') as cyaml:
         yaml.dump(config_kowalski, cyaml)
 
+    # Docker-specific SP stuff:
+    config["skyportal"]['database']['host'] = "db"
+    config["skyportal"]['server']['url'] = "http://localhost:5000"
     config_skyportal = config['skyportal']  # don't need the K stuff
-    # Docker-specific stuff:
-    config_skyportal['database']['host'] = "db"
-    config_skyportal['server']['url'] = "http://localhost:5000"
     with open("skyportal/config.yaml", 'w') as cyaml:
         yaml.dump(config_skyportal, cyaml)
 
-    # todo: update fritz.yaml
-    if kwargs.get("init", False):
-        pass
+    # update fritz.yaml:
+    with open(c, 'w') as cyaml:
+        yaml.dump(config, cyaml)
 
 
 def update(args):
     """
     Update Fritz
     """
-    pass
+    p = subprocess.run(['git', 'pull', args.repo, args.branch])
+    if p.returncode != 0:
+        raise RuntimeError(f"Failed to git pull Fritz from {args.repo}/{args.branch}")
+
+    if args.init:
+        # initialize/update fritz's submodules kowalski and skyportal
+        # pull skyportal and kowalski
+        p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to initialize fritz's submodules")
+    # auto stash SP
+    p = subprocess.run(['git', 'stash'], cwd="skyportal")
+    if p.returncode != 0:
+        raise RuntimeError("SkyPortal autostash failed")
+
+    # update submodules
+    p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
+    if p.returncode != 0:
+        raise RuntimeError("Failed to update fritz's submodules")
 
 
 def build(args):
@@ -121,25 +136,13 @@ def build(args):
     env.update({"FLAGS": "--config=../fritz.yaml"})
 
     if not args.dev:
-        if args.init:
-            # initialize/update fritz's submodules kowalski and skyportal
-            # pull skyportal and kowalski
-            p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
-            if p.returncode != 0:
-                raise RuntimeError("Failed to initialize fritz's submodules")
-        # auto stash
-        p = subprocess.run(['git', 'stash'], cwd="skyportal")
-        if p.returncode != 0:
-            raise RuntimeError("SkyPortal autostash failed")
-        p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
-        if p.returncode != 0:
-            raise RuntimeError("Failed to update fritz's submodules")
+        update(args)
 
     # check environment
     env_ok = deps_ok()
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
-
+    input()
     # check config
     check_config(cfg='fritz.defaults.yaml', yes=args.yes)
 
@@ -244,10 +247,14 @@ def build(args):
         token = get_skyportal_token()
         config['kowalski']['skyportal']['token'] = token
 
+        # save it to K's config:
         with open('kowalski/config.yaml', 'w') as cyaml:
             yaml.dump(config, cyaml)
 
-        # todo: update fritz.yaml
+        # update fritz.yaml
+        fritz_config['kowalski']['skyportal']['token'] = token
+        with open("fritz.yaml", 'w') as fyaml:
+            yaml.dump(fritz_config, fyaml)
 
     # install Kowalski's deps:
     c = ["pip", "install", "-r", "requirements.txt"]
@@ -457,8 +464,9 @@ if __name__ == "__main__":
     commands = [
         ("run", "🚀 Launch Fritz"),
         ("stop", "✋ Shut Fritz down"),
-        ("test", "Run the test suite"),
+        ("update", "Update Fritz"),
         ("build", "Build Fritz"),
+        ("test", "Run the test suite"),
         ("develop", "Install tools for developing Fritz"),
         ("lint", "Lint the full code base"),
         ("prune", "☠️ Wipe out containers, volumes, and submodules"),
@@ -484,10 +492,26 @@ if __name__ == "__main__":
         "--init", action="store_true", help="Initialize before building Fritz"
     )
     parsers["build"].add_argument(
+        "--repo", type=str, default="origin", help="Remote repository to pull from"
+    )
+    parsers["build"].add_argument(
+        "--branch", type=str, default="master", help="Branch on the remote repository"
+    )
+    parsers["build"].add_argument(
         "--dev", action="store_true", help="Build Fritz for running in dev mode"
     )
     parsers["build"].add_argument(
         "--traefik", action="store_true", help="Build Fritz to run behind Traefik"
+    )
+
+    parsers["update"].add_argument(
+        "--init", action="store_true", help="Initialize before updating Fritz"
+    )
+    parsers["update"].add_argument(
+        "--repo", type=str, default="origin", help="Remote repository to pull from"
+    )
+    parsers["update"].add_argument(
+        "--branch", type=str, default="master", help="Branch on the remote repository"
     )
 
     parsers["doc"].add_argument(

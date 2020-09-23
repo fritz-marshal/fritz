@@ -78,7 +78,7 @@ const Alerts = () => {
   const { register, handleSubmit, control } = useForm();
 
   const submitForm = (data) => {
-    const path = `/alerts/${data.instrument}/${data.object_id}`;
+    const path = `/alerts/${data.instrument}/${data.object_id.trim()}`;
     history.push(path);
   };
 

@@ -21,6 +21,22 @@ deps = {
         # It must be >= 3.7
         '3.7'
     ),
+    'docker': (
+        # Command to get version
+        ['docker', '--version'],
+        # Extract *only* the version number
+        lambda v: v.split()[2][:-1],
+        # It must be >= 18.06
+        '18.06'
+    ),
+    'docker-compose': (
+        # Command to get version
+        ['docker-compose', '--version'],
+        # Extract *only* the version number
+        lambda v: v.split()[2][:-1],
+        # It must be >= 1.22.0
+        '1.22.0'
+    ),
 }
 
 

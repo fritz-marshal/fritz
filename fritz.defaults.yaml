@@ -45,6 +45,8 @@ skyportal:
         component: ObservingRunList
       - path: "/run/:id"
         component: RunSummary
+      - path: "/group_sources/:id"
+        component: GroupSources
       - path: "/user_management"
         component: UserManagement
       - path: "/alerts"
