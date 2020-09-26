@@ -499,7 +499,7 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                     ax.imshow(img, cmap=cmap, origin='lower')
                 elif scaling == 'zscale':
                     interval = ZScaleInterval(
-                        nsamples=img.shape[0]*img.shape[1],
+                        nsamples=img.shape[0] * img.shape[1],
                         contrast=0.045,
                         krej=2.5
                     )
