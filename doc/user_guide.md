@@ -2161,7 +2161,7 @@ Initialize `fritz` and run tests:
 ./fritz test
 ```
 
-Go to `http://localhost:9000/` -- you should see a few real alerts that passed a test filter among the displayed sources.
+Go to `http://localhost:5000/` -- you should see a few real alerts that passed a test filter among the displayed sources.
 
 To shut down `fritz`, run:
 
