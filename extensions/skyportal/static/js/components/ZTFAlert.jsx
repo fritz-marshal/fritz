@@ -19,6 +19,9 @@ import MUIDataTable from "mui-datatables";
 import ThumbnailList from "./ThumbnailList";
 import ReactJson from "react-json-view";
 
+import { ra_to_hours, dec_to_hours } from "../units";
+import SharePage from "./SharePage";
+
 import * as Actions from "../ducks/alert";
 
 const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
@@ -57,6 +60,38 @@ const useStyles = makeStyles((theme) => ({
   header: {
     paddingBottom: "0.625rem",
     color: theme.palette.text.primary,
+  },
+
+  accordionHeading: {
+    fontSize: "1.25rem",
+    fontWeight: theme.typography.fontWeightRegular,
+  },
+
+  source: {
+    padding: "1rem",
+    display: "flex",
+    flexDirection: "row",
+  },
+  column: {
+    display: "flex",
+    flexFlow: "column nowrap",
+    verticalAlign: "top",
+    flex: "0 2 100%",
+    minWidth: 0,
+  },
+  columnItem: {
+    margin: "0.5rem 0",
+  },
+  name: {
+    fontSize: "200%",
+    fontWeight: "900",
+    color: "darkgray",
+    paddingBottom: "0.25em",
+    display: "inline-block",
+  },
+  alignRight: {
+    display: "inline-block",
+    verticalAlign: "super",
   },
 }));
 
@@ -186,8 +221,9 @@ const ZTFAlert = ({ route }) => {
   ];
 
   const options = {
-  selectableRows: "none"
-}
+    selectableRows: "none",
+    elevation: 1,
+  }
 
 const columns = [
   {
@@ -196,6 +232,7 @@ const columns = [
     options: {
       filter: false,
       sort: true,
+      sortDescFirst: true,
     }
   },
   {
@@ -204,6 +241,8 @@ const columns = [
     options: {
       filter: false,
       sort: true,
+      sortDirection: 'desc',
+      sortDescFirst: true,
       customBodyRender: (value, tableMeta, updateValue) => (
         value.toFixed(5)
       )
@@ -245,6 +284,7 @@ const columns = [
     options: {
       filter: false,
       sort: true,
+      sortDescFirst: true,
       customBodyRender: (value, tableMeta, updateValue) => (
         value.toFixed(5)
       )
@@ -256,6 +296,7 @@ const columns = [
     options: {
       filter: false,
       sort: true,
+      sortDescFirst: true,
       customBodyRender: (value, tableMeta, updateValue) => (
         value.toFixed(5)
       )
@@ -315,94 +356,121 @@ const columns = [
   }
   if (alert_data.length > 0) {
     return (
-      <div>
-        <Typography variant="h5" className={classes.header}>
-          {objectId}
-          <Button
-            variant="contained"
-            color="primary"
-            className={classes.margin_left}
-            startIcon={<SaveIcon />}
-            // todo: save as a source to one of my programs button
-            // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
-          >
-            Save as a Source
-          </Button>
-        </Typography>
+      <Paper elevation={1} className={classes.source}>
+        <div className={classes.column}>
+          <div className={classes.leftColumnItem}>
+            <div className={classes.alignRight}>
+              <SharePage />
+            </div>
+            <div className={classes.name}>{objectId}</div>
+            <br />
+            {candid > 0 && (
+              <>
+              <b>candid:</b>
+              &nbsp;
+              {candid}
+              <br />
+              <b>Position (J2000):</b>
+              &nbsp;
+              {alert_data.filter((a) => a.candid === candid)[0].candidate.ra}, &nbsp;
+              {alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
+              &nbsp; (&alpha;,&delta;=
+              {ra_to_hours(alert_data.filter((a) => a.candid === candid)[0].candidate.ra)}, &nbsp;
+              {dec_to_hours(alert_data.filter((a) => a.candid === candid)[0].candidate.dec)}) &nbsp;
+              (l,b=
+              {alert_data.filter((a) => a.candid === candid)[0].coordinates.l.toFixed(6)}, &nbsp;
+              {alert_data.filter((a) => a.candid === candid)[0].coordinates.b.toFixed(6)}
+              )
+              </>
+            )}
 
-        <Accordion
-          expanded={panelPhotometryThumbnailsExpanded}
-          onChange={handlePanelPhotometryThumbnailsChange(true)}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel-content"
-            id="panel-header"
+            {/*<br />*/}
+            {/*<Button*/}
+            {/*  variant="contained"*/}
+            {/*  color="primary"*/}
+            {/*  className={classes.margin_left}*/}
+            {/*  startIcon={<SaveIcon />}*/}
+            {/*  // todo: save as a source to one of my programs button*/}
+            {/*  // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}*/}
+            {/*>*/}
+            {/*  Save as a Source*/}
+            {/*</Button>*/}
+          </div>
+
+          <Accordion
+            expanded={panelPhotometryThumbnailsExpanded}
+            onChange={handlePanelPhotometryThumbnailsChange(true)}
           >
-            <Typography className={classes.heading}>
-              Photometry and cutouts
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails className={classes.accordion_details}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} lg={6}>
-                <Suspense fallback={<div>Loading plot...</div>}>
-                  <VegaPlotZTFAlert
-                    dataUrl={`/api/alerts/ztf/${objectId}/aux`}
-                    jd={jd}
-                  />
-                </Suspense>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="panel-content"
+              id="panel-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                Photometry and cutouts
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails className={classes.accordion_details}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} lg={6}>
+                  <Suspense fallback={<CircularProgress color="secondary" />}>
+                    <VegaPlotZTFAlert
+                      dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                      jd={jd}
+                    />
+                  </Suspense>
+                </Grid>
+                <Grid
+                  container
+                  item
+                  xs={12}
+                  lg={6}
+                  spacing={1}
+                  className={classes.image}
+                  alignItems={"stretch"}
+                  alignContent={"stretch"}
+                >
+                  {candid > 0 && (
+                    <ThumbnailList
+                      ra={0}
+                      dec={0}
+                      thumbnails={thumbnails}
+                      size="10rem"
+                    />
+                  )}
+                </Grid>
               </Grid>
-              <Grid
-                container
-                item
-                xs={12}
-                lg={6}
-                spacing={1}
-                className={classes.image}
-                alignItems={"stretch"}
-                alignContent={"stretch"}
-              >
-                {candid > 0 && (
-                  <ThumbnailList
-                    ra={0}
-                    dec={0}
-                    thumbnails={thumbnails}
-                    size="10rem"
-                  />
-                )}
-              </Grid>
-            </Grid>
-          </AccordionDetails>
-        </Accordion>
+            </AccordionDetails>
+          </Accordion>
 
-        <Paper className={classes.root}>
-          <MuiThemeProvider theme={getMuiTheme(theme)}>
-            <MUIDataTable
-              title={"Alerts"}
-              data={rows}
-              columns={columns}
-              options={options}
-            />
-          </MuiThemeProvider>
-        </Paper>
+          <Paper className={classes.root}>
+            <MuiThemeProvider theme={getMuiTheme(theme)}>
+              <MUIDataTable
+                title={"Alerts"}
+                data={rows}
+                columns={columns}
+                options={options}
+              />
+            </MuiThemeProvider>
+          </Paper>
 
-        <Accordion
-          expanded={panelXMatchExpanded}
-          onChange={handlePanelXMatchChange(true)}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel-content"
-            id="panel-header"
+          <Accordion
+            expanded={panelXMatchExpanded}
+            onChange={handlePanelXMatchChange(true)}
           >
-            <Typography className={classes.heading}>Cross-matches</Typography>
-          </AccordionSummary>
-          <AccordionDetails className={classes.accordion_details}>
-            <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
-          </AccordionDetails>
-        </Accordion>
-      </div>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="panel-content"
+              id="panel-header"
+            >
+              <Typography className={classes.accordionHeading}>Cross-matches</Typography>
+            </AccordionSummary>
+            <AccordionDetails className={classes.accordion_details}>
+              <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
+            </AccordionDetails>
+          </Accordion>
+        </div>
+      </Paper>
     );
   }
   return <div>Error rendering page...</div>;

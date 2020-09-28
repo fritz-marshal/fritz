@@ -106,11 +106,15 @@ class ZTFAlertHandler(BaseHandler):
                                 "candidate.jd": 1,
                                 "candidate.programid": 1,
                                 "candidate.fid": 1,
+                                "candidate.ra": 1,
+                                "candidate.dec": 1,
                                 "candidate.magpsf": 1,
                                 "candidate.sigmapsf": 1,
                                 "candidate.rb": 1,
                                 "candidate.drb": 1,
                                 "candidate.isdiffpos": 1,
+                                "coordinates.l": 1,
+                                "coordinates.b": 1,
                             }
                         },
                     ]
@@ -225,6 +229,8 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                 "prv_candidates.diffmaglim": 1,
                                 "prv_candidates.programid": 1,
                                 "prv_candidates.fid": 1,
+                                "prv_candidates.ra": 1,
+                                "prv_candidates.dec": 1,
                                 "prv_candidates.candid": 1,
                                 "prv_candidates.jd": 1,
                             }
@@ -271,9 +277,13 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                 "candidate.programid": 1,
                                 "candidate.jd": 1,
                                 "candidate.fid": 1,
+                                "candidate.ra": 1,
+                                "candidate.dec": 1,
                                 "candidate.magpsf": 1,
                                 "candidate.sigmapsf": 1,
                                 "candidate.diffmaglim": 1,
+                                "coordinates.l": 1,
+                                "coordinates.b": 1,
                             }
                         },
                         {
