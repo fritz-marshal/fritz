@@ -10,8 +10,8 @@ import numpy as np
 import os
 import pandas as pd
 import pathlib
-import requests
 import tornado.escape
+import tornado.httpclient
 import traceback
 
 from baselayer.app.access import auth_or_token
@@ -26,14 +26,13 @@ from ...models import (
     Source,
 )
 from .photometry import PhotometryHandler
-from .source import SourceHandler
 from .thumbnail import ThumbnailHandler
 
 
 log = make_log("alert")
 
 
-s = requests.Session()
+c = tornado.httpclient.AsyncHTTPClient()
 
 
 def make_thumbnail(a, ttype, ztftype):
@@ -90,22 +89,23 @@ class ZTFAlertHandler(BaseHandler):
 
         return streams
 
-    def query_kowalski(self, query, timeout=7):
+    async def query_kowalski(self, query: dict, timeout=7):
         base_url = f"{self.cfg['app.kowalski.protocol']}://" \
                    f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
-        resp = s.post(
+        resp = await c.fetch(
             os.path.join(base_url, 'api/queries'),
-            json=query,
+            method='POST',
+            body=tornado.escape.json_encode(query),
             headers=headers,
-            timeout=timeout
+            request_timeout=timeout
         )
 
         return resp
 
     @auth_or_token
-    def get(self, objectId: str = None):
+    async def get(self, objectId: str = None):
         """
         ---
         single:
@@ -195,10 +195,10 @@ class ZTFAlertHandler(BaseHandler):
             if candid:
                 query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
 
-            resp = self.query_kowalski(query=query)
+            resp = await self.query_kowalski(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data')
+            if resp.code == 200:
+                alert_data = tornado.escape.json_decode(resp.body).get('data')
                 return self.success(data=alert_data)
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
@@ -208,7 +208,7 @@ class ZTFAlertHandler(BaseHandler):
             return self.error(f'failure: {_err}')
 
     @auth_or_token
-    def post(self, objectId):
+    async def post(self, objectId):
         """
         ---
         description: Save ZTF objectId from Kowalski as source in SkyPortal
@@ -302,10 +302,10 @@ class ZTFAlertHandler(BaseHandler):
                 }
             }
 
-            resp = self.query_kowalski(query=query)
+            resp = await self.query_kowalski(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data', list(dict()))
+            if resp.code == 200:
+                alert_data = tornado.escape.json_decode(resp.body).get('data', list(dict()))
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
             else:
@@ -327,7 +327,7 @@ class ZTFAlertHandler(BaseHandler):
                             "$project": {
                                 # grab only what's going to be rendered
                                 "_id": 0,
-                                "candidate.candid": 1,
+                                "candidate.candid": {"$toString": "$candidate.candid"},
                                 "candidate.programid": 1,
                                 "candidate.jd": 1,
                                 "candidate.fid": 1,
@@ -352,10 +352,10 @@ class ZTFAlertHandler(BaseHandler):
                 }
             }
 
-            resp = self.query_kowalski(query=query)
+            resp = await self.query_kowalski(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
+            if resp.code == 200:
+                latest_alert_data = tornado.escape.json_decode(resp.body).get('data', list(dict()))
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
             else:
@@ -366,14 +366,13 @@ class ZTFAlertHandler(BaseHandler):
                 if latest_alert_data['candidate']["candid"] not in candids:
                     alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
-            # return self.success(data=alert_data)
-
             df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-            w = df["candid"] == candid
+            w = df["candid"] == str(candid)
 
             if candid is None or sum(w) == 0:
-                candid = int(df["candid"].max())
-                alert = df.loc[df["candid"] == candid].to_dict(orient="records")[0]
+                candids = {int(can) for can in df["candid"] if not pd.isnull(can)}
+                candid = max(candids)
+                alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
             else:
                 alert = df.loc[w].to_dict(orient="records")[0]
 
@@ -389,16 +388,7 @@ class ZTFAlertHandler(BaseHandler):
                 "altdata": {
                     "passing_alert_id": candid,
                 },
-                # "group_ids": group_ids
             }
-
-            # source_handler = SourceHandler(request=self.request, application=self.application)
-            # try:
-            #     source_handler.post(json=obj)
-            #     print(self.get_status())
-            # except:
-            #     log(f"Failed to post {objectId}")
-            # self.clear()
 
             schema = Obj.__schema__()
             user_group_ids = [g.id for g in self.associated_user_object.groups if not g.single_user_group]
@@ -463,6 +453,7 @@ class ZTFAlertHandler(BaseHandler):
                 photometry_handler.post()
             except:
                 log(f"Failed to post photometry of {objectId}")
+            # do not return anything yet
             self.clear()
 
             # post cutouts
@@ -489,10 +480,10 @@ class ZTFAlertHandler(BaseHandler):
                     }
                 }
 
-                resp = self.query_kowalski(query=query)
+                resp = await self.query_kowalski(query=query)
 
-                if resp.status_code == requests.codes.ok:
-                    cutout = bj.loads(resp.text).get('data', list(dict()))[0]
+                if resp.code == 200:
+                    cutout = bj.loads(bj.dumps(tornado.escape.json_decode(resp.body).get('data', list(dict()))[0]))
                 else:
                     cutout = dict()
 
@@ -516,7 +507,7 @@ class ZTFAlertHandler(BaseHandler):
 
 class ZTFAlertAuxHandler(ZTFAlertHandler):
     @auth_or_token
-    def get(self, objectId: str = None):
+    async def get(self, objectId: str = None):
         """
         ---
         single:
@@ -607,10 +598,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 }
             }
 
-            resp = self.query_kowalski(query=query)
+            resp = await self.query_kowalski(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data', list(dict()))
+            if resp.code == 200:
+                alert_data = tornado.escape.json_decode(resp.body).get('data', list(dict()))
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
             else:
@@ -632,7 +623,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                             "$project": {
                                 # grab only what's going to be rendered
                                 "_id": 0,
-                                "candidate.candid": 1,
+                                "candidate.candid": {"$toString": "$candidate.candid"},
                                 "candidate.programid": 1,
                                 "candidate.jd": 1,
                                 "candidate.fid": 1,
@@ -657,10 +648,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 }
             }
 
-            resp = self.query_kowalski(query=query)
+            resp = await self.query_kowalski(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
+            if resp.code == 200:
+                latest_alert_data = tornado.escape.json_decode(resp.body).get('data', list(dict()))
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
             else:
@@ -680,7 +671,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
 
 class ZTFAlertCutoutHandler(ZTFAlertHandler):
     @auth_or_token
-    def get(self, objectId: str = None):
+    async def get(self, objectId: str = None):
         """
         ---
         summary: Serve ZTF alert cutout as fits or png
@@ -774,10 +765,10 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 }
             }
 
-            resp = self.query_kowalski(query=query)
+            resp = await self.query_kowalski(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert = bj.loads(resp.text).get('data', list(dict()))[0]
+            if resp.code == 200:
+                alert = bj.loads(bj.dumps(tornado.escape.json_decode(resp.body).get('data', list(dict()))[0]))
             else:
                 alert = dict()
 
