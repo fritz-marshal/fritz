@@ -127,7 +127,7 @@ const Filter = () => {
     if (loadedId !== fid) {
       fetchFilterVersion();
     }
-  }, [fid, loadedId, dispatch]);
+  }, [fid, loadedId, dispatch, filterVersionLoadError]);
 
   const group_id = useSelector((state) => state.filter.group_id);
 
@@ -142,7 +142,7 @@ const Filter = () => {
       }
     };
     if (group_id) fetchGroup();
-  }, [group_id, dispatch]);
+  }, [group_id, dispatch, groupLoadError]);
 
   const filter = useSelector((state) => state.filter);
   const filter_v = useSelector((state) => state.filter_v);

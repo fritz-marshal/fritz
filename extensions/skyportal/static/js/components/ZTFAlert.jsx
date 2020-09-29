@@ -22,10 +22,10 @@ import Chip from "@material-ui/core/Chip";
 import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 
 import MUIDataTable from "mui-datatables";
+import ReactJson from "react-json-view";
 
 import SaveAlertButton from "./SaveAlertButton";
 import ThumbnailList from "./ThumbnailList";
-import ReactJson from "react-json-view";
 
 import { ra_to_hours, dec_to_hours } from "../units";
 import SharePage from "./SharePage";
@@ -128,7 +128,7 @@ const ZTFAlert = ({ route }) => {
   const [savedSource, setsavedSource] = useState(false);
 
   // not using API/source duck as that would throw an error if source does not exist
-  let fetchInit = {
+  const fetchInit = {
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
@@ -155,7 +155,7 @@ const ZTFAlert = ({ route }) => {
     };
 
     fetchSource();
-  }, [objectId, dispatch]);
+  }, [objectId, dispatch, fetchInit]);
 
   const userAccessibleGroups = useSelector(
     (state) => state.groups.userAccessible
@@ -498,8 +498,8 @@ const ZTFAlert = ({ route }) => {
                   lg={6}
                   spacing={1}
                   className={classes.image}
-                  alignItems={"stretch"}
-                  alignContent={"stretch"}
+                  alignItems="stretch"
+                  alignContent="stretch"
                 >
                   {candid > 0 && (
                     <ThumbnailList
@@ -517,7 +517,7 @@ const ZTFAlert = ({ route }) => {
           <Paper className={classes.root}>
             <MuiThemeProvider theme={getMuiTheme(theme)}>
               <MUIDataTable
-                title={"Alerts"}
+                title="Alerts"
                 data={rows}
                 columns={columns}
                 options={options}
