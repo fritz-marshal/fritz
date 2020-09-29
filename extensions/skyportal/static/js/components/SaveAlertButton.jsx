@@ -91,8 +91,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
       const result = await dispatch(alertActions.saveAlertAsSource(data));
       if (result.status === "error") {
         setIsSubmitting(false);
-      }
-      else {
+      } else {
         await dispatch(sourcetActions.fetchSource(alert.id));
       }
     } else if (selectedIndex === 1) {

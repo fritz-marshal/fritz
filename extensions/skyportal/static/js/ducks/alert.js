@@ -1,6 +1,5 @@
 import * as API from "../API";
 import store from "../store";
-import {ADD_FILTER_VERSION} from "./kowalski_filter";
 
 export const FETCH_ALERT = "skyportal/FETCH_ALERT";
 export const FETCH_ALERT_OK = "skyportal/FETCH_ALERT_OK";

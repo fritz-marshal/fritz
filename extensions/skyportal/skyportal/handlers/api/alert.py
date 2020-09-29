@@ -221,13 +221,13 @@ class ZTFAlertHandler(BaseHandler):
                     properties:
                       candid:
                         type: integer
-                        description: "[fritz] science program filter id for this user group id"
+                        description: "alert candid to use to pull thumbnails. defaults to latest alert"
                         minimum: 1
                       group_ids:
                         type: array
                         items:
                           type: integer
-                        description: "group ids to save source to"
+                        description: "group ids to save source to. defaults to all user groups"
                         minItems: 1
         responses:
           200:

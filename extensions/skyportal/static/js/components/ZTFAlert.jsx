@@ -1,10 +1,15 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useHistory } from "react-router-dom";
 
 import Button from "@material-ui/core/Button";
-import SaveIcon from "@material-ui/icons/Save";
 import PropTypes from "prop-types";
-import { makeStyles, useTheme, createMuiTheme, MuiThemeProvider } from "@material-ui/core/styles";
+import {
+  makeStyles,
+  useTheme,
+  createMuiTheme,
+  MuiThemeProvider,
+} from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Grid from "@material-ui/core/Grid";
 import Accordion from "@material-ui/core/Accordion";
@@ -25,7 +30,6 @@ import ReactJson from "react-json-view";
 import { ra_to_hours, dec_to_hours } from "../units";
 import SharePage from "./SharePage";
 
-// import * as SourceAction from "../ducks/source";
 import * as Actions from "../ducks/alert";
 
 const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
@@ -107,7 +111,9 @@ const getMuiTheme = (theme) =>
     overrides: {
       MUIDataTableBodyCell: {
         root: {
-          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(0.25)}px ${theme.spacing(1)}px`,
+          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
+            0.25
+          )}px ${theme.spacing(1)}px`,
         },
       },
     },
@@ -116,6 +122,7 @@ const getMuiTheme = (theme) =>
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
+  const history = useHistory();
 
   // figure out if this objectId has been saved as Source.
   const [savedSource, setsavedSource] = useState(false);
@@ -126,14 +133,13 @@ const ZTFAlert = ({ route }) => {
     headers: {
       "Content-Type": "application/json",
     },
-    method: "GET"
+    method: "GET",
   };
 
   const loadedSourceId = useSelector((state) => state?.source?.id);
 
   useEffect(() => {
     const fetchSource = async () => {
-
       const response = await fetch(`/api/sources/${objectId}`, fetchInit);
 
       let json = "";
@@ -144,7 +150,7 @@ const ZTFAlert = ({ route }) => {
       }
 
       if (json.status === "success") {
-        setsavedSource(true)
+        setsavedSource(true);
       }
     };
 
@@ -155,8 +161,8 @@ const ZTFAlert = ({ route }) => {
     (state) => state.groups.userAccessible
   );
 
-  const userAccessibleGroupIds = useSelector(
-    (state) => state.groups.userAccessible?.map((a) => a.id)
+  const userAccessibleGroupIds = useSelector((state) =>
+    state.groups.userAccessible?.map((a) => a.id)
   );
 
   const theme = useTheme();
@@ -187,18 +193,18 @@ const ZTFAlert = ({ route }) => {
 
   const makeRow = (alert) => {
     return {
-      "candid": alert?.candid,
-      "jd": alert?.candidate.jd,
-      "fid": alert?.candidate.fid,
-      "mag": alert?.candidate.magpsf,
-      "emag": alert?.candidate.sigmapsf,
-      "rb": alert?.candidate.rb,
-      "drb": alert?.candidate.drb,
-      "isdiffpos": alert?.candidate.isdiffpos,
-      "programid": alert?.candidate.programid,
-      "alert_actions": "show thumbnails",
-    }
-  }
+      candid: alert?.candid,
+      jd: alert?.candidate.jd,
+      fid: alert?.candidate.fid,
+      mag: alert?.candidate.magpsf,
+      emag: alert?.candidate.sigmapsf,
+      rb: alert?.candidate.rb,
+      drb: alert?.candidate.drb,
+      isdiffpos: alert?.candidate.isdiffpos,
+      programid: alert?.candidate.programid,
+      alert_actions: "show thumbnails",
+    };
+  };
 
   let rows = [];
 
@@ -270,125 +276,119 @@ const ZTFAlert = ({ route }) => {
     elevation: 1,
     sortOrder: {
       name: "jd",
-      direction: "desc"
+      direction: "desc",
     },
-  }
+  };
 
-const columns = [
-  {
-    name: "candid",
-    label: "candid",
-    options: {
-      filter: false,
-      sort: true,
-      sortDescFirst: true,
-    }
-  },
-  {
-    name: "jd",
-    label: "JD",
-    options: {
-      filter: false,
-      sort: true,
-      sortDescFirst: true,
-      customBodyRender: (value, tableMeta, updateValue) => (
-        value.toFixed(5)
-      )
-    }
-  },
-  {
-    name: "fid",
-    label: "fid",
-    options: {
-      filter: true,
-      sort: true,
-    }
-  },
-  {
-    name: "mag",
-    label: "mag",
-    options: {
-      filter: false,
-      sort: true,
-      customBodyRender: (value, tableMeta, updateValue) => (
-        value.toFixed(3)
-      )
-    }
-  },
-  {
-    name: "emag",
-    label: "e_mag",
-    options: {
-      filter: false,
-      sort: true,
-      customBodyRender: (value, tableMeta, updateValue) => (
-        value.toFixed(3)
-      )
-    }
-  },
-  {
-    name: "rb",
-    label: "rb",
-    options: {
-      filter: false,
-      sort: true,
-      sortDescFirst: true,
-      customBodyRender: (value, tableMeta, updateValue) => (
-        value.toFixed(5)
-      )
-    }
-  },
-  {
-    name: "drb",
-    label: "drb",
-    options: {
-      filter: false,
-      sort: true,
-      sortDescFirst: true,
-      customBodyRender: (value, tableMeta, updateValue) => (
-        value.toFixed(5)
-      )
-    }
-  },
-  {
-    name: "isdiffpos",
-    label: "isdiffpos",
-    options: {
-      filter: true,
-      sort: true,
-    }
-  },
-  {
-    name: "programid",
-    label: "programid",
-    options: {
-      filter: true,
-      sort: true,
-    }
-  },
-  {
-    name: "alert_actions",
-    label: "actions",
-    options: {
-      filter: false,
-      sort: false,
-      customBodyRender: (value, tableMeta, updateValue) => (
-        <Button
-          size="small"
-          onClick={() => {
-            setCandid(tableMeta.rowData[0]);
-            setJd(tableMeta.rowData[1]);
-          }}
-        >
-          Show&nbsp;thumbnails
-        </Button>
-      )
-    }
-  },
-];
+  const columns = [
+    {
+      name: "candid",
+      label: "candid",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+      },
+    },
+    {
+      name: "jd",
+      label: "JD",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "fid",
+      label: "fid",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "mag",
+      label: "mag",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+      },
+    },
+    {
+      name: "emag",
+      label: "e_mag",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+      },
+    },
+    {
+      name: "rb",
+      label: "rb",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "drb",
+      label: "drb",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "isdiffpos",
+      label: "isdiffpos",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "programid",
+      label: "programid",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "alert_actions",
+      label: "actions",
+      options: {
+        filter: false,
+        sort: false,
+        customBodyRender: (value, tableMeta, updateValue) => (
+          <Button
+            size="small"
+            onClick={() => {
+              setCandid(tableMeta.rowData[0]);
+              setJd(tableMeta.rowData[1]);
+            }}
+          >
+            Show&nbsp;thumbnails
+          </Button>
+        ),
+      },
+    },
+  ];
 
   if (alert_data === null) {
-    return <div><CircularProgress color="secondary" /></div>;
+    return (
+      <div>
+        <CircularProgress color="secondary" />
+      </div>
+    );
   }
   if (isString(alert_data) || isString(alert_aux_data)) {
     return <div>Failed to fetch alert data, please try again later.</div>;
@@ -419,23 +419,18 @@ const columns = [
                   label="Previously Saved"
                   clickable
                   onClick={() => history.push(`/source/${objectId}`)}
-                  onDelete={() =>
-                    window.open(`/source/${objectId}`, "_blank")
-                  }
+                  onDelete={() => window.open(`/source/${objectId}`, "_blank")}
                   deleteIcon={<OpenInNewIcon />}
                   color="primary"
                 />
               </div>
             ) : (
               <div className={classes.itemPaddingBottom}>
-                <Chip
-                  size="small"
-                  label="NOT SAVED"
-                />
+                <Chip size="small" label="NOT SAVED" />
                 <br />
                 <div className={classes.saveAlertButton}>
                   <SaveAlertButton
-                    alert={{id: objectId, group_ids: userAccessibleGroupIds}}
+                    alert={{ id: objectId, group_ids: userAccessibleGroupIds }}
                     userGroups={userAccessibleGroups}
                   />
                 </div>
@@ -443,21 +438,32 @@ const columns = [
             )}
             {candid > 0 && (
               <>
-              <b>candid:</b>
-              &nbsp;
-              {candid}
-              <br />
-              <b>Position (J2000):</b>
-              &nbsp;
-              {alert_data.filter((a) => a.candid === candid)[0].candidate.ra}, &nbsp;
-              {alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
-              &nbsp; (&alpha;,&delta;=
-              {ra_to_hours(alert_data.filter((a) => a.candid === candid)[0].candidate.ra)}, &nbsp;
-              {dec_to_hours(alert_data.filter((a) => a.candid === candid)[0].candidate.dec)}) &nbsp;
-              (l,b=
-              {alert_data.filter((a) => a.candid === candid)[0].coordinates.l.toFixed(6)}, &nbsp;
-              {alert_data.filter((a) => a.candid === candid)[0].coordinates.b.toFixed(6)}
-              )
+                <b>candid:</b>
+                &nbsp;
+                {candid}
+                <br />
+                <b>Position (J2000):</b>
+                &nbsp;
+                {alert_data.filter((a) => a.candid === candid)[0].candidate.ra},
+                &nbsp;
+                {alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
+                &nbsp; (&alpha;,&delta;=
+                {ra_to_hours(
+                  alert_data.filter((a) => a.candid === candid)[0].candidate.ra
+                )}
+                , &nbsp;
+                {dec_to_hours(
+                  alert_data.filter((a) => a.candid === candid)[0].candidate.dec
+                )}
+                ) &nbsp; (l,b=
+                {alert_data
+                  .filter((a) => a.candid === candid)[0]
+                  .coordinates.l.toFixed(6)}
+                , &nbsp;
+                {alert_data
+                  .filter((a) => a.candid === candid)[0]
+                  .coordinates.b.toFixed(6)}
+                )
               </>
             )}
           </div>
@@ -528,10 +534,16 @@ const columns = [
               aria-controls="panel-content"
               id="panel-header"
             >
-              <Typography className={classes.accordionHeading}>Cross-matches</Typography>
+              <Typography className={classes.accordionHeading}>
+                Cross-matches
+              </Typography>
             </AccordionSummary>
             <AccordionDetails className={classes.accordion_details}>
-              <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
+              <ReactJson
+                src={cross_matches}
+                name={false}
+                theme={darkTheme ? "monokai" : "rjv-default"}
+              />
             </AccordionDetails>
           </Accordion>
         </div>
