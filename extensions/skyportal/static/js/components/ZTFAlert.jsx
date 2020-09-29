@@ -13,15 +13,19 @@ import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 import CircularProgress from "@material-ui/core/CircularProgress";
+import Chip from "@material-ui/core/Chip";
+import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 
 import MUIDataTable from "mui-datatables";
 
+import SaveAlertButton from "./SaveAlertButton";
 import ThumbnailList from "./ThumbnailList";
 import ReactJson from "react-json-view";
 
 import { ra_to_hours, dec_to_hours } from "../units";
 import SharePage from "./SharePage";
 
+// import * as SourceAction from "../ducks/source";
 import * as Actions from "../ducks/alert";
 
 const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
@@ -36,12 +40,11 @@ const useStyles = makeStyles((theme) => ({
   whitish: {
     color: "#f0f0f0",
   },
-
-  margin_bottom: {
-    "margin-bottom": "2em",
+  itemPaddingBottom: {
+    paddingBottom: "0.5rem",
   },
-  margin_left: {
-    "margin-left": "2em",
+  saveCandidateButton: {
+    margin: "0.5rem 0",
   },
   image: {
     padding: theme.spacing(1),
@@ -113,6 +116,44 @@ const getMuiTheme = (theme) =>
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
+
+  // figure out if this objectId has been saved as Source.
+  const [savedSource, setsavedSource] = useState(false);
+
+  // not using API/source duck as that would throw an error if source does not exist
+  let fetchInit = {
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "GET"
+  };
+
+  useEffect(() => {
+    const fetchSource = async () => {
+
+      const response = await fetch(`/api/sources/${objectId}`, fetchInit);
+
+      let json = "";
+      try {
+        json = await response.json();
+      } catch (error) {
+        throw new Error(`JSON decoding error: ${error}`);
+      }
+
+      console.log(json);
+
+      if (json.status === "success") {
+        setsavedSource(true)
+      }
+    };
+
+    fetchSource();
+  }, [objectId, dispatch]);
+
+  const userAccessibleGroups = useSelector(
+    (state) => state.groups.userAccessible
+  );
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
@@ -364,6 +405,35 @@ const columns = [
             </div>
             <div className={classes.name}>{objectId}</div>
             <br />
+            {savedSource ? (
+              <div className={classes.itemPaddingBottom}>
+                <Chip
+                  size="small"
+                  label="Previously Saved"
+                  clickable
+                  onClick={() => history.push(`/source/${objectId}`)}
+                  onDelete={() =>
+                    window.open(`/source/${objectId}`, "_blank")
+                  }
+                  deleteIcon={<OpenInNewIcon />}
+                  color="primary"
+                />
+              </div>
+            ) : (
+              <div className={classes.itemPaddingBottom}>
+                <Chip
+                  size="small"
+                  label="NOT SAVED"
+                />
+                <br />
+                <div className={classes.saveCandidateButton}>
+                  <SaveAlertButton
+                    candidate={{id: objectId, passing_group_ids: [1]}}
+                    userGroups={userAccessibleGroups}
+                  />
+                </div>
+              </div>
+            )}
             {candid > 0 && (
               <>
               <b>candid:</b>
@@ -383,18 +453,6 @@ const columns = [
               )
               </>
             )}
-
-            {/*<br />*/}
-            {/*<Button*/}
-            {/*  variant="contained"*/}
-            {/*  color="primary"*/}
-            {/*  className={classes.margin_left}*/}
-            {/*  startIcon={<SaveIcon />}*/}
-            {/*  // todo: save as a source to one of my programs button*/}
-            {/*  // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}*/}
-            {/*>*/}
-            {/*  Save as a Source*/}
-            {/*</Button>*/}
           </div>
 
           <Accordion
