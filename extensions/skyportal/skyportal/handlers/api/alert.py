@@ -40,7 +40,7 @@ def make_thumbnail(a, ttype, ztftype):
     cutout_data = a[f'cutout{ztftype}']['stampData']
     with gzip.open(io.BytesIO(cutout_data), 'rb') as f:
         with fits.open(io.BytesIO(f.read())) as hdu:
-            header = hdu[0].header
+            # header = hdu[0].header
             data_flipped_y = np.flipud(hdu[0].data)
     # fixme: png, switch to fits eventually
     buff = io.BytesIO()
@@ -403,7 +403,7 @@ class ZTFAlertHandler(BaseHandler):
                     for _id in group_ids
                     if int(_id) in user_accessible_group_ids
                 ]
-            except:
+            except Exception:
                 group_ids = user_group_ids
             if not group_ids:
                 return self.error(
@@ -451,7 +451,7 @@ class ZTFAlertHandler(BaseHandler):
             photometry_handler.request.body = tornado.escape.json_encode(photometry)
             try:
                 photometry_handler.post()
-            except:
+            except Exception:
                 log(f"Failed to post photometry of {objectId}")
             # do not return anything yet
             self.clear()
@@ -492,7 +492,7 @@ class ZTFAlertHandler(BaseHandler):
                 try:
                     thumbnail_handler.request.body = tornado.escape.json_encode(thumb)
                     thumbnail_handler.post()
-                except:
+                except Exception:
                     log(f"Failed to post thumbnails of {objectId} | {candid}")
                 self.clear()
 
