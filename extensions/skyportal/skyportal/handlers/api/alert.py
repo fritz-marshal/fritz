@@ -1,4 +1,5 @@
 from astropy.io import fits
+import base64
 import bson.json_util as bj
 import gzip
 import io
@@ -10,6 +11,7 @@ import os
 import pandas as pd
 import pathlib
 import requests
+import tornado.escape
 import traceback
 
 from baselayer.app.access import auth_or_token
@@ -25,12 +27,52 @@ from ...models import (
 )
 from .photometry import PhotometryHandler
 from .source import SourceHandler
+from .thumbnail import ThumbnailHandler
 
 
 log = make_log("alert")
 
 
 s = requests.Session()
+
+
+def make_thumbnail(a, ttype, ztftype):
+
+    cutout_data = a[f'cutout{ztftype}']['stampData']
+    with gzip.open(io.BytesIO(cutout_data), 'rb') as f:
+        with fits.open(io.BytesIO(f.read())) as hdu:
+            header = hdu[0].header
+            data_flipped_y = np.flipud(hdu[0].data)
+    # fixme: png, switch to fits eventually
+    buff = io.BytesIO()
+    plt.close('all')
+    fig = plt.figure()
+    fig.set_size_inches(4, 4, forward=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+
+    # remove nans:
+    img = np.array(data_flipped_y)
+    img = np.nan_to_num(img)
+
+    if ztftype != 'Difference':
+        img[img <= 0] = np.median(img)
+        plt.imshow(img, cmap="bone", norm=mplc.LogNorm(), origin='lower')
+    else:
+        plt.imshow(img, cmap="bone", origin='lower')
+    plt.savefig(buff, dpi=42)
+
+    buff.seek(0)
+    plt.close('all')
+
+    thumb = {
+        "obj_id": a["objectId"],
+        "data": base64.b64encode(buff.read()).decode("utf-8"),
+        "ttype": ttype,
+    }
+
+    return thumb
 
 
 class ZTFAlertHandler(BaseHandler):
@@ -210,7 +252,7 @@ class ZTFAlertHandler(BaseHandler):
 
         data = self.get_json()
         candid = data.get("candid", None)
-        group_ids = data.pop("group_ids")
+        group_ids = data.pop("group_ids", None)
 
         try:
             query = {
@@ -331,31 +373,35 @@ class ZTFAlertHandler(BaseHandler):
 
             if candid is None or sum(w) == 0:
                 candid = int(df["candid"].max())
-                alert = df.loc[df["candid"] == candid].to_dict(orient="records")
+                alert = df.loc[df["candid"] == candid].to_dict(orient="records")[0]
             else:
-                alert = df.loc[w].to_dict(orient="records")
+                alert = df.loc[w].to_dict(orient="records")[0]
 
             # post source
-            obj = {
+            drb = alert.get('drb')
+            rb = alert.get('rb')
+            score = drb if drb is not None and not np.isnan(drb) else rb
+            alert_thin = {
                 "id": objectId,
                 "ra": alert.get('ra'),
                 "dec": alert.get('dec'),
-                "score": alert.get('drb', alert['rb']),
+                "score": score,
                 "altdata": {
                     "passing_alert_id": candid,
                 },
-                "group_ids": group_ids
+                # "group_ids": group_ids
             }
 
-            source_handler = SourceHandler(request=self.request, application=self.application)
-            try:
-                source_handler.post(json=obj)
-                print(self.get_status())
-            except:
-                log(f"Failed to post {objectId}")
-            self.clear()
+            # source_handler = SourceHandler(request=self.request, application=self.application)
+            # try:
+            #     source_handler.post(json=obj)
+            #     print(self.get_status())
+            # except:
+            #     log(f"Failed to post {objectId}")
+            # self.clear()
 
-            user_group_ids = [g.id for g in self.associated_user_object.groups]
+            schema = Obj.__schema__()
+            user_group_ids = [g.id for g in self.associated_user_object.groups if not g.single_user_group]
             user_accessible_group_ids = [g.id for g in self.associated_user_object.accessible_groups]
             if not user_group_ids:
                 return self.error(
@@ -367,14 +413,19 @@ class ZTFAlertHandler(BaseHandler):
                     for _id in group_ids
                     if int(_id) in user_accessible_group_ids
                 ]
-            except KeyError:
+            except:
                 group_ids = user_group_ids
             if not group_ids:
                 return self.error(
                     "Invalid group_ids field. Please specify at least "
                     "one valid group ID that you belong to."
                 )
-
+            try:
+                obj = schema.load(alert_thin)
+            except ValidationError as e:
+                return self.error(
+                    'Invalid/missing parameters: ' f'{e.normalized_messages()}'
+                )
             groups = Group.query.filter(Group.id.in_(group_ids)).all()
             if not groups:
                 return self.error(
@@ -385,18 +436,78 @@ class ZTFAlertHandler(BaseHandler):
             DBSession().add_all([Source(obj=obj, group=group) for group in groups])
             DBSession().commit()
 
-            # todo
+            # post photometry
+            ztf_filters = {1: 'ztfg', 2: 'ztfr', 3: 'ztfi'}
+            df['ztf_filter'] = df['fid'].apply(lambda x: ztf_filters[x])
+            df['magsys'] = "ab"
+            df['zp'] = 25.0
+            df['mjd'] = df['jd'] - 2400000.5
+
+            photometry = {
+                "obj_id": objectId,
+                "group_ids": group_ids,
+                "instrument_id": 1,  # placeholder
+                "mjd": df.mjd.tolist(),
+                "mag": df.magpsf.tolist(),
+                "magerr": df.sigmapsf.tolist(),
+                "limiting_mag": df.diffmaglim.tolist(),
+                "magsys": df.magsys.tolist(),
+                "filter": df.ztf_filter.tolist(),
+                "ra": df.ra.tolist(),
+                "dec": df.dec.tolist(),
+            }
+
             photometry_handler = PhotometryHandler(request=self.request, application=self.application)
+            photometry_handler.request.body = tornado.escape.json_encode(photometry)
             try:
-                photometry_handler.get(objectId)
-                print(self.get_status())
+                photometry_handler.post()
             except:
                 log(f"Failed to post photometry of {objectId}")
             self.clear()
 
+            # post cutouts
+            thumbnail_handler = ThumbnailHandler(request=self.request, application=self.application)
+            for ttype, ztftype in [('new', 'Science'), ('ref', 'Template'), ('sub', 'Difference')]:
+                query = {
+                    "query_type": "find",
+                    "query": {
+                        "catalog": "ZTF_alerts",
+                        "filter": {
+                            "candid": candid,
+                            "candidate.programid": {
+                                "$in": selector
+                            }
+                        },
+                        "projection": {
+                            "_id": 0,
+                            "objectId": 1,
+                            f"cutout{ztftype}": 1
+                        }
+                    },
+                    "kwargs": {
+                        "limit": 1,
+                    }
+                }
+
+                resp = self.query_kowalski(query=query)
+
+                if resp.status_code == requests.codes.ok:
+                    cutout = bj.loads(resp.text).get('data', list(dict()))[0]
+                else:
+                    cutout = dict()
+
+                thumb = make_thumbnail(cutout, ttype, ztftype)
+
+                try:
+                    thumbnail_handler.request.body = tornado.escape.json_encode(thumb)
+                    thumbnail_handler.post()
+                except:
+                    log(f"Failed to post thumbnails of {objectId} | {candid}")
+                self.clear()
+
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
-            return self.success(data={"id": obj["id"]})
+            return self.success(data={"id": obj.id})
 
         except Exception:
             _err = traceback.format_exc()
