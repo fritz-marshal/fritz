@@ -17,10 +17,10 @@ import MenuItem from "@material-ui/core/MenuItem";
 import MenuList from "@material-ui/core/MenuList";
 import { useForm, Controller } from "react-hook-form";
 
-import * as sourceActions from "../ducks/source";
+import * as alertActions from "../ducks/alert";
 import FormValidationError from "./FormValidationError";
 
-const SaveCandidateButton = ({ candidate, userGroups }) => {
+const SaveAlertButton = ({ alert, userGroups }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Dialog logic:
 
@@ -32,10 +32,10 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
   useEffect(() => {
     reset({
       group_ids: userGroups.map((userGroup) =>
-        candidate.passing_group_ids.includes(userGroup.id)
+        alert.group_ids.includes(userGroup.id)
       ),
     });
-  }, [reset, userGroups, candidate]);
+  }, [reset, userGroups, alert]);
 
   const handleClickOpenDialog = () => {
     setDialogOpen(true);
@@ -52,11 +52,11 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
 
   const onSubmitGroupSelectSave = async (data) => {
     setIsSubmitting(true);
-    data.id = candidate.id;
+    data.id = alert.id;
     const groupIDs = userGroups.map((g) => g.id);
     const selectedGroupIDs = groupIDs.filter((ID, idx) => data.group_ids[idx]);
     data.group_ids = selectedGroupIDs;
-    const result = await dispatch(sourceActions.saveSource(data));
+    const result = await dispatch(alertActions.saveAlertAsSource(data));
     if (result.status === "success") {
       reset();
       setDialogOpen(false);
@@ -69,7 +69,7 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
   // https://material-ui.com/components/button-group/#split-button):
 
   const passingGroupNames = userGroups
-    .filter((g) => candidate.passing_group_ids.includes(g.id))
+    .filter((g) => alert.group_ids.includes(g.id))
     .map((g) => g.name.substring(0, 15) + (g.name.length > 15 ? "..." : ""))
     .join(", ");
 
@@ -83,10 +83,10 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
     if (selectedIndex === 0) {
       setIsSubmitting(true);
       const data = {
-        id: candidate.id,
-        group_ids: candidate.passing_group_ids,
+        id: alert.id,
+        group_ids: alert.group_ids,
       };
-      const result = await dispatch(sourceActions.saveSource(data));
+      const result = await dispatch(alertActions.saveAlertAsSource(data));
       if (result.status === "error") {
         setIsSubmitting(false);
       }
@@ -120,8 +120,8 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
       >
         <Button
           onClick={handleClickMainButton}
-          name={`initialSaveCandidateButton${candidate.id}`}
-          data-testid={`saveCandidateButton_${candidate.id}`}
+          name={`initialSaveAlertButton${alert.id}`}
+          data-testid={`saveAlertButton_${alert.id}`}
           disabled={isSubmitting}
         >
           {options[selectedIndex]}
@@ -132,7 +132,7 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
           aria-expanded={splitButtonMenuOpen ? "true" : undefined}
           aria-label="Save as Source"
           aria-haspopup="menu"
-          name={`saveCandidateButtonDropDownArrow${candidate.id}`}
+          name={`saveAlertButtonDropDownArrow${alert.id}`}
           onClick={handleToggleSplitButtonMenu}
         >
           <ArrowDropDownIcon />
@@ -144,6 +144,7 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
         role={undefined}
         transition
         disablePortal
+        style={{ zIndex: 1000 }}
       >
         {({ TransitionProps, placement }) => (
           <Grow
@@ -160,7 +161,7 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
                   {options.map((option, index) => (
                     <MenuItem
                       key={option}
-                      name={`buttonMenuOption${candidate.id}_${option}`}
+                      name={`buttonMenuOption${alert.id}_${option}`}
                       selected={index === selectedIndex}
                       onClick={(event) => handleMenuItemClick(event, index)}
                     >
@@ -204,7 +205,7 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
               <Button
                 variant="contained"
                 type="submit"
-                name={`finalSaveCandidateButton${candidate.id}`}
+                name={`finalSaveAlertButton${alert.id}`}
               >
                 Save
               </Button>
@@ -215,10 +216,10 @@ const SaveCandidateButton = ({ candidate, userGroups }) => {
     </div>
   );
 };
-SaveCandidateButton.propTypes = {
-  candidate: PropTypes.shape({
+SaveAlertButton.propTypes = {
+  alert: PropTypes.shape({
     id: PropTypes.string,
-    passing_group_ids: PropTypes.arrayOf(PropTypes.number),
+    group_ids: PropTypes.arrayOf(PropTypes.number),
   }).isRequired,
   userGroups: PropTypes.arrayOf(
     PropTypes.shape({
@@ -228,4 +229,4 @@ SaveCandidateButton.propTypes = {
   ).isRequired,
 };
 
-export default SaveCandidateButton;
+export default SaveAlertButton;

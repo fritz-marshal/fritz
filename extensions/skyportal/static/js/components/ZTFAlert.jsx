@@ -43,7 +43,7 @@ const useStyles = makeStyles((theme) => ({
   itemPaddingBottom: {
     paddingBottom: "0.5rem",
   },
-  saveCandidateButton: {
+  saveAlertButton: {
     margin: "0.5rem 0",
   },
   image: {
@@ -141,8 +141,6 @@ const ZTFAlert = ({ route }) => {
         throw new Error(`JSON decoding error: ${error}`);
       }
 
-      console.log(json);
-
       if (json.status === "success") {
         setsavedSource(true)
       }
@@ -153,6 +151,10 @@ const ZTFAlert = ({ route }) => {
 
   const userAccessibleGroups = useSelector(
     (state) => state.groups.userAccessible
+  );
+
+  const userAccessibleGroupIds = useSelector(
+    (state) => state.groups.userAccessible?.map((a) => a.id)
   );
 
   const theme = useTheme();
@@ -264,6 +266,10 @@ const ZTFAlert = ({ route }) => {
   const options = {
     selectableRows: "none",
     elevation: 1,
+    sortOrder: {
+      name: "jd",
+      direction: "desc"
+    },
   }
 
 const columns = [
@@ -282,7 +288,6 @@ const columns = [
     options: {
       filter: false,
       sort: true,
-      sortDirection: 'desc',
       sortDescFirst: true,
       customBodyRender: (value, tableMeta, updateValue) => (
         value.toFixed(5)
@@ -426,9 +431,9 @@ const columns = [
                   label="NOT SAVED"
                 />
                 <br />
-                <div className={classes.saveCandidateButton}>
+                <div className={classes.saveAlertButton}>
                   <SaveAlertButton
-                    candidate={{id: objectId, passing_group_ids: [1]}}
+                    alert={{id: objectId, group_ids: userAccessibleGroupIds}}
                     userGroups={userAccessibleGroups}
                   />
                 </div>
