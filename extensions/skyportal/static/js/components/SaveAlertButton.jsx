@@ -18,6 +18,7 @@ import MenuList from "@material-ui/core/MenuList";
 import { useForm, Controller } from "react-hook-form";
 
 import * as alertActions from "../ducks/alert";
+import * as sourcetActions from "../ducks/source";
 import FormValidationError from "./FormValidationError";
 
 const SaveAlertButton = ({ alert, userGroups }) => {
@@ -60,6 +61,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     if (result.status === "success") {
       reset();
       setDialogOpen(false);
+      await dispatch(sourcetActions.fetchSource(alert.id));
     } else if (result.status === "error") {
       setIsSubmitting(false);
     }
@@ -89,6 +91,9 @@ const SaveAlertButton = ({ alert, userGroups }) => {
       const result = await dispatch(alertActions.saveAlertAsSource(data));
       if (result.status === "error") {
         setIsSubmitting(false);
+      }
+      else {
+        await dispatch(sourcetActions.fetchSource(alert.id));
       }
     } else if (selectedIndex === 1) {
       handleClickOpenDialog();

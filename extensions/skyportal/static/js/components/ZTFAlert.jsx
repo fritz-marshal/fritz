@@ -129,6 +129,8 @@ const ZTFAlert = ({ route }) => {
     method: "GET"
   };
 
+  const loadedSourceId = useSelector((state) => state?.source?.id);
+
   useEffect(() => {
     const fetchSource = async () => {
 
@@ -410,7 +412,7 @@ const columns = [
             </div>
             <div className={classes.name}>{objectId}</div>
             <br />
-            {savedSource ? (
+            {savedSource || loadedSourceId ? (
               <div className={classes.itemPaddingBottom}>
                 <Chip
                   size="small"
