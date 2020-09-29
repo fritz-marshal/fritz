@@ -117,7 +117,7 @@ const Filter = () => {
   useEffect(() => {
     const fetchFilterVersion = async () => {
       const data = await dispatch(filterVersionActions.fetchFilterVersion(fid));
-      if ((data.status === "error") && !(data.message.includes("not found"))) {
+      if (data.status === "error" && !data.message.includes("not found")) {
         setFilterVersionLoadError(data.message);
         if (filterVersionLoadError.length > 1) {
           dispatch(showNotification(filterVersionLoadError, "error"));
