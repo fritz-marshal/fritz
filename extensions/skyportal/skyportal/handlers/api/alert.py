@@ -308,6 +308,8 @@ class ZTFAlertHandler(BaseHandler):
                 alert_data = tornado.escape.json_decode(resp.body).get('data', list(dict()))
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
+                else:
+                    return self.error(f"{objectId} not found on Kowalski")
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
