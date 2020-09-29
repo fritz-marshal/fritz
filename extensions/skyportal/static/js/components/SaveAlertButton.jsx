@@ -56,14 +56,16 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     data.id = alert.id;
     const groupIDs = userGroups.map((g) => g.id);
     const selectedGroupIDs = groupIDs.filter((ID, idx) => data.group_ids[idx]);
-    data.group_ids = selectedGroupIDs;
+
+    data.payload = {candid: alert.candid, group_ids: selectedGroupIDs};
+
     const result = await dispatch(alertActions.saveAlertAsSource(data));
-    if (result.status === "success") {
-      reset();
-      setDialogOpen(false);
-      await dispatch(sourcetActions.fetchSource(alert.id));
-    } else if (result.status === "error") {
+    if (result.status === "error") {
       setIsSubmitting(false);
+    } else {
+      setDialogOpen(false);
+      reset();
+      await dispatch(sourcetActions.fetchSource(alert.id));
     }
   };
 
@@ -86,7 +88,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
       setIsSubmitting(true);
       const data = {
         id: alert.id,
-        group_ids: alert.group_ids,
+        payload: {candid: alert.candid, group_ids: alert.group_ids},
       };
       const result = await dispatch(alertActions.saveAlertAsSource(data));
       if (result.status === "error") {

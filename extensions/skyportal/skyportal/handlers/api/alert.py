@@ -459,7 +459,6 @@ class ZTFAlertHandler(BaseHandler):
             self.clear()
 
             # post cutouts
-            thumbnail_handler = ThumbnailHandler(request=self.request, application=self.application)
             for ttype, ztftype in [('new', 'Science'), ('ref', 'Template'), ('sub', 'Difference')]:
                 query = {
                     "query_type": "find",
@@ -492,15 +491,17 @@ class ZTFAlertHandler(BaseHandler):
                 thumb = make_thumbnail(cutout, ttype, ztftype)
 
                 try:
+                    thumbnail_handler = ThumbnailHandler(request=self.request, application=self.application)
                     thumbnail_handler.request.body = tornado.escape.json_encode(thumb)
                     thumbnail_handler.post()
-                except Exception:
+                except Exception as e:
                     log(f"Failed to post thumbnails of {objectId} | {candid}")
+                    log(str(e))
                 self.clear()
 
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
-            return self.success(data={"id": obj.id})
+            return self.success(data={"id": objectId})
 
         except Exception:
             _err = traceback.format_exc()

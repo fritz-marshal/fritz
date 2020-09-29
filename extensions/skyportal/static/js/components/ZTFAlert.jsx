@@ -126,6 +126,7 @@ const ZTFAlert = ({ route }) => {
 
   // figure out if this objectId has been saved as Source.
   const [savedSource, setsavedSource] = useState(false);
+  const [checkedIfSourceSaved, setsCheckedIfSourceSaved] = useState(false);
 
   // not using API/source duck as that would throw an error if source does not exist
   const fetchInit = {
@@ -152,9 +153,12 @@ const ZTFAlert = ({ route }) => {
       if (json.status === "success") {
         setsavedSource(true);
       }
+      setsCheckedIfSourceSaved(true)
     };
 
-    fetchSource();
+    if (!checkedIfSourceSaved) {
+      fetchSource();
+    }
   }, [objectId, dispatch, fetchInit]);
 
   const userAccessibleGroups = useSelector(
@@ -430,7 +434,7 @@ const ZTFAlert = ({ route }) => {
                 <br />
                 <div className={classes.saveAlertButton}>
                   <SaveAlertButton
-                    alert={{ id: objectId, group_ids: userAccessibleGroupIds }}
+                    alert={{ id: objectId, candid: parseInt(candid), group_ids: userAccessibleGroupIds }}
                     userGroups={userAccessibleGroups}
                   />
                 </div>
