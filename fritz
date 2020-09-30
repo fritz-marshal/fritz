@@ -143,9 +143,10 @@ def build(args):
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
-    # install Kowalski's deps:
-    c = ["pip", "install", "-r", "requirements.txt"]
-    subprocess.run(c, cwd="kowalski", check=True)
+    if not args.no_kowalski:
+        # install Kowalski's deps:
+        c = ["pip", "install", "-r", "requirements.txt"]
+        subprocess.run(c, cwd="kowalski", check=True)
 
     # check config
     check_config(cfg='fritz.defaults.yaml', yes=args.yes)
@@ -200,7 +201,11 @@ def build(args):
         yaml.dump(dc, dcyaml)
 
     # Build skyportal's images
-    p = subprocess.run(["make", "docker-local"], cwd="skyportal")
+    cmd = ["docker", "build", "."]
+    if args.skyportal_tag:
+        cmd.extend(["-t", args.skyportal_tag])
+    print(f"Building SkyPortal docker image (tag: {args.skyportal_tag})")
+    p = subprocess.run(cmd, cwd="skyportal")
     if p.returncode != 0:
         raise RuntimeError("Failed to build skyportal's docker images")
 
@@ -260,13 +265,14 @@ def build(args):
         with open("fritz.yaml", 'w') as fyaml:
             yaml.dump(fritz_config, fyaml)
 
-    # Build kowalski's images
-    c = ["python", "kowalski.py", "build"]
-    if args.yes:
-        c.append("--yes")
-    p = subprocess.run(c, cwd="kowalski")
-    if p.returncode != 0:
-        raise RuntimeError("Failed to build Kowalski's docker images")
+    if not args.no_kowalski:
+        # Build kowalski's images
+        c = ["python", "kowalski.py", "build"]
+        if args.yes:
+            c.append("--yes")
+        p = subprocess.run(c, cwd="kowalski")
+        if p.returncode != 0:
+            raise RuntimeError("Failed to build Kowalski's docker images")
 
     if args.init:
         # stop SkyPortal
@@ -479,39 +485,48 @@ if __name__ == "__main__":
     for (cmd, desc) in commands:
         parsers[cmd] = subparsers.add_parser(cmd, help=desc, parents=[parent_parser])
 
-    parsers["run"].add_argument(
+    p_run = parsers["run"]
+    p_run.add_argument(
         "--init", action="store_true", help="Initialize Fritz"
     )
-    parsers["run"].add_argument(
+    p_run.add_argument(
         "--dev", action="store_true", help="Run Fritz in dev mode"
     )
-    parsers["run"].add_argument(
+    p_run.add_argument(
         "--traefik", action="store_true", help="Run Fritz behind Traefik"
     )
 
-    parsers["build"].add_argument(
+    p_build = parsers["build"]
+    p_build.add_argument(
         "--init", action="store_true", help="Initialize before building Fritz"
     )
-    parsers["build"].add_argument(
+    p_build.add_argument(
         "--repo", type=str, default="origin", help="Remote repository to pull from"
     )
-    parsers["build"].add_argument(
+    p_build.add_argument(
         "--branch", type=str, default="master", help="Branch on the remote repository"
     )
-    parsers["build"].add_argument(
+    p_build.add_argument(
         "--dev", action="store_true", help="Build Fritz for running in dev mode"
     )
-    parsers["build"].add_argument(
+    p_build.add_argument(
         "--traefik", action="store_true", help="Build Fritz to run behind Traefik"
     )
+    p_build.add_argument(
+        "--no-kowalski", action="store_true", help="Do not build images for Kowalski"
+    )
+    p_build.add_argument(
+        "--skyportal-tag", help="Tag to apply to SkyPortal docker image"
+    )
 
-    parsers["update"].add_argument(
+    p_update = parsers["update"]
+    p_update.add_argument(
         "--init", action="store_true", help="Initialize before updating Fritz"
     )
-    parsers["update"].add_argument(
+    p_update.add_argument(
         "--repo", type=str, default="origin", help="Remote repository to pull from"
     )
-    parsers["update"].add_argument(
+    p_update.add_argument(
         "--branch", type=str, default="master", help="Branch on the remote repository"
     )
 
