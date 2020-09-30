@@ -21,6 +21,7 @@ from ..base import BaseHandler
 from ...models import (
     DBSession,
     Group,
+    GroupStream,
     Obj,
     Stream,
     StreamUser,
@@ -425,6 +426,29 @@ class ZTFAlertHandler(BaseHandler):
                     "Invalid group_ids field. Please specify at least "
                     "one valid group ID that you belong to."
                 )
+
+            # check that all groups have access to same streams as user
+            for group in groups:
+                group_streams = (
+                    DBSession()
+                    .query(Stream)
+                    .join(GroupStream)
+                    .filter(GroupStream.group_id == group.id)
+                    .all()
+                )
+                if group_streams is None:
+                    group_streams = []
+
+                group_stream_selector = {1}
+
+                for stream in group_streams:
+                    if "ztf" in stream.name.lower():
+                        group_stream_selector.update(set(stream.altdata.get("selector", [])))
+
+                if not set(selector).issubset(group_stream_selector):
+                    return self.error(f"Cannot save to group {group.name}: " 
+                                      "insufficient group alert stream permissions")
+
             DBSession().add(obj)
             DBSession().add_all([Source(obj=obj, group=group) for group in groups])
             DBSession().commit()
