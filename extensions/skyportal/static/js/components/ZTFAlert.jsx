@@ -1,18 +1,15 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useHistory } from "react-router-dom";
 
 import Button from "@material-ui/core/Button";
-import SaveIcon from "@material-ui/icons/Save";
 import PropTypes from "prop-types";
-import { withStyles, makeStyles, useTheme } from "@material-ui/core/styles";
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableContainer from "@material-ui/core/TableContainer";
-import TableHead from "@material-ui/core/TableHead";
-import TablePagination from "@material-ui/core/TablePagination";
-import TableRow from "@material-ui/core/TableRow";
-import TableSortLabel from "@material-ui/core/TableSortLabel";
+import {
+  makeStyles,
+  useTheme,
+  createMuiTheme,
+  MuiThemeProvider,
+} from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import Grid from "@material-ui/core/Grid";
 import Accordion from "@material-ui/core/Accordion";
@@ -21,19 +18,21 @@ import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 import CircularProgress from "@material-ui/core/CircularProgress";
+import Chip from "@material-ui/core/Chip";
+import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 
-import ThumbnailList from "./ThumbnailList";
+import MUIDataTable from "mui-datatables";
 import ReactJson from "react-json-view";
+
+import SaveAlertButton from "./SaveAlertButton";
+import ThumbnailList from "./ThumbnailList";
+
+import { ra_to_hours, dec_to_hours } from "../units";
+import SharePage from "./SharePage";
 
 import * as Actions from "../ducks/alert";
 
-const VegaPlot = React.lazy(() => import("./VegaPlotZTFAlert"));
-
-const StyledTableCell = withStyles(() => ({
-  body: {
-    fontSize: "0.875rem",
-  },
-}))(TableCell);
+const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -45,22 +44,11 @@ const useStyles = makeStyles((theme) => ({
   whitish: {
     color: "#f0f0f0",
   },
-  visuallyHidden: {
-    border: 0,
-    clip: "rect(0 0 0 0)",
-    height: 1,
-    margin: -1,
-    overflow: "hidden",
-    padding: 0,
-    position: "absolute",
-    top: 20,
-    width: 1,
+  itemPaddingBottom: {
+    paddingBottom: "0.5rem",
   },
-  margin_bottom: {
-    "margin-bottom": "2em",
-  },
-  margin_left: {
-    "margin-left": "2em",
+  saveAlertButton: {
+    margin: "0.5rem 0",
   },
   image: {
     padding: theme.spacing(1),
@@ -80,188 +68,106 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: "0.625rem",
     color: theme.palette.text.primary,
   },
+
+  accordionHeading: {
+    fontSize: "1.25rem",
+    fontWeight: theme.typography.fontWeightRegular,
+  },
+
+  source: {
+    padding: "1rem",
+    display: "flex",
+    flexDirection: "row",
+  },
+  column: {
+    display: "flex",
+    flexFlow: "column nowrap",
+    verticalAlign: "top",
+    flex: "0 2 100%",
+    minWidth: 0,
+  },
+  columnItem: {
+    margin: "0.5rem 0",
+  },
+  name: {
+    fontSize: "200%",
+    fontWeight: "900",
+    color: "darkgray",
+    paddingBottom: "0.25em",
+    display: "inline-block",
+  },
+  alignRight: {
+    display: "inline-block",
+    verticalAlign: "super",
+  },
 }));
-
-function createRows(
-  id,
-  jd,
-  fid,
-  mag,
-  emag,
-  rb,
-  drb,
-  isdiffpos,
-  programid,
-  alert_actions
-) {
-  return {
-    id,
-    jd,
-    fid,
-    mag,
-    emag,
-    rb,
-    drb,
-    isdiffpos,
-    programid,
-    alert_actions,
-  };
-}
-
-const columns = [
-  {
-    id: "id",
-    label: "candid",
-    numeric: false,
-    disablePadding: false,
-  },
-  {
-    id: "jd",
-    numeric: true,
-    disablePadding: false,
-    label: "JD",
-    align: "left",
-    format: (value) => value.toFixed(5),
-  },
-  {
-    id: "fid",
-    numeric: true,
-    disablePadding: false,
-    label: "fid",
-    align: "left",
-  },
-  {
-    id: "mag",
-    numeric: true,
-    disablePadding: false,
-    label: "mag",
-    align: "left",
-    format: (value) => value.toFixed(3),
-  },
-  {
-    id: "emag",
-    numeric: true,
-    disablePadding: false,
-    label: "e_mag",
-    align: "left",
-    format: (value) => value.toFixed(3),
-  },
-  {
-    id: "rb",
-    numeric: true,
-    disablePadding: false,
-    label: "rb",
-    align: "left",
-    format: (value) => value.toFixed(5),
-  },
-  {
-    id: "drb",
-    numeric: true,
-    disablePadding: false,
-    label: "drb",
-    align: "left",
-    format: (value) => value.toFixed(5),
-  },
-  {
-    id: "isdiffpos",
-    numeric: false,
-    disablePadding: false,
-    label: "isdiffpos",
-    align: "left",
-  },
-  {
-    id: "programid",
-    numeric: true,
-    disablePadding: false,
-    label: "programid",
-    align: "left",
-  },
-  {
-    id: "alert_actions",
-    numeric: false,
-    disablePadding: false,
-    label: "actions",
-    align: "right",
-  },
-];
-
-function descendingComparator(a, b, orderBy) {
-  if (b[orderBy] < a[orderBy]) {
-    return -1;
-  }
-  if (b[orderBy] > a[orderBy]) {
-    return 1;
-  }
-  return 0;
-}
-
-function getComparator(order, orderBy) {
-  return order === "desc"
-    ? (a, b) => descendingComparator(a, b, orderBy)
-    : (a, b) => -descendingComparator(a, b, orderBy);
-}
-
-function stableSort(array, comparator) {
-  const stabilizedThis = array.map((el, index) => [el, index]);
-  stabilizedThis.sort((a, b) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) return order;
-    return a[1] - b[1];
-  });
-  return stabilizedThis.map((el) => el[0]);
-}
-
-function EnhancedTableHead(props) {
-  const { classes, order, orderBy, onRequestSort } = props;
-  const createSortHandler = (property) => (event) => {
-    onRequestSort(event, property);
-  };
-
-  return (
-    <TableHead>
-      <TableRow>
-        {columns.map((headCell) => (
-          <StyledTableCell
-            key={headCell.id}
-            align={headCell.numeric ? "right" : "left"}
-            padding={headCell.disablePadding ? "none" : "default"}
-            sortDirection={orderBy === headCell.id ? order : false}
-          >
-            <TableSortLabel
-              active={orderBy === headCell.id}
-              direction={orderBy === headCell.id ? order : "asc"}
-              onClick={createSortHandler(headCell.id)}
-            >
-              {headCell.label}
-              {orderBy === headCell.id ? (
-                <span className={classes.visuallyHidden}>
-                  {order === "desc" ? "sorted descending" : "sorted ascending"}
-                </span>
-              ) : null}
-            </TableSortLabel>
-          </StyledTableCell>
-        ))}
-      </TableRow>
-    </TableHead>
-  );
-}
-
-EnhancedTableHead.propTypes = {
-  classes: PropTypes.shape({
-    visuallyHidden: PropTypes.any,
-  }).isRequired,
-  onRequestSort: PropTypes.func.isRequired,
-  order: PropTypes.oneOf(["asc", "desc"]).isRequired,
-  orderBy: PropTypes.string.isRequired,
-};
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
 }
 
+const getMuiTheme = (theme) =>
+  createMuiTheme({
+    overrides: {
+      MUIDataTableBodyCell: {
+        root: {
+          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
+            0.25
+          )}px ${theme.spacing(1)}px`,
+        },
+      },
+    },
+  });
+
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
+  const history = useHistory();
+
+  // figure out if this objectId has been saved as Source.
+  const [savedSource, setsavedSource] = useState(false);
+  const [checkedIfSourceSaved, setsCheckedIfSourceSaved] = useState(false);
+
+  // not using API/source duck as that would throw an error if source does not exist
+  const fetchInit = {
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "GET",
+  };
+
+  const loadedSourceId = useSelector((state) => state?.source?.id);
+
+  useEffect(() => {
+    const fetchSource = async () => {
+      const response = await fetch(`/api/sources/${objectId}`, fetchInit);
+
+      let json = "";
+      try {
+        json = await response.json();
+      } catch (error) {
+        throw new Error(`JSON decoding error: ${error}`);
+      }
+
+      if (json.status === "success") {
+        setsavedSource(true);
+      }
+      setsCheckedIfSourceSaved(true)
+    };
+
+    if (!checkedIfSourceSaved) {
+      fetchSource();
+    }
+  }, [objectId, dispatch, fetchInit]);
+
+  const userAccessibleGroups = useSelector(
+    (state) => state.groups.userAccessible
+  );
+
+  const userAccessibleGroupIds = useSelector((state) =>
+    state.groups.userAccessible?.map((a) => a.id)
+  );
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
@@ -288,31 +194,26 @@ const ZTFAlert = ({ route }) => {
   const [jd, setJd] = useState(0);
 
   const alert_data = useSelector((state) => state.alert_data);
+
+  const makeRow = (alert) => {
+    return {
+      candid: alert?.candid,
+      jd: alert?.candidate.jd,
+      fid: alert?.candidate.fid,
+      mag: alert?.candidate.magpsf,
+      emag: alert?.candidate.sigmapsf,
+      rb: alert?.candidate.rb,
+      drb: alert?.candidate.drb,
+      isdiffpos: alert?.candidate.isdiffpos,
+      programid: alert?.candidate.programid,
+      alert_actions: "show thumbnails",
+    };
+  };
+
   let rows = [];
 
   if (alert_data !== null && !isString(alert_data)) {
-    rows = alert_data.map((a) =>
-      createRows(
-        a.candid,
-        a.candidate.jd,
-        a.candidate.fid,
-        a.candidate.magpsf,
-        a.candidate.sigmapsf,
-        a.candidate.rb,
-        a.candidate.drb,
-        a.candidate.isdiffpos,
-        a.candidate.programid,
-        <Button
-          size="small"
-          onClick={() => {
-            setCandid(a.candid);
-            setJd(a.candidate.jd);
-          }}
-        >
-          Show&nbsp;thumbnails
-        </Button>
-      )
-    );
+    rows = alert_data?.map((a) => makeRow(a));
   }
 
   const alert_aux_data = useSelector((state) => state.alert_aux_data);
@@ -355,25 +256,6 @@ const ZTFAlert = ({ route }) => {
   }, [dispatch, isCached, route.id, objectId]);
 
   const classes = useStyles();
-  const [order, setOrder] = React.useState("desc");
-  const [orderBy, setOrderBy] = React.useState("jd");
-  const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
-
-  const handleRequestSort = (event, property) => {
-    const isAsc = orderBy === property && order === "asc";
-    setOrder(isAsc ? "desc" : "asc");
-    setOrderBy(property);
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(+event.target.value);
-    setPage(0);
-  };
 
   const thumbnails = [
     {
@@ -391,10 +273,136 @@ const ZTFAlert = ({ route }) => {
       id: 2,
       public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`,
     },
+    // {
+    //   type: "sdss",
+    //   id: 3,
+    //   public_url: `http://skyserver.sdss.org/dr12/SkyserverWS/ImgCutout/getjpeg?ra=${alert_data.filter((a) => a.candid === candid)[0].candidate.ra}&dec=${alert_data.filter((a) => a.candid === candid)[0].candidate.dec}&scale=0.3&width=200&height=200&opt=G&query=&Grid=on`
+    // },
+    // {
+    //   type: "dr8",
+    //   id: 4,
+    //   public_url: `http://legacysurvey.org/viewer/jpeg-cutout?ra=${alert_data.filter((a) => a.candid === candid)[0].candidate.ra}&dec=${alert_data.filter((a) => a.candid === candid)[0].candidate.dec}&size=200&layer=dr8&pixscale=0.262&bands=grz`
+    // },
+  ];
+
+  const options = {
+    selectableRows: "none",
+    elevation: 1,
+    sortOrder: {
+      name: "jd",
+      direction: "desc",
+    },
+  };
+
+  const columns = [
+    {
+      name: "candid",
+      label: "candid",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+      },
+    },
+    {
+      name: "jd",
+      label: "JD",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "fid",
+      label: "fid",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "mag",
+      label: "mag",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+      },
+    },
+    {
+      name: "emag",
+      label: "e_mag",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+      },
+    },
+    {
+      name: "rb",
+      label: "rb",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "drb",
+      label: "drb",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "isdiffpos",
+      label: "isdiffpos",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "programid",
+      label: "programid",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "alert_actions",
+      label: "actions",
+      options: {
+        filter: false,
+        sort: false,
+        customBodyRender: (value, tableMeta, updateValue) => (
+          <Button
+            size="small"
+            onClick={() => {
+              setCandid(tableMeta.rowData[0]);
+              setJd(tableMeta.rowData[1]);
+            }}
+          >
+            Show&nbsp;thumbnails
+          </Button>
+        ),
+      },
+    },
   ];
 
   if (alert_data === null) {
-    return <div><CircularProgress color="secondary" /></div>;
+    return (
+      <div>
+        <CircularProgress color="secondary" />
+      </div>
+    );
   }
   if (isString(alert_data) || isString(alert_aux_data)) {
     return <div>Failed to fetch alert data, please try again later.</div>;
@@ -410,133 +418,151 @@ const ZTFAlert = ({ route }) => {
   }
   if (alert_data.length > 0) {
     return (
-      <div>
-        <Typography variant="h5" className={classes.header}>
-          {objectId}
-          <Button
-            variant="contained"
-            color="primary"
-            className={classes.margin_left}
-            startIcon={<SaveIcon />}
-            // todo: save as a source to one of my programs button
-            // onClick={() => dispatch(Actions.saveSource(group_id, objectId, candid))}
-            // fixme: once that is implemented
-            style={{ display: "none" }}
-          >
-            Save as a Source
-          </Button>
-        </Typography>
-
-        <Accordion
-          expanded={panelPhotometryThumbnailsExpanded}
-          onChange={handlePanelPhotometryThumbnailsChange(true)}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel-content"
-            id="panel-header"
-          >
-            <Typography className={classes.heading}>
-              Photometry and cutouts
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails className={classes.accordion_details}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} lg={6}>
-                <Suspense fallback={<div>Loading plot...</div>}>
-                  <VegaPlot
-                    dataUrl={`/api/alerts/ztf/${objectId}/aux`}
-                    jd={jd}
+      <Paper elevation={1} className={classes.source}>
+        <div className={classes.column}>
+          <div className={classes.leftColumnItem}>
+            <div className={classes.alignRight}>
+              <SharePage />
+            </div>
+            <div className={classes.name}>{objectId}</div>
+            <br />
+            {savedSource || loadedSourceId ? (
+              <div className={classes.itemPaddingBottom}>
+                <Chip
+                  size="small"
+                  label="Previously Saved"
+                  clickable
+                  onClick={() => history.push(`/source/${objectId}`)}
+                  onDelete={() => window.open(`/source/${objectId}`, "_blank")}
+                  deleteIcon={<OpenInNewIcon />}
+                  color="primary"
+                />
+              </div>
+            ) : (
+              <div className={classes.itemPaddingBottom}>
+                <Chip size="small" label="NOT SAVED" />
+                <br />
+                <div className={classes.saveAlertButton}>
+                  <SaveAlertButton
+                    alert={{ id: objectId, candid: parseInt(candid), group_ids: userAccessibleGroupIds }}
+                    userGroups={userAccessibleGroups}
                   />
-                </Suspense>
-              </Grid>
-              <Grid
-                container
-                item
-                xs={12}
-                lg={6}
-                spacing={1}
-                className={classes.image}
-                alignItems={"stretch"}
-                alignContent={"stretch"}
-              >
-                {candid > 0 && (
-                  <ThumbnailList
-                    ra={0}
-                    dec={0}
-                    thumbnails={thumbnails}
-                    size="10rem"
-                  />
+                </div>
+              </div>
+            )}
+            {candid > 0 && (
+              <>
+                <b>candid:</b>
+                &nbsp;
+                {candid}
+                <br />
+                <b>Position (J2000):</b>
+                &nbsp;
+                {alert_data.filter((a) => a.candid === candid)[0].candidate.ra},
+                &nbsp;
+                {alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
+                &nbsp; (&alpha;,&delta;=
+                {ra_to_hours(
+                  alert_data.filter((a) => a.candid === candid)[0].candidate.ra
                 )}
-              </Grid>
-            </Grid>
-          </AccordionDetails>
-        </Accordion>
+                , &nbsp;
+                {dec_to_hours(
+                  alert_data.filter((a) => a.candid === candid)[0].candidate.dec
+                )}
+                ) &nbsp; (l,b=
+                {alert_data
+                  .filter((a) => a.candid === candid)[0]
+                  .coordinates.l.toFixed(6)}
+                , &nbsp;
+                {alert_data
+                  .filter((a) => a.candid === candid)[0]
+                  .coordinates.b.toFixed(6)}
+                )
+              </>
+            )}
+          </div>
 
-        <Paper className={classes.root}>
-          <TableContainer className={classes.container}>
-            <Table stickyHeader size="small" aria-label="sticky table">
-              <EnhancedTableHead
-                classes={classes}
-                order={order}
-                orderBy={orderBy}
-                onRequestSort={handleRequestSort}
-              />
-              <TableBody>
-                {stableSort(rows, getComparator(order, orderBy))
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <TableRow
-                      hover
-                      role="checkbox"
-                      tabIndex={-1}
-                      key={row.name}
-                    >
-                      {columns.map((column) => {
-                        const value = row[column.id];
-                        return (
-                          <TableCell
-                            key={column.id}
-                            align={column.numeric ? "right" : "left"}
-                          >
-                            {column.format && typeof value === "number"
-                              ? column.format(value)
-                              : value}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 100]}
-            component="div"
-            count={rows.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onChangePage={handleChangePage}
-            onChangeRowsPerPage={handleChangeRowsPerPage}
-          />
-        </Paper>
-
-        <Accordion
-          expanded={panelXMatchExpanded}
-          onChange={handlePanelXMatchChange(true)}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel-content"
-            id="panel-header"
+          <Accordion
+            expanded={panelPhotometryThumbnailsExpanded}
+            onChange={handlePanelPhotometryThumbnailsChange(true)}
           >
-            <Typography className={classes.heading}>Cross-matches</Typography>
-          </AccordionSummary>
-          <AccordionDetails className={classes.accordion_details}>
-            <ReactJson src={cross_matches} name={false} theme={darkTheme ? "monokai" : "rjv-default"}/>
-          </AccordionDetails>
-        </Accordion>
-      </div>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="panel-content"
+              id="panel-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                Photometry and cutouts
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails className={classes.accordion_details}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} lg={6}>
+                  <Suspense fallback={<CircularProgress color="secondary" />}>
+                    <VegaPlotZTFAlert
+                      dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                      jd={jd}
+                    />
+                  </Suspense>
+                </Grid>
+                <Grid
+                  container
+                  item
+                  xs={12}
+                  lg={6}
+                  spacing={1}
+                  className={classes.image}
+                  alignItems="stretch"
+                  alignContent="stretch"
+                >
+                  {candid > 0 && (
+                    <ThumbnailList
+                      ra={alert_data.filter((a) => a.candid === candid)[0].candidate.ra}
+                      dec={alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
+                      thumbnails={thumbnails}
+                      displayTypes={["new", "ref", "sub"]}
+                      size="10rem"
+                    />
+                  )}
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+
+          <Paper className={classes.root}>
+            <MuiThemeProvider theme={getMuiTheme(theme)}>
+              <MUIDataTable
+                title="Alerts"
+                data={rows}
+                columns={columns}
+                options={options}
+              />
+            </MuiThemeProvider>
+          </Paper>
+
+          <Accordion
+            expanded={panelXMatchExpanded}
+            onChange={handlePanelXMatchChange(true)}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="panel-content"
+              id="panel-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                Cross-matches
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails className={classes.accordion_details}>
+              <ReactJson
+                src={cross_matches}
+                name={false}
+                theme={darkTheme ? "monokai" : "rjv-default"}
+              />
+            </AccordionDetails>
+          </Accordion>
+        </div>
+      </Paper>
     );
   }
   return <div>Error rendering page...</div>;

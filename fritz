@@ -490,6 +490,12 @@ if __name__ == "__main__":
         "--init", action="store_true", help="Initialize Fritz"
     )
     p_run.add_argument(
+        "--repo", type=str, default="origin", help="Remote repository to pull from at init"
+    )
+    p_run.add_argument(
+        "--branch", type=str, default="master", help="Branch on the remote repository at init"
+    )
+    p_run.add_argument(
         "--dev", action="store_true", help="Run Fritz in dev mode"
     )
     p_run.add_argument(
