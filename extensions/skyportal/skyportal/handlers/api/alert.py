@@ -1,4 +1,5 @@
 from astropy.io import fits
+from astropy.visualization import ZScaleInterval
 import bson.json_util as bj
 import gzip
 import io
@@ -344,6 +345,20 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             schema:
               type: string
               enum: [fits, png]
+          - in: query
+            name: scaling
+            description: "Scaling to use when rendering png"
+            required: false
+            schema:
+              type: string
+              enum: [linear, log, arcsinh, zscale]
+          - in: query
+            name: cmap
+            description: "Color map to use when rendering png"
+            required: false
+            schema:
+              type: string
+              enum: [bone, gray, cividis, viridis, magma]
 
         responses:
           '200':
@@ -378,7 +393,9 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         try:
             candid = int(self.get_argument('candid'))
             cutout = self.get_argument('cutout').capitalize()
-            file_format = self.get_argument('file_format')
+            file_format = self.get_argument('file_format').lower()
+            scaling = self.get_argument('scaling', default=None)
+            cmap = self.get_argument('cmap', default=None)
 
             known_cutouts = ['Science', 'Template', 'Difference']
             if cutout not in known_cutouts:
@@ -388,6 +405,21 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 return self.error(
                     f'file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}'
                 )
+
+            default_scaling = {
+                'Science': 'log',
+                'Template': 'log',
+                'Difference': 'zscale'
+            }
+            if (scaling is None) or (scaling.lower() not in ('log', 'linear', 'zscale', 'arcsinh')):
+                scaling = default_scaling[cutout]
+            else:
+                scaling = scaling.lower()
+
+            if (cmap is None) or (cmap.lower() not in ['bone', 'gray', 'cividis', 'viridis', 'magma']):
+                cmap = 'bone'
+            else:
+                cmap = cmap.lower()
 
             query = {
                 "query_type": "find",
@@ -460,11 +492,22 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 img = np.array(data_flipped_y)
                 img = np.nan_to_num(img)
 
-                if cutout != 'Difference':
+                if scaling == 'log':
                     img[img <= 0] = np.median(img)
-                    ax.imshow(img, cmap='bone', norm=mplc.LogNorm(), origin='lower')
-                else:
-                    ax.imshow(img, cmap='bone', origin='lower')
+                    ax.imshow(img, cmap=cmap, norm=mplc.LogNorm(), origin='lower')
+                elif scaling == 'linear':
+                    ax.imshow(img, cmap=cmap, origin='lower')
+                elif scaling == 'zscale':
+                    interval = ZScaleInterval(
+                        nsamples=img.shape[0] * img.shape[1],
+                        contrast=0.045,
+                        krej=2.5
+                    )
+                    limits = interval.get_limits(img)
+                    ax.imshow(img, origin='lower', cmap=cmap, vmin=limits[0], vmax=limits[1])
+                elif scaling == 'arcsinh':
+                    ax.imshow(np.arcsinh(img - np.median(img)), cmap=cmap, origin='lower')
+
                 plt.savefig(buff, dpi=42)
 
                 buff.seek(0)
