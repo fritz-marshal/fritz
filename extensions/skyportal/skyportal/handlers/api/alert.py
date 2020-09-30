@@ -457,7 +457,6 @@ class ZTFAlertHandler(BaseHandler):
             ztf_filters = {1: 'ztfg', 2: 'ztfr', 3: 'ztfi'}
             df['ztf_filter'] = df['fid'].apply(lambda x: ztf_filters[x])
             df['magsys'] = "ab"
-            df['zp'] = 25.0
             df['mjd'] = df['jd'] - 2400000.5
 
             photometry = {
