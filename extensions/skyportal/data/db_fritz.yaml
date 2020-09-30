@@ -4,10 +4,11 @@ user:
       - Super admin
     =id: fritz
     oauth_uid: fritz.astro.marshal@gmail.com
-  - username: kowalski@caltech.edu
+  - username: kowalski.astro.bot@gmail.com
     roles:
-      - Group admin
+      - Super admin
     =id: kowalski
+    oauth_uid: kowalski.astro.bot@gmail.com
 
 streams:
   - name: ZTF Public
