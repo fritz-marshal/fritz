@@ -401,6 +401,12 @@ class ZTFAlertHandler(BaseHandler):
                 return self.error(
                     "You must belong to one or more groups before you can add sources."
                 )
+            if (group_ids is not None) and (len(set(group_ids) - set(user_accessible_group_ids)) > 0):
+                forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
+                return self.error(
+                    "Insufficient group access permissions. Not a member of "
+                    f"group IDs: {forbidden_groups}."
+                )
             try:
                 group_ids = [
                     int(_id)
