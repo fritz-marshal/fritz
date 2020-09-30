@@ -499,6 +499,9 @@ class ZTFAlertHandler(BaseHandler):
                     log(str(e))
                 self.clear()
 
+            # todo: notify Kowalski so that it puts this objectId on tracking list
+            #  (to post new photometry to SP when new alerts arrive)
+
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
             return self.success(data={"id": objectId})
