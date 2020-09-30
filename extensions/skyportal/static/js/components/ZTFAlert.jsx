@@ -273,6 +273,16 @@ const ZTFAlert = ({ route }) => {
       id: 2,
       public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`,
     },
+    // {
+    //   type: "sdss",
+    //   id: 3,
+    //   public_url: `http://skyserver.sdss.org/dr12/SkyserverWS/ImgCutout/getjpeg?ra=${alert_data.filter((a) => a.candid === candid)[0].candidate.ra}&dec=${alert_data.filter((a) => a.candid === candid)[0].candidate.dec}&scale=0.3&width=200&height=200&opt=G&query=&Grid=on`
+    // },
+    // {
+    //   type: "dr8",
+    //   id: 4,
+    //   public_url: `http://legacysurvey.org/viewer/jpeg-cutout?ra=${alert_data.filter((a) => a.candid === candid)[0].candidate.ra}&dec=${alert_data.filter((a) => a.candid === candid)[0].candidate.dec}&size=200&layer=dr8&pixscale=0.262&bands=grz`
+    // },
   ];
 
   const options = {
@@ -507,9 +517,10 @@ const ZTFAlert = ({ route }) => {
                 >
                   {candid > 0 && (
                     <ThumbnailList
-                      ra={0}
-                      dec={0}
+                      ra={alert_data.filter((a) => a.candid === candid)[0].candidate.ra}
+                      dec={alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
                       thumbnails={thumbnails}
+                      displayTypes={["new", "ref", "sub"]}
                       size="10rem"
                     />
                   )}
