@@ -446,7 +446,7 @@ class ZTFAlertHandler(BaseHandler):
                         group_stream_selector.update(set(stream.altdata.get("selector", [])))
 
                 if not set(selector).issubset(group_stream_selector):
-                    return self.error(f"Cannot save to group {group.name}: " 
+                    return self.error(f"Cannot save to group {group.name}: "
                                       "insufficient group alert stream permissions")
 
             DBSession().add(obj)

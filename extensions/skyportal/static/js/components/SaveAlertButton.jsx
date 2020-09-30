@@ -32,9 +32,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 
   useEffect(() => {
     reset({
-      group_ids: userGroups.map((userGroup) =>
-        alert.group_ids.includes(userGroup.id)
-      ),
+      group_ids: []
     });
   }, [reset, userGroups, alert]);
 
@@ -72,12 +70,8 @@ const SaveAlertButton = ({ alert, userGroups }) => {
   // Split button logic (largely copied from
   // https://material-ui.com/components/button-group/#split-button):
 
-  const passingGroupNames = userGroups
-    .filter((g) => alert.group_ids.includes(g.id))
-    .map((g) => g.name.substring(0, 15) + (g.name.length > 15 ? "..." : ""))
-    .join(", ");
-
-  const options = [`Save to ${passingGroupNames}`, "Select groups & save"];
+  const options = ["Select groups & save as a source"];
+  // const options = ["Select groups & save as a source", "Select filters & save as a candidate"];
 
   const [splitButtonMenuOpen, setSplitButtonMenuOpen] = useState(false);
   const anchorRef = useRef(null);
@@ -85,18 +79,6 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 
   const handleClickMainButton = async () => {
     if (selectedIndex === 0) {
-      setIsSubmitting(true);
-      const data = {
-        id: alert.id,
-        payload: {candid: alert.candid, group_ids: alert.group_ids},
-      };
-      const result = await dispatch(alertActions.saveAlertAsSource(data));
-      if (result.status === "error") {
-        setIsSubmitting(false);
-      } else {
-        await dispatch(sourcetActions.fetchSource(alert.id));
-      }
-    } else if (selectedIndex === 1) {
       handleClickOpenDialog();
     }
   };
@@ -201,6 +183,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
                     name={`group_ids[${idx}]`}
                     control={control}
                     rules={{ validate: validateGroups }}
+                    defaultValue={false}
                   />
                 }
                 label={userGroup.name}
