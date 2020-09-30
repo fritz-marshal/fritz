@@ -860,7 +860,6 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 elif scaling == 'arcsinh':
                     ax.imshow(np.arcsinh(img - np.median(img)), cmap=cmap, origin='lower')
                 plt.savefig(buff, dpi=42)
-
                 buff.seek(0)
                 plt.close('all')
                 self.set_header("Content-Type", 'image/png')
