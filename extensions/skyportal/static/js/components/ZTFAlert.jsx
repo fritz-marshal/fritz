@@ -357,7 +357,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
-        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+        customBodyRender: (value, tableMeta, updateValue) => value?.toFixed(5),
       },
     },
     {
