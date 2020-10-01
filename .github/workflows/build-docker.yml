@@ -51,6 +51,7 @@ jobs:
 
       - name: Build
         run: |-
+          cp fritz.defaults.yaml fritz.yaml
           ./fritz build \
             --no-kowalski \
             --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
