@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          submodules: true
+          submodules: recursive
 
       - uses: actions/setup-python@v1
         with:
@@ -64,10 +64,6 @@ jobs:
           ./fritz build \
             --no-kowalski \
             --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
-
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
 
       # Push the Docker image to Google Container Registry
       - name: Publish
