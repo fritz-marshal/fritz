@@ -469,14 +469,19 @@ const ZTFAlert = ({ route }) => {
                 {dec_to_hours(
                   alert_data.filter((a) => a.candid === candid)[0].candidate.dec
                 )}
-                ) &nbsp; (l,b=
+                )
+              </>
+            )}
+            {candid > 0 && alert_data.filter((a) => a.candid === candid)[0].coordinates.b && (
+              <>
+                &nbsp; (l,b=
                 {alert_data
                   .filter((a) => a.candid === candid)[0]
-                  .coordinates.l.toFixed(6)}
+                  .coordinates?.l?.toFixed(6)}
                 , &nbsp;
                 {alert_data
                   .filter((a) => a.candid === candid)[0]
-                  .coordinates.b.toFixed(6)}
+                  .coordinates?.b?.toFixed(6)}
                 )
               </>
             )}
