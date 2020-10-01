@@ -65,6 +65,10 @@ jobs:
             --no-kowalski \
             --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
 
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+
       # Push the Docker image to Google Container Registry
       - name: Publish
         run: |-
