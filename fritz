@@ -501,6 +501,12 @@ if __name__ == "__main__":
     p_run.add_argument(
         "--traefik", action="store_true", help="Run Fritz behind Traefik"
     )
+    p_run.add_argument(
+        "--no-kowalski", action="store_true", help="Do not build images for Kowalski"
+    )
+    p_run.add_argument(
+        "--skyportal-tag", help="Tag to apply to SkyPortal docker image"
+    )
 
     p_build = parsers["build"]
     p_build.add_argument(
