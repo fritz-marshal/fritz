@@ -172,6 +172,17 @@ def build(args):
     with open(init_file, 'wb') as f:
         f.write(''.join(out).encode('utf-8'))
 
+    # get the git log for SP and add it to the SP distro
+    p = subprocess.Popen(
+        ["git", "--git-dir=skyportal/.git", "log",
+         "--pretty=format:'%C(cyan)[%ci]%Creset %s %C(auto)%h'"],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+    )
+    out, err = p.communicate()
+    with open("skyportal/data/gitlog.txt", "w") as spgl:
+        spgl.write(out)
+
     # add Fritz-specific dependencies for SP
     # js
     with open("extensions/skyportal/package.fritz.json", "r") as fpjf, open("skyportal/package.json", "r") as fpj:
