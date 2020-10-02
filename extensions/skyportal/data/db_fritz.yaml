@@ -30,7 +30,7 @@ streams:
 groups:
   - name: ZTF Science Validation
     group_admins:
-      - kowalski@caltech.edu
+      - =kowalski
     =id: ztf_science_validation
   - name: Redshift Completeness Factor
     =id: rcf
