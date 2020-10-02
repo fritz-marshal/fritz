@@ -112,7 +112,7 @@ with a little gear next to the "Auto Preview" toggle switch.
 
 ![fritz-filters-01](https://user-images.githubusercontent.com/7557205/87487417-6f66ff80-c5f2-11ea-8d7b-49c51b6a502d.gif)
 
-Note: the filter code that you will save on Fritz must be valid JSON, so, once you're done with debugging, 
+Note: the filter code that you will save on Fritz must be valid JSON, so, once you're done with debugging,
 when exporting a filter in Compass, select "NODE" under "Export Pipeline To:", copy-paste into a text editor,
 and then manually replace single quotes with double quotes. We also recommend using a text editor that can validate
 JSON.
