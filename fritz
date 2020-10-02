@@ -159,6 +159,19 @@ def build(args):
     # copy_tree('extensions/kowalski/', 'kowalski/')
     copy_tree('extensions/skyportal/', 'skyportal/')
 
+    # Add git version to SkyPortal __init__.py file
+    from skyportal.skyportal import __version__
+    init_file = 'skyportal/skyportal/__init__.py'
+    with open(init_file, 'r') as f:
+        init = f.readlines()
+    out = []
+    for line in init:
+        if line.startswith('__version__ = '):
+            line = f'__version__ = "{__version__}"'
+        out.append(line)
+    with open(init_file, 'wb') as f:
+        f.write(''.join(out).encode('utf-8'))
+
     # add Fritz-specific dependencies for SP
     # js
     with open("extensions/skyportal/package.fritz.json", "r") as fpjf, open("skyportal/package.json", "r") as fpj:
