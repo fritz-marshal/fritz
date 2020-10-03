@@ -177,7 +177,7 @@ def build(args):
         ["git", "--git-dir=.git", "log",
          "--pretty=format:'%C(cyan)[%ci]%Creset %s %C(auto)%h'"],
         capture_output=True,
-        universal_newlines=True, 
+        universal_newlines=True,
         cwd="skyportal"
     )
     out = p.stdout
