@@ -173,13 +173,14 @@ def build(args):
         f.write(''.join(out).encode('utf-8'))
 
     # get the git log for SP and add it to the SP distro
-    p = subprocess.Popen(
-        ["git", "--git-dir=skyportal/.git", "log",
+    p = subprocess.run(
+        ["git", "--git-dir=.git", "log",
          "--pretty=format:'%C(cyan)[%ci]%Creset %s %C(auto)%h'"],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
+        capture_output=True,
+        universal_newlines=True, 
+        cwd="skyportal"
     )
-    out, err = p.communicate()
+    out = p.stdout
     with open("skyportal/data/gitlog.txt", "w") as spgl:
         spgl.write(out)
 
