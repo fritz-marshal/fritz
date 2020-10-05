@@ -459,6 +459,8 @@ class ZTFAlertHandler(BaseHandler):
             DBSession().add_all([Source(obj=obj, group=group) for group in groups])
             DBSession().commit()
 
+            # todo: post to K's tracked_sources
+
             # post photometry
             ztf_filters = {1: 'ztfg', 2: 'ztfr', 3: 'ztfi'}
             df['ztf_filter'] = df['fid'].apply(lambda x: ztf_filters[x])
