@@ -119,6 +119,14 @@ skyportal:
     # the column 1 (zero-indexed) and row 2. Note that each row is by default
     # 150px in height. The row height can be altered in the homepage_grid
     # section above (as well as other grid characteristics).
+    WeatherWidget:
+      resizeable: false
+      layouts:
+        xlg: [ 0, 10, 4, 1 ]
+        lg: [ 0, 10, 4, 1 ]
+        md: [ 0, 10, 4, 1 ]
+        sm: [ 0, 10, 4, 1 ]
+        xs: [ 0, 12, 4, 1 ]
 
     SourceCounts:
       props:
@@ -251,6 +259,9 @@ skyportal:
       Welcome to <b>Fritz</b>!
       <br />
       Dark star crashes, pouring its light into ashes.
+
+  notifications:
+    enabled: True
 
 
 kowalski:
