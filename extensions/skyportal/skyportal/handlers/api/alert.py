@@ -374,8 +374,7 @@ class ZTFAlertHandler(BaseHandler):
             w = df["candid"] == str(candid)
 
             if candid is None or sum(w) == 0:
-                candids = {int(can) for can in df["candid"] if not pd.isnull(can)}
-                candid = max(candids)
+                candid = int(latest_alert_data["candidate"]["candid"])
                 alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
             else:
                 alert = df.loc[w].to_dict(orient="records")[0]
