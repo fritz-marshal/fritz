@@ -261,7 +261,8 @@ def build(args):
             p = subprocess.run(
                 [
                     "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
-                    "source /skyportal_env/bin/activate; make db_init; make load_seed_data"
+                    "source /skyportal_env/bin/activate; make db_init; "
+                    "make prepare_seed_data; make load_seed_data"
                 ],
                 cwd="skyportal"
             )
@@ -530,7 +531,7 @@ if __name__ == "__main__":
         "--no-kowalski", action="store_true", help="Do not build images for Kowalski"
     )
     p_run.add_argument(
-        "--skyportal-tag", help="Tag to apply to SkyPortal docker image"
+        "--skyportal-tag", default="skyportal/web:latest", help="Tag to apply to SkyPortal docker image"
     )
 
     p_build = parsers["build"]
@@ -553,7 +554,7 @@ if __name__ == "__main__":
         "--no-kowalski", action="store_true", help="Do not build images for Kowalski"
     )
     p_build.add_argument(
-        "--skyportal-tag", default="skyportal/web", help="Tag to apply to SkyPortal docker image"
+        "--skyportal-tag", default="skyportal/web:latest", help="Tag to apply to SkyPortal docker image"
     )
 
     p_update = parsers["update"]
