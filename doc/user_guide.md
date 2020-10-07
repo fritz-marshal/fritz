@@ -2150,7 +2150,7 @@ These will:
 
 Clone the repo from `GitHub`:
 ```bash
-git clone https://github.com/fritz-marshal/fritz.git && cd fritz
+git clone --recursive https://github.com/fritz-marshal/fritz.git && cd fritz
 ```
 
 Make sure the requirements to run the `fritz` utility are met, e.g.:
