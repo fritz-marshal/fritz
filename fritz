@@ -174,8 +174,15 @@ def build(args):
 
     # get the git log for SP and add it to the SP distro
     p = subprocess.run(
-        ["git", "--git-dir=.git", "log",
-         "--pretty=format:'%C(cyan)[%ci]%Creset %s %C(auto)%h'"],
+        [
+            "git",
+            "--git-dir=.git",
+            "log",
+            "--no-merges",
+            "--first-parent",
+            "--pretty=format:[%cI %h %cE] %s",
+            "-1000"
+        ],
         capture_output=True,
         universal_newlines=True,
         cwd="skyportal"
