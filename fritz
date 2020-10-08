@@ -167,7 +167,7 @@ def build(args):
     out = []
     for line in init:
         if line.startswith('__version__ = '):
-            line = f'__version__ = "{__version__}"'
+            line = f'__version__ = "{__version__}"\n'
         out.append(line)
     with open(init_file, 'wb') as f:
         f.write(''.join(out).encode('utf-8'))
