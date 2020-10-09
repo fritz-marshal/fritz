@@ -1,4 +1,4 @@
-name: Build, test, and deploy
+name: Build, test, and upload docs
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - master
   pull_request:
 jobs:
-  build-test-deploy:
+  build-test-doc:
     runs-on: ubuntu-latest
     steps:
 
