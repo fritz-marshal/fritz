@@ -1,4 +1,4 @@
-name: Build Docker image and push to gcr.io
+name: Build Docker image, push to gcr.io, deploy to staging
 
 on:
   push:
@@ -7,16 +7,23 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
-  GKE_CLUSTER: fritz
+  GKE_CLUSTER: fritz-staging
   GKE_ZONE: us-west2-a
-  IMAGE: fritz
 
 jobs:
-  setup-build-publish-deploy:
+  build-publish-deploy:
     name: Setup, Build, Publish
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache
+            ~/.local
+            ~/.npm
+          key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -58,14 +65,57 @@ jobs:
       #     repository: $PROJECT_ID/$IMAGE
       #     tags: $GITHUB_SHA
 
-      - name: Build
-        run: |-
-          cp fritz.defaults.yaml fritz.yaml
-          ./fritz build \
-            --no-kowalski \
-            --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+      # - name: Build
+      #   run: |-
+      #     cp fritz.defaults.yaml fritz.yaml
+      #     ./fritz build \
+      #       --no-kowalski \
+      #       --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
 
-      # Push the Docker image to Google Container Registry
-      - name: Publish
+      # # Push the Docker image to Google Container Registry
+      # - name: Publish
+      #   run: |-
+      #     docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+
+      - name: Install SSH Client 🔑
+        if: github.ref == 'refs/heads/master'
+        uses: webfactory/ssh-agent@v0.2.0
+        with:
+          ssh-private-key: ${{ secrets.CI_FRITZ_DEPLOY_DEPLOY_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: "fritz-marshal/fritz-deploy"
+
+      - name: Setup gcloud cli
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          version: "286.0.0"
+          service_account_email: ${{ secrets.GKE_SA_EMAIL }}
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          project_id: ${{ secrets.GKE_PROJECT }}
+          export_default_credentials: true
+
+      - name: Set up cluster credentials
         run: |-
-          docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+          gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE"
+
+      - name: Set up SOPS
+        run: |-
+          SOPS_VER=3.5.0
+          CACHED_DOWNLOAD_DIR=~/.local/downloads
+          FILENAME=sops-v${SOPS_VER}.linux
+
+          if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
+            wget https://github.com/mozilla/sops/releases/download/v${SOPS_VER}/${FILENAME} --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
+          fi
+
+          cp ${CACHED_DOWNLOAD_DIR}/${FILENAME} /usr/local/bin/sops
+          chmod u+x /usr/local/bin/sops
+          sops --version
+
+      - name: Deploy
+        run: |-
+          cd fritz-deploy
+          ./deploy.py --staging --tag=$GITHUB_SHA
