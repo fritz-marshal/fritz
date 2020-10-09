@@ -77,16 +77,12 @@ jobs:
       #   run: |-
       #     docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
 
-      - name: Install SSH Client 🔑
-        if: github.ref == 'refs/heads/master'
-        uses: webfactory/ssh-agent@v0.2.0
-        with:
-          ssh-private-key: ${{ secrets.CI_FRITZ_DEPLOY_DEPLOY_KEY }}
-
       - name: Checkout
         uses: actions/checkout@v2
         with:
           repository: "fritz-marshal/fritz-deploy"
+          path: "fritz-deploy"
+          ssh-key: ${{ secrets.CI_FRITZ_DEPLOY_DEPLOY_KEY }}
 
       - name: Setup gcloud cli
         uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
