@@ -9,6 +9,7 @@ env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
   GKE_CLUSTER: fritz-staging
   GKE_ZONE: us-west2-a
+  IMAGE: fritz
 
 jobs:
   build-publish-deploy:
