@@ -104,6 +104,9 @@ jobs:
           FILENAME=sops-v${SOPS_VER}.linux
           SOPS_BINARY=~/.local/bin/sops
 
+          mkdir -p ~/.local/bin
+          echo "$(pwd)/.local/bin" >> $GITHUB_PATH
+
           if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
             wget https://github.com/mozilla/sops/releases/download/v${SOPS_VER}/${FILENAME} --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
           fi
