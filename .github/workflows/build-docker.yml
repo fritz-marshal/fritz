@@ -65,17 +65,17 @@ jobs:
       #     repository: $PROJECT_ID/$IMAGE
       #     tags: $GITHUB_SHA
 
-      # - name: Build
-      #   run: |-
-      #     cp fritz.defaults.yaml fritz.yaml
-      #     ./fritz build \
-      #       --no-kowalski \
-      #       --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+      - name: Build
+        run: |-
+          cp fritz.defaults.yaml fritz.yaml
+          ./fritz build \
+            --no-kowalski \
+            --skyportal-tag="gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
 
-      # # Push the Docker image to Google Container Registry
-      # - name: Publish
-      #   run: |-
-      #     docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+      # Push the Docker image to Google Container Registry
+      - name: Publish
+        run: |-
+          docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
 
       - name: Checkout
         uses: actions/checkout@v2
