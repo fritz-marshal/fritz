@@ -104,13 +104,11 @@ jobs:
           FILENAME=sops-v${SOPS_VER}.linux
           SOPS_BINARY=~/.local/bin/sops
 
-          mkdir -p ~/.local/bin
-          echo "$(pwd)/.local/bin" >> $GITHUB_PATH
-
           if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
-            wget https://github.com/mozilla/sops/releases/download/v${SOPS_VER}/${FILENAME} --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
+            wget https://github.com/mozilla/sops/releases/download/v${SOPS_VER}/${FILENAME} --quiet --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
           fi
 
+          mkdir -p ~/.local/bin
           cp ${CACHED_DOWNLOAD_DIR}/${FILENAME} ${SOPS_BINARY}
           chmod u+x ${SOPS_BINARY}
           ${SOPS_BINARY} --version
@@ -118,4 +116,5 @@ jobs:
       - name: Deploy
         run: |-
           cd fritz-deploy
+          export PATH=$PATH:~/.local/bin
           ./deploy.py --staging --tag=$GITHUB_SHA
