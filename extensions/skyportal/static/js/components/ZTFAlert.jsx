@@ -27,7 +27,7 @@ import ReactJson from "react-json-view";
 import SaveAlertButton from "./SaveAlertButton";
 import ThumbnailList from "./ThumbnailList";
 
-import { ra_to_hours, dec_to_hours } from "../units";
+import { ra_to_hours, dec_to_dms } from "../units";
 import SharePage from "./SharePage";
 
 import * as Actions from "../ducks/alert";
@@ -426,7 +426,7 @@ const ZTFAlert = ({ route }) => {
             </div>
             <div className={classes.name}>{objectId}</div>
             <br />
-            {savedSource || loadedSourceId ? (
+            {savedSource || (loadedSourceId === objectId) ? (
               <div className={classes.itemPaddingBottom}>
                 <Chip
                   size="small"
@@ -466,7 +466,7 @@ const ZTFAlert = ({ route }) => {
                   alert_data.filter((a) => a.candid === candid)[0].candidate.ra
                 )}
                 , &nbsp;
-                {dec_to_hours(
+                {dec_to_dms(
                   alert_data.filter((a) => a.candid === candid)[0].candidate.dec
                 )}
                 )

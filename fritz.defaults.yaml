@@ -17,6 +17,9 @@ skyportal:
     secret_key: abc01234
     factory: skyportal.app_server_fritz.make_app_fritz
 
+    # this endpoint does not actually do anything -- it is just for testing
+    sedm_endpoint: http://pharos.caltech.edu/add_fritz
+
     # See https://stackoverflow.com/a/35604855 for syntax
     # These are Javascript component routes
     routes:
