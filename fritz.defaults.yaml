@@ -51,7 +51,7 @@ skyportal:
       - path: "/filter/:fid"
         component: Filter
       - path: "/runs"
-        component: ObservingRunList
+        component: ObservingRunPage
       - path: "/run/:id"
         component: RunSummary
       - path: "/group_sources/:id"
