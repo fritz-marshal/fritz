@@ -233,6 +233,10 @@ def build(args):
         yaml.dump(dc, dcyaml)
 
     # Build skyportal's images
+
+    # This prevents us from adding our generated config.yaml
+    os.remove('skyportal/.dockerignore')
+
     cmd = ["docker", "build", "."]
     if args.skyportal_tag:
         cmd.extend(["-t", args.skyportal_tag])
