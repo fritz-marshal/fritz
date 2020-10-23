@@ -62,6 +62,8 @@ skyportal:
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
+      - path: "/upload_spectrum/:id"
+        component: UploadSpectrum
 
     kowalski:
       protocol: "http"
