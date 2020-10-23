@@ -248,6 +248,7 @@ class ZTFAlertHandler(BaseHandler):
                 schema: Error
         """
         streams = self.get_user_streams()
+        obj_already_exists = Obj.query.get(objectId) is not None
 
         # allow access to public data only by default
         selector = {1}
@@ -473,6 +474,8 @@ class ZTFAlertHandler(BaseHandler):
                 ]
             )
             DBSession().commit()
+            if not obj_already_exists:
+                obj.add_linked_thumbnails()
 
             # post photometry
             ztf_filters = {1: 'ztfg', 2: 'ztfr', 3: 'ztfi'}
