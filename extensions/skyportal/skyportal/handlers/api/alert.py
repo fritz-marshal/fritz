@@ -462,7 +462,16 @@ class ZTFAlertHandler(BaseHandler):
                                       "insufficient group alert stream permissions")
 
             DBSession().add(obj)
-            DBSession().add_all([Source(obj=obj, group=group) for group in groups])
+            DBSession().add_all(
+                [
+                    Source(
+                        obj=obj,
+                        group=group,
+                        saved_by_id=self.associated_user_object.id,
+                    )
+                    for group in groups
+                ]
+            )
             DBSession().commit()
 
             # post photometry
