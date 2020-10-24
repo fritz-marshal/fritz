@@ -195,6 +195,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
                 variant="contained"
                 type="submit"
                 name={`finalSaveAlertButton${alert.id}`}
+                disabled={isSubmitting}
               >
                 Save
               </Button>

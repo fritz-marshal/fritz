@@ -325,12 +325,15 @@ kowalski:
     # fixme: use strong password if exposing the database to the world
     password: "ztf"
 
+    build_indexes: True
+
     collections:
       users: "users"
       filters: "filters"
       queries: "queries"
       alerts_ztf: "ZTF_alerts"
       alerts_ztf_aux: "ZTF_alerts_aux"
+      alerts_ztf_filter: "ZTF_alerts_filter"
       alerts_zuds: "ZUDS_alerts"
       alerts_zuds_aux: "ZUDS_alerts_aux"
 
@@ -561,14 +564,13 @@ kowalski:
     password: "password"
 
   misc:
-    # fixme: set to False if running stand-alone
-    post_to_skyportal: True
+    broker: True
     supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2"]
     query_expiration_interval: 5
     max_time_ms: 300000
     max_retries: 100
     logging_level: "debug"
-    openapi_validate:  False
+    openapi_validate: False
 
   # this is used to make supervisord.conf files at build time
   supervisord:
