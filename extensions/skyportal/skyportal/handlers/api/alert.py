@@ -322,7 +322,7 @@ class ZTFAlertHandler(BaseHandler):
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-            # grab and append most recent candid as it should not be in prv_candidates
+            # grab and append most recent candid as it may not be in prv_candidates
             query = {
                 "query_type": "aggregate",
                 "query": {
@@ -378,13 +378,13 @@ class ZTFAlertHandler(BaseHandler):
                     alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
             df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-            w = df["candid"] == str(candid)
+            mask_candid = df["candid"] == str(candid)
 
-            if candid is None or sum(w) == 0:
+            if candid is None or sum(mask_candid) == 0:
                 candid = int(latest_alert_data["candidate"]["candid"])
                 alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
             else:
-                alert = df.loc[w].to_dict(orient="records")[0]
+                alert = df.loc[mask_candid].to_dict(orient="records")[0]
 
             # post source
             drb = alert.get('drb')
@@ -440,28 +440,6 @@ class ZTFAlertHandler(BaseHandler):
                     "one valid group ID that you belong to."
                 )
 
-            # check that all groups have access to same streams as user
-            for group in groups:
-                group_streams = (
-                    DBSession()
-                    .query(Stream)
-                    .join(GroupStream)
-                    .filter(GroupStream.group_id == group.id)
-                    .all()
-                )
-                if group_streams is None:
-                    group_streams = []
-
-                group_stream_selector = {1}
-
-                for stream in group_streams:
-                    if "ztf" in stream.name.lower():
-                        group_stream_selector.update(set(stream.altdata.get("selector", [])))
-
-                if not set(selector).issubset(group_stream_selector):
-                    return self.error(f"Cannot save to group {group.name}: "
-                                      "insufficient group alert stream permissions")
-
             DBSession().add(obj)
             DBSession().add_all(
                 [
@@ -490,28 +468,66 @@ class ZTFAlertHandler(BaseHandler):
             # deduplicate
             df = df.drop_duplicates(subset=["mjd", "magpsf"]).reset_index(drop=True).sort_values(by=['mjd'])
 
-            photometry = {
-                "obj_id": objectId,
-                "group_ids": group_ids,
-                "instrument_id": 1,  # placeholder
-                "mjd": df.mjd.tolist(),
-                "mag": df.magpsf.tolist(),
-                "magerr": df.sigmapsf.tolist(),
-                "limiting_mag": df.diffmaglim.tolist(),
-                "magsys": df.magsys.tolist(),
-                "filter": df.ztf_filter.tolist(),
-                "ra": df.ra.tolist(),
-                "dec": df.dec.tolist(),
-            }
+            # filter out bad data:
+            mask_good_diffmaglim = df["diffmaglim"] > 0
+            df = df.loc[mask_good_diffmaglim]
 
-            photometry_handler = PhotometryHandler(request=self.request, application=self.application)
-            photometry_handler.request.body = tornado.escape.json_encode(photometry)
-            try:
-                photometry_handler.put()
-            except Exception:
-                log(f"Failed to post photometry of {objectId}")
-            # do not return anything yet
-            self.clear()
+            # get group stream access and map it to ZTF alert program ids
+            group_stream_access = []
+            for group in groups:
+                group_streams = (
+                    DBSession()
+                    .query(Stream)
+                    .join(GroupStream)
+                    .filter(GroupStream.group_id == group.id)
+                    .all()
+                )
+                if group_streams is None:
+                    group_streams = []
+
+                group_stream_selector = {1}
+
+                for stream in group_streams:
+                    if "ztf" in stream.name.lower():
+                        group_stream_selector.update(set(stream.altdata.get("selector", [])))
+
+                group_stream_access.append(
+                    {
+                        "group_id": group.id,
+                        "permissions": list(group_stream_selector)
+                    }
+                )
+
+            # post data from different program_id's
+            for pid in set(df.programid.unique()):
+                group_ids = [gsa.get("group_id") for gsa in group_stream_access if pid in gsa.get("permissions", [1])]
+
+                if len(group_ids) > 0:
+                    pid_mask = df.programid == int(pid)
+
+                    photometry = {
+                        "obj_id": objectId,
+                        "group_ids": group_ids,
+                        "instrument_id": 1,  # placeholder
+                        "mjd": df.loc[pid_mask, "mjd"].tolist(),
+                        "mag": df.loc[pid_mask, "magpsf"].tolist(),
+                        "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
+                        "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
+                        "magsys": df.loc[pid_mask, "magsys"].tolist(),
+                        "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
+                        "ra": df.loc[pid_mask, "ra"].tolist(),
+                        "dec": df.loc[pid_mask, "dec"].tolist(),
+                    }
+
+                    if len(photometry.get('mag', ())) > 0:
+                        photometry_handler = PhotometryHandler(request=self.request, application=self.application)
+                        photometry_handler.request.body = tornado.escape.json_encode(photometry)
+                        try:
+                            photometry_handler.put()
+                        except Exception:
+                            log(f"Failed to post photometry of {objectId} to group_ids {group_ids}")
+                        # do not return anything yet
+                        self.clear()
 
             # post cutouts
             for ttype, ztftype in [('new', 'Science'), ('ref', 'Template'), ('sub', 'Difference')]:
