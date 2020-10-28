@@ -1117,7 +1117,7 @@ The final stage adds annotations to a passing alert:
 As another example, below you will find a simplified version of the Bright Transient Survey filter
 (the Redshift Completeness Factor program)
 
-{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
+{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf_simple.json>`
 
 ```js
 [
@@ -1290,8 +1290,8 @@ As another example, below you will find a simplified version of the Bright Trans
                       ]
                     ]
                   }, {
-                    "$ne": [
-                      "$$cand.magpsf", null
+                    "$gt": [
+                      "$$cand.magpsf", 0
                     ]
                   }, {
                     "$lt": [
@@ -1570,6 +1570,13 @@ As another example, below you will find a simplified version of the Bright Trans
   }
 ]
 ```
+
+#### BTS/RCF program full filter
+
+Here you will find the full version (as of 2020) of the Bright Transient Survey filter
+(the Redshift Completeness Factor program)
+
+{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
 
 #### Fast Transients program filter
 

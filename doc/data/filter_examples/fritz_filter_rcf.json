@@ -1,7 +1,7 @@
 [
   {
     "$match": {
-      "objectId": "ZTF20aacbyec",
+      "objectId": "ZTF20aadyyvk",
       "candidate.programid": {
         "$in": [
           1
@@ -40,23 +40,17 @@
             "$and": [
               {
                 "$in": [
-                  "$$item.programid",
-                  [
-                    1,
-                    2,
-                    3
+                  "$$item.programid", [
+                    1, 2, 3
                   ]
                 ]
-              },
-              {
+              }, {
                 "$lt": [
                   {
                     "$subtract": [
-                      "$candidate.jd",
-                      "$$item.jd"
+                      "$candidate.jd", "$$item.jd"
                     ]
-                  },
-                  100
+                  }, 100
                 ]
               }
             ]
@@ -73,69 +67,255 @@
     }
   }, {
     "$project": {
-      "_id": 0,
-      "candid": 1,
-      "objectId": 1,
-      "prv_candidates.jd": 1,
-      "prv_candidates.magpsf": 1,
-      "prv_candidates.fid": 1,
-      "prv_candidates.isdiffpos": 1,
-      "isdiffpos": "$candidate.isdiffpos",
-      "m_now": "$candidate.magpsf",
-      "m_app": "$candidate.magap",
-      "t_now": "$candidate.jd",
-      "fid_now": "$candidate.fid",
-      "sgscore": "$candidate.sgscore1",
-      "sgscore2": "$candidate.sgscore2",
-      "sgscore3": "$candidate.sgscore3",
-      "srmag": "$candidate.srmag1",
-      "srmag2": "$candidate.srmag2",
-      "srmag3": "$candidate.srmag3",
-      "sgmag": "$candidate.sgmag1",
-      "simag": "$candidate.simag1",
-      "drbscore": "$candidate.drb",
-      "magnr": "$candidate.magnr",
-      "distnr": "$candidate.distnr",
-      "distpsnr1": "$candidate.distpsnr1",
-      "distpsnr2": "$candidate.distpsnr2",
-      "distpsnr3": "$candidate.distpsnr3",
-      "scorr": "$candidate.scorr",
-      "fwhm": "$candidate.fwhm",
-      "elong": "$candidate.elong",
-      "nbad": "$candidate.nbad",
-      "chipsf": "$candidate.chipsf",
-      "gal_lat": "$coordinates.b",
-      "ssdistnr": "$candidate.ssdistnr",
-      "ssmagnr": "$candidate.ssmagnr",
-      "ssnamenr": "$candidate.ssnamenr",
-      "t_start": "$candidate.jdstarthist",
+      "_id": 0, 
+      "candid": 1, 
+      "objectId": 1, 
+      "prv_candidates.jd": 1, 
+      "prv_candidates.magpsf": 1, 
+      "prv_candidates.fid": 1, 
+      "prv_candidates.isdiffpos": 1, 
+      "m_now": "$candidate.magpsf", 
+      "m_app": "$candidate.magap", 
+      "t_now": "$candidate.jd", 
+      "fid_now": "$candidate.fid", 
+      "sgscore1": "$candidate.sgscore1", 
+      "sgscore2": "$candidate.sgscore2", 
+      "sgscore3": "$candidate.sgscore3", 
+      "srmag1": "$candidate.srmag1", 
+      "srmag2": "$candidate.srmag2", 
+      "srmag3": "$candidate.srmag3", 
+      "sgmag1": "$candidate.sgmag1", 
+      "simag1": "$candidate.simag1", 
+      "szmag1": "$candidate.szmag1", 
+      "rbscore": "$candidate.rb", 
+      "magnr": "$candidate.magnr", 
+      "distnr": {
+        "$cond": {
+          "if": {
+            "$lt": [
+              "$candidate.distnr", 0
+            ]
+          }, 
+          "then": 99, 
+          "else": "$candidate.distnr"
+        }
+      }, 
+      "distpsnr1": {
+        "$cond": {
+          "if": {
+            "$lt": [
+              "$candidate.distpsnr1", 0
+            ]
+          }, 
+          "then": 99, 
+          "else": "$candidate.distpsnr1"
+        }
+      }, 
+      "distpsnr2": {
+        "$cond": {
+          "if": {
+            "$lt": [
+              "$candidate.distpsnr2", 0
+            ]
+          }, 
+          "then": 99, 
+          "else": "$candidate.distpsnr2"
+        }
+      }, 
+      "distpsnr3": {
+        "$cond": {
+          "if": {
+            "$lt": [
+              "$candidate.distpsnr3", 0
+            ]
+          }, 
+          "then": 99, 
+          "else": "$candidate.distpsnr3"
+        }
+      }, 
+      "scorr": "$candidate.scorr", 
+      "fwhm": "$candidate.fwhm", 
+      "elong": "$candidate.elong", 
+      "nbad": "$candidate.nbad", 
+      "chipsf": "$candidate.chipsf", 
+      "gal_lat": "$coordinates.b", 
+      "ssdistnr": "$candidate.ssdistnr", 
+      "ssmagnr": "$candidate.ssmagnr", 
+      "ssnamenr": "$candidate.ssnamenr", 
+      "t_start": "$candidate.jdstarthist", 
+      "neargaia": "$candidate.neargaia", 
+      "maggaia": "$candidate.maggaia", 
+      "neargaiabright": "$candidate.neargaiabright", 
+      "maggaiabright": "$candidate.maggaiabright", 
+      "isdiffpos": "$candidate.isdiffpos", 
+      "drb": "$candidate.drb", 
       "age": {
         "$subtract": [
           "$candidate.jd", "$candidate.jdstarthist"
         ]
+      }, 
+      "ps1mag": {
+        "$switch": {
+          "branches": [
+            {
+              "case": {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$candidate.srmag1", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$candidate.srmag1", 30
+                    ]
+                  }
+                ]
+              }, 
+              "then": "$candidate.srmag1"
+            }, {
+              "case": {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$candidate.simag1", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$candidate.simag1", 30
+                    ]
+                  }
+                ]
+              }, 
+              "then": "$candidate.simag1"
+            }, {
+              "case": {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$candidate.sgmag1", 0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$candidate.sgmag1", 30
+                    ]
+                  }
+                ]
+              }, 
+              "then": "$candidate.sgmag1"
+            }
+          ], 
+          "default": 99
+        }
+      }, 
+      "ps1maxmag": {
+        "$min": [
+          {
+            "$cond": {
+              "if": {
+                "$gt": [
+                  "$candidate.srmag1", 0
+                ]
+              }, 
+              "then": "$candidate.srmag1", 
+              "else": 99
+            }
+          }, {
+            "$cond": {
+              "if": {
+                "$gt": [
+                  "$candidate.simag1", 0
+                ]
+              }, 
+              "then": "$candidate.simag1", 
+              "else": 99
+            }
+          }, {
+            "$cond": {
+              "if": {
+                "$gt": [
+                  "$candidate.sgmag1", 0
+                ]
+              }, 
+              "then": "$candidate.sgmag1", 
+              "else": 99
+            }
+          }, {
+            "$cond": {
+              "if": {
+                "$gt": [
+                  "$candidate.szmag1", 0
+                ]
+              }, 
+              "then": "$candidate.szmag1", 
+              "else": 99
+            }
+          }
+        ]
+      }, 
+      "prevpasscount": {
+        "$sum": {
+          "$map": {
+            "input": "$prv_candidates", 
+            "as": "cand", 
+            "in": {
+              "$and": [
+                {
+                  "$lt": [
+                    {
+                      "$abs": {
+                        "$subtract": [
+                          "$t_now", "$$cand.jd"
+                        ]
+                      }
+                    }, 0.75
+                  ]
+                }, {
+                  "$in": [
+                    "$isdiffpos", [
+                      1, "1", "t", true
+                    ]
+                  ]
+                }, {
+                  "$ne": [
+                    "$$cand.magpsf", null
+                  ]
+                }, {
+                  "$lt": [
+                    "$$cand.magpsf", 19
+                  ]
+                }
+              ]
+            }
+          }
+        }
       }
     }
   }, {
     "$project": {
-      "objectId": 1,
-      "t_now": 1,
-      "m_now": 1,
-      "fid_now": 1,
-      "sgscore": 1,
-      "drbscore": 1,
-      "magnr": 1,
-      "distnr": 1,
-      "scorr": 1,
-      "gal_lat": 1,
-      "ssdistnr": 1,
-      "ssnamenr": 1,
-      "age": 1,
+      "objectId": 1, 
+      "t_now": 1, 
+      "m_now": 1, 
+      "fid_now": 1, 
+      "sgscore1": 1, 
+      "rbscore": 1, 
+      "drb": 1, 
+      "magnr": 1, 
+      "distnr": 1, 
+      "scorr": 1, 
+      "srmag1": 1, 
+      "distpsnr1": 1, 
+      "gal_lat": 1, 
+      "ssdistnr": 1, 
+      "ssnamenr": 1, 
+      "maggaia": 1, 
+      "neargaia": 1, 
+      "age": 1, 
       "peakmag": {
         "$min": [
           {
             "$map": {
-              "input": "$prv_candidates",
-              "as": "cand",
+              "input": "$prv_candidates", 
+              "as": "cand", 
               "in": {
                 "$cond": [
                   {
@@ -148,76 +328,286 @@
             }
           }, "$m_now"
         ]
-      },
+      }, 
       "bright": {
         "$or": [
           {
             "$lt": [
-              "$m_now", 19.0
+              "$m_now", 19
             ]
           }, {
-            "$map": {
-              "input": "$prv_candidates",
-              "as": "cand",
-              "in": {
-                "$and": [
-                  {
-                    "$lt": [
-                      {
-                        "$abs": {
-                          "$subtract": [
-                            "$t_now", "$$cand.jd"
-                          ]
-                        }
-                      }, 0.75
-                    ]
-                  }, {
-                    "$in": [
-                      "$isdiffpos", [
-                        1, "1", "t", true
+            "$anyElementTrue": {
+              "$map": {
+                "input": "$prv_candidates", 
+                "as": "cand", 
+                "in": {
+                  "$and": [
+                    {
+                      "$lt": [
+                        {
+                          "$abs": {
+                            "$subtract": [
+                              "$t_now", "$$cand.jd"
+                            ]
+                          }
+                        }, 0.75
                       ]
-                    ]
-                  }, {
-                    "$ne": [
-                      "$$cand.magpsf", null
-                    ]
-                  }, {
-                    "$lt": [
-                      "$$cand.magpsf", 19
-                    ]
-                  }
-                ]
+                    }, {
+                      "$in": [
+                        "$isdiffpos", [
+                          1, "1", "t", true
+                        ]
+                      ]
+                    }, {
+                      "$gt": [
+                        "$$cand.magpsf", 0
+                      ]
+                    }, {
+                      "$lt": [
+                        "$$cand.magpsf", 19
+                      ]
+                    }
+                  ]
+                }
               }
             }
           }
         ]
-      },
+      }, 
       "latitude": {
         "$gte": [
           {
             "$abs": "$gal_lat"
           }, 7
         ]
-      },
+      }, 
       "positivesubtraction": {
         "$in": [
           "$isdiffpos", [
             1, "1", "t", true
           ]
         ]
-      },
+      }, 
       "real": {
-        "$gt": [
-          "$drbscore", 0.5
-        ]
-      },
-      "nopointunderneath": {
         "$not": [
+          {
+            "$or": [
+              {
+                "$lte": [
+                  "$rbscore", 0.2
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$rbscore", 0.35
+                    ]
+                  }, {
+                    "$lt": [
+                      {
+                        "$abs": "$neargaia"
+                      }, 1.0
+                    ]
+                  }, {
+                    "$lt": [
+                      {
+                        "$abs": "$maggaia"
+                      }, 17.0
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$rbscore", 0.35
+                    ]
+                  }, {
+                    "$lt": [
+                      "$distpsnr1", 1.0
+                    ]
+                  }, {
+                    "$gt": [
+                      "$sgscore1", 0.49
+                    ]
+                  }, {
+                    "$or": [
+                      {
+                        "$lt": [
+                          {
+                            "$abs": "$srmag1"
+                          }, 17.0
+                        ]
+                      }, {
+                        "$lt": [
+                          {
+                            "$abs": "$simag1"
+                          }, 17.0
+                        ]
+                      }, {
+                        "$lt": [
+                          {
+                            "$abs": "$szmag1"
+                          }, 16.5
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$rbscore", 0.45
+                    ]
+                  }, {
+                    "$lt": [
+                      {
+                        "$abs": "$neargaia"
+                      }, 1.5
+                    ]
+                  }, {
+                    "$lt": [
+                      {
+                        "$abs": "$maggaia"
+                      }, 15.5
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$rbscore", 0.45
+                    ]
+                  }, {
+                    "$lt": [
+                      "$distpsnr1", 1.5
+                    ]
+                  }, {
+                    "$gt": [
+                      "$sgscore1", 0.49
+                    ]
+                  }, {
+                    "$or": [
+                      {
+                        "$lt": [
+                          {
+                            "$abs": "$srmag1"
+                          }, 15.5
+                        ]
+                      }, {
+                        "$lt": [
+                          {
+                            "$abs": "$simag1"
+                          }, 15.5
+                        ]
+                      }, {
+                        "$lt": [
+                          {
+                            "$abs": "$szmag1"
+                          }, 15.0
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                "$lt": [
+                  "$drb", 0.1
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$drb", 0.5
+                    ]
+                  }, {
+                    "$lt": [
+                      "$distpsnr1", 3.0
+                    ]
+                  }, {
+                    "$lt": [
+                      "$ps1mag", 16.0
+                    ]
+                  }, {
+                    "$gt": [
+                      "$age", 90.0
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$drb", 0.5
+                    ]
+                  }, {
+                    "$lt": [
+                      "$distpsnr1", 1.1
+                    ]
+                  }, {
+                    "$lt": [
+                      "$ps1mag", 18.0
+                    ]
+                  }, {
+                    "$gt": [
+                      "$age", 90.0
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$drb", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$distpsnr1", 1.5
+                    ]
+                  }, {
+                    "$lt": [
+                      "$ps1mag", 15.5
+                    ]
+                  }, {
+                    "$gt": [
+                      "$age", 90.0
+                    ]
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$lt": [
+                      "$drb", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$distpsnr1", 0.8
+                    ]
+                  }, {
+                    "$lt": [
+                      "$ps1mag", 17.5
+                    ]
+                  }, {
+                    "$gt": [
+                      "$age", 90.0
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }, 
+      "pointunderneath": {
+        "$or": [
           {
             "$and": [
               {
                 "$gt": [
-                  "$sgscore", 0.76
+                  "$sgscore1", 0.76
                 ]
               }, {
                 "$lt": [
@@ -225,12 +615,84 @@
                 ]
               }
             ]
+          }, {
+            "$and": [
+              {
+                "$gt": [
+                  "$sgscore1", 0.2
+                ]
+              }, {
+                "$lt": [
+                  "$distpsnr1", 1
+                ]
+              }, {
+                "$gt": [
+                  "$srmag1", 0
+                ]
+              }, {
+                "$gt": [
+                  "$szmag1", 0
+                ]
+              }, {
+                "$gt": [
+                  {
+                    "$subtract": [
+                      "$srmag1", "$szmag1"
+                    ]
+                  }, 3.0
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$gt": [
+                  "$sgscore1", 0.2
+                ]
+              }, {
+                "$lt": [
+                  "$distpsnr1", 1
+                ]
+              }, {
+                "$gt": [
+                  "$srmag1", 0
+                ]
+              }, {
+                "$gt": [
+                  "$simag1", 0
+                ]
+              }, {
+                "$gt": [
+                  {
+                    "$subtract": [
+                      "$srmag1", "$simag1"
+                    ]
+                  }, 3.0
+                ]
+              }
+            ]
           }
         ]
-      },
+      }, 
       "brightstar": {
         "$or": [
           {
+            "$and": [
+              {
+                "$lt": [
+                  {
+                    "$abs": "$neargaiabright"
+                  }, 20
+                ]
+              }, {
+                "$lt": [
+                  {
+                    "$abs": "$maggaiabright"
+                  }, 12
+                ]
+              }
+            ]
+          }, {
             "$and": [
               {
                 "$lt": [
@@ -238,15 +700,13 @@
                 ]
               }, {
                 "$lt": [
-                  "$srmag", 15
+                  {
+                    "$abs": "$srmag1"
+                  }, 14
                 ]
               }, {
                 "$gt": [
-                  "$srmag", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore", 0.49
+                  "$sgscore1", 0.9
                 ]
               }
             ]
@@ -258,15 +718,13 @@
                 ]
               }, {
                 "$lt": [
-                  "$srmag2", 15
+                  {
+                    "$abs": "$srmag2"
+                  }, 14
                 ]
               }, {
                 "$gt": [
-                  "$srmag2", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore2", 0.49
+                  "$sgscore2", 0.9
                 ]
               }
             ]
@@ -278,15 +736,239 @@
                 ]
               }, {
                 "$lt": [
-                  "$srmag3", 15
+                  {
+                    "$abs": "$srmag3"
+                  }, 14
                 ]
               }, {
                 "$gt": [
-                  "$srmag3", 0
+                  "$sgscore3", 0.9
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$lt": [
+                  "$distpsnr1", 20
+                ]
+              }, {
+                "$lt": [
+                  {
+                    "$abs": "$simag1"
+                  }, 14
                 ]
               }, {
                 "$gt": [
-                  "$sgscore3", 0.49
+                  "$sgscore1", 0.9
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$lt": [
+                  "$distpsnr1", 10
+                ]
+              }, {
+                "$lt": [
+                  {
+                    "$abs": "$szmag1"
+                  }, 14
+                ]
+              }, {
+                "$gt": [
+                  "$sgscore1", 0.9
+                ]
+              }
+            ]
+          }
+        ]
+      }, 
+      "variablesource": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "$gt": [
+                  "$age", 90
+                ]
+              }, {
+                "$gte": [
+                  "$prevpasscount", {
+                    "$switch": {
+                      "branches": [
+                        {
+                          "case": {
+                            "$gt": [
+                              "$age", 360
+                            ]
+                          }, 
+                          "then": 1
+                        }, {
+                          "case": {
+                            "$gt": [
+                              "$age", 90
+                            ]
+                          }, 
+                          "then": 2
+                        }
+                      ], 
+                      "default": 3
+                    }
+                  }
+                ]
+              }, {
+                "$and": [
+                  {
+                    "$gt": [
+                      "$magnr", 0
+                    ]
+                  }, {
+                    "$not": [
+                      {
+                        "$and": [
+                          {
+                            "$lte": [
+                              "$m_now", "$peakmag"
+                            ]
+                          }, {
+                            "$lt": [
+                              "$m_now", 18.5
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                "$or": [
+                  {
+                    "$and": [
+                      {
+                        "$lt": [
+                          "$distnr", 0.4
+                        ]
+                      }, {
+                        "$lt": [
+                          "$magnr", 19.5
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$lt": [
+                          "$distnr", 0.8
+                        ]
+                      }, {
+                        "$lt": [
+                          "$magnr", 17.5
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$lt": [
+                          "$distnr", 1.2
+                        ]
+                      }, {
+                        "$lt": [
+                          "$magnr", 15.5
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$gt": [
+                  "$maggaia", 0
+                ]
+              }, {
+                "$gt": [
+                  "$neargaia", 0
+                ]
+              }, {
+                "$or": [
+                  {
+                    "$and": [
+                      {
+                        "$lt": [
+                          "$neargaia", 0.35
+                        ]
+                      }, {
+                        "$lt": [
+                          "$maggaia", 17.0
+                        ]
+                      }, {
+                        "$gt": [
+                          "$age", 30
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$lt": [
+                          "$neargaia", 0.35
+                        ]
+                      }, {
+                        "$lt": [
+                          "$maggaia", 19.0
+                        ]
+                      }, {
+                        "$gt": [
+                          "$age", 300
+                        ]
+                      }, {
+                        "$gt": [
+                          "$m_now", 18.5
+                        ]
+                      }
+                    ]
+                  }, {
+                    "$and": [
+                      {
+                        "$lt": [
+                          "$neargaia", 0.2
+                        ]
+                      }, {
+                        "$lt": [
+                          "$maggaia", 18.0
+                        ]
+                      }, {
+                        "$gt": [
+                          "$age", 90
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$gt": [
+                  "$sgscore1", 0.25
+                ]
+              }, {
+                "$lt": [
+                  "$distpsnr1", 3
+                ]
+              }, {
+                "$gt": [
+                  "$age", 90
+                ]
+              }, {
+                "$lt": [
+                  "$ps1maxmag", 16
                 ]
               }
             ]
@@ -294,86 +976,53 @@
             "$and": [
               {
                 "$eq": [
-                  "$sgscore", 0.5
+                  "$sgscore1", 0.5
                 ]
               }, {
                 "$lt": [
                   "$distpsnr1", 0.5
                 ]
               }, {
-                "$or": [
-                  {
-                    "$lt": [
-                      "$sgmag", 17
-                    ]
-                  }, {
-                    "$lt": [
-                      "$srmag", 17
-                    ]
-                  }, {
-                    "$lt": [
-                      "$simag", 17
+                "$gt": [
+                  "$age", 90
+                ]
+              }, {
+                "$lt": [
+                  "$ps1maxmag", 17
+                ]
+              }
+            ]
+          }, {
+            "$and": [
+              {
+                "$gt": [
+                  "$magnr", 0
+                ]
+              }, {
+                "$lt": [
+                  "$magnr", {
+                    "$subtract": [
+                      "$m_now", 1
                     ]
                   }
                 ]
-              }
-            ]
-          }
-        ]
-      },
-      "variablesource": {
-        "$or": [
-          {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 0.4
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 19
-                ]
               }, {
                 "$gt": [
                   "$age", 90
                 ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 0.8
-                ]
               }, {
                 "$lt": [
-                  "$magnr", 17
+                  "$distnr", 0.5
                 ]
               }, {
                 "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 1.2
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 15
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
+                  "$m_now", "$peakmag"
                 ]
               }
             ]
           }
         ]
-      },
+      }, 
       "rock": {
         "$and": [
           {
@@ -392,12 +1041,12 @@
             ]
           }
         ]
-      },
+      }, 
       "stationary": {
         "$anyElementTrue": {
           "$map": {
-            "input": "$prv_candidates",
-            "as": "cand",
+            "input": "$prv_candidates", 
+            "as": "cand", 
             "in": {
               "$and": [
                 {
@@ -429,29 +1078,90 @@
     }
   }, {
     "$match": {
-      "latitude": true,
-      "bright": true,
-      "nopointunderneath": true,
-      "positivesubtraction": true,
-      "real": true,
-      "stationary": true,
-      "brightstar": false,
+      "latitude": true, 
+      "bright": true, 
+      "pointunderneath": false, 
+      "positivesubtraction": true, 
+      "real": true, 
+      "stationary": true, 
+      "brightstar": false, 
+      "variablesource": false, 
       "rock": false
     }
   }, {
     "$project": {
-      "objectId": 1,
-      "annotations.jd": "$t_now",
-      "annotations.magnitude": "$m_now",
-      "annotations.sgscore": "$sgscore",
-      "annotations.peakmag": "$peakmag",
-      "annotations.atpeak": {
-        "$eq": [
+      "objectId": 1, 
+      "annotations.jd": "$t_now", 
+      "annotations.magnitude": {
+        "$round": [
+          "$m_now", 3
+        ]
+      }, 
+      "annotations.age": {
+        "$round": [
+          "$age", 5
+        ]
+      }, 
+      "annotations.peakmag": {
+        "$round": [
+          "$peakmag", 5
+        ]
+      }, 
+      "annotations.atmax": {
+        "$lte": [
           "$m_now", "$peakmag"
         ]
-      },
-      "annotations.age": "$age",
-      "annotations.drb": "$drbscore"
+      }, 
+      "annotations.rbscore": {
+        "$round": [
+          "$rbscore", 5
+        ]
+      }, 
+      "annotations.drb": {
+        "$round": [
+          "$drb", 5
+        ]
+      }, 
+      "annotations.magnr": {
+        "$round": [
+          "$magnr", 5
+        ]
+      }, 
+      "annotations.distnr": {
+        "$round": [
+          "$distnr", 5
+        ]
+      }, 
+      "annotations.srmag1": {
+        "$round": [
+          "$srmag1", 5
+        ]
+      }, 
+      "annotations.distpsnr1": {
+        "$round": [
+          "$distpsnr1", 5
+        ]
+      }, 
+      "annotations.sgscore1": {
+        "$round": [
+          "$sgscore1", 5
+        ]
+      }, 
+      "annotations.maggaia": {
+        "$round": [
+          "$maggaia", 5
+        ]
+      }, 
+      "annotations.neargaia": {
+        "$round": [
+          "$neargaia", 5
+        ]
+      }, 
+      "annotations.gal_lat": {
+        "$round": [
+          "$gal_lat", 5
+        ]
+      }
     }
   }
 ]
