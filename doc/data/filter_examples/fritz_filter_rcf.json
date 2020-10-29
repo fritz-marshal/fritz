@@ -288,6 +288,29 @@
             }
           }
         }
+      }, 
+      "peakmag": {
+        "$min": [
+          "$candidate.magpsf", {
+            "$min": [
+              {
+                "$map": {
+                  "input": "$prv_candidates", 
+                  "as": "cand", 
+                  "in": {
+                    "$cond": [
+                      {
+                        "$eq": [
+                          "$$cand.fid", "$candidate.fid"
+                        ]
+                      }, "$$cand.magpsf", null
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
       }
     }
   }, {
@@ -310,25 +333,7 @@
       "maggaia": 1, 
       "neargaia": 1, 
       "age": 1, 
-      "peakmag": {
-        "$min": [
-          {
-            "$map": {
-              "input": "$prv_candidates", 
-              "as": "cand", 
-              "in": {
-                "$cond": [
-                  {
-                    "$eq": [
-                      "$$cand.fid", "$fid_now"
-                    ]
-                  }, "$$cand.magpsf", null
-                ]
-              }
-            }
-          }, "$m_now"
-        ]
-      }, 
+      "peakmag": 1, 
       "bright": {
         "$or": [
           {
