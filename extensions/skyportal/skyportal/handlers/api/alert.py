@@ -1,5 +1,13 @@
 from astropy.io import fits
-from astropy.visualization import ZScaleInterval
+from astropy.visualization import (
+    MinMaxInterval,
+    ZScaleInterval,
+    AsinhStretch,
+    LinearStretch,
+    LogStretch,
+    SqrtStretch,
+    ImageNormalize
+)
 import base64
 import bson.json_util as bj
 import gzip
@@ -57,11 +65,12 @@ def make_thumbnail(a, ttype, ztftype):
     img = np.array(data_flipped_y)
     img = np.nan_to_num(img)
 
-    if ztftype != 'Difference':
-        img[img <= 0] = np.median(img)
-        plt.imshow(img, cmap="bone", norm=mplc.LogNorm(), origin='lower')
-    else:
-        plt.imshow(img, cmap="bone", origin='lower')
+    norm = ImageNormalize(
+        img,
+        interval=MinMaxInterval(),
+        stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
+    )
+    ax.imshow(img, cmap="bone", origin='lower', norm=norm)
     plt.savefig(buff, dpi=42)
 
     buff.seek(0)
@@ -322,7 +331,7 @@ class ZTFAlertHandler(BaseHandler):
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-            # grab and append most recent candid as it should not be in prv_candidates
+            # grab and append most recent candid as it may not be in prv_candidates
             query = {
                 "query_type": "aggregate",
                 "query": {
@@ -378,13 +387,13 @@ class ZTFAlertHandler(BaseHandler):
                     alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
             df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-            w = df["candid"] == str(candid)
+            mask_candid = df["candid"] == str(candid)
 
-            if candid is None or sum(w) == 0:
+            if candid is None or sum(mask_candid) == 0:
                 candid = int(latest_alert_data["candidate"]["candid"])
                 alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
             else:
-                alert = df.loc[w].to_dict(orient="records")[0]
+                alert = df.loc[mask_candid].to_dict(orient="records")[0]
 
             # post source
             drb = alert.get('drb')
@@ -440,28 +449,6 @@ class ZTFAlertHandler(BaseHandler):
                     "one valid group ID that you belong to."
                 )
 
-            # check that all groups have access to same streams as user
-            for group in groups:
-                group_streams = (
-                    DBSession()
-                    .query(Stream)
-                    .join(GroupStream)
-                    .filter(GroupStream.group_id == group.id)
-                    .all()
-                )
-                if group_streams is None:
-                    group_streams = []
-
-                group_stream_selector = {1}
-
-                for stream in group_streams:
-                    if "ztf" in stream.name.lower():
-                        group_stream_selector.update(set(stream.altdata.get("selector", [])))
-
-                if not set(selector).issubset(group_stream_selector):
-                    return self.error(f"Cannot save to group {group.name}: "
-                                      "insufficient group alert stream permissions")
-
             DBSession().add(obj)
             DBSession().add_all(
                 [
@@ -490,28 +477,66 @@ class ZTFAlertHandler(BaseHandler):
             # deduplicate
             df = df.drop_duplicates(subset=["mjd", "magpsf"]).reset_index(drop=True).sort_values(by=['mjd'])
 
-            photometry = {
-                "obj_id": objectId,
-                "group_ids": group_ids,
-                "instrument_id": 1,  # placeholder
-                "mjd": df.mjd.tolist(),
-                "mag": df.magpsf.tolist(),
-                "magerr": df.sigmapsf.tolist(),
-                "limiting_mag": df.diffmaglim.tolist(),
-                "magsys": df.magsys.tolist(),
-                "filter": df.ztf_filter.tolist(),
-                "ra": df.ra.tolist(),
-                "dec": df.dec.tolist(),
-            }
+            # filter out bad data:
+            mask_good_diffmaglim = df["diffmaglim"] > 0
+            df = df.loc[mask_good_diffmaglim]
 
-            photometry_handler = PhotometryHandler(request=self.request, application=self.application)
-            photometry_handler.request.body = tornado.escape.json_encode(photometry)
-            try:
-                photometry_handler.put()
-            except Exception:
-                log(f"Failed to post photometry of {objectId}")
-            # do not return anything yet
-            self.clear()
+            # get group stream access and map it to ZTF alert program ids
+            group_stream_access = []
+            for group in groups:
+                group_streams = (
+                    DBSession()
+                    .query(Stream)
+                    .join(GroupStream)
+                    .filter(GroupStream.group_id == group.id)
+                    .all()
+                )
+                if group_streams is None:
+                    group_streams = []
+
+                group_stream_selector = {1}
+
+                for stream in group_streams:
+                    if "ztf" in stream.name.lower():
+                        group_stream_selector.update(set(stream.altdata.get("selector", [])))
+
+                group_stream_access.append(
+                    {
+                        "group_id": group.id,
+                        "permissions": list(group_stream_selector)
+                    }
+                )
+
+            # post data from different program_id's
+            for pid in set(df.programid.unique()):
+                group_ids = [gsa.get("group_id") for gsa in group_stream_access if pid in gsa.get("permissions", [1])]
+
+                if len(group_ids) > 0:
+                    pid_mask = df.programid == int(pid)
+
+                    photometry = {
+                        "obj_id": objectId,
+                        "group_ids": group_ids,
+                        "instrument_id": 1,  # placeholder
+                        "mjd": df.loc[pid_mask, "mjd"].tolist(),
+                        "mag": df.loc[pid_mask, "magpsf"].tolist(),
+                        "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
+                        "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
+                        "magsys": df.loc[pid_mask, "magsys"].tolist(),
+                        "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
+                        "ra": df.loc[pid_mask, "ra"].tolist(),
+                        "dec": df.loc[pid_mask, "dec"].tolist(),
+                    }
+
+                    if len(photometry.get('mag', ())) > 0:
+                        photometry_handler = PhotometryHandler(request=self.request, application=self.application)
+                        photometry_handler.request.body = tornado.escape.json_encode(photometry)
+                        try:
+                            photometry_handler.put()
+                        except Exception:
+                            log(f"Failed to post photometry of {objectId} to group_ids {group_ids}")
+                        # do not return anything yet
+                        self.clear()
 
             # post cutouts
             for ttype, ztftype in [('new', 'Science'), ('ref', 'Template'), ('sub', 'Difference')]:
@@ -748,12 +773,19 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
               type: string
               enum: [fits, png]
           - in: query
-            name: scaling
-            description: "Scaling to use when rendering png"
+            name: interval
+            description: "Interval to use when rendering png"
             required: false
             schema:
               type: string
-              enum: [linear, log, arcsinh, zscale]
+              enum: [min_max, zscale]
+          - in: query
+            name: stretch
+            description: "Stretch to use when rendering png"
+            required: false
+            schema:
+              type: string
+              enum: [linear, log, asinh, sqrt]
           - in: query
             name: cmap
             description: "Color map to use when rendering png"
@@ -796,7 +828,8 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             candid = int(self.get_argument('candid'))
             cutout = self.get_argument('cutout').capitalize()
             file_format = self.get_argument('file_format').lower()
-            scaling = self.get_argument('scaling', default=None)
+            interval = self.get_argument('interval', default=None)
+            stretch = self.get_argument('stretch', default=None)
             cmap = self.get_argument('cmap', default=None)
 
             known_cutouts = ['Science', 'Template', 'Difference']
@@ -808,15 +841,30 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                     f'file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}'
                 )
 
-            default_scaling = {
-                'Science': 'log',
-                'Template': 'log',
-                'Difference': 'zscale'
-            }
-            if (scaling is None) or (scaling.lower() not in ('log', 'linear', 'zscale', 'arcsinh')):
-                scaling = default_scaling[cutout]
-            else:
-                scaling = scaling.lower()
+            if (interval is None) or (interval.lower() not in ['min_max', 'zscale']):
+                interval = MinMaxInterval()
+            elif interval.lower() == "min_max":
+                interval = MinMaxInterval()
+            elif interval.lower() == "zscale":
+                interval = ZScaleInterval(
+                    nsamples=600,
+                    contrast=0.045,
+                    krej=2.5
+                )
+
+            if (stretch is None) or (stretch.lower() not in ["linear", "log", "asinh", "sqrt"]):
+                if cutout == "Difference":
+                    stretch = LinearStretch()
+                else:
+                    stretch = LogStretch()
+            elif stretch.lower() == "linear":
+                stretch = LinearStretch()
+            elif stretch.lower() == "log":
+                stretch = LogStretch()
+            elif stretch.lower() == "asinh":
+                stretch = AsinhStretch()
+            elif stretch.lower() == "sqrt":
+                stretch = SqrtStretch()
 
             if (cmap is None) or (cmap.lower() not in ['bone', 'gray', 'cividis', 'viridis', 'magma']):
                 cmap = 'bone'
@@ -885,21 +933,12 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 img = np.array(data_flipped_y)
                 img = np.nan_to_num(img)
 
-                if scaling == 'log':
-                    img[img <= 0] = np.median(img)
-                    ax.imshow(img, cmap=cmap, norm=mplc.LogNorm(), origin='lower')
-                elif scaling == 'linear':
-                    ax.imshow(img, cmap=cmap, origin='lower')
-                elif scaling == 'zscale':
-                    interval = ZScaleInterval(
-                        nsamples=img.shape[0] * img.shape[1],
-                        contrast=0.045,
-                        krej=2.5
-                    )
-                    limits = interval.get_limits(img)
-                    ax.imshow(img, origin='lower', cmap=cmap, vmin=limits[0], vmax=limits[1])
-                elif scaling == 'arcsinh':
-                    ax.imshow(np.arcsinh(img - np.median(img)), cmap=cmap, origin='lower')
+                norm = ImageNormalize(
+                    img,
+                    interval=interval,
+                    stretch=stretch
+                )
+                ax.imshow(img, cmap=cmap, origin='lower', norm=norm)
                 plt.savefig(buff, dpi=42)
                 buff.seek(0)
                 plt.close('all')
