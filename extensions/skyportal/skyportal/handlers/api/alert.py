@@ -13,7 +13,6 @@ import bson.json_util as bj
 import gzip
 import io
 from marshmallow.exceptions import ValidationError
-import matplotlib.colors as mplc
 import matplotlib.pyplot as plt
 import numpy as np
 import os
