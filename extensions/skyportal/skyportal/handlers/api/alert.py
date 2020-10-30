@@ -840,30 +840,27 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                     f'file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}'
                 )
 
-            if (interval is None) or (interval.lower() not in ['min_max', 'zscale']):
-                interval = MinMaxInterval()
-            elif interval.lower() == "min_max":
-                interval = MinMaxInterval()
-            elif interval.lower() == "zscale":
-                interval = ZScaleInterval(
+            normalization_methods = {
+                'min_max': MinMaxInterval(),
+                'zscale': ZScaleInterval(
                     nsamples=600,
                     contrast=0.045,
                     krej=2.5
-                )
+                ),
+            }
+            if interval is None:
+                interval = 'min_max'
+            normalizer = normalization_methods.get(interval.lower(), MinMaxInterval())
 
-            if (stretch is None) or (stretch.lower() not in ["linear", "log", "asinh", "sqrt"]):
-                if cutout == "Difference":
-                    stretch = LinearStretch()
-                else:
-                    stretch = LogStretch()
-            elif stretch.lower() == "linear":
-                stretch = LinearStretch()
-            elif stretch.lower() == "log":
-                stretch = LogStretch()
-            elif stretch.lower() == "asinh":
-                stretch = AsinhStretch()
-            elif stretch.lower() == "sqrt":
-                stretch = SqrtStretch()
+            stretching_methods = {
+                'linear': LinearStretch,
+                'log': LogStretch,
+                'asinh': AsinhStretch,
+                'sqrt': SqrtStretch,
+            }
+            if stretch is None:
+                stretch = "log" if cutout != "Difference" else "linear"
+            stretcher = stretching_methods.get(stretch.lower(), LogStretch)()
 
             if (cmap is None) or (cmap.lower() not in ['bone', 'gray', 'cividis', 'viridis', 'magma']):
                 cmap = 'bone'
@@ -934,8 +931,8 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
 
                 norm = ImageNormalize(
                     img,
-                    interval=interval,
-                    stretch=stretch
+                    interval=normalizer,
+                    stretch=stretcher
                 )
                 ax.imshow(img, cmap=cmap, origin='lower', norm=norm)
                 plt.savefig(buff, dpi=42)
