@@ -255,6 +255,27 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 `$lookup`, `$unionWith`, `$out`, and `$merge` stages are not allowed in the user-defined part of the filters.
 
+#### Alert data augmentation
+
+Fritz's Kowalski backend augments the alert data with the following: [as of October 2020]
+
+- Cross-matches with external catalogs:
+  - 2MASS_PSC (all matches within 2")
+  - AllWISE (all matches within 2")
+  - GALEX (all matches within 2")
+  - Gaia_DR2 (all matches within 2")
+  - Gaia_DR2_WD (all matches within 2")
+  - IPHAS_DR2 (all matches within 2")
+  - LAMOST_DR5_v3 (all matches within 2")
+  - PS1_DR1 (all matches within 2")
+  - galaxy_redshifts_20200522 (all matches within 2")
+  - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_watcher_ztf.py#L315))
+
+- ML scores:
+  - braai v. `d6_m9`
+
+- Galactic coordinates
+
 ### Filter examples
 
 Let us explore some examples! The provided JSON files contain prepended upstream stages, but they are not shown in the
@@ -1117,7 +1138,7 @@ The final stage adds annotations to a passing alert:
 As another example, below you will find a simplified version of the Bright Transient Survey filter
 (the Redshift Completeness Factor program)
 
-{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
+{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf_simple.json>`
 
 ```js
 [
@@ -1290,8 +1311,8 @@ As another example, below you will find a simplified version of the Bright Trans
                       ]
                     ]
                   }, {
-                    "$ne": [
-                      "$$cand.magpsf", null
+                    "$gt": [
+                      "$$cand.magpsf", 0
                     ]
                   }, {
                     "$lt": [
@@ -1570,6 +1591,13 @@ As another example, below you will find a simplified version of the Bright Trans
   }
 ]
 ```
+
+#### BTS/RCF program full filter
+
+Here you will find the full version (as of 2020) of the Bright Transient Survey filter
+(the Redshift Completeness Factor program)
+
+{download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
 
 #### Fast Transients program filter
 

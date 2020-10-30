@@ -18,6 +18,7 @@
   telescope_id: =P60
   type: imaging spectrograph
   api_classname: SEDMAPI
+  listener_classname: SEDMListener
 - =id: DBSP
   band: optical
   name: DBSP
