@@ -1,11 +1,18 @@
 from astropy.io import fits
-from astropy.visualization import ZScaleInterval
+from astropy.visualization import (
+    MinMaxInterval,
+    ZScaleInterval,
+    AsinhStretch,
+    LinearStretch,
+    LogStretch,
+    SqrtStretch,
+    ImageNormalize
+)
 import base64
 import bson.json_util as bj
 import gzip
 import io
 from marshmallow.exceptions import ValidationError
-import matplotlib.colors as mplc
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -57,11 +64,12 @@ def make_thumbnail(a, ttype, ztftype):
     img = np.array(data_flipped_y)
     img = np.nan_to_num(img)
 
-    if ztftype != 'Difference':
-        img[img <= 0] = np.median(img)
-        plt.imshow(img, cmap="bone", norm=mplc.LogNorm(), origin='lower')
-    else:
-        plt.imshow(img, cmap="bone", origin='lower')
+    norm = ImageNormalize(
+        img,
+        interval=MinMaxInterval(),
+        stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
+    )
+    ax.imshow(img, cmap="bone", origin='lower', norm=norm)
     plt.savefig(buff, dpi=42)
 
     buff.seek(0)
@@ -764,12 +772,19 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
               type: string
               enum: [fits, png]
           - in: query
-            name: scaling
-            description: "Scaling to use when rendering png"
+            name: interval
+            description: "Interval to use when rendering png"
             required: false
             schema:
               type: string
-              enum: [linear, log, arcsinh, zscale]
+              enum: [min_max, zscale]
+          - in: query
+            name: stretch
+            description: "Stretch to use when rendering png"
+            required: false
+            schema:
+              type: string
+              enum: [linear, log, asinh, sqrt]
           - in: query
             name: cmap
             description: "Color map to use when rendering png"
@@ -812,7 +827,8 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             candid = int(self.get_argument('candid'))
             cutout = self.get_argument('cutout').capitalize()
             file_format = self.get_argument('file_format').lower()
-            scaling = self.get_argument('scaling', default=None)
+            interval = self.get_argument('interval', default=None)
+            stretch = self.get_argument('stretch', default=None)
             cmap = self.get_argument('cmap', default=None)
 
             known_cutouts = ['Science', 'Template', 'Difference']
@@ -824,15 +840,27 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                     f'file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}'
                 )
 
-            default_scaling = {
-                'Science': 'log',
-                'Template': 'log',
-                'Difference': 'zscale'
+            normalization_methods = {
+                'min_max': MinMaxInterval(),
+                'zscale': ZScaleInterval(
+                    nsamples=600,
+                    contrast=0.045,
+                    krej=2.5
+                ),
             }
-            if (scaling is None) or (scaling.lower() not in ('log', 'linear', 'zscale', 'arcsinh')):
-                scaling = default_scaling[cutout]
-            else:
-                scaling = scaling.lower()
+            if interval is None:
+                interval = 'min_max'
+            normalizer = normalization_methods.get(interval.lower(), MinMaxInterval())
+
+            stretching_methods = {
+                'linear': LinearStretch,
+                'log': LogStretch,
+                'asinh': AsinhStretch,
+                'sqrt': SqrtStretch,
+            }
+            if stretch is None:
+                stretch = "log" if cutout != "Difference" else "linear"
+            stretcher = stretching_methods.get(stretch.lower(), LogStretch)()
 
             if (cmap is None) or (cmap.lower() not in ['bone', 'gray', 'cividis', 'viridis', 'magma']):
                 cmap = 'bone'
@@ -901,21 +929,12 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 img = np.array(data_flipped_y)
                 img = np.nan_to_num(img)
 
-                if scaling == 'log':
-                    img[img <= 0] = np.median(img)
-                    ax.imshow(img, cmap=cmap, norm=mplc.LogNorm(), origin='lower')
-                elif scaling == 'linear':
-                    ax.imshow(img, cmap=cmap, origin='lower')
-                elif scaling == 'zscale':
-                    interval = ZScaleInterval(
-                        nsamples=img.shape[0] * img.shape[1],
-                        contrast=0.045,
-                        krej=2.5
-                    )
-                    limits = interval.get_limits(img)
-                    ax.imshow(img, origin='lower', cmap=cmap, vmin=limits[0], vmax=limits[1])
-                elif scaling == 'arcsinh':
-                    ax.imshow(np.arcsinh(img - np.median(img)), cmap=cmap, origin='lower')
+                norm = ImageNormalize(
+                    img,
+                    interval=normalizer,
+                    stretch=stretcher
+                )
+                ax.imshow(img, cmap=cmap, origin='lower', norm=norm)
                 plt.savefig(buff, dpi=42)
                 buff.seek(0)
                 plt.close('all')
