@@ -67,93 +67,93 @@
     }
   }, {
     "$project": {
-      "_id": 0, 
-      "candid": 1, 
-      "objectId": 1, 
-      "prv_candidates.jd": 1, 
-      "prv_candidates.magpsf": 1, 
-      "prv_candidates.fid": 1, 
-      "prv_candidates.isdiffpos": 1, 
-      "m_now": "$candidate.magpsf", 
-      "m_app": "$candidate.magap", 
-      "t_now": "$candidate.jd", 
-      "fid_now": "$candidate.fid", 
-      "sgscore1": "$candidate.sgscore1", 
-      "sgscore2": "$candidate.sgscore2", 
-      "sgscore3": "$candidate.sgscore3", 
-      "srmag1": "$candidate.srmag1", 
-      "srmag2": "$candidate.srmag2", 
-      "srmag3": "$candidate.srmag3", 
-      "sgmag1": "$candidate.sgmag1", 
-      "simag1": "$candidate.simag1", 
-      "szmag1": "$candidate.szmag1", 
-      "rbscore": "$candidate.rb", 
-      "magnr": "$candidate.magnr", 
+      "_id": 0,
+      "candid": 1,
+      "objectId": 1,
+      "prv_candidates.jd": 1,
+      "prv_candidates.magpsf": 1,
+      "prv_candidates.fid": 1,
+      "prv_candidates.isdiffpos": 1,
+      "m_now": "$candidate.magpsf",
+      "m_app": "$candidate.magap",
+      "t_now": "$candidate.jd",
+      "fid_now": "$candidate.fid",
+      "sgscore1": "$candidate.sgscore1",
+      "sgscore2": "$candidate.sgscore2",
+      "sgscore3": "$candidate.sgscore3",
+      "srmag1": "$candidate.srmag1",
+      "srmag2": "$candidate.srmag2",
+      "srmag3": "$candidate.srmag3",
+      "sgmag1": "$candidate.sgmag1",
+      "simag1": "$candidate.simag1",
+      "szmag1": "$candidate.szmag1",
+      "rbscore": "$candidate.rb",
+      "magnr": "$candidate.magnr",
       "distnr": {
         "$cond": {
           "if": {
             "$lt": [
               "$candidate.distnr", 0
             ]
-          }, 
-          "then": 99, 
+          },
+          "then": 99,
           "else": "$candidate.distnr"
         }
-      }, 
+      },
       "distpsnr1": {
         "$cond": {
           "if": {
             "$lt": [
               "$candidate.distpsnr1", 0
             ]
-          }, 
-          "then": 99, 
+          },
+          "then": 99,
           "else": "$candidate.distpsnr1"
         }
-      }, 
+      },
       "distpsnr2": {
         "$cond": {
           "if": {
             "$lt": [
               "$candidate.distpsnr2", 0
             ]
-          }, 
-          "then": 99, 
+          },
+          "then": 99,
           "else": "$candidate.distpsnr2"
         }
-      }, 
+      },
       "distpsnr3": {
         "$cond": {
           "if": {
             "$lt": [
               "$candidate.distpsnr3", 0
             ]
-          }, 
-          "then": 99, 
+          },
+          "then": 99,
           "else": "$candidate.distpsnr3"
         }
-      }, 
-      "scorr": "$candidate.scorr", 
-      "fwhm": "$candidate.fwhm", 
-      "elong": "$candidate.elong", 
-      "nbad": "$candidate.nbad", 
-      "chipsf": "$candidate.chipsf", 
-      "gal_lat": "$coordinates.b", 
-      "ssdistnr": "$candidate.ssdistnr", 
-      "ssmagnr": "$candidate.ssmagnr", 
-      "ssnamenr": "$candidate.ssnamenr", 
-      "t_start": "$candidate.jdstarthist", 
-      "neargaia": "$candidate.neargaia", 
-      "maggaia": "$candidate.maggaia", 
-      "neargaiabright": "$candidate.neargaiabright", 
-      "maggaiabright": "$candidate.maggaiabright", 
-      "isdiffpos": "$candidate.isdiffpos", 
-      "drb": "$candidate.drb", 
+      },
+      "scorr": "$candidate.scorr",
+      "fwhm": "$candidate.fwhm",
+      "elong": "$candidate.elong",
+      "nbad": "$candidate.nbad",
+      "chipsf": "$candidate.chipsf",
+      "gal_lat": "$coordinates.b",
+      "ssdistnr": "$candidate.ssdistnr",
+      "ssmagnr": "$candidate.ssmagnr",
+      "ssnamenr": "$candidate.ssnamenr",
+      "t_start": "$candidate.jdstarthist",
+      "neargaia": "$candidate.neargaia",
+      "maggaia": "$candidate.maggaia",
+      "neargaiabright": "$candidate.neargaiabright",
+      "maggaiabright": "$candidate.maggaiabright",
+      "isdiffpos": "$candidate.isdiffpos",
+      "drb": "$candidate.drb",
       "age": {
         "$subtract": [
           "$candidate.jd", "$candidate.jdstarthist"
         ]
-      }, 
+      },
       "ps1mag": {
         "$switch": {
           "branches": [
@@ -170,7 +170,7 @@
                     ]
                   }
                 ]
-              }, 
+              },
               "then": "$candidate.srmag1"
             }, {
               "case": {
@@ -185,7 +185,7 @@
                     ]
                   }
                 ]
-              }, 
+              },
               "then": "$candidate.simag1"
             }, {
               "case": {
@@ -200,13 +200,13 @@
                     ]
                   }
                 ]
-              }, 
+              },
               "then": "$candidate.sgmag1"
             }
-          ], 
+          ],
           "default": 99
         }
-      }, 
+      },
       "ps1maxmag": {
         "$min": [
           {
@@ -215,8 +215,8 @@
                 "$gt": [
                   "$candidate.srmag1", 0
                 ]
-              }, 
-              "then": "$candidate.srmag1", 
+              },
+              "then": "$candidate.srmag1",
               "else": 99
             }
           }, {
@@ -225,8 +225,8 @@
                 "$gt": [
                   "$candidate.simag1", 0
                 ]
-              }, 
-              "then": "$candidate.simag1", 
+              },
+              "then": "$candidate.simag1",
               "else": 99
             }
           }, {
@@ -235,8 +235,8 @@
                 "$gt": [
                   "$candidate.sgmag1", 0
                 ]
-              }, 
-              "then": "$candidate.sgmag1", 
+              },
+              "then": "$candidate.sgmag1",
               "else": 99
             }
           }, {
@@ -245,18 +245,18 @@
                 "$gt": [
                   "$candidate.szmag1", 0
                 ]
-              }, 
-              "then": "$candidate.szmag1", 
+              },
+              "then": "$candidate.szmag1",
               "else": 99
             }
           }
         ]
-      }, 
+      },
       "prevpasscount": {
         "$sum": {
           "$map": {
-            "input": "$prv_candidates", 
-            "as": "cand", 
+            "input": "$prv_candidates",
+            "as": "cand",
             "in": {
               "$and": [
                 {
@@ -288,15 +288,15 @@
             }
           }
         }
-      }, 
+      },
       "peakmag": {
         "$min": [
           "$candidate.magpsf", {
             "$min": [
               {
                 "$map": {
-                  "input": "$prv_candidates", 
-                  "as": "cand", 
+                  "input": "$prv_candidates",
+                  "as": "cand",
                   "in": {
                     "$cond": [
                       {
@@ -315,25 +315,25 @@
     }
   }, {
     "$project": {
-      "objectId": 1, 
-      "t_now": 1, 
-      "m_now": 1, 
-      "fid_now": 1, 
-      "sgscore1": 1, 
-      "rbscore": 1, 
-      "drb": 1, 
-      "magnr": 1, 
-      "distnr": 1, 
-      "scorr": 1, 
-      "srmag1": 1, 
-      "distpsnr1": 1, 
-      "gal_lat": 1, 
-      "ssdistnr": 1, 
-      "ssnamenr": 1, 
-      "maggaia": 1, 
-      "neargaia": 1, 
-      "age": 1, 
-      "peakmag": 1, 
+      "objectId": 1,
+      "t_now": 1,
+      "m_now": 1,
+      "fid_now": 1,
+      "sgscore1": 1,
+      "rbscore": 1,
+      "drb": 1,
+      "magnr": 1,
+      "distnr": 1,
+      "scorr": 1,
+      "srmag1": 1,
+      "distpsnr1": 1,
+      "gal_lat": 1,
+      "ssdistnr": 1,
+      "ssnamenr": 1,
+      "maggaia": 1,
+      "neargaia": 1,
+      "age": 1,
+      "peakmag": 1,
       "bright": {
         "$or": [
           {
@@ -343,8 +343,8 @@
           }, {
             "$anyElementTrue": {
               "$map": {
-                "input": "$prv_candidates", 
-                "as": "cand", 
+                "input": "$prv_candidates",
+                "as": "cand",
                 "in": {
                   "$and": [
                     {
@@ -378,21 +378,21 @@
             }
           }
         ]
-      }, 
+      },
       "latitude": {
         "$gte": [
           {
             "$abs": "$gal_lat"
           }, 7
         ]
-      }, 
+      },
       "positivesubtraction": {
         "$in": [
           "$isdiffpos", [
             1, "1", "t", true
           ]
         ]
-      }, 
+      },
       "real": {
         "$not": [
           {
@@ -605,7 +605,7 @@
             ]
           }
         ]
-      }, 
+      },
       "pointunderneath": {
         "$or": [
           {
@@ -678,7 +678,7 @@
             ]
           }
         ]
-      }, 
+      },
       "brightstar": {
         "$or": [
           {
@@ -789,7 +789,7 @@
             ]
           }
         ]
-      }, 
+      },
       "variablesource": {
         "$or": [
           {
@@ -808,17 +808,17 @@
                             "$gt": [
                               "$age", 360
                             ]
-                          }, 
+                          },
                           "then": 1
                         }, {
                           "case": {
                             "$gt": [
                               "$age", 90
                             ]
-                          }, 
+                          },
                           "then": 2
                         }
-                      ], 
+                      ],
                       "default": 3
                     }
                   }
@@ -1027,7 +1027,7 @@
             ]
           }
         ]
-      }, 
+      },
       "rock": {
         "$and": [
           {
@@ -1046,12 +1046,12 @@
             ]
           }
         ]
-      }, 
+      },
       "stationary": {
         "$anyElementTrue": {
           "$map": {
-            "input": "$prv_candidates", 
-            "as": "cand", 
+            "input": "$prv_candidates",
+            "as": "cand",
             "in": {
               "$and": [
                 {
@@ -1083,85 +1083,85 @@
     }
   }, {
     "$match": {
-      "latitude": true, 
-      "bright": true, 
-      "pointunderneath": false, 
-      "positivesubtraction": true, 
-      "real": true, 
-      "stationary": true, 
-      "brightstar": false, 
-      "variablesource": false, 
+      "latitude": true,
+      "bright": true,
+      "pointunderneath": false,
+      "positivesubtraction": true,
+      "real": true,
+      "stationary": true,
+      "brightstar": false,
+      "variablesource": false,
       "rock": false
     }
   }, {
     "$project": {
-      "objectId": 1, 
-      "annotations.jd": "$t_now", 
+      "objectId": 1,
+      "annotations.jd": "$t_now",
       "annotations.magnitude": {
         "$round": [
           "$m_now", 3
         ]
-      }, 
+      },
       "annotations.age": {
         "$round": [
           "$age", 5
         ]
-      }, 
+      },
       "annotations.peakmag": {
         "$round": [
           "$peakmag", 5
         ]
-      }, 
+      },
       "annotations.atmax": {
         "$lte": [
           "$m_now", "$peakmag"
         ]
-      }, 
+      },
       "annotations.rbscore": {
         "$round": [
           "$rbscore", 5
         ]
-      }, 
+      },
       "annotations.drb": {
         "$round": [
           "$drb", 5
         ]
-      }, 
+      },
       "annotations.magnr": {
         "$round": [
           "$magnr", 5
         ]
-      }, 
+      },
       "annotations.distnr": {
         "$round": [
           "$distnr", 5
         ]
-      }, 
+      },
       "annotations.srmag1": {
         "$round": [
           "$srmag1", 5
         ]
-      }, 
+      },
       "annotations.distpsnr1": {
         "$round": [
           "$distpsnr1", 5
         ]
-      }, 
+      },
       "annotations.sgscore1": {
         "$round": [
           "$sgscore1", 5
         ]
-      }, 
+      },
       "annotations.maggaia": {
         "$round": [
           "$maggaia", 5
         ]
-      }, 
+      },
       "annotations.neargaia": {
         "$round": [
           "$neargaia", 5
         ]
-      }, 
+      },
       "annotations.gal_lat": {
         "$round": [
           "$gal_lat", 5

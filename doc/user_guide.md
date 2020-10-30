@@ -273,7 +273,7 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Octo
 
 - ML scores:
   - braai v. `d6_m9`
-  
+
 - Galactic coordinates
 
 ### Filter examples
