@@ -173,6 +173,7 @@ def build(args):
         f.write(''.join(out).encode('utf-8'))
 
     # get the git log for SP and add it to the SP distro
+    p = subprocess.run(["git", "submodule", "update"])
     p = subprocess.run(
         [
             "git",
