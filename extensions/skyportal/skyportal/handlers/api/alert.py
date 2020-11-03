@@ -734,6 +734,58 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 if latest_alert_data['candidate']["candid"] not in candids:
                     alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
+            # cross-match with the TNS
+            ra = np.median(
+                [candid["ra"] for candid in alert_data['prv_candidates'] if candid.get("ra") is not None]
+            )
+            dec = np.median(
+                [candid["dec"] for candid in alert_data['prv_candidates'] if candid.get("dec") is not None]
+            )
+            query = {
+                "query_type": "cone_search",
+                "query": {
+                    "object_coordinates": {
+                        "cone_search_radius": 2,
+                        "cone_search_unit": "arcsec",
+                        "radec": {
+                            objectId: [
+                                ra,
+                                dec
+                            ]
+                        }
+                    },
+                    "catalogs": {
+                        "TNS": {
+                            "filter": {},
+                            "projection": {
+                                "name": 1,
+                                "_id": 1,
+                                "disc__instrument/s": 1,
+                                "disc__internal_name": 1,
+                                "discovery_data_source/s": 1,
+                                "discovery_date_(ut)": 1,
+                                "discovery_filter": 1,
+                                "discovery_mag/flux": 1,
+                                "reporting_group/s": 1,
+                                "associated_group/s": 1,
+                                "public": 1,
+                            }
+                        }
+                    }
+                },
+                "kwargs": {
+                    "filter_first": False
+                }
+            }
+
+            resp = self.query_kowalski(query=query)
+
+            if resp.status_code == requests.codes.ok:
+                tns_data = bj.loads(resp.text).get('data').get("TNS").get(objectId)
+                alert_data["cross_matches"]["TNS"] = tns_data
+            else:
+                return self.error(f"Failed to fetch TNS cross-match data for {objectId} from Kowalski")
+
             return self.success(data=alert_data)
 
         except Exception:
