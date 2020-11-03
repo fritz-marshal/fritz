@@ -998,7 +998,6 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 img_norm = norm(img)
                 vmin, vmax = normalizer.get_limits(img_norm)
                 ax.imshow(img_norm, cmap=cmap, origin='lower', vmin=vmin, vmax=vmax)
-                # ax.hist(norm(img))
                 plt.savefig(buff, dpi=42)
                 buff.seek(0)
                 plt.close('all')

@@ -179,7 +179,6 @@ def build(args):
             "--git-dir=.git",
             "log",
             "--no-merges",
-            "--first-parent",
             "--pretty=format:[%cI %h %cE] %s",
             "-1000"
         ],
