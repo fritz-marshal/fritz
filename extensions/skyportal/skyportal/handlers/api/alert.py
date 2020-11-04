@@ -1,5 +1,6 @@
 from astropy.io import fits
 from astropy.visualization import (
+    AsymmetricPercentileInterval,
     MinMaxInterval,
     ZScaleInterval,
     AsinhStretch,
@@ -66,10 +67,15 @@ def make_thumbnail(a, ttype, ztftype):
 
     norm = ImageNormalize(
         img,
-        interval=MinMaxInterval(),
         stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
     )
-    ax.imshow(img, cmap="bone", origin='lower', norm=norm)
+    img_norm = norm(img)
+    normalizer = AsymmetricPercentileInterval(
+        lower_percentile=1,
+        upper_percentile=100
+    )
+    vmin, vmax = normalizer.get_limits(img_norm)
+    ax.imshow(img_norm, cmap="bone", origin='lower', vmin=vmin, vmax=vmax)
     plt.savefig(buff, dpi=42)
 
     buff.seek(0)
@@ -841,6 +847,10 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 )
 
             normalization_methods = {
+                'asymmetric_percentile': AsymmetricPercentileInterval(
+                    lower_percentile=1,
+                    upper_percentile=100
+                ),
                 'min_max': MinMaxInterval(),
                 'zscale': ZScaleInterval(
                     nsamples=600,
@@ -849,8 +859,14 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 ),
             }
             if interval is None:
-                interval = 'min_max'
-            normalizer = normalization_methods.get(interval.lower(), MinMaxInterval())
+                interval = 'asymmetric_percentile'
+            normalizer = normalization_methods.get(
+                interval.lower(),
+                AsymmetricPercentileInterval(
+                    lower_percentile=1,
+                    upper_percentile=100
+                )
+            )
 
             stretching_methods = {
                 'linear': LinearStretch,
@@ -931,10 +947,11 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
 
                 norm = ImageNormalize(
                     img,
-                    interval=normalizer,
                     stretch=stretcher
                 )
-                ax.imshow(img, cmap=cmap, origin='lower', norm=norm)
+                img_norm = norm(img)
+                vmin, vmax = normalizer.get_limits(img_norm)
+                ax.imshow(img_norm, cmap=cmap, origin='lower', vmin=vmin, vmax=vmax)
                 plt.savefig(buff, dpi=42)
                 buff.seek(0)
                 plt.close('all')
