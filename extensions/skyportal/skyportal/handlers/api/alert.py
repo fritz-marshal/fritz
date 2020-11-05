@@ -1,6 +1,5 @@
 from astropy.io import fits
 from astropy.visualization import (
-    AsymmetricPercentileInterval,
     MinMaxInterval,
     AsymmetricPercentileInterval,
     ZScaleInterval,
