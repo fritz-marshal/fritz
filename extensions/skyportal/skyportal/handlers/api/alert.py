@@ -1,5 +1,6 @@
 from astropy.io import fits
 from astropy.visualization import (
+    AsymmetricPercentileInterval,
     MinMaxInterval,
     AsymmetricPercentileInterval,
     ZScaleInterval,
@@ -67,10 +68,15 @@ def make_thumbnail(a, ttype, ztftype):
 
     norm = ImageNormalize(
         img,
-        interval=MinMaxInterval(),
         stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
     )
-    ax.imshow(img, cmap="bone", origin='lower', norm=norm)
+    img_norm = norm(img)
+    normalizer = AsymmetricPercentileInterval(
+        lower_percentile=1,
+        upper_percentile=100
+    )
+    vmin, vmax = normalizer.get_limits(img_norm)
+    ax.imshow(img_norm, cmap="bone", origin='lower', vmin=vmin, vmax=vmax)
     plt.savefig(buff, dpi=42)
 
     buff.seek(0)
