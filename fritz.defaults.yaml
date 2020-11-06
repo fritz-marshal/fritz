@@ -64,6 +64,8 @@ skyportal:
         component: ZTFAlert
       - path: "/upload_spectrum/:id"
         component: UploadSpectrum
+      - path: "/source/:id/finder"
+        component: FindingChart
 
     kowalski:
       protocol: "http"
