@@ -1,7 +1,7 @@
 from astropy.io import fits
 from astropy.visualization import (
-    AsymmetricPercentileInterval,
     MinMaxInterval,
+    AsymmetricPercentileInterval,
     ZScaleInterval,
     AsinhStretch,
     LinearStretch,
@@ -595,7 +595,7 @@ class ZTFAlertHandler(BaseHandler):
 
 class ZTFAlertAuxHandler(ZTFAlertHandler):
     @auth_or_token
-    async def get(self, objectId: str = None):
+    def get(self, objectId: str = None):
         """
         ---
         single:
@@ -682,6 +682,11 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 alert_data = bj.loads(resp.text).get('data')
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
+                else:
+                    # len = 0 means that objectId does not exists on Kowalski
+                    self.set_status(404)
+                    self.finish()
+                    return
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
@@ -732,19 +737,73 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
+                else:
+                    # len = 0 means that user has insufficient permissions to see objectId
+                    self.set_status(404)
+                    self.finish()
+                    return
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-            if len(latest_alert_data) > 0:
-                candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
-                if latest_alert_data['candidate']["candid"] not in candids:
-                    alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+            candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
+            if latest_alert_data['candidate']["candid"] not in candids:
+                alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+
+            # cross-match with the TNS
+            ra = np.median(
+                [candid["ra"] for candid in alert_data['prv_candidates'] if candid.get("ra") is not None]
+            )
+            dec = np.median(
+                [candid["dec"] for candid in alert_data['prv_candidates'] if candid.get("dec") is not None]
+            )
+            query = {
+                "query_type": "cone_search",
+                "query": {
+                    "object_coordinates": {
+                        "cone_search_radius": 2,
+                        "cone_search_unit": "arcsec",
+                        "radec": {
+                            objectId: [
+                                ra,
+                                dec
+                            ]
+                        }
+                    },
+                    "catalogs": {
+                        "TNS": {
+                            "filter": {},
+                            "projection": {
+                                "name": 1,
+                                "_id": 1,
+                                "disc__instrument/s": 1,
+                                "disc__internal_name": 1,
+                                "discovery_data_source/s": 1,
+                                "discovery_date_(ut)": 1,
+                                "discovery_filter": 1,
+                                "discovery_mag/flux": 1,
+                                "reporting_group/s": 1,
+                                "associated_group/s": 1,
+                                "public": 1,
+                            }
+                        }
+                    }
+                },
+                "kwargs": {
+                    "filter_first": False
+                }
+            }
+
+            resp = self.query_kowalski(query=query)
+
+            if resp.status_code == requests.codes.ok:
+                tns_data = bj.loads(resp.text).get('data').get("TNS").get(objectId)
+                alert_data["cross_matches"]["TNS"] = tns_data
 
             return self.success(data=alert_data)
 
         except Exception:
             _err = traceback.format_exc()
-            return self.error(f'failure: {_err}')
+            return self.error(_err)
 
 
 class ZTFAlertCutoutHandler(ZTFAlertHandler):
@@ -944,7 +1003,6 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 # remove nans:
                 img = np.array(data_flipped_y)
                 img = np.nan_to_num(img)
-
                 norm = ImageNormalize(
                     img,
                     stretch=stretcher
