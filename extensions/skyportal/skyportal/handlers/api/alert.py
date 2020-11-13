@@ -151,6 +151,11 @@ class ZTFAlertHandler(BaseHandler):
               required: false
               schema:
                 type: int
+            - in: query
+              name: includeAllFields
+              required: false
+              schema:
+                type: boolean
           responses:
             200:
               description: retrieved alert(s)
@@ -174,6 +179,8 @@ class ZTFAlertHandler(BaseHandler):
                 selector.update(set(stream.altdata.get("selector", [])))
 
         selector = list(selector)
+
+        include_all_fields = self.get_query_argument('includeAllFields', False)
 
         try:
             query = {
@@ -204,6 +211,13 @@ class ZTFAlertHandler(BaseHandler):
                                 "candidate.isdiffpos": 1,
                                 "coordinates.l": 1,
                                 "coordinates.b": 1,
+                            }
+                            if not include_all_fields
+                            else {
+                                "_id": 0,
+                                "cutoutScience": 0,
+                                "cutoutTemplate": 0,
+                                "cutoutDifference": 0,
                             }
                         },
                     ]
@@ -603,9 +617,14 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
           parameters:
             - in: path
               name: objectId
-              required: false
+              required: true
               schema:
                 type: string
+            - in: query
+              name: includeAllFields
+              required: false
+              schema:
+                type: boolean
           responses:
             200:
               description: retrieval failed
@@ -627,6 +646,8 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 selector.update(set(stream.altdata.get("selector", [])))
 
         selector = list(selector)
+
+        include_all_fields = self.get_query_argument('includeAllFields', False)
 
         try:
             query = {
@@ -657,24 +678,28 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                 },
                             }
                         },
-                        {
-                            "$project": {
-                                "_id": 1,
-                                "cross_matches": 1,
-                                "prv_candidates.magpsf": 1,
-                                "prv_candidates.sigmapsf": 1,
-                                "prv_candidates.diffmaglim": 1,
-                                "prv_candidates.programid": 1,
-                                "prv_candidates.fid": 1,
-                                "prv_candidates.ra": 1,
-                                "prv_candidates.dec": 1,
-                                "prv_candidates.candid": 1,
-                                "prv_candidates.jd": 1,
-                            }
-                        }
                     ]
                 }
             }
+
+            if not include_all_fields:
+                query["query"]["pipeline"].append(
+                    {
+                        "$project": {
+                            "_id": 1,
+                            "cross_matches": 1,
+                            "prv_candidates.magpsf": 1,
+                            "prv_candidates.sigmapsf": 1,
+                            "prv_candidates.diffmaglim": 1,
+                            "prv_candidates.programid": 1,
+                            "prv_candidates.fid": 1,
+                            "prv_candidates.ra": 1,
+                            "prv_candidates.dec": 1,
+                            "prv_candidates.candid": 1,
+                            "prv_candidates.jd": 1,
+                        }
+                    }
+                )
 
             resp = self.query_kowalski(query=query)
 
@@ -717,6 +742,13 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                 "candidate.diffmaglim": 1,
                                 "coordinates.l": 1,
                                 "coordinates.b": 1,
+                            }
+                            if not include_all_fields
+                            else {
+                                "_id": 0,
+                                "cutoutScience": 0,
+                                "cutoutTemplate": 0,
+                                "cutoutDifference": 0,
                             }
                         },
                         {
