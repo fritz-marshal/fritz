@@ -28,8 +28,6 @@ skyportal:
         exact: True
       - path: "/source/:id"
         component: Source
-      - path: "/candidate/:id"
-        component: Candidate
       - path: "/groups"
         component: Groups
       - path: "/group/:id"
