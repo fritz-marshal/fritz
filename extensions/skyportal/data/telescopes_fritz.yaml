@@ -57,8 +57,8 @@
   =id: WHT
 - diameter: 2.1600001
   elevation: 950.0
-  lat: 116.385556
-  lon: 40.004463
+  lon: 116.385556
+  lat: 40.004463
   nickname: Xinglong 2.16m
   name: XL216
   skycam_link: null
@@ -92,7 +92,7 @@
 - diameter: 10.4
   elevation: 2275.0
   lat: 28.756611
-  lon: 342.1208
+  lon: -17.8792
   nickname: Gran Telescopio Canarias 10.4 m
   name: GTC
   skycam_link: null
@@ -116,7 +116,7 @@
 - diameter: 1.0
   elevation: 1859.0
   lat: 32.8424
-  lon: 243.572
+  lon: -116.428
   nickname: MLO 1m
   name: MLO
   skycam_link: null
