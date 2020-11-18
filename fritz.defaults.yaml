@@ -281,7 +281,7 @@ skyportal:
     host: 
     port:
   # This value needs to be either "sendgrid" or "smtp" (without quotes)
-  email_service: smtp
+  email_service: sendgrid
  
 kowalski:
   server:
