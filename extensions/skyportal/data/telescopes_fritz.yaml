@@ -351,7 +351,7 @@
   name: Swift
   skycam_link: null
   =id: Swift
-  space_based: true
+  fixed_location: false
 - diameter: 3.5
   elevation: 2788.0
   lat: 32.78
@@ -417,7 +417,7 @@
   name: HST
   skycam_link: null
   =id: HST
-  space_based: true
+  fixed_location: false
 - diameter: 1.4
   elevation: 1798.0
   lat: -32.376006
