@@ -61,9 +61,11 @@ def make_thumbnail(a, ttype, ztftype):
     ax.set_axis_off()
     fig.add_axes(ax)
 
-    # remove nans:
+    # replace nans with median:
     img = np.array(data_flipped_y)
-    img = np.nan_to_num(img)
+    if np.isnan(img).any():
+        median = float(np.nanmean(img.flatten()))
+        img = np.nan_to_num(img, nan=median)
 
     norm = ImageNormalize(
         img,
@@ -1032,9 +1034,11 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 fig.subplots_adjust(0, 0, 1, 1)
                 ax.set_axis_off()
 
-                # remove nans:
+                # replace nans with median:
                 img = np.array(data_flipped_y)
-                img = np.nan_to_num(img)
+                if np.isnan(img).any():
+                    median = float(np.nanmean(img.flatten()))
+                    img = np.nan_to_num(img, nan=median)
                 norm = ImageNormalize(
                     img,
                     stretch=stretcher
