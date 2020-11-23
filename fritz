@@ -128,32 +128,11 @@ def update(args):
         raise RuntimeError("Failed to update fritz's submodules")
 
 
-def build(args):
+def patch_skyportal():
+    """Make fritz-specific file modifications to SkyPortal.
+
     """
-    Build Fritz
-    """
-    env = os.environ.copy()
-    env.update({"FLAGS": "--config=../fritz.yaml"})
-
-    if not args.dev:
-        update(args)
-
-    # check environment
-    env_ok = deps_ok()
-    if not env_ok:
-        raise RuntimeError("Halting because of unsatisfied system dependencies")
-
-    if not args.no_kowalski:
-        # install Kowalski's deps:
-        c = ["pip", "install", "-r", "requirements.txt"]
-        subprocess.run(c, cwd="kowalski", check=True)
-
-    # check config
-    check_config(cfg='fritz.defaults.yaml', yes=args.yes)
-
-    # load config
-    with open("fritz.yaml") as fyaml:
-        fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
+    print("Applying fritz-specific patches to SkyPortal")
 
     # add Fritz-specific K and SP extensions
     # copy_tree('extensions/kowalski/', 'kowalski/')
@@ -206,6 +185,41 @@ def build(args):
         for line in rf + r:
             fr.write(line)
 
+    # The skyportal .dockerignore includes config.yaml, but we would like
+    # to add that file; we therefore overwrite the .dockerignore
+    with open('skyportal/.dockerignore', 'w') as f:
+        f.write('.*\n')
+
+
+def build(args):
+    """
+    Build Fritz
+    """
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../fritz.yaml"})
+
+    if not args.dev:
+        update(args)
+
+    # check environment
+    env_ok = deps_ok()
+    if not env_ok:
+        raise RuntimeError("Halting because of unsatisfied system dependencies")
+
+    if not args.no_kowalski:
+        # install Kowalski's deps:
+        c = ["pip", "install", "-r", "requirements.txt"]
+        subprocess.run(c, cwd="kowalski", check=True)
+
+    # check config
+    check_config(cfg='fritz.defaults.yaml', yes=args.yes)
+
+    # load config
+    with open("fritz.yaml") as fyaml:
+        fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
+
+    patch_skyportal()
+
     # adjust F-specific docker-compose.yaml for SP
     with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
         dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
@@ -232,11 +246,6 @@ def build(args):
         yaml.dump(dc, dcyaml)
 
     # Build skyportal's images
-
-    # This prevents us from adding our generated config.yaml
-    with open('skyportal/.dockerignore', 'w') as f:
-        f.write('.*\n')
-
     cmd = ["docker", "build", "."]
     if args.skyportal_tag:
         cmd.extend(["-t", args.skyportal_tag])
@@ -432,7 +441,7 @@ def prune(args):
     Prune fritz's docker containers and volumes and reset configs to defaults
     """
     go = input(
-        f"Do you want to prune Fritz's docker containers and volumes and deinit submodules? [y/N] "
+        "Do you want to prune Fritz's docker containers and volumes and deinit submodules? [y/N] "
     ) if not args.yes else 'y'
 
     if go.lower() == 'y':
@@ -461,9 +470,9 @@ def prune(args):
         # deinit submodules
         p = subprocess.run(['git', 'submodule', 'deinit', '--all', '-f'])
         if p.returncode == 0:
-            print(f"Deinitialized fritz's submodules")
+            print("Deinitialized fritz's submodules")
         else:
-            print(f"Failed to deinit fritz's submodules")
+            print("Failed to deinit fritz's submodules")
 
 
 def test(args):
@@ -475,6 +484,36 @@ def test(args):
 
 def doc(args):
     subprocess.run(["make", "html"], cwd="doc", check=True)
+
+    patch_skyportal()
+
+    env = os.environ.copy()
+    env.update({
+        "FLAGS": "--config=../local.yaml",
+        "PYTHONPATH": "."
+    })
+
+    subprocess.run(
+        ["make", "db_init"],
+        cwd="skyportal", check=True, env=env
+    )
+
+    subprocess.run(
+        ['python', 'tools/openapi/build-spec.py'],
+        env=env,
+        check=True,
+        cwd='skyportal'
+    )
+    subprocess.run(
+        ['npx', 'redoc-cli@0.9.8', 'bundle', 'openapi.json',
+         '--title', 'Fritz API docs', '--cdn',
+         '-o', '../doc/_build/html/api.html'],
+        env=env,
+        check=True,
+        cwd='skyportal'
+    )
+    os.remove('skyportal/openapi.yml')
+    os.remove('skyportal/openapi.json')
 
     if args.upload:
         subprocess.run(
