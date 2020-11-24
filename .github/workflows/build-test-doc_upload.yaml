@@ -12,7 +12,7 @@ jobs:
 
     - uses: actions/checkout@v2
       with:
-        submodules: true
+        submodules: recursive
 
     - uses: actions/setup-python@v1
       with:
@@ -30,6 +30,9 @@ jobs:
 
     - name: Build docs
       run: |
+        pip install wheel
+        pip install -r skyportal/baselayer/requirements.txt
+        pip install -r skyportal/requirements.txt
         ./fritz doc
 
     - name: Install SSH Client 🔑
