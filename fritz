@@ -134,11 +134,17 @@ def patch_skyportal():
     """
     print("Applying fritz-specific patches to SkyPortal")
 
+    p = subprocess.run(
+        ['git', 'rev-parse', '--short', 'HEAD'],
+        stdout=subprocess.PIPE
+    )
+    git_hash = p.stdout.decode('utf-8').strip()
+
     # add Fritz-specific K and SP extensions
     # copy_tree('extensions/kowalski/', 'kowalski/')
     copy_tree('extensions/skyportal/', 'skyportal/')
 
-    # Add git version to SkyPortal __init__.py file
+    # Add fritz and SkyPortal git version to skyportal/__init__.py
     from skyportal.skyportal import __version__
     init_file = 'skyportal/skyportal/__init__.py'
     with open(init_file, 'r') as f:
@@ -146,7 +152,10 @@ def patch_skyportal():
     out = []
     for line in init:
         if line.startswith('__version__ = '):
-            line = f'__version__ = "{__version__}"\n'
+            __version__ = '+'.join([
+                v for v in __version__.split('+') if not v.startswith('fritz')
+            ])
+            line = f'__version__ = "{__version__}+fritz.{git_hash}"\n'
         out.append(line)
     with open(init_file, 'wb') as f:
         f.write(''.join(out).encode('utf-8'))
