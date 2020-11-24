@@ -498,26 +498,19 @@ def doc(args):
 
     env = os.environ.copy()
     env.update({
-        "FLAGS": "--config=../local.yaml",
         "PYTHONPATH": "."
     })
 
     subprocess.run(
-        ["make", "db_init"],
-        cwd="skyportal", check=True, env=env
-    )
-
-    subprocess.run(
         ['python', 'tools/openapi/build-spec.py'],
-        env=env,
         check=True,
+        env=env,
         cwd='skyportal'
     )
     subprocess.run(
         ['npx', 'redoc-cli@0.9.8', 'bundle', 'openapi.json',
          '--title', 'Fritz API docs', '--cdn',
          '-o', '../doc/_build/html/api.html'],
-        env=env,
         check=True,
         cwd='skyportal'
     )
