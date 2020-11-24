@@ -23,3 +23,4 @@ html:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 	cp -r data _build/html
 	touch _build/html/.nojekyll
+	echo docs.fritz.science > _build/html/CNAME
