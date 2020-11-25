@@ -10,6 +10,17 @@ from skyportal.handlers.api.kowalski_filter import (
 )
 
 
+fritz_handlers = [
+    # Fritz-specific API endpoints
+    # ZTF Alerts
+    (r'/api/alerts/ztf/(.+)/aux', ZTFAlertAuxHandler),  # most descriptive path must be defined first
+    (r'/api/alerts/ztf/(.+)/cutout', ZTFAlertCutoutHandler),
+    (r'/api/alerts/ztf/(.+)', ZTFAlertHandler),
+    # Alert Stream filter versioning via K:
+    (r'/api/filters/([0-9]+)?/v', KowalskiFilterHandler),
+]
+
+
 def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
     """Create and return a `tornado.web.Application` object with (Fritz-specific) specified
     handlers and settings.
@@ -27,20 +38,9 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
     """
     app = make_app(cfg, baselayer_handlers, baselayer_settings)
 
-    # add Fritz-specific handlers
-    handlers = [
-        # Fritz-specific API endpoints
-        # ZTF Alerts
-        (r'/api/alerts/ztf/(.+)/aux', ZTFAlertAuxHandler),  # most descriptive path must be defined first
-        (r'/api/alerts/ztf/(.+)/cutout', ZTFAlertCutoutHandler),
-        (r'/api/alerts/ztf/(.+)', ZTFAlertHandler),
-        # Alert Stream filter versioning via K:
-        (r'/api/filters/([0-9]+)?/v', KowalskiFilterHandler),
-    ]
-
     app.add_handlers(
         r".*",  # match any host
-        handlers
+        fritz_handlers
     )
 
     return app
