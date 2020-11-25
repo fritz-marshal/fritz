@@ -275,6 +275,13 @@ skyportal:
   notifications:
     enabled: True
 
+  smtp:
+    from_email:
+    password:
+    host:
+    port:
+  # This value needs to be either "sendgrid" or "smtp" (without quotes)
+  email_service: sendgrid
 
 kowalski:
   server:
