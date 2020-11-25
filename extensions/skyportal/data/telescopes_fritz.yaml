@@ -26,7 +26,7 @@
 - diameter: 3.5799999
   elevation: 2396.0
   lat: 28.766
-  lon: 342.117
+  lon: -17.883
   nickname: Telescopio Nazionale Galileo
   name: TNG
   skycam_link: null
@@ -50,15 +50,15 @@
 - diameter: 4.1999998
   elevation: 2332.0
   lat: 28.76064
-  lon: 342.11836
+  lon: 17.883
   nickname: WHT 4.2m
   name: WHT
   skycam_link: null
   =id: WHT
 - diameter: 2.1600001
   elevation: 950.0
-  lat: 117.964
-  lon: 40.6592
+  lon: 116.385556
+  lat: 40.004463
   nickname: Xinglong 2.16m
   name: XL216
   skycam_link: null
@@ -67,7 +67,7 @@
   elevation: 875.0
   lat: 34.763333
   lon: 30.595833
-  name: Wise 18\"
+  name: Wise 18"
   nickname: C18
   skycam_link: null
   robotic: true
@@ -75,7 +75,7 @@
 - diameter: 2.5
   elevation: 2336.0
   lat: 28.762
-  lon: 342.11836
+  lon: 17.883
   nickname: INT
   name: INT
   skycam_link: null
@@ -83,7 +83,7 @@
 - diameter: 2.0
   elevation: 2363.0
   lat: 28.7624
-  lon: 342.1208
+  lon: 17.883
   nickname: Liverpool Telescope
   name: LT
   skycam_link: null
@@ -92,7 +92,7 @@
 - diameter: 10.4
   elevation: 2275.0
   lat: 28.756611
-  lon: 342.107972
+  lon: -17.8792
   nickname: Gran Telescopio Canarias 10.4 m
   name: GTC
   skycam_link: null
@@ -116,7 +116,7 @@
 - diameter: 1.0
   elevation: 1859.0
   lat: 32.8424
-  lon: 243.572
+  lon: -116.428
   nickname: MLO 1m
   name: MLO
   skycam_link: null
@@ -148,7 +148,7 @@
 - diameter: 2.4000001
   elevation: 1938.5
   lat: 31.95
-  lon: 248.383
+  lon: -111.617
   nickname: MDM 2.4m Hiltner
   name: MDM24
   skycam_link: null
@@ -212,16 +212,16 @@
   =id: CAHA 1.2m
 - diameter: 1.8200001
   elevation: 1366.0
-  lat: 11.548
-  lon: 45.8486
+  lon: 11.548
+  lat: 45.8486
   nickname: Ekar 1.82m
   name: Ekar
   skycam_link: null
   =id: Ekar
 - diameter: 1.8
   elevation: 4215.0
-  lat: 204.5317
-  lon: 19.825
+  lon: -155.4683
+  lat: 19.825
   nickname: PAN-STARRS 1.8m
   name: PS1
   skycam_link: null
@@ -237,7 +237,7 @@
 - diameter: 2.5
   elevation: 2788.0
   lat: 32.780278
-  lon: 254.1797
+  lon: -105.8203
   nickname: SDSS 2.5-M
   name: SDSS2.5m
   skycam_link: null
@@ -351,6 +351,7 @@
   name: Swift
   skycam_link: null
   =id: Swift
+  fixed_location: false
 - diameter: 3.5
   elevation: 2788.0
   lat: 32.78
@@ -416,6 +417,7 @@
   name: HST
   skycam_link: null
   =id: HST
+  fixed_location: false
 - diameter: 1.4
   elevation: 1798.0
   lat: -32.376006
@@ -424,18 +426,10 @@
   name: IRSF
   skycam_link: null
   =id: IRSF
-- diameter: 1.6
-  elevation: 0.0
-  lat: 0.0
-  lon: 0.0
-  nickname: Korea Microlensing Telescope Network
-  name: KMTNet
-  skycam_link: null
-  =id: KMTNet
 - diameter: 0.40000001
   elevation: 1760.0
-  lat: 20.81
-  lon: -32.379
+  lon: 20.81
+  lat: -32.379
   nickname: MASTER-SAAO
   name: MASTER-SAAO
   skycam_link: null
