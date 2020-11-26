@@ -12,6 +12,8 @@ import yaml
 
 from tools.check_environment import deps_ok
 
+sys.path.insert(0, 'skyportal')
+
 
 def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256',
                             jwt_exp_delta_seconds=30 * 86400 * 12):
@@ -145,7 +147,7 @@ def patch_skyportal():
     copy_tree('extensions/skyportal/', 'skyportal/')
 
     # Add fritz and SkyPortal git version to skyportal/__init__.py
-    from skyportal.skyportal import __version__
+    from skyportal import __version__
     init_file = 'skyportal/skyportal/__init__.py'
     with open(init_file, 'r') as f:
         init = f.readlines()
@@ -501,12 +503,17 @@ def doc(args):
         "PYTHONPATH": "."
     })
 
-    subprocess.run(
-        ['python', 'tools/openapi/build-spec.py'],
-        check=True,
-        env=env,
-        cwd='skyportal'
+    from baselayer.app.app_server import handlers as baselayer_handlers
+    from skyportal.app_server import skyportal_handlers
+    from skyportal.app_server_fritz import fritz_handlers
+    from skyportal import openapi
+
+    spec = openapi.spec_from_handlers(
+        baselayer_handlers + skyportal_handlers + fritz_handlers
     )
+    with open('skyportal/openapi.json', 'w') as f:
+        json.dump(spec.to_dict(), f)
+
     subprocess.run(
         ['npx', 'redoc-cli@0.9.8', 'bundle', 'openapi.json',
          '--title', 'Fritz API docs', '--cdn',
@@ -514,7 +521,6 @@ def doc(args):
         check=True,
         cwd='skyportal'
     )
-    os.remove('skyportal/openapi.yml')
     os.remove('skyportal/openapi.json')
 
     if args.upload:
