@@ -182,19 +182,28 @@ def patch_skyportal():
 
     # add Fritz-specific dependencies for SP
     # js
-    with open("extensions/skyportal/package.fritz.json", "r") as fpjf, open("skyportal/package.json", "r") as fpj:
-        pjf = json.load(fpjf)
-        pj = json.load(fpj)
-    pj["dependencies"] = {**pj["dependencies"], **pjf["dependencies"]}
-    with open("skyportal/package.json", "w") as fpj:
-        json.dump(pj, fpj, indent=2)
+    with open("extensions/skyportal/package.fritz.json", "r") as f:
+        fritz_pkg = json.load(f)
+    with open("skyportal/package.json", "r") as f:
+        skyportal_pkg = json.load(f)
+
+    skyportal_pkg["dependencies"] = {
+        **skyportal_pkg["dependencies"],
+        **fritz_pkg["dependencies"]
+    }
+    with open("skyportal/package.json", "w") as f:
+        json.dump(skyportal_pkg, f, indent=2)
+
     # python
-    with open(".requirements/ext.txt", "r") as frf, open("skyportal/requirements.txt", "r") as fr:
-        rf = frf.readlines()
-        r = fr.readlines()
-    with open("skyportal/requirements.txt", "w") as fr:
-        for line in rf + r:
-            fr.write(line)
+    with open(".requirements/ext.txt", "r") as f:
+        ext_req = f.readlines()
+    with open("skyportal/requirements.txt", "r") as f:
+        skyportal_req = f.readlines()
+    with open("skyportal/requirements.txt", "w") as f:
+        f.writelines(skyportal_req)
+        for line in ext_req:
+            if line not in skyportal_req:
+                f.write(line)
 
     # The skyportal .dockerignore includes config.yaml, but we would like
     # to add that file; we therefore overwrite the .dockerignore
@@ -509,7 +518,13 @@ def doc(args):
     from skyportal import openapi
 
     spec = openapi.spec_from_handlers(
-        baselayer_handlers + skyportal_handlers + fritz_handlers
+        baselayer_handlers + skyportal_handlers + fritz_handlers,
+        metadata={
+            'title': 'Fritz: SkyPortal API',
+            'servers': [
+                {'url': 'https://fritz.science'}
+            ]
+        }
     )
     with open('skyportal/openapi.json', 'w') as f:
         json.dump(spec.to_dict(), f)
@@ -517,6 +532,7 @@ def doc(args):
     subprocess.run(
         ['npx', 'redoc-cli@0.9.8', 'bundle', 'openapi.json',
          '--title', 'Fritz API docs', '--cdn',
+         '--options.theme.logo.gutter', '2rem',
          '-o', '../doc/_build/html/api.html'],
         check=True,
         cwd='skyportal'
