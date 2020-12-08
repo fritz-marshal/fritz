@@ -799,12 +799,20 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
             # cross-match with the TNS
-            ra = np.median(
+            rads = np.array(
                 [candid["ra"] for candid in alert_data['prv_candidates'] if candid.get("ra") is not None]
             )
-            dec = np.median(
+            decs = np.array(
                 [candid["dec"] for candid in alert_data['prv_candidates'] if candid.get("dec") is not None]
             )
+
+            ra = np.median(np.unique(rads.round(decimals=10)))
+            dec = np.median(np.unique(decs.round(decimals=10)))
+            # save median coordinates
+            alert_data["coordinates"] = {
+                "ra_median": ra,
+                "dec_median": dec,
+            }
             query = {
                 "query_type": "cone_search",
                 "query": {
