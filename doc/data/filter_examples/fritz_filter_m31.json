@@ -5,7 +5,7 @@
         "$in": [
           "ZTF20acvbneg"
         ]
-      }, 
+      },
       "candidate.programid": {
         "$in": [
           0, 1, 2, 3
@@ -14,15 +14,15 @@
     }
   }, {
     "$project": {
-      "cutoutScience": 0, 
-      "cutoutTemplate": 0, 
+      "cutoutScience": 0,
+      "cutoutTemplate": 0,
       "cutoutDifference": 0
     }
   }, {
     "$lookup": {
-      "from": "ZTF_alerts_aux", 
-      "localField": "objectId", 
-      "foreignField": "_id", 
+      "from": "ZTF_alerts_aux",
+      "localField": "objectId",
+      "foreignField": "_id",
       "as": "aux"
     }
   }, {
@@ -31,15 +31,15 @@
         "$arrayElemAt": [
           "$aux.cross_matches", 0
         ]
-      }, 
+      },
       "prv_candidates": {
         "$filter": {
           "input": {
             "$arrayElemAt": [
               "$aux.prv_candidates", 0
             ]
-          }, 
-          "as": "item", 
+          },
+          "as": "item",
           "cond": {
             "$and": [
               {
@@ -60,13 +60,13 @@
             ]
           }
         }
-      }, 
-      "schemavsn": 1, 
-      "publisher": 1, 
-      "objectId": 1, 
-      "candid": 1, 
-      "candidate": 1, 
-      "classifications": 1, 
+      },
+      "schemavsn": 1,
+      "publisher": 1,
+      "objectId": 1,
+      "candid": 1,
+      "candidate": 1,
+      "classifications": 1,
       "coordinates": 1
     }
   }, {
@@ -77,28 +77,28 @@
     }
   }, {
     "$project": {
-      "candid": 1, 
-      "candidate.jd": 1, 
-      "candidate.jdstarthist": 1, 
-      "candidate.ndethist": 1, 
-      "classifications": 1, 
-      "CLU_cross_matches": "$cross_matches.CLU_20190625", 
+      "candid": 1,
+      "candidate.jd": 1,
+      "candidate.jdstarthist": 1,
+      "candidate.ndethist": 1,
+      "classifications": 1,
+      "CLU_cross_matches": "$cross_matches.CLU_20190625",
       "CLU_names": {
         "$map": {
-          "input": "$cross_matches.CLU_20190625", 
-          "as": "match", 
+          "input": "$cross_matches.CLU_20190625",
+          "as": "match",
           "in": "$$match.name"
         }
       }
     }
   }, {
     "$project": {
-      "candid": 1, 
-      "candidate.jd": 1, 
-      "candidate.jdstarthist": 1, 
-      "candidate.ndethist": 1, 
-      "classifications": 1, 
-      "CLU_cross_matches": 1, 
+      "candid": 1,
+      "candidate.jd": 1,
+      "candidate.jdstarthist": 1,
+      "candidate.ndethist": 1,
+      "classifications": 1,
+      "CLU_cross_matches": 1,
       "in_M31": {
         "$in": [
           "MESSIER 031", "$CLU_names"
@@ -111,17 +111,17 @@
     }
   }, {
     "$project": {
-      "candid": 1, 
-      "candidate.jd": 1, 
-      "candidate.jdstarthist": 1, 
-      "candidate.ndethist": 1, 
-      "classifications": 1, 
+      "candid": 1,
+      "candidate.jd": 1,
+      "candidate.jdstarthist": 1,
+      "candidate.ndethist": 1,
+      "classifications": 1,
       "M31": {
         "$arrayElemAt": [
           {
             "$filter": {
-              "input": "$CLU_cross_matches", 
-              "as": "g", 
+              "input": "$CLU_cross_matches",
+              "as": "g",
               "cond": {
                 "$eq": [
                   "$$g.name", "MESSIER 031"
@@ -134,7 +134,7 @@
     }
   }, {
     "$project": {
-      "annotations.M31_distance_arcsec": "$M31.coordinates.distance_arcsec", 
+      "annotations.M31_distance_arcsec": "$M31.coordinates.distance_arcsec",
       "annotations.age": {
         "$round": [
           {
@@ -143,11 +143,11 @@
             ]
           }, 5
         ]
-      }, 
-      "annotations.n_det": "$candidate.ndethist", 
+      },
+      "annotations.n_det": "$candidate.ndethist",
       "annotations.candid": {
         "$toString": "$candid"
-      }, 
+      },
       "annotations.braai": {
         "$round": [
           "$classifications.braai", 5
@@ -162,17 +162,17 @@
         "$round": [
           "$classifications.acai_v", 5
         ]
-      }, 
+      },
       "annotations.acai_o": {
         "$round": [
           "$classifications.acai_o", 5
         ]
-      }, 
+      },
       "annotations.acai_n": {
         "$round": [
           "$classifications.acai_n", 5
         ]
-      }, 
+      },
       "annotations.acai_b": {
         "$round": [
           "$classifications.acai_b", 5
