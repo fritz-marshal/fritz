@@ -1,0 +1,183 @@
+[
+  {
+    "$match": {
+      "objectId": {
+        "$in": [
+          "ZTF20acvbneg"
+        ]
+      },
+      "candidate.programid": {
+        "$in": [
+          0, 1, 2, 3
+        ]
+      }
+    }
+  }, {
+    "$project": {
+      "cutoutScience": 0,
+      "cutoutTemplate": 0,
+      "cutoutDifference": 0
+    }
+  }, {
+    "$lookup": {
+      "from": "ZTF_alerts_aux",
+      "localField": "objectId",
+      "foreignField": "_id",
+      "as": "aux"
+    }
+  }, {
+    "$project": {
+      "cross_matches": {
+        "$arrayElemAt": [
+          "$aux.cross_matches", 0
+        ]
+      },
+      "prv_candidates": {
+        "$filter": {
+          "input": {
+            "$arrayElemAt": [
+              "$aux.prv_candidates", 0
+            ]
+          },
+          "as": "item",
+          "cond": {
+            "$and": [
+              {
+                "$in": [
+                  "$$item.programid", [
+                    0, 1, 2, 3
+                  ]
+                ]
+              }, {
+                "$lt": [
+                  {
+                    "$subtract": [
+                      "$candidate.jd", "$$item.jd"
+                    ]
+                  }, 100
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "schemavsn": 1,
+      "publisher": 1,
+      "objectId": 1,
+      "candid": 1,
+      "candidate": 1,
+      "classifications": 1,
+      "coordinates": 1
+    }
+  }, {
+    "$match": {
+      "cross_matches.CLU_20190625.0": {
+        "$exists": true
+      }
+    }
+  }, {
+    "$project": {
+      "candid": 1,
+      "candidate.jd": 1,
+      "candidate.jdstarthist": 1,
+      "candidate.ndethist": 1,
+      "classifications": 1,
+      "CLU_cross_matches": "$cross_matches.CLU_20190625",
+      "CLU_names": {
+        "$map": {
+          "input": "$cross_matches.CLU_20190625",
+          "as": "match",
+          "in": "$$match.name"
+        }
+      }
+    }
+  }, {
+    "$project": {
+      "candid": 1,
+      "candidate.jd": 1,
+      "candidate.jdstarthist": 1,
+      "candidate.ndethist": 1,
+      "classifications": 1,
+      "CLU_cross_matches": 1,
+      "in_M31": {
+        "$in": [
+          "MESSIER 031", "$CLU_names"
+        ]
+      }
+    }
+  }, {
+    "$match": {
+      "in_M31": true
+    }
+  }, {
+    "$project": {
+      "candid": 1,
+      "candidate.jd": 1,
+      "candidate.jdstarthist": 1,
+      "candidate.ndethist": 1,
+      "classifications": 1,
+      "M31": {
+        "$arrayElemAt": [
+          {
+            "$filter": {
+              "input": "$CLU_cross_matches",
+              "as": "g",
+              "cond": {
+                "$eq": [
+                  "$$g.name", "MESSIER 031"
+                ]
+              }
+            }
+          }, 0
+        ]
+      }
+    }
+  }, {
+    "$project": {
+      "annotations.M31_distance_arcsec": "$M31.coordinates.distance_arcsec",
+      "annotations.age": {
+        "$round": [
+          {
+            "$subtract": [
+              "$candidate.jd", "$candidate.jdstarthist"
+            ]
+          }, 5
+        ]
+      },
+      "annotations.n_det": "$candidate.ndethist",
+      "annotations.candid": {
+        "$toString": "$candid"
+      },
+      "annotations.braai": {
+        "$round": [
+          "$classifications.braai", 5
+        ]
+      },
+      "annotations.acai_h": {
+        "$round": [
+          "$classifications.acai_h", 5
+        ]
+      },
+      "annotations.acai_v": {
+        "$round": [
+          "$classifications.acai_v", 5
+        ]
+      },
+      "annotations.acai_o": {
+        "$round": [
+          "$classifications.acai_o", 5
+        ]
+      },
+      "annotations.acai_n": {
+        "$round": [
+          "$classifications.acai_n", 5
+        ]
+      },
+      "annotations.acai_b": {
+        "$round": [
+          "$classifications.acai_b", 5
+        ]
+      }
+    }
+  }
+]
