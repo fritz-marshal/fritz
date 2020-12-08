@@ -658,8 +658,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
 
         selector = list(selector)
 
-        include_prv_candidates = self.get_query_argument('includePrvCandidates', True)
-        include_all_fields = self.get_query_argument('includeAllFields', False)
+        include_prv_candidates = self.get_query_argument('includePrvCandidates', "true")
+        include_prv_candidates = True if include_prv_candidates.lower() == "true" else False
+        include_all_fields = self.get_query_argument('includeAllFields', "false")
+        include_all_fields = False if include_all_fields.lower() == "false" else True
 
         try:
             query = {
@@ -689,16 +691,12 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                     }
                                 },
                             }
-                            if include_prv_candidates
-                            else {
-                                "prv_candidates": 0
-                            }
                         },
                     ]
                 }
             }
 
-            if include_prv_candidates and not include_all_fields:
+            if not include_all_fields:
                 query["query"]["pipeline"].append(
                     {
                         "$project": {
@@ -731,72 +729,71 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-            if include_prv_candidates:
-                # grab and append most recent candid as it should not be in prv_candidates
-                query = {
-                    "query_type": "aggregate",
-                    "query": {
-                        "catalog": "ZTF_alerts",
-                        "pipeline": [
-                            {
-                                "$match": {
-                                    "objectId": objectId,
-                                    "candidate.programid": {"$in": selector}
-                                }
-                            },
-                            {
-                                "$project": {
-                                    # grab only what's going to be rendered
-                                    "_id": 0,
-                                    "candidate.candid": {"$toString": "$candidate.candid"},
-                                    "candidate.programid": 1,
-                                    "candidate.jd": 1,
-                                    "candidate.fid": 1,
-                                    "candidate.ra": 1,
-                                    "candidate.dec": 1,
-                                    "candidate.magpsf": 1,
-                                    "candidate.sigmapsf": 1,
-                                    "candidate.diffmaglim": 1,
-                                    "coordinates.l": 1,
-                                    "coordinates.b": 1,
-                                }
-                                if not include_all_fields
-                                else {
-                                    "_id": 0,
-                                    "cutoutScience": 0,
-                                    "cutoutTemplate": 0,
-                                    "cutoutDifference": 0,
-                                }
-                            },
-                            {
-                                "$sort": {
-                                    "candidate.jd": -1
-                                }
-                            },
-                            {
-                                "$limit": 1
+            # grab and append most recent candid as it should not be in prv_candidates
+            query = {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "objectId": objectId,
+                                "candidate.programid": {"$in": selector}
                             }
-                        ]
-                    }
+                        },
+                        {
+                            "$project": {
+                                # grab only what's going to be rendered
+                                "_id": 0,
+                                "candidate.candid": {"$toString": "$candidate.candid"},
+                                "candidate.programid": 1,
+                                "candidate.jd": 1,
+                                "candidate.fid": 1,
+                                "candidate.ra": 1,
+                                "candidate.dec": 1,
+                                "candidate.magpsf": 1,
+                                "candidate.sigmapsf": 1,
+                                "candidate.diffmaglim": 1,
+                                "coordinates.l": 1,
+                                "coordinates.b": 1,
+                            }
+                            if not include_all_fields
+                            else {
+                                "_id": 0,
+                                "cutoutScience": 0,
+                                "cutoutTemplate": 0,
+                                "cutoutDifference": 0,
+                            }
+                        },
+                        {
+                            "$sort": {
+                                "candidate.jd": -1
+                            }
+                        },
+                        {
+                            "$limit": 1
+                        }
+                    ]
                 }
+            }
 
-                resp = self.query_kowalski(query=query)
+            resp = self.query_kowalski(query=query)
 
-                if resp.status_code == requests.codes.ok:
-                    latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
-                    if len(latest_alert_data) > 0:
-                        latest_alert_data = latest_alert_data[0]
-                    else:
-                        # len = 0 means that user has insufficient permissions to see objectId
-                        self.set_status(404)
-                        self.finish()
-                        return
+            if resp.status_code == requests.codes.ok:
+                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
+                if len(latest_alert_data) > 0:
+                    latest_alert_data = latest_alert_data[0]
                 else:
-                    return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+                    # len = 0 means that user has insufficient permissions to see objectId
+                    self.set_status(404)
+                    self.finish()
+                    return
+            else:
+                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-                candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
-                if latest_alert_data['candidate']["candid"] not in candids:
-                    alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+            candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
+            if latest_alert_data['candidate']["candid"] not in candids:
+                alert_data['prv_candidates'].append(latest_alert_data['candidate'])
 
             # cross-match with the TNS
             rads = np.array(
@@ -855,6 +852,9 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
             if resp.status_code == requests.codes.ok:
                 tns_data = bj.loads(resp.text).get('data').get("TNS").get(objectId)
                 alert_data["cross_matches"]["TNS"] = tns_data
+
+            if not include_prv_candidates:
+                alert_data.pop("prv_candidates", None)
 
             return self.success(data=alert_data)
 
