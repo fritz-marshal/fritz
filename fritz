@@ -496,10 +496,61 @@ def prune(args):
 
 
 def test(args):
-    print("Launching tests...")
+    print("Running integration testing...")
 
-    print("Testing integration...")
-    subprocess.run(["python", "kowalski.py", "test"], cwd="kowalski")
+    # make sure the containers are up and running
+    num_retries = 10
+    for i in range(num_retries):
+        if i == num_retries - 1:
+            raise RuntimeError("Fritz's containers failed to spin up")
+
+        command = ["docker", "ps", "-a"]
+        container_list = (
+            subprocess.check_output(command, universal_newlines=True)
+            .strip()
+            .split("\n")
+        )
+        if len(container_list) == 1:
+            print("No containers are running, waiting...")
+            time.sleep(3)
+            continue
+
+        containers_up = (
+            len(
+                [
+                    container
+                    for container in container_list
+                    if container_name in container and " Up " in container
+                ]
+            )
+            > 0
+            for container_name in ("kowalski_ingester_1", "skyportal_web_1")
+        )
+
+        if not all(containers_up):
+            print("Fritz's containers are not up, waiting...")
+            time.sleep(3)
+            continue
+
+        break
+
+    print("Testing ZTF alert stream consumption and digestion")
+
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "kowalski_ingester_1",
+        "python",
+        "-m",
+        "pytest",
+        "-s",
+        "test_ingester.py",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
 
 
 def doc(args):
