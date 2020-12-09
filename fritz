@@ -101,6 +101,18 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     )
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
 
+    # get Docker gateway IP
+    cmd = [
+        "docker",
+        "network",
+        "inspect",
+        "bridge",
+        "--format={{(index .IPAM.Config 0).Gateway}}",
+    ]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE)
+    gateway_ip = p.stdout.decode("utf-8").strip()
+    config["kowalski"]["skyportal"]["host"] = gateway_ip
+
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
     with open("kowalski/config.yaml", "w") as cyaml:
@@ -268,7 +280,6 @@ def build(args):
         if port is None:
             port = 5000
         dc["services"]["web"]["ports"] = [f"{port}:{port}"]
-        pass
     with open("skyportal/docker-compose.skyportal.yaml", "w") as dcyaml:
         yaml.dump(dc, dcyaml)
 

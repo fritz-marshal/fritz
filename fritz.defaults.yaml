@@ -608,7 +608,7 @@ kowalski:
 
   skyportal:
     protocol: "http"
-    host: "skyportal_web_1"
+    host: "172.17.0.1"
     port: 5000
     username: "kowalski"
     token: "<token>"
