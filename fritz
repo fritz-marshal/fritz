@@ -43,7 +43,7 @@ def get_skyportal_token():
     Get admin token for Kowalski to access SkyPortal
     """
     result = subprocess.run(
-        ["docker", "exec", "-it", "skyportal_web_1",
+        ["docker", "exec", "-i", "skyportal_web_1",
          "/bin/bash", "-c",
          "cat /skyportal/.tokens.yaml"
          ],
@@ -300,7 +300,7 @@ def build(args):
         while mi <= max_retires:
             p = subprocess.run(
                 [
-                    "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+                    "docker", "exec", "-i", "skyportal_web_1", "/bin/bash", "-c",
                     "source /skyportal_env/bin/activate; make db_init; "
                     "make prepare_seed_data; make load_seed_data"
                 ],
@@ -428,7 +428,7 @@ def log(args):
     # p = subprocess.run(["make", "log"], cwd="skyportal")
     p = subprocess.run(
         [
-            "docker", "exec", "-it", "skyportal_web_1", "/bin/bash", "-c",
+            "docker", "exec", "-i", "skyportal_web_1", "/bin/bash", "-c",
             "source /skyportal_env/bin/activate; make log"
         ],
         cwd="skyportal"
