@@ -31,6 +31,7 @@ jobs:
 
       - name: Build and spin up
         run: |
+          cp kowalski/docker-compose.defaults.yaml kowalski/docker-compose.yaml
           ./fritz run --init --dev
 
       - name: Run integration tests
