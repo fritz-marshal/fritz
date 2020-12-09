@@ -12,30 +12,34 @@ import yaml
 
 from tools.check_environment import deps_ok
 
-sys.path.insert(0, 'skyportal')
+sys.path.insert(0, "skyportal")
 
 
-def generate_kowalski_token(user_id, jwt_secret, jwt_algorithm='HS256',
-                            jwt_exp_delta_seconds=30 * 86400 * 12):
+def generate_kowalski_token(
+    user_id, jwt_secret, jwt_algorithm="HS256", jwt_exp_delta_seconds=30 * 86400 * 12
+):
     """
     Generate a token for SkyPortal to access Kowalski
     """
     import jwt
 
     jwt_config = {
-        'user_id': user_id,
-        'JWT_SECRET': jwt_secret,
-        'JWT_ALGORITHM': jwt_algorithm,
-        'JWT_EXP_DELTA_SECONDS': jwt_exp_delta_seconds,
+        "user_id": user_id,
+        "JWT_SECRET": jwt_secret,
+        "JWT_ALGORITHM": jwt_algorithm,
+        "JWT_EXP_DELTA_SECONDS": jwt_exp_delta_seconds,
     }
 
     payload = {
-        'user_id': jwt_config['user_id'],
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=jwt_config['JWT_EXP_DELTA_SECONDS'])
+        "user_id": jwt_config["user_id"],
+        "exp": datetime.datetime.utcnow()
+        + datetime.timedelta(seconds=jwt_config["JWT_EXP_DELTA_SECONDS"]),
     }
-    jwt_token = jwt.encode(payload, jwt_config['JWT_SECRET'], jwt_config['JWT_ALGORITHM'])
+    jwt_token = jwt.encode(
+        payload, jwt_config["JWT_SECRET"], jwt_config["JWT_ALGORITHM"]
+    )
 
-    return jwt_token.decode('utf-8')
+    return jwt_token.decode("utf-8")
 
 
 def get_skyportal_token():
@@ -43,10 +47,15 @@ def get_skyportal_token():
     Get admin token for Kowalski to access SkyPortal
     """
     result = subprocess.run(
-        ["docker", "exec", "-i", "skyportal_web_1",
-         "/bin/bash", "-c",
-         "cat /skyportal/.tokens.yaml"
-         ],
+        [
+            "docker",
+            "exec",
+            "-i",
+            "skyportal_web_1",
+            "/bin/bash",
+            "-c",
+            "cat /skyportal/.tokens.yaml",
+        ],
         cwd="skyportal",
         capture_output=True,
         universal_newlines=True,
@@ -54,28 +63,32 @@ def get_skyportal_token():
     token = result.stdout.split()[-1]
 
     if len(token) != 36:
-        raise RuntimeError('Failed to get a SkyPortal token for Kowalski')
+        raise RuntimeError("Failed to get a SkyPortal token for Kowalski")
 
     return token
 
 
-def check_config_exists(cfg='fritz.defaults.yaml', yes=False):
-    c = cfg.replace('.defaults', '')
+def check_config_exists(cfg="fritz.defaults.yaml", yes=False):
+    c = cfg.replace(".defaults", "")
     if not Path(c).exists():
-        cd = input(
-            f'{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] '
-        ) if not yes else 'y'
-        if cd.lower() == 'y':
+        cd = (
+            input(
+                f"{c} does not exist, do you want to use {cfg} (not recommended)? [y/N] "
+            )
+            if not yes
+            else "y"
+        )
+        if cd.lower() == "y":
             subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
         else:
-            raise IOError(f'{c} does not exist, aborting')
+            raise IOError(f"{c} does not exist, aborting")
 
 
-def check_config(cfg='fritz.defaults.yaml', yes=False, **kwargs):
+def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     """
     Check if config exists, generate a K token for SP, adjust cfg and distribute to K and SP
     """
-    c = cfg.replace('.defaults', '')
+    c = cfg.replace(".defaults", "")
     check_config_exists(cfg=cfg, yes=yes)
 
     # generate a token for SkyPortal to talk to Kowalski
@@ -83,25 +96,25 @@ def check_config(cfg='fritz.defaults.yaml', yes=False, **kwargs):
         config = yaml.load(cyaml, Loader=yaml.FullLoader)
 
     kowalski_token = generate_kowalski_token(
-        user_id=config['kowalski']['server']['admin_username'],
-        jwt_secret=config['kowalski']['server']['JWT_SECRET_KEY'],
+        user_id=config["kowalski"]["server"]["admin_username"],
+        jwt_secret=config["kowalski"]["server"]["JWT_SECRET_KEY"],
     )
-    config['skyportal']['app']['kowalski']['token'] = kowalski_token
+    config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
 
     # strip down, adjust, and copy over to Kowalski and SkyPortal
-    config_kowalski = {'kowalski': config['kowalski']}  # don't need the SP stuff
-    with open("kowalski/config.yaml", 'w') as cyaml:
+    config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
+    with open("kowalski/config.yaml", "w") as cyaml:
         yaml.dump(config_kowalski, cyaml)
 
     # Docker-specific SP stuff:
-    config["skyportal"]['database']['host'] = "db"
-    config["skyportal"]['server']['url'] = "http://localhost:5000"
-    config_skyportal = config['skyportal']  # don't need the K stuff
-    with open("skyportal/config.yaml", 'w') as cyaml:
+    config["skyportal"]["database"]["host"] = "db"
+    config["skyportal"]["server"]["url"] = "http://localhost:5000"
+    config_skyportal = config["skyportal"]  # don't need the K stuff
+    with open("skyportal/config.yaml", "w") as cyaml:
         yaml.dump(config_skyportal, cyaml)
 
     # update fritz.yaml:
-    with open(c, 'w') as cyaml:
+    with open(c, "w") as cyaml:
         yaml.dump(config, cyaml)
 
 
@@ -109,58 +122,54 @@ def update(args):
     """
     Update Fritz
     """
-    p = subprocess.run(['git', 'pull', args.repo, args.branch])
+    p = subprocess.run(["git", "pull", args.repo, args.branch])
     if p.returncode != 0:
         raise RuntimeError(f"Failed to git pull Fritz from {args.repo}/{args.branch}")
 
     if args.init:
         # initialize/update fritz's submodules kowalski and skyportal
         # pull skyportal and kowalski
-        p = subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+        p = subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
         if p.returncode != 0:
             raise RuntimeError("Failed to initialize fritz's submodules")
     # auto stash SP
-    p = subprocess.run(['git', 'stash'], cwd="skyportal")
+    p = subprocess.run(["git", "stash"], cwd="skyportal")
     if p.returncode != 0:
         raise RuntimeError("SkyPortal autostash failed")
 
     # update submodules
-    p = subprocess.run(['git', 'submodule', 'update', '--recursive'])
+    p = subprocess.run(["git", "submodule", "update", "--recursive"])
     if p.returncode != 0:
         raise RuntimeError("Failed to update fritz's submodules")
 
 
 def patch_skyportal():
-    """Make fritz-specific file modifications to SkyPortal.
-
-    """
+    """Make fritz-specific file modifications to SkyPortal."""
     print("Applying fritz-specific patches to SkyPortal")
 
-    p = subprocess.run(
-        ['git', 'rev-parse', '--short', 'HEAD'],
-        stdout=subprocess.PIPE
-    )
-    git_hash = p.stdout.decode('utf-8').strip()
+    p = subprocess.run(["git", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE)
+    git_hash = p.stdout.decode("utf-8").strip()
 
     # add Fritz-specific K and SP extensions
     # copy_tree('extensions/kowalski/', 'kowalski/')
-    copy_tree('extensions/skyportal/', 'skyportal/')
+    copy_tree("extensions/skyportal/", "skyportal/")
 
     # Add fritz and SkyPortal git version to skyportal/__init__.py
     from skyportal import __version__
-    init_file = 'skyportal/skyportal/__init__.py'
-    with open(init_file, 'r') as f:
+
+    init_file = "skyportal/skyportal/__init__.py"
+    with open(init_file, "r") as f:
         init = f.readlines()
     out = []
     for line in init:
-        if line.startswith('__version__ = '):
-            __version__ = '+'.join([
-                v for v in __version__.split('+') if not v.startswith('fritz')
-            ])
+        if line.startswith("__version__ = "):
+            __version__ = "+".join(
+                [v for v in __version__.split("+") if not v.startswith("fritz")]
+            )
             line = f'__version__ = "{__version__}+fritz.{git_hash}"\n'
         out.append(line)
-    with open(init_file, 'wb') as f:
-        f.write(''.join(out).encode('utf-8'))
+    with open(init_file, "wb") as f:
+        f.write("".join(out).encode("utf-8"))
 
     # get the git log for SP and add it to the SP distro
     p = subprocess.run(
@@ -170,11 +179,11 @@ def patch_skyportal():
             "log",
             "--no-merges",
             "--pretty=format:[%cI %h %cE] %s",
-            "-1000"
+            "-1000",
         ],
         capture_output=True,
         universal_newlines=True,
-        cwd="skyportal"
+        cwd="skyportal",
     )
     out = p.stdout
     with open("skyportal/data/gitlog.txt", "w") as spgl:
@@ -189,7 +198,7 @@ def patch_skyportal():
 
     skyportal_pkg["dependencies"] = {
         **skyportal_pkg["dependencies"],
-        **fritz_pkg["dependencies"]
+        **fritz_pkg["dependencies"],
     }
     with open("skyportal/package.json", "w") as f:
         json.dump(skyportal_pkg, f, indent=2)
@@ -207,8 +216,8 @@ def patch_skyportal():
 
     # The skyportal .dockerignore includes config.yaml, but we would like
     # to add that file; we therefore overwrite the .dockerignore
-    with open('skyportal/.dockerignore', 'w') as f:
-        f.write('.*\n')
+    with open("skyportal/.dockerignore", "w") as f:
+        f.write(".*\n")
 
 
 def build(args):
@@ -232,7 +241,7 @@ def build(args):
         subprocess.run(c, cwd="kowalski", check=True)
 
     # check config
-    check_config(cfg='fritz.defaults.yaml', yes=args.yes)
+    check_config(cfg="fritz.defaults.yaml", yes=args.yes)
 
     # load config
     with open("fritz.yaml") as fyaml:
@@ -246,14 +255,12 @@ def build(args):
     # fix absolute paths in docker-compose.skyportal.yaml
     for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
         dc["services"]["web"]["volumes"][vi] = volume.replace(
-            "${PWD}",
-            str(Path(__file__).parent.absolute())
+            "${PWD}", str(Path(__file__).parent.absolute())
         )
     if args.traefik:
         # fix host for Traefik
         dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
-            "<host>",
-            fritz_config["skyportal"]["server"]["host"]
+            "<host>", fritz_config["skyportal"]["server"]["host"]
         )
     else:
         # not running behind Traefik? then publish port 5000 on host
@@ -262,7 +269,7 @@ def build(args):
             port = 5000
         dc["services"]["web"]["ports"] = [f"{port}:{port}"]
         pass
-    with open("skyportal/docker-compose.skyportal.yaml", 'w') as dcyaml:
+    with open("skyportal/docker-compose.skyportal.yaml", "w") as dcyaml:
         yaml.dump(dc, dcyaml)
 
     # Build skyportal's images
@@ -278,9 +285,9 @@ def build(args):
     if args.init:
         # create common docker network (if it does not exist yet)
         p = subprocess.run(
-            ["docker", "network", 'create', "fritz_net"],
+            ["docker", "network", "create", "fritz_net"],
             capture_output=True,
-            universal_newlines=True
+            universal_newlines=True,
         )
         if (p.returncode != 0) and ("already exists" not in p.stderr):
             raise RuntimeError("Failed to create network fritz_net")
@@ -288,9 +295,9 @@ def build(args):
         # start up skyportal
         # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
         p = subprocess.run(
-            ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
+            ["docker-compose", "-f", "docker-compose.skyportal.yaml", "up", "-d"],
             cwd="skyportal",
-            check=True
+            check=True,
         )
         if p.returncode != 0:
             raise RuntimeError("Failed to start SkyPortal")
@@ -300,11 +307,16 @@ def build(args):
         while mi <= max_retires:
             p = subprocess.run(
                 [
-                    "docker", "exec", "-i", "skyportal_web_1", "/bin/bash", "-c",
+                    "docker",
+                    "exec",
+                    "-i",
+                    "skyportal_web_1",
+                    "/bin/bash",
+                    "-c",
                     "source /skyportal_env/bin/activate; make db_init; "
-                    "make prepare_seed_data; make load_seed_data"
+                    "make prepare_seed_data; make load_seed_data",
                 ],
-                cwd="skyportal"
+                cwd="skyportal",
             )
             if p.returncode == 0:
                 break
@@ -316,19 +328,19 @@ def build(args):
             raise RuntimeError("Failed to init SkyPortal and load seed data")
 
         # generate a token for Kowalski to talk to SkyPortal:
-        with open('kowalski/config.yaml') as cyaml:
+        with open("kowalski/config.yaml") as cyaml:
             config = yaml.load(cyaml, Loader=yaml.FullLoader)
 
         token = get_skyportal_token()
-        config['kowalski']['skyportal']['token'] = token
+        config["kowalski"]["skyportal"]["token"] = token
 
         # save it to K's config:
-        with open('kowalski/config.yaml', 'w') as cyaml:
+        with open("kowalski/config.yaml", "w") as cyaml:
             yaml.dump(config, cyaml)
 
         # update fritz.yaml
-        fritz_config['kowalski']['skyportal']['token'] = token
-        with open("fritz.yaml", 'w') as fyaml:
+        fritz_config["kowalski"]["skyportal"]["token"] = token
+        with open("fritz.yaml", "w") as fyaml:
             yaml.dump(fritz_config, fyaml)
 
     if not args.no_kowalski:
@@ -342,7 +354,10 @@ def build(args):
 
     if args.init:
         # stop SkyPortal
-        subprocess.run(["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"], cwd="skyportal")
+        subprocess.run(
+            ["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"],
+            cwd="skyportal",
+        )
 
         # remove common network
         subprocess.run(["docker", "network", "remove", "fritz_net"])
@@ -360,9 +375,9 @@ def run(args):
 
     # create common docker network (if it does not exist yet)
     p = subprocess.run(
-        ["docker", "network", 'create', "fritz_net"],
+        ["docker", "network", "create", "fritz_net"],
         capture_output=True,
-        universal_newlines=True
+        universal_newlines=True,
     )
     if (p.returncode != 0) and ("already exists" not in p.stderr):
         raise RuntimeError("Failed to create network fritz_net")
@@ -370,9 +385,9 @@ def run(args):
     # start up skyportal
     # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
     p = subprocess.run(
-        ["docker-compose", "-f", 'docker-compose.skyportal.yaml', "up", "-d"],
+        ["docker-compose", "-f", "docker-compose.skyportal.yaml", "up", "-d"],
         cwd="skyportal",
-        check=True
+        check=True,
     )
     if p.returncode != 0:
         raise RuntimeError("Failed to start SkyPortal")
@@ -387,11 +402,11 @@ def run(args):
 
     if args.traefik:
         # check traefik's config
-        check_config_exists(cfg='docker-compose.traefik.defaults.yaml', yes=args.yes)
+        check_config_exists(cfg="docker-compose.traefik.defaults.yaml", yes=args.yes)
         # fire up traefik
         p = subprocess.run(
-            ["docker-compose", "-f", 'docker-compose.traefik.yaml', "up", "-d"],
-            check=True
+            ["docker-compose", "-f", "docker-compose.traefik.yaml", "up", "-d"],
+            check=True,
         )
         if p.returncode != 0:
             raise RuntimeError("Failed to start Traefik")
@@ -401,21 +416,26 @@ def stop(args):
     """
     Shut down Fritz
     """
-    print('Shutting down Fritz...')
+    print("Shutting down Fritz...")
 
     # stop traefik if it is running
-    running_container_images = subprocess.check_output([
-        'docker', 'ps', '-a',
-        '--format', '{{.Image}}'
-    ]).decode('utf-8').strip().split('\n')
+    running_container_images = (
+        subprocess.check_output(["docker", "ps", "-a", "--format", "{{.Image}}"])
+        .decode("utf-8")
+        .strip()
+        .split("\n")
+    )
     traefik_is_running = any("traefik" in x.lower() for x in running_container_images)
     if traefik_is_running:
-        print('Shutting down Traefik')
+        print("Shutting down Traefik")
         subprocess.run(["docker-compose", "-f", "docker-compose.traefik.yaml", "down"])
 
     # stop Kowalski and SkyPortal
     subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
-    subprocess.run(["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"], cwd="skyportal")
+    subprocess.run(
+        ["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"],
+        cwd="skyportal",
+    )
 
     # remove common network
     subprocess.run(["docker", "network", "remove", "fritz_net"])
@@ -428,10 +448,15 @@ def log(args):
     # p = subprocess.run(["make", "log"], cwd="skyportal")
     p = subprocess.run(
         [
-            "docker", "exec", "-i", "skyportal_web_1", "/bin/bash", "-c",
-            "source /skyportal_env/bin/activate; make log"
+            "docker",
+            "exec",
+            "-i",
+            "skyportal_web_1",
+            "/bin/bash",
+            "-c",
+            "source /skyportal_env/bin/activate; make log",
         ],
-        cwd="skyportal"
+        cwd="skyportal",
     )
     if p.returncode != 0:
         raise RuntimeError("Failed to display fritz's logs")
@@ -460,35 +485,48 @@ def prune(args):
     """
     Prune fritz's docker containers and volumes and reset configs to defaults
     """
-    go = input(
-        "Do you want to prune Fritz's docker containers and volumes and deinit submodules? [y/N] "
-    ) if not args.yes else 'y'
+    go = (
+        input(
+            "Do you want to prune Fritz's docker containers and volumes and deinit submodules? [y/N] "
+        )
+        if not args.yes
+        else "y"
+    )
 
-    if go.lower() == 'y':
+    if go.lower() == "y":
         # try stopping anything that's running first:
         stop(args)
 
         # remove docker images
-        for image_name in ('kowalski_api', 'kowalski_ingester', 'skyportal/web'):
-            p1 = subprocess.Popen(['docker', 'images'], stdout=subprocess.PIPE)
-            p2 = subprocess.Popen(['grep', image_name], stdin=p1.stdout, stdout=subprocess.PIPE)
-            image_id = subprocess.check_output(['awk', '{print $3}'], stdin=p2.stdout, universal_newlines=True).strip()
-            p3 = subprocess.run(['docker', 'rmi', image_id])
+        for image_name in ("kowalski_api", "kowalski_ingester", "skyportal/web"):
+            p1 = subprocess.Popen(["docker", "images"], stdout=subprocess.PIPE)
+            p2 = subprocess.Popen(
+                ["grep", image_name], stdin=p1.stdout, stdout=subprocess.PIPE
+            )
+            image_id = subprocess.check_output(
+                ["awk", "{print $3}"], stdin=p2.stdout, universal_newlines=True
+            ).strip()
+            p3 = subprocess.run(["docker", "rmi", image_id])
             if p3.returncode == 0:
-                print(f'Removed {image_name} docker image')
+                print(f"Removed {image_name} docker image")
             else:
-                print(f'Failed to remove {image_name} docker image')
+                print(f"Failed to remove {image_name} docker image")
 
         # remove docker volumes
-        for volume_name in ('kowalski_data', 'kowalski_mongodb', 'skyportal_dbdata', 'skyportal_thumbnails'):
-            p = subprocess.run(['docker', 'volume', 'rm', volume_name])
+        for volume_name in (
+            "kowalski_data",
+            "kowalski_mongodb",
+            "skyportal_dbdata",
+            "skyportal_thumbnails",
+        ):
+            p = subprocess.run(["docker", "volume", "rm", volume_name])
             if p.returncode == 0:
-                print(f'Removed {volume_name} docker volume')
+                print(f"Removed {volume_name} docker volume")
             else:
-                print(f'Failed to remove {volume_name} docker volume')
+                print(f"Failed to remove {volume_name} docker volume")
 
         # deinit submodules
-        p = subprocess.run(['git', 'submodule', 'deinit', '--all', '-f'])
+        p = subprocess.run(["git", "submodule", "deinit", "--all", "-f"])
         if p.returncode == 0:
             print("Deinitialized fritz's submodules")
         else:
@@ -524,7 +562,11 @@ def test(args):
                 ]
             )
             > 0
-            for container_name in ("kowalski_ingester_1", "skyportal_web_1")
+            for container_name in (
+                "kowalski_ingester_1",
+                "kowalski_api_1",
+                "skyportal_web_1",
+            )
         )
 
         if not all(containers_up):
@@ -559,9 +601,7 @@ def doc(args):
     patch_skyportal()
 
     env = os.environ.copy()
-    env.update({
-        "PYTHONPATH": "."
-    })
+    env.update({"PYTHONPATH": "."})
 
     from baselayer.app.app_server import handlers as baselayer_handlers
     from skyportal.app_server import skyportal_handlers
@@ -571,24 +611,31 @@ def doc(args):
     spec = openapi.spec_from_handlers(
         baselayer_handlers + skyportal_handlers + fritz_handlers,
         metadata={
-            'title': 'Fritz: SkyPortal API',
-            'servers': [
-                {'url': 'https://fritz.science'}
-            ]
-        }
+            "title": "Fritz: SkyPortal API",
+            "servers": [{"url": "https://fritz.science"}],
+        },
     )
-    with open('skyportal/openapi.json', 'w') as f:
+    with open("skyportal/openapi.json", "w") as f:
         json.dump(spec.to_dict(), f)
 
     subprocess.run(
-        ['npx', 'redoc-cli@0.9.8', 'bundle', 'openapi.json',
-         '--title', 'Fritz API docs', '--cdn',
-         '--options.theme.logo.gutter', '2rem',
-         '-o', '../doc/_build/html/api.html'],
+        [
+            "npx",
+            "redoc-cli@0.9.8",
+            "bundle",
+            "openapi.json",
+            "--title",
+            "Fritz API docs",
+            "--cdn",
+            "--options.theme.logo.gutter",
+            "2rem",
+            "-o",
+            "../doc/_build/html/api.html",
+        ],
         check=True,
-        cwd='skyportal'
+        cwd="skyportal",
     )
-    os.remove('skyportal/openapi.json')
+    os.remove("skyportal/openapi.json")
 
     if args.upload:
         subprocess.run(
@@ -606,7 +653,7 @@ def doc(args):
                 "./doc/_build/html",
                 "git@github.com:fritz-marshal/doc",
             ],
-            check=True
+            check=True,
         )
 
 
@@ -637,18 +684,20 @@ if __name__ == "__main__":
         parsers[cmd] = subparsers.add_parser(cmd, help=desc, parents=[parent_parser])
 
     p_run = parsers["run"]
+    p_run.add_argument("--init", action="store_true", help="Initialize Fritz")
     p_run.add_argument(
-        "--init", action="store_true", help="Initialize Fritz"
+        "--repo",
+        type=str,
+        default="origin",
+        help="Remote repository to pull from at init",
     )
     p_run.add_argument(
-        "--repo", type=str, default="origin", help="Remote repository to pull from at init"
+        "--branch",
+        type=str,
+        default="master",
+        help="Branch on the remote repository at init",
     )
-    p_run.add_argument(
-        "--branch", type=str, default="master", help="Branch on the remote repository at init"
-    )
-    p_run.add_argument(
-        "--dev", action="store_true", help="Run Fritz in dev mode"
-    )
+    p_run.add_argument("--dev", action="store_true", help="Run Fritz in dev mode")
     p_run.add_argument(
         "--traefik", action="store_true", help="Run Fritz behind Traefik"
     )
@@ -656,7 +705,9 @@ if __name__ == "__main__":
         "--no-kowalski", action="store_true", help="Do not build images for Kowalski"
     )
     p_run.add_argument(
-        "--skyportal-tag", default="skyportal/web:latest", help="Tag to apply to SkyPortal docker image"
+        "--skyportal-tag",
+        default="skyportal/web:latest",
+        help="Tag to apply to SkyPortal docker image",
     )
 
     p_build = parsers["build"]
@@ -679,7 +730,9 @@ if __name__ == "__main__":
         "--no-kowalski", action="store_true", help="Do not build images for Kowalski"
     )
     p_build.add_argument(
-        "--skyportal-tag", default="skyportal/web:latest", help="Tag to apply to SkyPortal docker image"
+        "--skyportal-tag",
+        default="skyportal/web:latest",
+        help="Tag to apply to SkyPortal docker image",
     )
 
     p_update = parsers["update"]
