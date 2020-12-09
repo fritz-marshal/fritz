@@ -275,6 +275,10 @@ skyportal:
   notifications:
     enabled: True
 
+  standard_stars:
+    ZTF: data/ztf_standards.csv
+    ESO: data/eso_standards.csv
+
   smtp:
     from_email:
     password:
