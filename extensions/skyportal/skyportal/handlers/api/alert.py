@@ -7,7 +7,7 @@ from astropy.visualization import (
     LinearStretch,
     LogStretch,
     SqrtStretch,
-    ImageNormalize
+    ImageNormalize,
 )
 import base64
 import bson.json_util as bj
@@ -47,17 +47,17 @@ s = requests.Session()
 
 def make_thumbnail(a, ttype, ztftype):
 
-    cutout_data = a[f'cutout{ztftype}']['stampData']
-    with gzip.open(io.BytesIO(cutout_data), 'rb') as f:
+    cutout_data = a[f"cutout{ztftype}"]["stampData"]
+    with gzip.open(io.BytesIO(cutout_data), "rb") as f:
         with fits.open(io.BytesIO(f.read())) as hdu:
             # header = hdu[0].header
             data_flipped_y = np.flipud(hdu[0].data)
     # fixme: png, switch to fits eventually
     buff = io.BytesIO()
-    plt.close('all')
+    plt.close("all")
     fig = plt.figure()
     fig.set_size_inches(4, 4, forward=False)
-    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
     ax.set_axis_off()
     fig.add_axes(ax)
 
@@ -72,20 +72,16 @@ def make_thumbnail(a, ttype, ztftype):
         img = np.nan_to_num(img, nan=median)
 
     norm = ImageNormalize(
-        img,
-        stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
+        img, stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
     )
     img_norm = norm(img)
-    normalizer = AsymmetricPercentileInterval(
-        lower_percentile=1,
-        upper_percentile=100
-    )
+    normalizer = AsymmetricPercentileInterval(lower_percentile=1, upper_percentile=100)
     vmin, vmax = normalizer.get_limits(img_norm)
-    ax.imshow(img_norm, cmap="bone", origin='lower', vmin=vmin, vmax=vmax)
+    ax.imshow(img_norm, cmap="bone", origin="lower", vmin=vmin, vmax=vmax)
     plt.savefig(buff, dpi=42)
 
     buff.seek(0)
-    plt.close('all')
+    plt.close("all")
 
     thumb = {
         "obj_id": a["objectId"],
@@ -127,15 +123,17 @@ class ZTFAlertHandler(BaseHandler):
     #     return resp
 
     def query_kowalski(self, query: dict, timeout=7):
-        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        base_url = (
+            f"{self.cfg['app.kowalski.protocol']}://"
+            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        )
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
         resp = s.post(
-            os.path.join(base_url, 'api/queries'),
+            os.path.join(base_url, "api/queries"),
             json=query,
             headers=headers,
-            timeout=timeout
+            timeout=timeout,
         )
 
         return resp
@@ -186,7 +184,7 @@ class ZTFAlertHandler(BaseHandler):
 
         selector = list(selector)
 
-        include_all_fields = self.get_query_argument('includeAllFields', False)
+        include_all_fields = self.get_query_argument("includeAllFields", False)
 
         try:
             query = {
@@ -197,7 +195,7 @@ class ZTFAlertHandler(BaseHandler):
                         {
                             "$match": {
                                 "objectId": objectId,
-                                "candidate.programid": {"$in": selector}
+                                "candidate.programid": {"$in": selector},
                             }
                         },
                         {
@@ -226,28 +224,28 @@ class ZTFAlertHandler(BaseHandler):
                                 "cutoutDifference": 0,
                             }
                         },
-                    ]
+                    ],
                 },
                 # "kwargs": {
                 #     "max_time_ms": 10000
                 # }
             }
 
-            candid = self.get_query_argument('candid', None)
+            candid = self.get_query_argument("candid", None)
             if candid:
                 query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
 
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data')
+                alert_data = bj.loads(resp.text).get("data")
                 return self.success(data=alert_data)
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
         except Exception:
             _err = traceback.format_exc()
-            return self.error(f'failure: {_err}')
+            return self.error(f"failure: {_err}")
 
     @auth_or_token
     def post(self, objectId):
@@ -303,11 +301,7 @@ class ZTFAlertHandler(BaseHandler):
                 "query": {
                     "catalog": "ZTF_alerts_aux",
                     "pipeline": [
-                        {
-                            "$match": {
-                                "_id": objectId
-                            }
-                        },
+                        {"$match": {"_id": objectId}},
                         {
                             "$project": {
                                 "_id": 1,
@@ -316,12 +310,7 @@ class ZTFAlertHandler(BaseHandler):
                                     "$filter": {
                                         "input": "$prv_candidates",
                                         "as": "item",
-                                        "cond": {
-                                            "$in": [
-                                                "$$item.programid",
-                                                selector
-                                            ]
-                                        }
+                                        "cond": {"$in": ["$$item.programid", selector]},
                                     }
                                 },
                             }
@@ -340,15 +329,15 @@ class ZTFAlertHandler(BaseHandler):
                                 "prv_candidates.candid": 1,
                                 "prv_candidates.jd": 1,
                             }
-                        }
-                    ]
-                }
+                        },
+                    ],
+                },
             }
 
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data')
+                alert_data = bj.loads(resp.text).get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -365,7 +354,7 @@ class ZTFAlertHandler(BaseHandler):
                         {
                             "$match": {
                                 "objectId": objectId,
-                                "candidate.programid": {"$in": selector}
+                                "candidate.programid": {"$in": selector},
                             }
                         },
                         {
@@ -385,31 +374,25 @@ class ZTFAlertHandler(BaseHandler):
                                 "candidate.diffmaglim": 1,
                             }
                         },
-                        {
-                            "$sort": {
-                                "candidate.jd": -1
-                            }
-                        },
-                        {
-                            "$limit": 1
-                        }
-                    ]
-                }
+                        {"$sort": {"candidate.jd": -1}},
+                        {"$limit": 1},
+                    ],
+                },
             }
 
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get('data')
+                latest_alert_data = bj.loads(resp.text).get("data")
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
             if len(latest_alert_data) > 0:
-                candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
-                if latest_alert_data['candidate']["candid"] not in candids:
-                    alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+                candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
+                if latest_alert_data["candidate"]["candid"] not in candids:
+                    alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
             df = pd.DataFrame.from_records(alert_data["prv_candidates"])
             mask_candid = df["candid"] == str(candid)
@@ -421,13 +404,13 @@ class ZTFAlertHandler(BaseHandler):
                 alert = df.loc[mask_candid].to_dict(orient="records")[0]
 
             # post source
-            drb = alert.get('drb')
-            rb = alert.get('rb')
+            drb = alert.get("drb")
+            rb = alert.get("rb")
             score = drb if drb is not None and not np.isnan(drb) else rb
             alert_thin = {
                 "id": objectId,
-                "ra": alert.get('ra'),
-                "dec": alert.get('dec'),
+                "ra": alert.get("ra"),
+                "dec": alert.get("dec"),
                 "score": score,
                 "altdata": {
                     "passing_alert_id": candid,
@@ -436,13 +419,21 @@ class ZTFAlertHandler(BaseHandler):
 
             schema = Obj.__schema__()
             # print(self.associated_user_object.groups)
-            user_group_ids = [g.id for g in self.associated_user_object.groups if not g.single_user_group]
-            user_accessible_group_ids = [g.id for g in self.associated_user_object.accessible_groups]
+            user_group_ids = [
+                g.id
+                for g in self.associated_user_object.groups
+                if not g.single_user_group
+            ]
+            user_accessible_group_ids = [
+                g.id for g in self.associated_user_object.accessible_groups
+            ]
             if not user_group_ids:
                 return self.error(
                     "You must belong to one or more groups before you can add sources."
                 )
-            if (group_ids is not None) and (len(set(group_ids) - set(user_accessible_group_ids)) > 0):
+            if (group_ids is not None) and (
+                len(set(group_ids) - set(user_accessible_group_ids)) > 0
+            ):
                 forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
                 return self.error(
                     "Insufficient group access permissions. Not a member of "
@@ -465,7 +456,7 @@ class ZTFAlertHandler(BaseHandler):
                 obj = schema.load(alert_thin)
             except ValidationError as e:
                 return self.error(
-                    'Invalid/missing parameters: ' f'{e.normalized_messages()}'
+                    "Invalid/missing parameters: " f"{e.normalized_messages()}"
                 )
             groups = Group.query.filter(Group.id.in_(group_ids)).all()
             if not groups:
@@ -490,17 +481,21 @@ class ZTFAlertHandler(BaseHandler):
                 obj.add_linked_thumbnails()
 
             # post photometry
-            ztf_filters = {1: 'ztfg', 2: 'ztfr', 3: 'ztfi'}
-            df['ztf_filter'] = df['fid'].apply(lambda x: ztf_filters[x])
-            df['magsys'] = "ab"
-            df['mjd'] = df['jd'] - 2400000.5
+            ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
+            df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
+            df["magsys"] = "ab"
+            df["mjd"] = df["jd"] - 2400000.5
 
-            df['mjd'] = df['mjd'].apply(lambda x: np.float64(x))
-            df['magpsf'] = df['magpsf'].apply(lambda x: np.float32(x))
-            df['sigmapsf'] = df['sigmapsf'].apply(lambda x: np.float32(x))
+            df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
+            df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
+            df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
 
             # deduplicate
-            df = df.drop_duplicates(subset=["mjd", "magpsf"]).reset_index(drop=True).sort_values(by=['mjd'])
+            df = (
+                df.drop_duplicates(subset=["mjd", "magpsf"])
+                .reset_index(drop=True)
+                .sort_values(by=["mjd"])
+            )
 
             # filter out bad data:
             mask_good_diffmaglim = df["diffmaglim"] > 0
@@ -523,18 +518,21 @@ class ZTFAlertHandler(BaseHandler):
 
                 for stream in group_streams:
                     if "ztf" in stream.name.lower():
-                        group_stream_selector.update(set(stream.altdata.get("selector", [])))
+                        group_stream_selector.update(
+                            set(stream.altdata.get("selector", []))
+                        )
 
                 group_stream_access.append(
-                    {
-                        "group_id": group.id,
-                        "permissions": list(group_stream_selector)
-                    }
+                    {"group_id": group.id, "permissions": list(group_stream_selector)}
                 )
 
             # post data from different program_id's
             for pid in set(df.programid.unique()):
-                group_ids = [gsa.get("group_id") for gsa in group_stream_access if pid in gsa.get("permissions", [1])]
+                group_ids = [
+                    gsa.get("group_id")
+                    for gsa in group_stream_access
+                    if pid in gsa.get("permissions", [1])
+                ]
 
                 if len(group_ids) > 0:
                     pid_mask = df.programid == int(pid)
@@ -553,50 +551,56 @@ class ZTFAlertHandler(BaseHandler):
                         "dec": df.loc[pid_mask, "dec"].tolist(),
                     }
 
-                    if len(photometry.get('mag', ())) > 0:
-                        photometry_handler = PhotometryHandler(request=self.request, application=self.application)
-                        photometry_handler.request.body = tornado.escape.json_encode(photometry)
+                    if len(photometry.get("mag", ())) > 0:
+                        photometry_handler = PhotometryHandler(
+                            request=self.request, application=self.application
+                        )
+                        photometry_handler.request.body = tornado.escape.json_encode(
+                            photometry
+                        )
                         try:
                             photometry_handler.put()
                         except Exception:
-                            log(f"Failed to post photometry of {objectId} to group_ids {group_ids}")
+                            log(
+                                f"Failed to post photometry of {objectId} to group_ids {group_ids}"
+                            )
                         # do not return anything yet
                         self.clear()
 
             # post cutouts
-            for ttype, ztftype in [('new', 'Science'), ('ref', 'Template'), ('sub', 'Difference')]:
+            for ttype, ztftype in [
+                ("new", "Science"),
+                ("ref", "Template"),
+                ("sub", "Difference"),
+            ]:
                 query = {
                     "query_type": "find",
                     "query": {
                         "catalog": "ZTF_alerts",
                         "filter": {
                             "candid": candid,
-                            "candidate.programid": {
-                                "$in": selector
-                            }
+                            "candidate.programid": {"$in": selector},
                         },
-                        "projection": {
-                            "_id": 0,
-                            "objectId": 1,
-                            f"cutout{ztftype}": 1
-                        }
+                        "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
                     },
                     "kwargs": {
                         "limit": 1,
-                    }
+                    },
                 }
 
                 resp = self.query_kowalski(query=query)
 
                 if resp.status_code == requests.codes.ok:
-                    cutout = bj.loads(resp.text).get('data', list(dict()))[0]
+                    cutout = bj.loads(resp.text).get("data", list(dict()))[0]
                 else:
                     cutout = dict()
 
                 thumb = make_thumbnail(cutout, ttype, ztftype)
 
                 try:
-                    thumbnail_handler = ThumbnailHandler(request=self.request, application=self.application)
+                    thumbnail_handler = ThumbnailHandler(
+                        request=self.request, application=self.application
+                    )
                     thumbnail_handler.request.body = tornado.escape.json_encode(thumb)
                     thumbnail_handler.post()
                 except Exception as e:
@@ -610,7 +614,7 @@ class ZTFAlertHandler(BaseHandler):
 
         except Exception:
             _err = traceback.format_exc()
-            return self.error(f'failure: {_err}')
+            return self.error(f"failure: {_err}")
 
 
 class ZTFAlertAuxHandler(ZTFAlertHandler):
@@ -658,9 +662,11 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
 
         selector = list(selector)
 
-        include_prv_candidates = self.get_query_argument('includePrvCandidates', "true")
-        include_prv_candidates = True if include_prv_candidates.lower() == "true" else False
-        include_all_fields = self.get_query_argument('includeAllFields', "false")
+        include_prv_candidates = self.get_query_argument("includePrvCandidates", "true")
+        include_prv_candidates = (
+            True if include_prv_candidates.lower() == "true" else False
+        )
+        include_all_fields = self.get_query_argument("includeAllFields", "false")
         include_all_fields = False if include_all_fields.lower() == "false" else True
 
         try:
@@ -669,11 +675,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 "query": {
                     "catalog": "ZTF_alerts_aux",
                     "pipeline": [
-                        {
-                            "$match": {
-                                "_id": objectId
-                            }
-                        },
+                        {"$match": {"_id": objectId}},
                         {
                             "$project": {
                                 "_id": 1,
@@ -682,18 +684,13 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                     "$filter": {
                                         "input": "$prv_candidates",
                                         "as": "item",
-                                        "cond": {
-                                            "$in": [
-                                                "$$item.programid",
-                                                selector
-                                            ]
-                                        }
+                                        "cond": {"$in": ["$$item.programid", selector]},
                                     }
                                 },
                             }
                         },
-                    ]
-                }
+                    ],
+                },
             }
 
             if not include_all_fields:
@@ -718,7 +715,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get('data')
+                alert_data = bj.loads(resp.text).get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -738,7 +735,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                         {
                             "$match": {
                                 "objectId": objectId,
-                                "candidate.programid": {"$in": selector}
+                                "candidate.programid": {"$in": selector},
                             }
                         },
                         {
@@ -765,22 +762,16 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                 "cutoutDifference": 0,
                             }
                         },
-                        {
-                            "$sort": {
-                                "candidate.jd": -1
-                            }
-                        },
-                        {
-                            "$limit": 1
-                        }
-                    ]
-                }
+                        {"$sort": {"candidate.jd": -1}},
+                        {"$limit": 1},
+                    ],
+                },
             }
 
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get('data', list(dict()))
+                latest_alert_data = bj.loads(resp.text).get("data", list(dict()))
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
                 else:
@@ -791,16 +782,24 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
             else:
                 return self.error(f"Failed to fetch data for {objectId} from Kowalski")
 
-            candids = {a.get('candid', None) for a in alert_data['prv_candidates']}
-            if latest_alert_data['candidate']["candid"] not in candids:
-                alert_data['prv_candidates'].append(latest_alert_data['candidate'])
+            candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
+            if latest_alert_data["candidate"]["candid"] not in candids:
+                alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
             # cross-match with the TNS
             rads = np.array(
-                [candid["ra"] for candid in alert_data['prv_candidates'] if candid.get("ra") is not None]
+                [
+                    candid["ra"]
+                    for candid in alert_data["prv_candidates"]
+                    if candid.get("ra") is not None
+                ]
             )
             decs = np.array(
-                [candid["dec"] for candid in alert_data['prv_candidates'] if candid.get("dec") is not None]
+                [
+                    candid["dec"]
+                    for candid in alert_data["prv_candidates"]
+                    if candid.get("dec") is not None
+                ]
             )
 
             ra = np.median(np.unique(rads.round(decimals=10)))
@@ -816,12 +815,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     "object_coordinates": {
                         "cone_search_radius": 2,
                         "cone_search_unit": "arcsec",
-                        "radec": {
-                            objectId: [
-                                ra,
-                                dec
-                            ]
-                        }
+                        "radec": {objectId: [ra, dec]},
                     },
                     "catalogs": {
                         "TNS": {
@@ -838,19 +832,17 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                                 "reporting_group/s": 1,
                                 "associated_group/s": 1,
                                 "public": 1,
-                            }
+                            },
                         }
-                    }
+                    },
                 },
-                "kwargs": {
-                    "filter_first": False
-                }
+                "kwargs": {"filter_first": False},
             }
 
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                tns_data = bj.loads(resp.text).get('data').get("TNS").get(objectId)
+                tns_data = bj.loads(resp.text).get("data").get("TNS").get(objectId)
                 alert_data["cross_matches"]["TNS"] = tns_data
 
             if not include_prv_candidates:
@@ -946,56 +938,52 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         selector = list(selector)
 
         try:
-            candid = int(self.get_argument('candid'))
-            cutout = self.get_argument('cutout').capitalize()
-            file_format = self.get_argument('file_format').lower()
-            interval = self.get_argument('interval', default=None)
-            stretch = self.get_argument('stretch', default=None)
-            cmap = self.get_argument('cmap', default=None)
+            candid = int(self.get_argument("candid"))
+            cutout = self.get_argument("cutout").capitalize()
+            file_format = self.get_argument("file_format").lower()
+            interval = self.get_argument("interval", default=None)
+            stretch = self.get_argument("stretch", default=None)
+            cmap = self.get_argument("cmap", default=None)
 
-            known_cutouts = ['Science', 'Template', 'Difference']
+            known_cutouts = ["Science", "Template", "Difference"]
             if cutout not in known_cutouts:
-                return self.error(f'cutout {cutout} of {objectId}/{candid} not in {str(known_cutouts)}')
-            known_file_formats = ['fits', 'png']
+                return self.error(
+                    f"cutout {cutout} of {objectId}/{candid} not in {str(known_cutouts)}"
+                )
+            known_file_formats = ["fits", "png"]
             if file_format not in known_file_formats:
                 return self.error(
-                    f'file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}'
+                    f"file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}"
                 )
 
             normalization_methods = {
-                'asymmetric_percentile': AsymmetricPercentileInterval(
-                    lower_percentile=1,
-                    upper_percentile=100
+                "asymmetric_percentile": AsymmetricPercentileInterval(
+                    lower_percentile=1, upper_percentile=100
                 ),
-                'min_max': MinMaxInterval(),
-                'zscale': ZScaleInterval(
-                    nsamples=600,
-                    contrast=0.045,
-                    krej=2.5
-                ),
+                "min_max": MinMaxInterval(),
+                "zscale": ZScaleInterval(nsamples=600, contrast=0.045, krej=2.5),
             }
             if interval is None:
-                interval = 'asymmetric_percentile'
+                interval = "asymmetric_percentile"
             normalizer = normalization_methods.get(
                 interval.lower(),
-                AsymmetricPercentileInterval(
-                    lower_percentile=1,
-                    upper_percentile=100
-                )
+                AsymmetricPercentileInterval(lower_percentile=1, upper_percentile=100),
             )
 
             stretching_methods = {
-                'linear': LinearStretch,
-                'log': LogStretch,
-                'asinh': AsinhStretch,
-                'sqrt': SqrtStretch,
+                "linear": LinearStretch,
+                "log": LogStretch,
+                "asinh": AsinhStretch,
+                "sqrt": SqrtStretch,
             }
             if stretch is None:
                 stretch = "log" if cutout != "Difference" else "linear"
             stretcher = stretching_methods.get(stretch.lower(), LogStretch)()
 
-            if (cmap is None) or (cmap.lower() not in ['bone', 'gray', 'cividis', 'viridis', 'magma']):
-                cmap = 'bone'
+            if (cmap is None) or (
+                cmap.lower() not in ["bone", "gray", "cividis", "viridis", "magma"]
+            ):
+                cmap = "bone"
             else:
                 cmap = cmap.lower()
 
@@ -1005,53 +993,49 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                     "catalog": "ZTF_alerts",
                     "filter": {
                         "candid": candid,
-                        "candidate.programid": {
-                            "$in": selector
-                        }
+                        "candidate.programid": {"$in": selector},
                     },
-                    "projection": {
-                        "_id": 0,
-                        f"cutout{cutout}": 1
-                    }
+                    "projection": {"_id": 0, f"cutout{cutout}": 1},
                 },
-                "kwargs": {
-                    "limit": 1,
-                    "max_time_ms": 5000
-                }
+                "kwargs": {"limit": 1, "max_time_ms": 5000},
             }
 
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                alert = bj.loads(resp.text).get('data', list(dict()))[0]
+                alert = bj.loads(resp.text).get("data", list(dict()))[0]
             else:
                 alert = dict()
 
-            cutout_data = bj.loads(bj.dumps([alert[f'cutout{cutout}']['stampData']]))[0]
+            cutout_data = bj.loads(bj.dumps([alert[f"cutout{cutout}"]["stampData"]]))[0]
 
             # unzipped fits name
-            fits_name = pathlib.Path(alert[f"cutout{cutout}"]["fileName"]).with_suffix('')
+            fits_name = pathlib.Path(alert[f"cutout{cutout}"]["fileName"]).with_suffix(
+                ""
+            )
 
             # unzip and flip about y axis on the server side
-            with gzip.open(io.BytesIO(cutout_data), 'rb') as f:
+            with gzip.open(io.BytesIO(cutout_data), "rb") as f:
                 with fits.open(io.BytesIO(f.read())) as hdu:
                     header = hdu[0].header
                     data_flipped_y = np.flipud(hdu[0].data)
 
-            if file_format == 'fits':
+            if file_format == "fits":
                 hdu = fits.PrimaryHDU(data_flipped_y, header=header)
                 hdul = fits.HDUList([hdu])
 
                 stamp_fits = io.BytesIO()
                 hdul.writeto(fileobj=stamp_fits)
 
-                self.set_header("Content-Type", 'image/fits')
-                self.set_header("Content-Disposition", f'Attachment;filename={fits_name}')
+                self.set_header("Content-Type", "image/fits")
+                self.set_header(
+                    "Content-Disposition", f"Attachment;filename={fits_name}"
+                )
                 self.write(stamp_fits.getvalue())
 
-            if file_format == 'png':
+            if file_format == "png":
                 buff = io.BytesIO()
-                plt.close('all')
+                plt.close("all")
 
                 fig, ax = plt.subplots(figsize=(4, 4))
                 fig.subplots_adjust(0, 0, 1, 1)
@@ -1066,19 +1050,16 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 if np.isnan(img).any():
                     median = float(np.nanmean(img.flatten()))
                     img = np.nan_to_num(img, nan=median)
-                norm = ImageNormalize(
-                    img,
-                    stretch=stretcher
-                )
+                norm = ImageNormalize(img, stretch=stretcher)
                 img_norm = norm(img)
                 vmin, vmax = normalizer.get_limits(img_norm)
-                ax.imshow(img_norm, cmap=cmap, origin='lower', vmin=vmin, vmax=vmax)
+                ax.imshow(img_norm, cmap=cmap, origin="lower", vmin=vmin, vmax=vmax)
                 plt.savefig(buff, dpi=42)
                 buff.seek(0)
-                plt.close('all')
-                self.set_header("Content-Type", 'image/png')
+                plt.close("all")
+                self.set_header("Content-Type", "image/png")
                 self.write(buff.getvalue())
 
         except Exception:
             _err = traceback.format_exc()
-            return self.error(f'failure: {_err}')
+            return self.error(f"failure: {_err}")

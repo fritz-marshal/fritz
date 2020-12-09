@@ -5,19 +5,20 @@ from skyportal.handlers.api.alert import (
     ZTFAlertAuxHandler,
     ZTFAlertCutoutHandler,
 )
-from skyportal.handlers.api.kowalski_filter import (
-    KowalskiFilterHandler
-)
+from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 
 
 fritz_handlers = [
     # Fritz-specific API endpoints
     # ZTF Alerts
-    (r'/api/alerts/ztf/(.+)/aux', ZTFAlertAuxHandler),  # most descriptive path must be defined first
-    (r'/api/alerts/ztf/(.+)/cutout', ZTFAlertCutoutHandler),
-    (r'/api/alerts/ztf/(.+)', ZTFAlertHandler),
+    (
+        r"/api/alerts/ztf/(.+)/aux",
+        ZTFAlertAuxHandler,
+    ),  # most descriptive path must be defined first
+    (r"/api/alerts/ztf/(.+)/cutout", ZTFAlertCutoutHandler),
+    (r"/api/alerts/ztf/(.+)", ZTFAlertHandler),
     # Alert Stream filter versioning via K:
-    (r'/api/filters/([0-9]+)?/v', KowalskiFilterHandler),
+    (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
 ]
 
 
@@ -38,9 +39,6 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
     """
     app = make_app(cfg, baselayer_handlers, baselayer_settings)
 
-    app.add_handlers(
-        r".*",  # match any host
-        fritz_handlers
-    )
+    app.add_handlers(r".*", fritz_handlers)  # match any host
 
     return app
