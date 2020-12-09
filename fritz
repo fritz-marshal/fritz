@@ -498,7 +498,7 @@ def prune(args):
 def test(args):
     print("Launching tests...")
 
-    print("Testing Kowalski...")
+    print("Testing integration...")
     subprocess.run(["python", "kowalski.py", "test"], cwd="kowalski")
 
 
