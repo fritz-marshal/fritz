@@ -31,8 +31,7 @@ jobs:
 
       - name: Build and spin up
         run: |
-          echo ${{ github.ref }}
-          ./fritz run --init
+          ./fritz run --init --dev
 
       - name: Run integration tests
         run: |
