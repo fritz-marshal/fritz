@@ -624,6 +624,15 @@ kowalski:
     username: "username"
     password: "password"
 
+  dask:
+    host: 127.0.0.1
+    scheduler_port: 8786
+    n_workers: 4
+    threads_per_worker: 1
+    lifetime: 24 hours
+    lifetime_stagger: 1 hours
+    lifetime_restart: true
+
   misc:
     broker: True
     supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2"]
