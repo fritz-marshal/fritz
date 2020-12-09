@@ -286,7 +286,7 @@ skyportal:
 kowalski:
   server:
     name: "Kowalski"
-    version: "2.0.0dev"
+    version: "2.0.0"
     description: "Kowalski: a toolkit for Time-Domain Astronomy"
     host: "0.0.0.0"
     port: "4000"
@@ -322,7 +322,7 @@ kowalski:
     zookeeper.test: "localhost:2181"
 
   database:
-    max_pool_size: 2000
+    max_pool_size: 200
     host: "kowalski_mongo_1"
     port: 27017
     db: "kowalski"
@@ -347,58 +347,86 @@ kowalski:
 
     indexes:
       ZTF_alerts:
-        radec_candid:
-          - ["coordinates.radec_geojson", "2dsphere"]
-          - ["candid", -1]
-        radec_objectId:
-          - ["coordinates.radec_geojson", "2dsphere"]
-          - ["objectId", -1]
-        jd_radec_candid:
-          - ["candidate.jd", 1]
-          - ["coordinates.radec_geojson", "2dsphere"]
-          - ["candid", -1]
-        jd_radec_objectId:
-          - ["candidate.jd", 1]
-          - ["coordinates.radec_geojson", "2dsphere"]
-          - ["objectId", -1]
-        objectId:
-          - ["objectId", -1]
-        candid:
-          - ["candid", -1]
-        pid:
-          - ["candidate.pid", 1]
-        objectId_pid:
-          - ["objectId", -1]
-          - ["candidate.pid", 1]
-        pdiffimfilename:
-          - ["candidate.pdiffimfilename", 1]
-        jd_programid_programpi:
-          - ["candidate.jd", 1]
-          - ["candidate.programid", 1]
-          - ["candidate.programpi", 1]
-        jd_braai_candid:
-          - ["candidate.jd", -1]
-          - ["classifications.braai", -1]
-          - ["candid", -1]
-        jd_drb_candid:
-          - ["candidate.jd", -1]
-          - ["candidate.drb", -1]
-          - ["candid", -1]
-        jd_braai_magpsf_isdiffpos_ndethist:
-          - ["candidate.jd", 1]
-          - ["classifications.braai", 1]
-          - ["candidate.magpsf", 1]
-          - ["candidate.isdiffpos", 1]
-          - ["candidate.ndethist", 1]
-        jd_field_drb_ndethhist_magpsf_isdiffpos_objectId:
-          - ["candidate.jd", 1]
-          - ["candidate.field", 1]
-          - ["candidate.rb", 1]
-          - ["candidate.drb", 1]
-          - ["candidate.ndethist", 1]
-          - ["candidate.magpsf", 1]
-          - ["candidate.isdiffpos", 1]
-          - ["objectId", -1]
+        - name: radec_candid
+          fields:
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: radec_objectId
+          fields:
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "objectId", -1 ]
+          unique: false
+        - name: jd_radec_candid
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: jd_radec_objectId
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "objectId", -1 ]
+          unique: false
+        - name: objectId
+          fields:
+            - [ "objectId", -1 ]
+          unique: false
+        - name: candid
+          fields:
+            - [ "candid", -1 ]
+          unique: true
+        - name: pid
+          fields:
+            - [ "candidate.pid", 1 ]
+          unique: false
+        - name: objectId_pid
+          fields:
+            - [ "objectId", -1 ]
+            - [ "candidate.pid", 1 ]
+          unique: false
+        - name: pdiffimfilename
+          fields:
+            - [ "candidate.pdiffimfilename", 1 ]
+          unique: false
+        - name: jd_programid_programpi
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "candidate.programid", 1 ]
+            - [ "candidate.programpi", 1 ]
+          unique: false
+        - name: jd_braai_candid
+          fields:
+            - [ "candidate.jd", -1 ]
+            - [ "classifications.braai", -1 ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: jd_drb_candid
+          fields:
+            - [ "candidate.jd", -1 ]
+            - [ "candidate.drb", -1 ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: jd_braai_magpsf_isdiffpos_ndethist
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "classifications.braai", 1 ]
+            - [ "candidate.magpsf", 1 ]
+            - [ "candidate.isdiffpos", 1 ]
+            - [ "candidate.ndethist", 1 ]
+          unique: false
+        - name: jd_field_drb_ndethhist_magpsf_isdiffpos_objectId
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "candidate.field", 1 ]
+            - [ "candidate.rb", 1 ]
+            - [ "candidate.drb", 1 ]
+            - [ "candidate.ndethist", 1 ]
+            - [ "candidate.magpsf", 1 ]
+            - [ "candidate.isdiffpos", 1 ]
+            - [ "objectId", -1 ]
+          unique: false
 
     filters:
       ZTF_alerts:
@@ -464,6 +492,17 @@ kowalski:
 
         Gaia_DR2:
           filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            parallax: 1
+            parallax_error: 1
+            phot_g_mean_mag: 1
+            phot_bp_mean_mag: 1
+            phot_rp_mean_mag: 1
+
+        Gaia_EDR3:
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -551,7 +590,17 @@ kowalski:
 
   ml_models:
     braai:
-      version:  "d6_m9"
+      version: "d6_m9"
+    acai_h:
+      version: "d1_dnn_20201130"
+    acai_v:
+      version: "d1_dnn_20201130"
+    acai_o:
+      version: "d1_dnn_20201130"
+    acai_n:
+      version: "d1_dnn_20201130"
+    acai_b:
+      version: "d1_dnn_20201130"
 
   skyportal:
     protocol: "http"
@@ -606,7 +655,7 @@ kowalski:
         # fixme: adjust number of workers -w for your system
         command: >
           /usr/local/bin/gunicorn
-          -w 10
+          -w 2
           --bind 0.0.0.0:4000
           --worker-tmp-dir /dev/shm
           --worker-class aiohttp.GunicornUVLoopWebWorker
@@ -644,16 +693,26 @@ kowalski:
       supervisorctl:
         serverurl: unix:///dev/shm/supervisor.sock
 
-      "program:alert-watcher-ztf":
-        command: /usr/local/bin/python alert_watcher_ztf.py
+      "program:dask-cluster":
+        command: /usr/local/bin/python dask_cluster.py
         directory: /app
         user: root
         autostart: true
         autorestart: true
-        stdout_logfile: /data/logs/alert_watcher_ztf_stdout.log
+        stdout_logfile: /data/logs/dask_cluster.log
+        stdout_logfile_maxbytes: 50MB
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
+      "program:alert-broker-ztf":
+        command: /usr/local/bin/python alert_broker_ztf.py
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/alert_broker_ztf.log
         stdout_logfile_maxbytes: 30MB
-        stderr_logfile: /data/logs/alert_watcher_ztf_stderr.log
-        redirect_stderr: true
+        redirect_stderr: True
         environment: "PRODUCTION=1"
 
       "program:ops-watcher-ztf":
@@ -662,8 +721,29 @@ kowalski:
         user: root
         autostart: true
         autorestart: true
-        stdout_logfile: /data/logs/ops_watcher_ztf_stdout.log
+        stdout_logfile: /data/logs/ops_watcher_ztf.log
         stdout_logfile_maxbytes: 30MB
-        stderr_logfile: /data/logs/ops_watcher_ztf_stderr.log
-        redirect_stderr: true
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
+      "program:tns-watcher":
+        command: /usr/local/bin/python tns_watcher.py
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/tns_watcher.log
+        stdout_logfile_maxbytes: 30MB
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
+      "program:tns-watcher-weekly":
+        command: /usr/local/bin/python tns_watcher.py --graball
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/tns_watcher_weekly.log
+        stdout_logfile_maxbytes: 30MB
+        redirect_stderr: True
         environment: "PRODUCTION=1"
