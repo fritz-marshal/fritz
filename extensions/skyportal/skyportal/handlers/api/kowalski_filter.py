@@ -5,11 +5,7 @@ import requests
 from baselayer.log import make_log
 from baselayer.app.access import auth_or_token
 from ..base import BaseHandler
-from ...models import (
-    DBSession,
-    Filter,
-    Stream
-)
+from ...models import DBSession, Filter, Stream
 
 
 log = make_log("kowalski_filter")
@@ -71,23 +67,21 @@ class KowalskiFilterHandler(BaseHandler):
 
             group_id = f.group_id
 
-            base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                       f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+            base_url = (
+                f"{self.cfg['app.kowalski.protocol']}://"
+                f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+            )
             headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
-            url = os.path.join(base_url, f'api/filters/{group_id}/{filter_id}')
+            url = os.path.join(base_url, f"api/filters/{group_id}/{filter_id}")
 
-            resp = s.get(
-                url,
-                headers=headers,
-                timeout=5
-            )
+            resp = s.get(url, headers=headers, timeout=5)
 
             if resp.status_code == requests.codes.ok:
-                data = bj.loads(resp.text).get('data')
+                data = bj.loads(resp.text).get("data")
                 return self.success(data=data)
             else:
-                message = bj.loads(resp.text).get('message')
+                message = bj.loads(resp.text).get("message")
                 log(f"Failed to fetch data from Kowalski: {message}")
                 return self.error(f"Failed to fetch data from Kowalski: {message}")
 
@@ -144,11 +138,9 @@ class KowalskiFilterHandler(BaseHandler):
                               minItems: 1
         """
         data = self.get_json()
-        pipeline = data.get('pipeline', None)
+        pipeline = data.get("pipeline", None)
         if not pipeline:
-            return self.error(
-                "Missing pipeline parameter"
-            )
+            return self.error("Missing pipeline parameter")
 
         f = (
             DBSession()
@@ -167,14 +159,12 @@ class KowalskiFilterHandler(BaseHandler):
         group_id = f.group_id
 
         # get stream:
-        stream = (
-            DBSession().query(Stream)
-            .filter(Stream.id == f.stream_id)
-            .first()
-        )
+        stream = DBSession().query(Stream).filter(Stream.id == f.stream_id).first()
 
-        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        base_url = (
+            f"{self.cfg['app.kowalski.protocol']}://"
+            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        )
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
         data = {
@@ -182,23 +172,18 @@ class KowalskiFilterHandler(BaseHandler):
             "filter_id": filter_id,
             "catalog": stream.altdata["collection"],
             "permissions": stream.altdata["selector"],
-            "pipeline": pipeline
+            "pipeline": pipeline,
         }
 
-        url = os.path.join(base_url, f'api/filters')
+        url = os.path.join(base_url, "api/filters")
 
-        resp = s.post(
-            url,
-            headers=headers,
-            json=data,
-            timeout=5
-        )
+        resp = s.post(url, headers=headers, json=data, timeout=5)
 
         if resp.status_code == requests.codes.ok:
-            data = bj.loads(resp.text).get('data')
+            data = bj.loads(resp.text).get("data")
             return self.success(data=data)
         else:
-            message = bj.loads(resp.text).get('message')
+            message = bj.loads(resp.text).get("message")
             log(f"Failed to post filter to Kowalski: {message}")
             return self.error(f"Failed to post filter to Kowalski: {message}")
 
@@ -265,12 +250,10 @@ class KowalskiFilterHandler(BaseHandler):
                 schema: Error
         """
         data = self.get_json()
-        active = data.get('active', None)
-        active_fid = data.get('active_fid', None)
+        active = data.get("active", None)
+        active_fid = data.get("active_fid", None)
         if (active, active_fid).count(None) != 1:
-            return self.error(
-                "One and only one of (active, active_fid) must be set"
-            )
+            return self.error("One and only one of (active, active_fid) must be set")
 
         f = (
             DBSession()
@@ -288,8 +271,10 @@ class KowalskiFilterHandler(BaseHandler):
 
         group_id = f.group_id
 
-        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        base_url = (
+            f"{self.cfg['app.kowalski.protocol']}://"
+            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        )
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
         data = {
@@ -302,20 +287,15 @@ class KowalskiFilterHandler(BaseHandler):
         if active_fid is not None:
             data["active_fid"] = str(active_fid)
 
-        url = os.path.join(base_url, f'api/filters')
+        url = os.path.join(base_url, "api/filters")
 
-        resp = s.put(
-            url,
-            headers=headers,
-            json=data,
-            timeout=5
-        )
+        resp = s.put(url, headers=headers, json=data, timeout=5)
 
         if resp.status_code == requests.codes.ok:
-            data = bj.loads(resp.text).get('data')
+            data = bj.loads(resp.text).get("data")
             return self.success(data=data)
         else:
-            message = bj.loads(resp.text).get('message')
+            message = bj.loads(resp.text).get("message")
             log(f"Failed to update filter on Kowalski: {message}")
             return self.error(f"Failed to update filter on Kowalski: {message}")
 
@@ -352,8 +332,10 @@ class KowalskiFilterHandler(BaseHandler):
 
         group_id = f.group_id
 
-        base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-                   f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        base_url = (
+            f"{self.cfg['app.kowalski.protocol']}://"
+            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        )
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
         data = {
@@ -361,19 +343,14 @@ class KowalskiFilterHandler(BaseHandler):
             "filter_id": filter_id,
         }
 
-        url = os.path.join(base_url, f'api/filters')
+        url = os.path.join(base_url, "api/filters")
 
-        resp = s.delete(
-            url,
-            headers=headers,
-            json=data,
-            timeout=5
-        )
+        resp = s.delete(url, headers=headers, json=data, timeout=5)
 
         if resp.status_code == requests.codes.ok:
-            data = bj.loads(resp.text).get('data')
+            data = bj.loads(resp.text).get("data")
             return self.success(data=data)
         else:
-            message = bj.loads(resp.text).get('message')
+            message = bj.loads(resp.text).get("message")
             log(f"Failed to update filter on Kowalski: {message}")
             return self.error(f"Failed to delete filter on Kowalski: {message}")

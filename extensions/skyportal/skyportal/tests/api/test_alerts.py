@@ -12,7 +12,9 @@ def test_get_alert(view_only_token, public_source):
 
 
 def test_get_alert_aux(view_only_token, public_source):
-    status, data = api("GET", f"alerts/ztf/{public_source.id}/aux", token=view_only_token)
+    status, data = api(
+        "GET", f"alerts/ztf/{public_source.id}/aux", token=view_only_token
+    )
     assert status == 200
     assert data["status"] == "success"
 
@@ -23,7 +25,7 @@ def test_get_alert_cutout(view_only_token, public_source):
             status, data = api(
                 "GET",
                 f"/api/alerts/ztf/${public_source.id}/cutout"
-                f"?candid=${public_source.candid}&cutout={cutout}&file_format={file_format}"
+                f"?candid=${public_source.candid}&cutout={cutout}&file_format={file_format}",
             )
             assert status == 200
             assert data["status"] == "success"
