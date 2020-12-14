@@ -1,5 +1,13 @@
 # Fritz User Guide
 
+Fritz is the science data platform for the Zwicky Transient Facility (ZTF) Phase-II.
+
+It implements an end-to-end, scalable, API-first system for Time-domain Astronomy and offers:
+- Multi-survey data archive and alert broker
+- Interactyive marshal for the transient, variable, and Solar system science cases
+- Workhorse for machine learning applications and active learning
+- Follow-up observation management with robotic and classical facilities
+
 ## Alert filters in `Fritz`
 
 This section describes how to define alert stream filters within `Fritz` and provides some examples for reference.

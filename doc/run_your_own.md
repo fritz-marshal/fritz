@@ -1,4 +1,4 @@
-# Spin up your own Fritz
+# Run your own Fritz
 
 Clone the repo from `GitHub`:
 ```bash
