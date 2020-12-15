@@ -22,7 +22,7 @@ fritz_handlers = [
 ]
 
 
-def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
+def make_app_fritz(cfg, baselayer_handlers, baselayer_settings, process=None, env=None):
     """Create and return a `tornado.web.Application` object with (Fritz-specific) specified
     handlers and settings.
 
@@ -37,7 +37,7 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
         Settings needed for baselayer to function.
 
     """
-    app = make_app(cfg, baselayer_handlers, baselayer_settings)
+    app = make_app(cfg, baselayer_handlers, baselayer_settings, process, env)
 
     app.add_handlers(r".*", fritz_handlers)  # match any host
 
