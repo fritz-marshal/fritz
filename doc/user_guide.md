@@ -4,9 +4,29 @@ Fritz is the science data platform for the Zwicky Transient Facility (ZTF) Phase
 
 It implements an end-to-end, scalable, API-first system for Time-domain Astronomy and offers:
 - Multi-survey data archive and alert broker
-- Interactyive marshal for the transient, variable, and Solar system science cases
+- Interactive marshal for the transient, variable, and Solar system science cases
 - Workhorse for machine learning applications and active learning
 - Follow-up observation management with robotic and classical facilities
+- Fine-grained access control
+
+## Quick start
+
+## A tour of UI
+
+- Got invite? Activate and set up account
+  - Generating token to use with the API
+- Group membership/requesting that
+- Concepts
+  - API-first?
+  - Access control and ACLs
+  - Candidates and Sources
+- Candidate scanning
+- Sources: saved sources, group sources
+  - Commenting
+  - Adding classifications
+  - Uploading photometry/spectroscopy
+- Survey data access (Alerts)
+- Observing runs
 
 ## Alert filters in `Fritz`
 
@@ -272,6 +292,7 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Octo
   - AllWISE (all matches within 2")
   - GALEX (all matches within 2")
   - Gaia_DR2 (all matches within 2")
+  - Gaia_EDR3 (all matches within 2")
   - Gaia_DR2_WD (all matches within 2")
   - IPHAS_DR2 (all matches within 2")
   - LAMOST_DR5_v3 (all matches within 2")
@@ -280,7 +301,12 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Octo
   - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_watcher_ztf.py#L315))
 
 - ML scores:
-  - braai v. `d6_m9`
+  - `braai` version `d6_m9`
+  - `acai_h` version `d1_dnn_20201130`
+  - `acai_o` version `d1_dnn_20201130`
+  - `acai_n` version `d1_dnn_20201130`
+  - `acai_v` version `d1_dnn_20201130`
+  - `acai_b` version `d1_dnn_20201130`
 
 - Galactic coordinates
 
