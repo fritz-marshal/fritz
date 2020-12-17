@@ -44,8 +44,8 @@ skyportal:
         component: UploadPhotometry
       - path: "/about"
         component: About
-      - path: "/share_data/:id"
-        component: ShareDataForm
+      - path: "/manage_data/:id"
+        component: ManageDataForm
       - path: "/filter/:fid"
         component: Filter
       - path: "/runs"
