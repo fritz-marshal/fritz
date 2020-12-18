@@ -1,13 +1,22 @@
 # Fritz User Guide
 
-Fritz is the science data platform for the Zwicky Transient Facility (ZTF) Phase II.
+[Fritz] is the science data platform for the [Zwicky Transient Facility (ZTF)](https://ztf.caltech.edu) Phase II.
 
-It implements an end-to-end, scalable, API-first system for Time-domain Astronomy and features:
-- Multi-survey data archive and alert broker
-- Interactive marshal for the transient, variable, and Solar system science cases
-- Workhorse for machine learning applications and active learning
+It implements an end-to-end, scalable, API-first system for Time-domain Astronomy, featuring
+- A multi-survey data archive and alert broker
+- An interactive collaborative marshal for the transient, variable, and Solar system science cases
+- A workhorse for machine learning applications and active learning
 - Follow-up observation management with robotic and classical facilities
 - Fine-grained access control
+
+The key characteristics of Fritz are efficiency, scalability, portability, and extensibility.
+Fritz employs a modular architecture and
+integrates and extends two major components: [Kowalski](https://github.com/dmitryduev/kowalski)
+acts as the alert processor and data archive, and [SkyPortal](https://github.com/skyportal/skyportal),
+which handles the rest of the stack.
+The schematic overview of our system is shown below:
+
+![img/fritz.png](img/fritz.png)
 
 ## Quick start
 
@@ -285,7 +294,9 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 #### Alert data augmentation
 
-Fritz's Kowalski backend augments the alert data with the following: [as of October 2020]
+Fritz's Kowalski backend augments the alert data with the following: [as of December 2020]
+
+- Galactic coordinates
 
 - Cross-matches with external catalogs:
   - 2MASS_PSC (all matches within 2")
@@ -300,15 +311,34 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Octo
   - galaxy_redshifts_20200522 (all matches within 2")
   - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_watcher_ztf.py#L315))
 
-- ML scores:
-  - `braai` version `d6_m9`
-  - `acai_h` version `d1_dnn_20201130`
-  - `acai_o` version `d1_dnn_20201130`
-  - `acai_n` version `d1_dnn_20201130`
-  - `acai_v` version `d1_dnn_20201130`
-  - `acai_b` version `d1_dnn_20201130`
+For the detailed description of the available catalogs, see [here](catalogs.html)
 
-- Galactic coordinates
+- Machine learning scores:
+  - [`braai`](https://academic.oup.com/mnras/article/489/3/3582/5554758) version `d6_m9` -- real/bogus classifier
+  - `acai_h` version `d1_dnn_20201130` -- phenomenological classifier, "hosted"
+  - `acai_o` version `d1_dnn_20201130` -- phenomenological classifier, "orphan"
+  - `acai_n` version `d1_dnn_20201130` -- phenomenological classifier, "nuclear"
+  - `acai_v` version `d1_dnn_20201130` -- phenomenological classifier, "variable star"
+  - `acai_b` version `d1_dnn_20201130` -- phenomenological classifier, "bogus"
+
+##### ACAI
+In November 2020, we deployed a set of new phenomenological deep learning classifiers called
+ACAI (Alert-Classifying AI; publication in prep.).
+The system consists of 5 binary classifiers:
+
+- `acai_h` -- "hosted" -- genuine transient in the vicinity of a "host" with (some) morphology,
+   e.g. something one could call a galaxy; should catch SN, Novae etc
+- `acai_o` -- "orphan" -- a genuine orphan transient, i.e. there are no identifiable ``hosts'' in its vicinity;
+   catches asteroids and hostless (or with hosts that are too faint) transients
+- `acai_n` -- "nuclear" -- a genuine transient occurring in a galaxy/quasar nucleus; should catch AGN, TDEs, etc.
+- `acai_v` -- "variable star" -- variable star
+- `acai_b` -- "bogus" -- a new version of the real/bogus classifier; could be thought of as (1 - braai)
+
+Each classifier takes as input 25 features from the candidate section of a ZTF alert packet and a stack of
+full-sized thumbnails (science/reference (template)/difference) and produces a score from 0 to 1.
+All classifiers were trained on more than 200,000 diverse alerts covering a large part of the phase space.
+The classifiers, although potentially correlated in their output, act independently and so can be
+mixed and matched and applied alongside other alert features.
 
 ### Filter examples
 
@@ -363,9 +393,43 @@ The output of the filter will look something like this:
 
 This alert will be posted to the candidates page with these annotations.
 
+#### ACAI-hosted filter
+
+Let us build a filter that primarily relies on the ACAI ML models to select transients that are confidently
+classified as "hosted" (and nothing else), not a known Solar system object (`candidate.ssdistnr`)
+and being a positive subtraction (`candidate.isdiffpos`):
+
+```json
+[
+  {
+    "$match": {
+      "classifications.acai_h": {"$gte": 0.8},
+      "classifications.acai_b": {"$lt": 0.1},
+      "classifications.acai_v": {"$lt": 0.1},
+      "classifications.acai_o": {"$lt": 0.4},
+      "classifications.acai_n": {"$lt": 0.4},
+      "candidate.ssdistnr": {"$lt": 0},
+      "candidate.isdiffpos": {"$in": [1, "1", true, "t"]}
+    }
+  },
+  {
+    "$project": {
+      "annotations.age": {"$round": [{"$subtract": ["$candidate.jd", "$candidate.jdstarthist"]}, 5]},
+      "annotations.n_det": "$candidate.ndethist",
+      "annotations.candid": {"$toString": "$candid"},
+      "annotations.acai_h": {"$round": ["$classifications.acai_h", 5]},
+      "annotations.acai_v": {"$round": ["$classifications.acai_v", 5]},
+      "annotations.acai_o": {"$round": ["$classifications.acai_o", 5]},
+      "annotations.acai_n": {"$round": ["$classifications.acai_n", 5]},
+      "annotations.acai_b": {"$round": ["$classifications.acai_b", 5]}
+    }
+  }
+]
+```
+
 #### CLU filter
 
-Now that we've looked at a basic example, let us explore a real-life example and build a filter for
+Now that we've looked at basic examples, let us explore a real-life example and build a filter for
 the [Census of the Local Universe](https://ui.adsabs.harvard.edu/abs/2020arXiv200409029D/abstract) program.
 
 As a reference, we will use the filter definition (as of July 10, 2020)
