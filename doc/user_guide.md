@@ -335,7 +335,10 @@ The system consists of 5 binary classifiers:
 - `acai_b` -- "bogus" -- a new version of the real/bogus classifier; could be thought of as (1 - braai)
 
 Each classifier takes as input 25 features from the candidate section of a ZTF alert packet and a stack of
-full-sized thumbnails (science/reference (template)/difference) and produces a score from 0 to 1.
+full-sized thumbnails (science/reference (template)/difference) and produces a score from 0 to 1:
+
+![img/acai_h.d1_dnn_20201130.png](img/acai_h.d1_dnn_20201130.png)
+
 All classifiers were trained on more than 200,000 diverse alerts covering a large part of the phase space.
 The classifiers, although potentially correlated in their output, act independently and so can be
 mixed and matched and applied alongside other alert features.
@@ -1692,7 +1695,7 @@ As another example, below you will find a simplified version of the Bright Trans
 
 #### BTS/RCF program full filter
 
-Here you will find the full version (as of 2020) of the Bright Transient Survey filter
+Here you will find the full version (as of December 2020) of the Bright Transient Survey filter
 (the Redshift Completeness Factor program)
 
 {download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
