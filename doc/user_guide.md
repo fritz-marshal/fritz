@@ -1,8 +1,8 @@
 # Fritz User Guide
 
-Fritz is the science data platform for the Zwicky Transient Facility (ZTF) Phase-II.
+Fritz is the science data platform for the Zwicky Transient Facility (ZTF) Phase II.
 
-It implements an end-to-end, scalable, API-first system for Time-domain Astronomy and offers:
+It implements an end-to-end, scalable, API-first system for Time-domain Astronomy and features:
 - Multi-survey data archive and alert broker
 - Interactive marshal for the transient, variable, and Solar system science cases
 - Workhorse for machine learning applications and active learning
@@ -11,7 +11,7 @@ It implements an end-to-end, scalable, API-first system for Time-domain Astronom
 
 ## Quick start
 
-## A tour of UI
+### A tour of Fritz from the user perspective
 
 - Got invite? Activate and set up account
   - Generating token to use with the API
@@ -1644,6 +1644,10 @@ In the `python` code snippet below, courtesy of Anna Ho and Yuhan Yao, a coarse 
 number of logical expressions would be evaluated on the query result:
 
 ```python
+from astropy.time import Time
+import numpy as np
+from penquins import Kowalski
+
 # Set search window
 obst = obs['UT_START'].values
 start = Time(obst[0], format='isot').jd - 0.02
@@ -1671,6 +1675,7 @@ q = {"query_type": "find",
          }
      }
      }
+kowalski = Kowalski()
 query_result = kowalski.query(query=q)
 out = query_result['data']
 names_all = np.array([val['objectId'] for val in out])
