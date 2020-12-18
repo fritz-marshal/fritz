@@ -309,7 +309,7 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Dece
   - LAMOST_DR5_v3 (all matches within 2")
   - PS1_DR1 (all matches within 2")
   - galaxy_redshifts_20200522 (all matches within 2")
-  - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_watcher_ztf.py#L315))
+  - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_broker_ztf.py#L351))
 
 For the detailed description of the available catalogs, see [here](catalogs.html)
 
