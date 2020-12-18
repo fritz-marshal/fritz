@@ -9,13 +9,13 @@ acts as the alert processor and data archive, and [SkyPortal](https://github.com
 which handles the rest of the stack.
 The schematic overview of our system is shown below:
 
-![img/fritz.png](img/fritz.png)
+![img/fritz.png](img/fritz.jpg)
 
 ## Kowalski and SkyPortal
 
 A schematic overview of the functional aspects of `Kowalski` and how they interact is shown below:
 
-![img/kowalski.png](img/kowalski.png)
+![img/kowalski.png](img/kowalski.jpg)
 
 A non-relational (NoSQL) database `MongoDB` powers the data archive, the alert stream sink,
 and the alert handling service. We base the choice of `MongoDB` as the workhorse on the following reasons:

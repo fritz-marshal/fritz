@@ -16,7 +16,7 @@ acts as the alert processor and data archive, and [SkyPortal](https://github.com
 which handles the rest of the stack.
 The schematic overview of our system is shown below:
 
-![img/fritz.png](img/fritz.png)
+![img/fritz.png](img/fritz.jpg)
 
 ## Quick start
 
