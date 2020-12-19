@@ -26,7 +26,7 @@ Got an invite in your email? Click the link, which will take you to the Profile 
 
 ![invite](https://user-images.githubusercontent.com/7557205/102668891-f8560a00-4141-11eb-9e98-e581bfccdff6.png)
 
-Here, you can update you user preferences and create tokens to [interact with Fritz programmatically](api.html).
+Here, you can update your user preferences and create tokens to [interact with Fritz programmatically](api.html).
 
 ![invited](https://user-images.githubusercontent.com/7557205/102669155-a95ca480-4142-11eb-98f5-cd0b595aa759.gif)
 
@@ -65,7 +65,7 @@ spectroscopy, auto-annotations, comments, finder charts, follow-up requests, and
 
 ![finder](https://user-images.githubusercontent.com/7557205/102672780-a95ea380-4146-11eb-9b2e-386b0d3d677e.gif)
 
-Only the objects that have been posted to `Fritz`'s `SkyPortal` frontend are saved in its database.
+Only the objects that have been posted to `Fritz`'s `SkyPortal` backend are saved in its database.
 However, `Fritz`'s users can access the complete archive of ZTF alerts via the Alerts page:
 
 ![alerts](https://user-images.githubusercontent.com/7557205/102672770-a368c280-4146-11eb-9923-da4990897f69.gif)
