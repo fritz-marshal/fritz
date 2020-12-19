@@ -364,7 +364,7 @@ The system consists of 5 binary classifiers:
 
 - `acai_h` -- "hosted" -- genuine transient in the vicinity of a "host" with (some) morphology,
    e.g. something one could call a galaxy; should catch SN, Novae etc
-- `acai_o` -- "orphan" -- a genuine orphan transient, i.e. there are no identifiable ``hosts'' in its vicinity;
+- `acai_o` -- "orphan" -- a genuine orphan transient, i.e. there are no identifiable "hosts" in its vicinity;
    catches asteroids and hostless (or with hosts that are too faint) transients
 - `acai_n` -- "nuclear" -- a genuine transient occurring in a galaxy/quasar nucleus; should catch AGN, TDEs, etc.
 - `acai_v` -- "variable star" -- variable star
