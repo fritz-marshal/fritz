@@ -435,8 +435,8 @@ This alert will be posted to the candidates page with these annotations.
 #### ACAI-hosted filter
 
 Let us build a filter that primarily relies on the ACAI ML models to select transients that are confidently
-classified as "hosted" (and nothing else), not a known Solar system object (`candidate.ssdistnr`)
-and being a positive subtraction (`candidate.isdiffpos`):
+classified as "hosted" (and nothing else), and are a positive subtraction (`candidate.isdiffpos`) and
+not a known Solar system object (`candidate.ssdistnr`):
 
 ```json
 [
