@@ -468,7 +468,7 @@ not a known Solar system object (`candidate.ssdistnr`):
 
 #### CLU filter
 
-Now that we've looked at basic examples, let us explore a real-life example and build a filter for
+Now that we've looked at basic examples, let us explore a more complex case and build a filter for
 the [Census of the Local Universe](https://ui.adsabs.harvard.edu/abs/2020arXiv200409029D/abstract) program.
 
 As a reference, we will use the filter definition (as of July 10, 2020)
