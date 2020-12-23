@@ -1,9 +1,9 @@
-# Kowalski's collection schemas
+# Kowalski collection schemas
 
 Fritz hosts a number of astronomical catalogs on its Kowalski backend.
 Below you will find a list of available catalogs and the approximate contents of
 individual entries therein (example documents per MongoDB collection).
-Note that the is no schema enforcement, so specific fields may or may not exist
+Note that there is no schema enforcement, so specific fields may or may not exist
 for individual documents.
 
 
@@ -1203,7 +1203,59 @@ for individual documents.
 ## LAMOST_DR5_v3
 
 ```json
-
+{
+  "_id": 585216248,
+  "obsid": 585216248,
+  "designation": "J165008.29+545144.1",
+  "obsdate": "2017-05-05",
+  "lmjd": 57879,
+  "mjd": 57878,
+  "planid": "HD165618N524154V01",
+  "spid": 16,
+  "fiberid": 248,
+  "ra_obs": 252.534581,
+  "dec_obs": 54.86225,
+  "snru": 5.31,
+  "snrg": 27.32,
+  "snrr": 37.49,
+  "snri": 37.11,
+  "snrz": 21.2,
+  "objtype": "Star",
+  "class": "STAR",
+  "subclass": "G2",
+  "z": -0.0000755189,
+  "z_err": 0.0000235163,
+  "magtype": "gri",
+  "mag1": 14.3,
+  "mag2": 13.87,
+  "mag3": 13.72,
+  "mag4": 99,
+  "mag5": 99,
+  "mag6": 99,
+  "mag7": 99,
+  "tsource": "LEGUE_LCH",
+  "fibertype": "Obj",
+  "tfrom": "LCH000003",
+  "tcomment": "15120423954341818",
+  "offsets": 0,
+  "offset_v": 0,
+  "ra": 252.534581,
+  "dec": 54.86225,
+  "fibermask": 128,
+  "coordinates": {
+    "radec_str": [
+      "16:50:08.2994",
+      "54:51:44.100"
+    ],
+    "radec_geojson": {
+      "type": "Point",
+      "coordinates": [
+        72.534581,
+        54.86225
+      ]
+    }
+  }
+}
 ```
 
 ## PS1_DR1

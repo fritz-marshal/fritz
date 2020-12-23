@@ -46,7 +46,7 @@ you should see a few real alerts that passed test filters among the displayed so
 ./fritz run
 ```
 
-## Shitting down Fritz
+## Shutting down Fritz
 
 ```bash
 ./fritz stop
