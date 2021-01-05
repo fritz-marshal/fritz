@@ -328,7 +328,7 @@ def build(args):
                     "skyportal_web_1",
                     "/bin/bash",
                     "-c",
-                    "source /skyportal_env/bin/activate; make db_init; "
+                    "source /skyportal_env/bin/activate; make db_clear; make db_init;"
                     "make prepare_seed_data; make load_seed_data",
                 ],
                 cwd="skyportal",
