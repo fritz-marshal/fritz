@@ -39,7 +39,7 @@ def generate_kowalski_token(
         payload, jwt_config["JWT_SECRET"], jwt_config["JWT_ALGORITHM"]
     )
 
-    return jwt_token.decode("utf-8")
+    return jwt_token
 
 
 def get_skyportal_token():
@@ -98,6 +98,10 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     kowalski_token = generate_kowalski_token(
         user_id=config["kowalski"]["server"]["admin_username"],
         jwt_secret=config["kowalski"]["server"]["JWT_SECRET_KEY"],
+        jwt_algorithm=config["kowalski"]["server"]["JWT_ALGORITHM"],
+        jwt_exp_delta_seconds=int(
+            config["kowalski"]["server"]["JWT_EXP_DELTA_SECONDS"]
+        ),
     )
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
 
