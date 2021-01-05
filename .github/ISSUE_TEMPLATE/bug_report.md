@@ -26,10 +26,12 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Platform information:**
- - Fritz version:  (find this in the [About](https://fritz.science/about) page)
- - Browser
-   - [ ] I'm browsing on a desktop
-   - [ ] I'm browsing on my phone
+ - Fritz version: (find this in the [About](https://fritz.science/about) page)
+ - Interface
+   - [ ] I am using the API
+   - [ ] I am browsing on a desktop
+   - [ ] I am browsing on a phone
+   - [ ] I am browsing on a tablet
 
 **Additional context**
 Add any other context about the problem here.

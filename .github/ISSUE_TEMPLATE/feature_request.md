@@ -10,7 +10,8 @@ assignees: ''
 Please fill out relevant sections below; remove those that are unused.
 
 **Feature Summary**
-Please give a clear, concise description of the proposed feature.  We are working on a [Minimal Viable Product](https://en.wikipedia.org/wiki/Minimum_viable_product), so please motivate why this feature is considered a high priority.
+Please give a clear, concise description of the proposed feature.
+If you consider the feature a high priority, please provide a motivation for that.
 
 **Usage / behavior**
 Please describe how this feature should function from a user perspective.

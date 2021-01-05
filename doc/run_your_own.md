@@ -6,6 +6,14 @@ git clone --recursive https://github.com/fritz-marshal/fritz.git && cd fritz
 ```
 
 All operations are started via the `fritz` script.
+
+Before proceeding, you may want to create/activate a virtual environment, for example:
+
+```bash
+python -m venv fritz-env
+source fritz-env/bin/activate
+```
+
 Make sure the requirements to run it are met, e.g.:
 
 ```bash
