@@ -16,6 +16,8 @@ skyportal:
     # base64.b64encode(os.urandom(50)).decode('ascii')
     secret_key: abc01234
     factory: skyportal.app_server_fritz.make_app_fritz
+    # if tables are found in db, new tables will only be added in debug mode
+    debug: true
 
     # this endpoint does not actually do anything -- it is just for testing
     sedm_endpoint: http://pharos.caltech.edu/add_fritz

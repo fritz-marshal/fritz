@@ -260,32 +260,38 @@ def build(args):
     check_config(cfg="fritz.defaults.yaml", yes=args.yes)
 
     # load config
-    with open("fritz.yaml") as fyaml:
-        fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
+    with open("fritz.yaml") as fritz_config_yaml:
+        fritz_config = yaml.load(fritz_config_yaml, Loader=yaml.FullLoader)
 
     patch_skyportal()
 
     # adjust F-specific docker-compose.yaml for SP
-    with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
-        dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
+    with open("skyportal/docker-compose.skyportal.yaml") as docker_compose_yaml:
+        docker_compose = yaml.load(docker_compose_yaml, Loader=yaml.FullLoader)
     # fix absolute paths in docker-compose.skyportal.yaml
-    for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
-        dc["services"]["web"]["volumes"][vi] = volume.replace(
+    for vi, volume in enumerate(docker_compose["services"]["web"]["volumes"]):
+        docker_compose["services"]["web"]["volumes"][vi] = volume.replace(
             "${PWD}", str(Path(__file__).parent.absolute())
         )
     if args.traefik:
         # fix host for Traefik
-        dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
-            "<host>", fritz_config["skyportal"]["server"]["host"]
-        )
+        docker_compose["services"]["web"]["labels"][2] = docker_compose["services"][
+            "web"
+        ]["labels"][2].replace("<host>", fritz_config["skyportal"]["server"]["host"])
     else:
         # not running behind Traefik? then publish port 5000 on host
         port = fritz_config["skyportal"]["server"].get("port", 5000)
         if port is None:
             port = 5000
-        dc["services"]["web"]["ports"] = [f"{port}:{port}"]
-    with open("skyportal/docker-compose.skyportal.yaml", "w") as dcyaml:
-        yaml.dump(dc, dcyaml)
+        docker_compose["services"]["web"]["ports"] = [f"{port}:{port}"]
+    # execute `make run` instead of `make run_production` in dev mode:
+    if args.dev:
+        docker_compose["services"]["web"][
+            "command"
+        ] = 'bash -c "source /skyportal_env/bin/activate && (make log &) && make run"'
+    # save the adjusted version
+    with open("skyportal/docker-compose.skyportal.yaml", "w") as docker_compose_yaml:
+        yaml.dump(docker_compose, docker_compose_yaml)
 
     # Build skyportal's images
     cmd = ["docker", "build", "."]
@@ -355,8 +361,8 @@ def build(args):
 
         # update fritz.yaml
         fritz_config["kowalski"]["skyportal"]["token"] = token
-        with open("fritz.yaml", "w") as fyaml:
-            yaml.dump(fritz_config, fyaml)
+        with open("fritz.yaml", "w") as fritz_config_yaml:
+            yaml.dump(fritz_config, fritz_config_yaml)
 
     if not args.no_kowalski:
         # Build kowalski's images

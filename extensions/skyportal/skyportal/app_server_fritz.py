@@ -37,7 +37,9 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings):
         Settings needed for baselayer to function.
 
     """
-    app = make_app(cfg, baselayer_handlers, baselayer_settings)
+    app = make_app(
+        cfg, baselayer_handlers, baselayer_settings, env={"debug": cfg["app"]["debug"]}
+    )
 
     app.add_handlers(r".*", fritz_handlers)  # match any host
 
