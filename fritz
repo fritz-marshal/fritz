@@ -284,8 +284,8 @@ def build(args):
         if port is None:
             port = 5000
         docker_compose["services"]["web"]["ports"] = [f"{port}:{port}"]
-    # execute `make run` instead of `make run_production` in dev mode:
-    if args.dev:
+    # execute `make run` instead of `make run_production` at init:
+    if args.init:
         docker_compose["services"]["web"][
             "command"
         ] = 'bash -c "source /skyportal_env/bin/activate && (make log &) && make run"'
