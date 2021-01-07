@@ -5,6 +5,7 @@ from distutils.dir_util import copy_tree
 import json
 import os
 from pathlib import Path
+import requests
 import subprocess
 import sys
 import time
@@ -68,6 +69,12 @@ def get_skyportal_token():
     return token
 
 
+def skyportal_api(method, endpoint, token, data=None):
+    headers = {"Authorization": f"token {token}"}
+    response = requests.request(method, endpoint, json=data, headers=headers)
+    return response
+
+
 def check_config_exists(cfg="fritz.defaults.yaml", yes=False):
     c = cfg.replace(".defaults", "")
     if not Path(c).exists():
@@ -92,8 +99,8 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     check_config_exists(cfg=cfg, yes=yes)
 
     # generate a token for SkyPortal to talk to Kowalski
-    with open(c) as cyaml:
-        config = yaml.load(cyaml, Loader=yaml.FullLoader)
+    with open(c) as config_yaml:
+        config = yaml.load(config_yaml, Loader=yaml.FullLoader)
 
     kowalski_token = generate_kowalski_token(
         user_id=config["kowalski"]["server"]["admin_username"],
@@ -119,19 +126,19 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
 
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
-    with open("kowalski/config.yaml", "w") as cyaml:
-        yaml.dump(config_kowalski, cyaml)
+    with open("kowalski/config.yaml", "w") as config_yaml:
+        yaml.dump(config_kowalski, config_yaml)
 
     # Docker-specific SP stuff:
     config["skyportal"]["database"]["host"] = "db"
     config["skyportal"]["server"]["url"] = "http://localhost:5000"
     config_skyportal = config["skyportal"]  # don't need the K stuff
-    with open("skyportal/config.yaml", "w") as cyaml:
-        yaml.dump(config_skyportal, cyaml)
+    with open("skyportal/config.yaml", "w") as config_yaml:
+        yaml.dump(config_skyportal, config_yaml)
 
     # update fritz.yaml:
-    with open(c, "w") as cyaml:
-        yaml.dump(config, cyaml)
+    with open(c, "w") as config_yaml:
+        yaml.dump(config, config_yaml)
 
 
 def update(args):
@@ -557,6 +564,10 @@ def prune(args):
 def test(args):
     print("Running integration testing...")
 
+    # load config
+    with open("fritz.yaml") as fritz_config_yaml:
+        fritz_config = yaml.load(fritz_config_yaml, Loader=yaml.FullLoader)
+
     num_retries = 10
     # make sure the containers are up and running
     for i in range(num_retries):
@@ -607,10 +618,32 @@ def test(args):
 
         if "app.py" not in process_list:
             print("SkyPortal is not up, waiting...")
-            time.sleep(6)
+            time.sleep(10)
             continue
 
         break
+
+    # ensure that the SkyPortal app is responding to requests
+    url = (
+        f"{fritz_config['kowalski']['skyportal']['protocol']}://"
+        f"{fritz_config['kowalski']['skyportal']['host']}:{fritz_config['kowalski']['skyportal']['port']}"
+        "/api/sysinfo"
+    )
+    token = fritz_config["kowalski"]["skyportal"]["token"]
+    for i in range(num_retries):
+        if i == num_retries - 1:
+            raise RuntimeError("SkyPortal failed to spin up")
+        try:
+            response = skyportal_api("GET", endpoint=url, token=token)
+
+            if response.status_code != 200:
+                print("SkyPortal is not responding, waiting...")
+                time.sleep(10)
+
+        except requests.exceptions.ConnectionError:
+            print("SkyPortal is not responding, waiting...")
+            time.sleep(10)
+            continue
 
     print("Testing ZTF alert stream consumption and digestion")
 
