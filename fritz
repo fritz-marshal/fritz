@@ -557,8 +557,8 @@ def prune(args):
 def test(args):
     print("Running integration testing...")
 
-    # make sure the containers are up and running
     num_retries = 10
+    # make sure the containers are up and running
     for i in range(num_retries):
         if i == num_retries - 1:
             raise RuntimeError("Fritz's containers failed to spin up")
@@ -593,6 +593,21 @@ def test(args):
         if not all(containers_up):
             print("Fritz's containers are not up, waiting...")
             time.sleep(3)
+            continue
+
+        break
+
+    # make sure SkyPortal is running
+    for i in range(num_retries):
+        if i == num_retries - 1:
+            raise RuntimeError("SkyPortal failed to spin up")
+
+        command = ["docker", "exec", "-i", "skyportal_web_1", "ps", "-ef"]
+        process_list = subprocess.check_output(command, universal_newlines=True).strip()
+
+        if "app.py" not in process_list:
+            print("SkyPortal is not up, waiting...")
+            time.sleep(6)
             continue
 
         break
