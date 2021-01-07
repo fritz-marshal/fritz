@@ -589,7 +589,7 @@ for individual documents.
 }
 ```
 
-# CLU_20190625
+## CLU_20190625
 
 ```json
 {
@@ -722,7 +722,7 @@ for individual documents.
 }
 ```
 
-## FIRST_20141217
+### FIRST_20141217
 
 ```json
 {
@@ -771,7 +771,7 @@ for individual documents.
 }
 ```
 
-## GALEX
+### GALEX
 
 ```json
 {
@@ -805,7 +805,7 @@ for individual documents.
 }
 ```
 
-## Gaia_DR2
+### Gaia_DR2
 
 ```json
 {
@@ -901,7 +901,7 @@ for individual documents.
 }
 ```
 
-## Gaia_DR2_2MASS_best_neighbour
+### Gaia_DR2_2MASS_best_neighbour
 
 ```json
 {
@@ -945,7 +945,7 @@ for individual documents.
 }
 ```
 
-## Gaia_DR2_WD
+### Gaia_DR2_WD
 
 ```json
 {
@@ -1026,7 +1026,7 @@ for individual documents.
 }
 ```
 
-## Gaia_DR_light_curves
+### Gaia_DR_light_curves
 
 ```json
 {
@@ -1054,7 +1054,7 @@ for individual documents.
 }
 ```
 
-## Gaia_EDR3
+### Gaia_EDR3
 
 ```json
 {
@@ -1166,7 +1166,7 @@ for individual documents.
 }
 ```
 
-## IPHAS_DR2
+### IPHAS_DR2
 
 ```json
 {
@@ -1200,7 +1200,7 @@ for individual documents.
 }
 ```
 
-## LAMOST_DR5_v3
+### LAMOST_DR5_v3
 
 ```json
 {
@@ -1258,7 +1258,7 @@ for individual documents.
 }
 ```
 
-## NVSS_41
+### NVSS_41
 
 ```json
 {
@@ -1299,7 +1299,7 @@ for individual documents.
 }
 ```
 
-## PS1_DR1
+### PS1_DR1
 
 ```json
 {
@@ -1365,7 +1365,7 @@ for individual documents.
 }
 ```
 
-## RFC_2019d
+### RFC_2019d
 
 ```json
 {
@@ -1407,7 +1407,7 @@ for individual documents.
 }
 ```
 
-## TGSS_ADR1
+### TGSS_ADR1
 
 ```json
 {
@@ -1448,7 +1448,7 @@ for individual documents.
 }
 ```
 
-## TNS
+### TNS
 
 ```json
 {
@@ -1486,7 +1486,7 @@ for individual documents.
 }
 ```
 
-## ZTF_alerts
+### ZTF_alerts
 
 ```json
 {
@@ -1667,7 +1667,7 @@ for individual documents.
 }
 ```
 
-## ZTF_alerts_aux
+### ZTF_alerts_aux
 
 ```json
 {
@@ -1905,7 +1905,7 @@ for individual documents.
 }
 ```
 
-## ZTF_ops
+### ZTF_ops
 
 ```json
 {
@@ -1949,7 +1949,7 @@ for individual documents.
 }
 ```
 
-## cfht_w3_photozs
+### cfht_w3_photozs
 
 ```json
 {
@@ -2017,7 +2017,7 @@ for individual documents.
 }
 ```
 
-## galaxy_redshifts_20200522
+### galaxy_redshifts_20200522
 
 ```json
 {
@@ -2044,7 +2044,7 @@ for individual documents.
 }
 ```
 
-## legacysurveys_photoz_DR7
+### legacysurveys_photoz_DR7
 
 ```json
 {
@@ -2084,7 +2084,7 @@ for individual documents.
 }
 ```
 
-## milliquas_v6
+### milliquas_v6
 
 ```json
 {
@@ -2122,7 +2122,7 @@ for individual documents.
 }
 ```
 
-## mzls_ellipticals
+### mzls_ellipticals
 
 ```json
 {
@@ -2211,7 +2211,7 @@ for individual documents.
 }
 ```
 
-## sdss_eliipticals
+### sdss_eliipticals
 
 ```json
 {
