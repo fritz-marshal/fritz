@@ -6,6 +6,7 @@ individual entries therein (i.e. example documents per MongoDB collection).
 Note that there is no schema enforcement, so specific fields may or may not exist
 for individual documents.
 
+## Catalogs
 
 ### 2MASS_PSC
 
