@@ -1,6 +1,7 @@
 # Fritz User Guide
 
-[Fritz] is the science data platform for the [Zwicky Transient Facility (ZTF)](https://ztf.caltech.edu) Phase II.
+[Fritz](https://github.com/fritz-marshal/fritz) is the science data platform for the
+[Zwicky Transient Facility (ZTF)](https://ztf.caltech.edu) Phase II.
 
 It implements an end-to-end, scalable, API-first system for Time-domain Astronomy, featuring
 - A multi-survey data archive and alert broker

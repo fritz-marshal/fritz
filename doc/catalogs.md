@@ -7,7 +7,7 @@ Note that there is no schema enforcement, so specific fields may or may not exis
 for individual documents.
 
 
-## 2MASS_PSC
+### 2MASS_PSC
 
 ```json
 {
@@ -88,7 +88,7 @@ for individual documents.
 }
 ```
 
-## 2MASS_XSC
+### 2MASS_XSC
 
 ```json
 {
@@ -498,7 +498,7 @@ for individual documents.
 }
 ```
 
-## AllWISE
+### AllWISE
 
 ```json
 {
@@ -589,7 +589,7 @@ for individual documents.
 }
 ```
 
-## CLU_20190625
+### CLU_20190625
 
 ```json
 {
