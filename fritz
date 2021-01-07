@@ -639,6 +639,8 @@ def test(args):
             if response.status_code != 200:
                 print("SkyPortal is not responding, waiting...")
                 time.sleep(10)
+            else:
+                break
 
         except requests.exceptions.ConnectionError:
             print("SkyPortal is not responding, waiting...")
