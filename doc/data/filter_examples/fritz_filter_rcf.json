@@ -8,20 +8,23 @@
         ]
       }
     }
-  }, {
+  },
+  {
     "$project": {
       "cutoutScience": 0,
       "cutoutTemplate": 0,
       "cutoutDifference": 0
     }
-  }, {
+  },
+  {
     "$lookup": {
       "from": "ZTF_alerts_aux",
       "localField": "objectId",
       "foreignField": "_id",
       "as": "aux"
     }
-  }, {
+  },
+  {
     "$project": {
       "cross_matches": {
         "$arrayElemAt": [
@@ -65,7 +68,8 @@
       "classifications": 1,
       "coordinates": 1
     }
-  }, {
+  },
+  {
     "$project": {
       "_id": 0,
       "candid": 1,
@@ -93,7 +97,8 @@
         "$cond": {
           "if": {
             "$lt": [
-              "$candidate.distnr", 0
+              "$candidate.distnr",
+              0
             ]
           },
           "then": 99,
@@ -104,7 +109,8 @@
         "$cond": {
           "if": {
             "$lt": [
-              "$candidate.distpsnr1", 0
+              "$candidate.distpsnr1",
+              0
             ]
           },
           "then": 99,
@@ -115,7 +121,8 @@
         "$cond": {
           "if": {
             "$lt": [
-              "$candidate.distpsnr2", 0
+              "$candidate.distpsnr2",
+              0
             ]
           },
           "then": 99,
@@ -126,7 +133,8 @@
         "$cond": {
           "if": {
             "$lt": [
-              "$candidate.distpsnr3", 0
+              "$candidate.distpsnr3",
+              0
             ]
           },
           "then": 99,
@@ -151,7 +159,8 @@
       "drb": "$candidate.drb",
       "age": {
         "$subtract": [
-          "$candidate.jd", "$candidate.jdstarthist"
+          "$candidate.jd",
+          "$candidate.jdstarthist"
         ]
       },
       "ps1mag": {
@@ -162,41 +171,52 @@
                 "$and": [
                   {
                     "$gt": [
-                      "$candidate.srmag1", 0
+                      "$candidate.srmag1",
+                      0
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$candidate.srmag1", 30
+                      "$candidate.srmag1",
+                      30
                     ]
                   }
                 ]
               },
               "then": "$candidate.srmag1"
-            }, {
+            },
+            {
               "case": {
                 "$and": [
                   {
                     "$gt": [
-                      "$candidate.simag1", 0
+                      "$candidate.simag1",
+                      0
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$candidate.simag1", 30
+                      "$candidate.simag1",
+                      30
                     ]
                   }
                 ]
               },
               "then": "$candidate.simag1"
-            }, {
+            },
+            {
               "case": {
                 "$and": [
                   {
                     "$gt": [
-                      "$candidate.sgmag1", 0
+                      "$candidate.sgmag1",
+                      0
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$candidate.sgmag1", 30
+                      "$candidate.sgmag1",
+                      30
                     ]
                   }
                 ]
@@ -213,37 +233,44 @@
             "$cond": {
               "if": {
                 "$gt": [
-                  "$candidate.srmag1", 0
+                  "$candidate.srmag1",
+                  0
                 ]
               },
               "then": "$candidate.srmag1",
               "else": 99
             }
-          }, {
+          },
+          {
             "$cond": {
               "if": {
                 "$gt": [
-                  "$candidate.simag1", 0
+                  "$candidate.simag1",
+                  0
                 ]
               },
               "then": "$candidate.simag1",
               "else": 99
             }
-          }, {
+          },
+          {
             "$cond": {
               "if": {
                 "$gt": [
-                  "$candidate.sgmag1", 0
+                  "$candidate.sgmag1",
+                  0
                 ]
               },
               "then": "$candidate.sgmag1",
               "else": 99
             }
-          }, {
+          },
+          {
             "$cond": {
               "if": {
                 "$gt": [
-                  "$candidate.szmag1", 0
+                  "$candidate.szmag1",
+                  0
                 ]
               },
               "then": "$candidate.szmag1",
@@ -264,24 +291,35 @@
                     {
                       "$abs": {
                         "$subtract": [
-                          "$t_now", "$$cand.jd"
+                          "$t_now",
+                          "$$cand.jd"
                         ]
                       }
-                    }, 0.75
+                    },
+                    0.75
                   ]
-                }, {
+                },
+                {
                   "$in": [
-                    "$isdiffpos", [
-                      1, "1", "t", true
+                    "$isdiffpos",
+                    [
+                      1,
+                      "1",
+                      "t",
+                      true
                     ]
                   ]
-                }, {
+                },
+                {
                   "$ne": [
-                    "$$cand.magpsf", null
+                    "$$cand.magpsf",
+                    null
                   ]
-                }, {
+                },
+                {
                   "$lt": [
-                    "$$cand.magpsf", 19
+                    "$$cand.magpsf",
+                    19
                   ]
                 }
               ]
@@ -291,7 +329,8 @@
       },
       "peakmag": {
         "$min": [
-          "$candidate.magpsf", {
+          "$candidate.magpsf",
+          {
             "$min": [
               {
                 "$map": {
@@ -301,9 +340,12 @@
                     "$cond": [
                       {
                         "$eq": [
-                          "$$cand.fid", "$candidate.fid"
+                          "$$cand.fid",
+                          "$candidate.fid"
                         ]
-                      }, "$$cand.magpsf", null
+                      },
+                      "$$cand.magpsf",
+                      null
                     ]
                   }
                 }
@@ -313,7 +355,8 @@
         ]
       }
     }
-  }, {
+  },
+  {
     "$project": {
       "objectId": 1,
       "t_now": 1,
@@ -338,9 +381,11 @@
         "$or": [
           {
             "$lt": [
-              "$m_now", 19
+              "$m_now",
+              19
             ]
-          }, {
+          },
+          {
             "$anyElementTrue": {
               "$map": {
                 "input": "$prv_candidates",
@@ -352,24 +397,35 @@
                         {
                           "$abs": {
                             "$subtract": [
-                              "$t_now", "$$cand.jd"
+                              "$t_now",
+                              "$$cand.jd"
                             ]
                           }
-                        }, 0.75
+                        },
+                        0.75
                       ]
-                    }, {
+                    },
+                    {
                       "$in": [
-                        "$isdiffpos", [
-                          1, "1", "t", true
+                        "$isdiffpos",
+                        [
+                          1,
+                          "1",
+                          "t",
+                          true
                         ]
                       ]
-                    }, {
+                    },
+                    {
                       "$gt": [
-                        "$$cand.magpsf", 0
+                        "$$cand.magpsf",
+                        0
                       ]
-                    }, {
+                    },
+                    {
                       "$lt": [
-                        "$$cand.magpsf", 19
+                        "$$cand.magpsf",
+                        19
                       ]
                     }
                   ]
@@ -383,13 +439,18 @@
         "$gte": [
           {
             "$abs": "$gal_lat"
-          }, 7
+          },
+          7
         ]
       },
       "positivesubtraction": {
         "$in": [
-          "$isdiffpos", [
-            1, "1", "t", true
+          "$isdiffpos",
+          [
+            1,
+            "1",
+            "t",
+            true
           ]
         ]
       },
@@ -399,205 +460,276 @@
             "$or": [
               {
                 "$lte": [
-                  "$rbscore", 0.2
+                  "$rbscore",
+                  0.2
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$rbscore", 0.35
+                      "$rbscore",
+                      0.35
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
                       {
                         "$abs": "$neargaia"
-                      }, 1.0
+                      },
+                      1
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
                       {
                         "$abs": "$maggaia"
-                      }, 17.0
+                      },
+                      17
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$rbscore", 0.35
+                      "$rbscore",
+                      0.35
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$distpsnr1", 1.0
+                      "$distpsnr1",
+                      1
                     ]
-                  }, {
+                  },
+                  {
                     "$gt": [
-                      "$sgscore1", 0.49
+                      "$sgscore1",
+                      0.49
                     ]
-                  }, {
+                  },
+                  {
                     "$or": [
                       {
                         "$lt": [
                           {
                             "$abs": "$srmag1"
-                          }, 17.0
+                          },
+                          17
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
                           {
                             "$abs": "$simag1"
-                          }, 17.0
+                          },
+                          17
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
                           {
                             "$abs": "$szmag1"
-                          }, 16.5
+                          },
+                          16.5
                         ]
                       }
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$rbscore", 0.45
+                      "$rbscore",
+                      0.45
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
                       {
                         "$abs": "$neargaia"
-                      }, 1.5
+                      },
+                      1.5
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
                       {
                         "$abs": "$maggaia"
-                      }, 15.5
+                      },
+                      15.5
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$rbscore", 0.45
+                      "$rbscore",
+                      0.45
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$distpsnr1", 1.5
+                      "$distpsnr1",
+                      1.5
                     ]
-                  }, {
+                  },
+                  {
                     "$gt": [
-                      "$sgscore1", 0.49
+                      "$sgscore1",
+                      0.49
                     ]
-                  }, {
+                  },
+                  {
                     "$or": [
                       {
                         "$lt": [
                           {
                             "$abs": "$srmag1"
-                          }, 15.5
+                          },
+                          15.5
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
                           {
                             "$abs": "$simag1"
-                          }, 15.5
+                          },
+                          15.5
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
                           {
                             "$abs": "$szmag1"
-                          }, 15.0
+                          },
+                          15
                         ]
                       }
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$drb", 0.1
+                  "$drb",
+                  0.1
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$drb", 0.5
+                      "$drb",
+                      0.5
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$distpsnr1", 3.0
+                      "$distpsnr1",
+                      3
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$ps1mag", 16.0
+                      "$ps1mag",
+                      16
                     ]
-                  }, {
+                  },
+                  {
                     "$gt": [
-                      "$age", 90.0
+                      "$age",
+                      90
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$drb", 0.5
+                      "$drb",
+                      0.5
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$distpsnr1", 1.1
+                      "$distpsnr1",
+                      1.1
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$ps1mag", 18.0
+                      "$ps1mag",
+                      18
                     ]
-                  }, {
+                  },
+                  {
                     "$gt": [
-                      "$age", 90.0
+                      "$age",
+                      90
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$drb", 0.8
+                      "$drb",
+                      0.8
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$distpsnr1", 1.5
+                      "$distpsnr1",
+                      1.5
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$ps1mag", 15.5
+                      "$ps1mag",
+                      15.5
                     ]
-                  }, {
+                  },
+                  {
                     "$gt": [
-                      "$age", 90.0
+                      "$age",
+                      90
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$lt": [
-                      "$drb", 0.8
+                      "$drb",
+                      0.8
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$distpsnr1", 0.8
+                      "$distpsnr1",
+                      0.8
                     ]
-                  }, {
+                  },
+                  {
                     "$lt": [
-                      "$ps1mag", 17.5
+                      "$ps1mag",
+                      17.5
                     ]
-                  }, {
+                  },
+                  {
                     "$gt": [
-                      "$age", 90.0
+                      "$age",
+                      90
                     ]
                   }
                 ]
@@ -612,67 +744,92 @@
             "$and": [
               {
                 "$gt": [
-                  "$sgscore1", 0.76
+                  "$sgscore1",
+                  0.76
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$distpsnr1", 2
+                  "$distpsnr1",
+                  2
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$gt": [
-                  "$sgscore1", 0.2
+                  "$sgscore1",
+                  0.2
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$distpsnr1", 1
+                  "$distpsnr1",
+                  1
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$srmag1", 0
+                  "$srmag1",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$szmag1", 0
+                  "$szmag1",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$gt": [
                   {
                     "$subtract": [
-                      "$srmag1", "$szmag1"
+                      "$srmag1",
+                      "$szmag1"
                     ]
-                  }, 3.0
+                  },
+                  3
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$gt": [
-                  "$sgscore1", 0.2
+                  "$sgscore1",
+                  0.2
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$distpsnr1", 1
+                  "$distpsnr1",
+                  1
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$srmag1", 0
+                  "$srmag1",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$simag1", 0
+                  "$simag1",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$gt": [
                   {
                     "$subtract": [
-                      "$srmag1", "$simag1"
+                      "$srmag1",
+                      "$simag1"
                     ]
-                  }, 3.0
+                  },
+                  3
                 ]
               }
             ]
@@ -687,103 +844,136 @@
                 "$lt": [
                   {
                     "$abs": "$neargaiabright"
-                  }, 20
+                  },
+                  20
                 ]
-              }, {
+              },
+              {
                 "$lt": [
                   {
                     "$abs": "$maggaiabright"
-                  }, 12
+                  },
+                  12
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$lt": [
-                  "$distpsnr1", 20
+                  "$distpsnr1",
+                  20
                 ]
-              }, {
+              },
+              {
                 "$lt": [
                   {
                     "$abs": "$srmag1"
-                  }, 14
+                  },
+                  14
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$sgscore1", 0.9
+                  "$sgscore1",
+                  0.9
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$lt": [
-                  "$distpsnr2", 20
+                  "$distpsnr2",
+                  20
                 ]
-              }, {
+              },
+              {
                 "$lt": [
                   {
                     "$abs": "$srmag2"
-                  }, 14
+                  },
+                  14
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$sgscore2", 0.9
+                  "$sgscore2",
+                  0.9
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$lt": [
-                  "$distpsnr3", 20
+                  "$distpsnr3",
+                  20
                 ]
-              }, {
+              },
+              {
                 "$lt": [
                   {
                     "$abs": "$srmag3"
-                  }, 14
+                  },
+                  14
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$sgscore3", 0.9
+                  "$sgscore3",
+                  0.9
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$lt": [
-                  "$distpsnr1", 20
+                  "$distpsnr1",
+                  20
                 ]
-              }, {
+              },
+              {
                 "$lt": [
                   {
                     "$abs": "$simag1"
-                  }, 14
+                  },
+                  14
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$sgscore1", 0.9
+                  "$sgscore1",
+                  0.9
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$lt": [
-                  "$distpsnr1", 10
+                  "$distpsnr1",
+                  10
                 ]
-              }, {
+              },
+              {
                 "$lt": [
                   {
                     "$abs": "$szmag1"
-                  }, 14
+                  },
+                  14
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$sgscore1", 0.9
+                  "$sgscore1",
+                  0.9
                 ]
               }
             ]
@@ -796,24 +986,30 @@
             "$and": [
               {
                 "$gt": [
-                  "$age", 90
+                  "$age",
+                  90
                 ]
-              }, {
+              },
+              {
                 "$gte": [
-                  "$prevpasscount", {
+                  "$prevpasscount",
+                  {
                     "$switch": {
                       "branches": [
                         {
                           "case": {
                             "$gt": [
-                              "$age", 360
+                              "$age",
+                              360
                             ]
                           },
                           "then": 1
-                        }, {
+                        },
+                        {
                           "case": {
                             "$gt": [
-                              "$age", 90
+                              "$age",
+                              90
                             ]
                           },
                           "then": 2
@@ -823,23 +1019,29 @@
                     }
                   }
                 ]
-              }, {
+              },
+              {
                 "$and": [
                   {
                     "$gt": [
-                      "$magnr", 0
+                      "$magnr",
+                      0
                     ]
-                  }, {
+                  },
+                  {
                     "$not": [
                       {
                         "$and": [
                           {
                             "$lte": [
-                              "$m_now", "$peakmag"
+                              "$m_now",
+                              "$peakmag"
                             ]
-                          }, {
+                          },
+                          {
                             "$lt": [
-                              "$m_now", 18.5
+                              "$m_now",
+                              18.5
                             ]
                           }
                         ]
@@ -847,41 +1049,53 @@
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$or": [
                   {
                     "$and": [
                       {
                         "$lt": [
-                          "$distnr", 0.4
+                          "$distnr",
+                          0.4
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
-                          "$magnr", 19.5
+                          "$magnr",
+                          19.5
                         ]
                       }
                     ]
-                  }, {
+                  },
+                  {
                     "$and": [
                       {
                         "$lt": [
-                          "$distnr", 0.8
+                          "$distnr",
+                          0.8
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
-                          "$magnr", 17.5
+                          "$magnr",
+                          17.5
                         ]
                       }
                     ]
-                  }, {
+                  },
+                  {
                     "$and": [
                       {
                         "$lt": [
-                          "$distnr", 1.2
+                          "$distnr",
+                          1.2
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
-                          "$magnr", 15.5
+                          "$magnr",
+                          15.5
                         ]
                       }
                     ]
@@ -889,67 +1103,91 @@
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$gt": [
-                  "$maggaia", 0
+                  "$maggaia",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$neargaia", 0
+                  "$neargaia",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$or": [
                   {
                     "$and": [
                       {
                         "$lt": [
-                          "$neargaia", 0.35
+                          "$neargaia",
+                          0.35
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
-                          "$maggaia", 17.0
+                          "$maggaia",
+                          17
                         ]
-                      }, {
+                      },
+                      {
                         "$gt": [
-                          "$age", 30
+                          "$age",
+                          30
                         ]
                       }
                     ]
-                  }, {
+                  },
+                  {
                     "$and": [
                       {
                         "$lt": [
-                          "$neargaia", 0.35
+                          "$neargaia",
+                          0.35
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
-                          "$maggaia", 19.0
+                          "$maggaia",
+                          19
                         ]
-                      }, {
+                      },
+                      {
                         "$gt": [
-                          "$age", 300
+                          "$age",
+                          300
                         ]
-                      }, {
+                      },
+                      {
                         "$gt": [
-                          "$m_now", 18.5
+                          "$m_now",
+                          18.5
                         ]
                       }
                     ]
-                  }, {
+                  },
+                  {
                     "$and": [
                       {
                         "$lt": [
-                          "$neargaia", 0.2
+                          "$neargaia",
+                          0.2
                         ]
-                      }, {
+                      },
+                      {
                         "$lt": [
-                          "$maggaia", 18.0
+                          "$maggaia",
+                          18
                         ]
-                      }, {
+                      },
+                      {
                         "$gt": [
-                          "$age", 90
+                          "$age",
+                          90
                         ]
                       }
                     ]
@@ -957,71 +1195,98 @@
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$gt": [
-                  "$sgscore1", 0.25
+                  "$sgscore1",
+                  0.25
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$distpsnr1", 3
+                  "$distpsnr1",
+                  3
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$age", 90
+                  "$age",
+                  90
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$ps1maxmag", 16
+                  "$ps1maxmag",
+                  16
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$eq": [
-                  "$sgscore1", 0.5
+                  "$sgscore1",
+                  0.5
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$distpsnr1", 0.5
+                  "$distpsnr1",
+                  0.5
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$age", 90
+                  "$age",
+                  90
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$ps1maxmag", 17
+                  "$ps1maxmag",
+                  17
                 ]
               }
             ]
-          }, {
+          },
+          {
             "$and": [
               {
                 "$gt": [
-                  "$magnr", 0
+                  "$magnr",
+                  0
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$magnr", {
+                  "$magnr",
+                  {
                     "$subtract": [
-                      "$m_now", 1
+                      "$m_now",
+                      1
                     ]
                   }
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$age", 90
+                  "$age",
+                  90
                 ]
-              }, {
+              },
+              {
                 "$lt": [
-                  "$distnr", 0.5
+                  "$distnr",
+                  0.5
                 ]
-              }, {
+              },
+              {
                 "$gt": [
-                  "$m_now", "$peakmag"
+                  "$m_now",
+                  "$peakmag"
                 ]
               }
             ]
@@ -1032,17 +1297,22 @@
         "$and": [
           {
             "$gte": [
-              "$ssdistnr", 0
+              "$ssdistnr",
+              0
             ]
-          }, {
+          },
+          {
             "$lt": [
-              "$ssdistnr", 12
+              "$ssdistnr",
+              12
             ]
-          }, {
+          },
+          {
             "$lt": [
               {
                 "$abs": "$ssmagnr"
-              }, 20
+              },
+              20
             ]
           }
         ]
@@ -1059,19 +1329,28 @@
                     {
                       "$abs": {
                         "$subtract": [
-                          "$t_now", "$$cand.jd"
+                          "$t_now",
+                          "$$cand.jd"
                         ]
                       }
-                    }, 0.02
+                    },
+                    0.02
                   ]
-                }, {
+                },
+                {
                   "$lt": [
-                    "$$cand.magpsf", 99
+                    "$$cand.magpsf",
+                    99
                   ]
-                }, {
+                },
+                {
                   "$in": [
-                    "$$cand.isdiffpos", [
-                      1, "1", true, "t"
+                    "$$cand.isdiffpos",
+                    [
+                      1,
+                      "1",
+                      true,
+                      "t"
                     ]
                   ]
                 }
@@ -1081,7 +1360,8 @@
         }
       }
     }
-  }, {
+  },
+  {
     "$match": {
       "latitude": true,
       "bright": true,
@@ -1093,78 +1373,93 @@
       "variablesource": false,
       "rock": false
     }
-  }, {
+  },
+  {
     "$project": {
       "objectId": 1,
       "annotations.jd": "$t_now",
       "annotations.magnitude": {
         "$round": [
-          "$m_now", 3
+          "$m_now",
+          3
         ]
       },
       "annotations.age": {
         "$round": [
-          "$age", 5
+          "$age",
+          5
         ]
       },
       "annotations.peakmag": {
         "$round": [
-          "$peakmag", 5
+          "$peakmag",
+          5
         ]
       },
       "annotations.atmax": {
         "$lte": [
-          "$m_now", "$peakmag"
+          "$m_now",
+          "$peakmag"
         ]
       },
       "annotations.rbscore": {
         "$round": [
-          "$rbscore", 5
+          "$rbscore",
+          5
         ]
       },
       "annotations.drb": {
         "$round": [
-          "$drb", 5
+          "$drb",
+          5
         ]
       },
       "annotations.magnr": {
         "$round": [
-          "$magnr", 5
+          "$magnr",
+          5
         ]
       },
       "annotations.distnr": {
         "$round": [
-          "$distnr", 5
+          "$distnr",
+          5
         ]
       },
       "annotations.srmag1": {
         "$round": [
-          "$srmag1", 5
+          "$srmag1",
+          5
         ]
       },
       "annotations.distpsnr1": {
         "$round": [
-          "$distpsnr1", 5
+          "$distpsnr1",
+          5
         ]
       },
       "annotations.sgscore1": {
         "$round": [
-          "$sgscore1", 5
+          "$sgscore1",
+          5
         ]
       },
       "annotations.maggaia": {
         "$round": [
-          "$maggaia", 5
+          "$maggaia",
+          5
         ]
       },
       "annotations.neargaia": {
         "$round": [
-          "$neargaia", 5
+          "$neargaia",
+          5
         ]
       },
       "annotations.gal_lat": {
         "$round": [
-          "$gal_lat", 5
+          "$gal_lat",
+          5
         ]
       }
     }

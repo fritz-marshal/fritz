@@ -5,7 +5,9 @@ Fritz marshal manual
    :maxdepth: 2
 
    user_guide
-   usage
+   run_your_own
    api
+   catalogs
+   technical_implementation
    developer
    license

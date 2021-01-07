@@ -5,6 +5,7 @@ from distutils.dir_util import copy_tree
 import json
 import os
 from pathlib import Path
+import requests
 import subprocess
 import sys
 import time
@@ -39,7 +40,7 @@ def generate_kowalski_token(
         payload, jwt_config["JWT_SECRET"], jwt_config["JWT_ALGORITHM"]
     )
 
-    return jwt_token.decode("utf-8")
+    return jwt_token
 
 
 def get_skyportal_token():
@@ -68,6 +69,12 @@ def get_skyportal_token():
     return token
 
 
+def skyportal_api(method, endpoint, token, data=None):
+    headers = {"Authorization": f"token {token}"}
+    response = requests.request(method, endpoint, json=data, headers=headers)
+    return response
+
+
 def check_config_exists(cfg="fritz.defaults.yaml", yes=False):
     c = cfg.replace(".defaults", "")
     if not Path(c).exists():
@@ -92,12 +99,16 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     check_config_exists(cfg=cfg, yes=yes)
 
     # generate a token for SkyPortal to talk to Kowalski
-    with open(c) as cyaml:
-        config = yaml.load(cyaml, Loader=yaml.FullLoader)
+    with open(c) as config_yaml:
+        config = yaml.load(config_yaml, Loader=yaml.FullLoader)
 
     kowalski_token = generate_kowalski_token(
         user_id=config["kowalski"]["server"]["admin_username"],
         jwt_secret=config["kowalski"]["server"]["JWT_SECRET_KEY"],
+        jwt_algorithm=config["kowalski"]["server"]["JWT_ALGORITHM"],
+        jwt_exp_delta_seconds=int(
+            config["kowalski"]["server"]["JWT_EXP_DELTA_SECONDS"]
+        ),
     )
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
 
@@ -115,19 +126,19 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
 
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
-    with open("kowalski/config.yaml", "w") as cyaml:
-        yaml.dump(config_kowalski, cyaml)
+    with open("kowalski/config.yaml", "w") as config_yaml:
+        yaml.dump(config_kowalski, config_yaml)
 
     # Docker-specific SkyPortal stuff:
     config["skyportal"]["database"]["host"] = "db"
     config["skyportal"]["server"]["url"] = "http://localhost:5000"
     config_skyportal = config["skyportal"]  # don't need the K stuff
-    with open("skyportal/config.yaml", "w") as cyaml:
-        yaml.dump(config_skyportal, cyaml)
+    with open("skyportal/config.yaml", "w") as config_yaml:
+        yaml.dump(config_skyportal, config_yaml)
 
     # update fritz.yaml:
-    with open(c, "w") as cyaml:
-        yaml.dump(config, cyaml)
+    with open(c, "w") as config_yaml:
+        yaml.dump(config, config_yaml)
 
 
 def update(args):
@@ -256,32 +267,38 @@ def build(args):
     check_config(cfg="fritz.defaults.yaml", yes=args.yes)
 
     # load config
-    with open("fritz.yaml") as fyaml:
-        fritz_config = yaml.load(fyaml, Loader=yaml.FullLoader)
+    with open("fritz.yaml") as fritz_config_yaml:
+        fritz_config = yaml.load(fritz_config_yaml, Loader=yaml.FullLoader)
 
     patch_skyportal()
 
     # adjust F-specific docker-compose.yaml for SP
-    with open("skyportal/docker-compose.skyportal.yaml") as dcyaml:
-        dc = yaml.load(dcyaml, Loader=yaml.FullLoader)
+    with open("skyportal/docker-compose.skyportal.yaml") as docker_compose_yaml:
+        docker_compose = yaml.load(docker_compose_yaml, Loader=yaml.FullLoader)
     # fix absolute paths in docker-compose.skyportal.yaml
-    for vi, volume in enumerate(dc["services"]["web"]["volumes"]):
-        dc["services"]["web"]["volumes"][vi] = volume.replace(
+    for vi, volume in enumerate(docker_compose["services"]["web"]["volumes"]):
+        docker_compose["services"]["web"]["volumes"][vi] = volume.replace(
             "${PWD}", str(Path(__file__).parent.absolute())
         )
     if args.traefik:
         # fix host for Traefik
-        dc["services"]["web"]["labels"][2] = dc["services"]["web"]["labels"][2].replace(
-            "<host>", fritz_config["skyportal"]["server"]["host"]
-        )
+        docker_compose["services"]["web"]["labels"][2] = docker_compose["services"][
+            "web"
+        ]["labels"][2].replace("<host>", fritz_config["skyportal"]["server"]["host"])
     else:
         # not running behind Traefik? then publish port 5000 on host
         port = fritz_config["skyportal"]["server"].get("port", 5000)
         if port is None:
             port = 5000
-        dc["services"]["web"]["ports"] = [f"{port}:{port}"]
-    with open("skyportal/docker-compose.skyportal.yaml", "w") as dcyaml:
-        yaml.dump(dc, dcyaml)
+        docker_compose["services"]["web"]["ports"] = [f"{port}:{port}"]
+    # execute `make run` instead of `make run_production` at init:
+    if args.init:
+        docker_compose["services"]["web"][
+            "command"
+        ] = 'bash -c "source /skyportal_env/bin/activate && (make log &) && make run"'
+    # save the adjusted version
+    with open("skyportal/docker-compose.skyportal.yaml", "w") as docker_compose_yaml:
+        yaml.dump(docker_compose, docker_compose_yaml)
 
     # Build skyportal's images
     cmd = ["docker", "build", "."]
@@ -324,7 +341,7 @@ def build(args):
                     "skyportal_web_1",
                     "/bin/bash",
                     "-c",
-                    "source /skyportal_env/bin/activate; make db_init; "
+                    "source /skyportal_env/bin/activate; make db_clear; make db_init;"
                     "make prepare_seed_data; make load_seed_data",
                 ],
                 cwd="skyportal",
@@ -351,8 +368,8 @@ def build(args):
 
         # update fritz.yaml
         fritz_config["kowalski"]["skyportal"]["token"] = token
-        with open("fritz.yaml", "w") as fyaml:
-            yaml.dump(fritz_config, fyaml)
+        with open("fritz.yaml", "w") as fritz_config_yaml:
+            yaml.dump(fritz_config, fritz_config_yaml)
 
     if not args.no_kowalski:
         # Build kowalski's images
@@ -547,8 +564,12 @@ def prune(args):
 def test(args):
     print("Running integration testing...")
 
-    # make sure the containers are up and running
+    # load config
+    with open("fritz.yaml") as fritz_config_yaml:
+        fritz_config = yaml.load(fritz_config_yaml, Loader=yaml.FullLoader)
+
     num_retries = 10
+    # make sure the containers are up and running
     for i in range(num_retries):
         if i == num_retries - 1:
             raise RuntimeError("Fritz's containers failed to spin up")
@@ -586,6 +607,45 @@ def test(args):
             continue
 
         break
+
+    # make sure SkyPortal is running
+    for i in range(num_retries):
+        if i == num_retries - 1:
+            raise RuntimeError("SkyPortal failed to spin up")
+
+        command = ["docker", "exec", "-i", "skyportal_web_1", "ps", "-ef"]
+        process_list = subprocess.check_output(command, universal_newlines=True).strip()
+
+        if "app.py" not in process_list:
+            print("SkyPortal is not up, waiting...")
+            time.sleep(10)
+            continue
+
+        break
+
+    # ensure that the SkyPortal app is responding to requests
+    url = (
+        f"{fritz_config['kowalski']['skyportal']['protocol']}://"
+        f"{fritz_config['kowalski']['skyportal']['host']}:{fritz_config['kowalski']['skyportal']['port']}"
+        "/api/sysinfo"
+    )
+    token = fritz_config["kowalski"]["skyportal"]["token"]
+    for i in range(num_retries):
+        if i == num_retries - 1:
+            raise RuntimeError("SkyPortal failed to spin up")
+        try:
+            response = skyportal_api("GET", endpoint=url, token=token)
+
+            if response.status_code != 200:
+                print("SkyPortal is not responding, waiting...")
+                time.sleep(10)
+            else:
+                break
+
+        except requests.exceptions.ConnectionError:
+            print("SkyPortal is not responding, waiting...")
+            time.sleep(10)
+            continue
 
     print("Testing ZTF alert stream consumption and digestion")
 

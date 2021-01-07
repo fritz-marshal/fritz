@@ -1,5 +1,78 @@
 # Fritz User Guide
 
+[Fritz] is the science data platform for the [Zwicky Transient Facility (ZTF)](https://ztf.caltech.edu) Phase II.
+
+It implements an end-to-end, scalable, API-first system for Time-domain Astronomy, featuring
+- A multi-survey data archive and alert broker
+- An interactive collaborative marshal for the transient, variable, and Solar system science cases
+- A workhorse for machine learning applications and active learning
+- Follow-up observation management with robotic and classical facilities
+- Fine-grained access control
+
+The key characteristics of Fritz are efficiency, scalability, portability, and extensibility.
+Fritz employs a modular architecture and
+integrates and extends two major components: [Kowalski](https://github.com/dmitryduev/kowalski)
+acts as the alert processor and data archive, and [SkyPortal](https://github.com/skyportal/skyportal),
+which handles the rest of the stack.
+The schematic overview of our system is shown below:
+
+![img/fritz.png](img/fritz.jpg)
+
+## Quick start
+
+### A tour of Fritz from the user perspective
+
+Got an invite in your email? Click the link, which will take you to the Profile page.
+
+![invite](https://user-images.githubusercontent.com/7557205/102668891-f8560a00-4141-11eb-9e98-e581bfccdff6.png)
+
+Here, you can update your user preferences and create tokens to [interact with Fritz programmatically](api.html).
+
+![invited](https://user-images.githubusercontent.com/7557205/102669155-a95ca480-4142-11eb-98f5-cd0b595aa759.gif)
+
+Now proceed to the Dashboard, the landing page. Here, you can rearrange and configure the widgets:
+
+![landing](https://user-images.githubusercontent.com/7557205/102672731-803e1300-4146-11eb-8443-e1744a69afc0.gif)
+
+New `Fritz` users are added to one or more groups. Users can also create groups themselves.
+You can find the list of group members, the sources saved to
+the group, and the group's [alert filters](user_guide.html#alert-filters-in-fritz)
+(defined on one of the alert streams that the group has access to)
+on the Group page. Group admins can create new filters and modify existing ones.
+
+Fritz provides powerful alert stream filtering capabilities. For a detailed discussion of those, proceed to
+the [alert filters](user_guide.html#alert-filters-in-fritz) section of the docs.
+
+Please beware that only system administrators can grant alert stream access to groups,
+but feel free to reach out should you be needing this.
+
+![groups-1](https://user-images.githubusercontent.com/7557205/102672733-83d19a00-4146-11eb-99a9-2d1934e732d7.gif)
+
+Users can also request admission to groups they are not a member of:
+
+![groups-request-admission](https://user-images.githubusercontent.com/7557205/102672737-87652100-4146-11eb-98d4-6a98e2bd7004.gif)
+
+On the Candidates page, the users can filter, scan and inspect the alerts that have passed filters of their groups
+and save them to one or more groups. Candidates that are not saved to any group within 7 days are removed from Fritz.
+Saved sources, on the other hand, are persisted forever.
+
+![candidates-small](https://user-images.githubusercontent.com/7557205/102673044-6fda6800-4147-11eb-8d76-4d1d14b701f8.gif)
+
+The Source page aggregates all kinds of information related to an object that exists on `Fritz`, such as photometry,
+spectroscopy, auto-annotations, comments, finder charts, follow-up requests, and other data.
+
+![source-small](https://user-images.githubusercontent.com/7557205/102673149-cba4f100-4147-11eb-9315-0cc2198830f6.gif)
+
+![finder](https://user-images.githubusercontent.com/7557205/102672780-a95ea380-4146-11eb-9b2e-386b0d3d677e.gif)
+
+Only the objects that have been posted to `Fritz`'s `SkyPortal` backend are saved in its database.
+However, `Fritz`'s users can access the complete archive of ZTF alerts via the Alerts page:
+
+![alerts](https://user-images.githubusercontent.com/7557205/102672770-a368c280-4146-11eb-9923-da4990897f69.gif)
+
+Enjoy!
+
+
 ## Alert filters in `Fritz`
 
 This section describes how to define alert stream filters within `Fritz` and provides some examples for reference.
@@ -257,24 +330,54 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 #### Alert data augmentation
 
-Fritz's Kowalski backend augments the alert data with the following: [as of October 2020]
+Fritz's Kowalski backend augments the alert data with the following: [as of December 2020]
+
+- Galactic coordinates
 
 - Cross-matches with external catalogs:
   - 2MASS_PSC (all matches within 2")
   - AllWISE (all matches within 2")
   - GALEX (all matches within 2")
   - Gaia_DR2 (all matches within 2")
+  - Gaia_EDR3 (all matches within 2")
   - Gaia_DR2_WD (all matches within 2")
   - IPHAS_DR2 (all matches within 2")
   - LAMOST_DR5_v3 (all matches within 2")
   - PS1_DR1 (all matches within 2")
   - galaxy_redshifts_20200522 (all matches within 2")
-  - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_watcher_ztf.py#L315))
+  - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_broker_ztf.py#L351))
 
-- ML scores:
-  - braai v. `d6_m9`
+For the detailed description of the available catalogs, see [here](catalogs.html)
 
-- Galactic coordinates
+- Machine learning scores:
+  - [`braai`](https://academic.oup.com/mnras/article/489/3/3582/5554758) version `d6_m9` -- real/bogus classifier
+  - `acai_h` version `d1_dnn_20201130` -- phenomenological classifier, "hosted"
+  - `acai_o` version `d1_dnn_20201130` -- phenomenological classifier, "orphan"
+  - `acai_n` version `d1_dnn_20201130` -- phenomenological classifier, "nuclear"
+  - `acai_v` version `d1_dnn_20201130` -- phenomenological classifier, "variable star"
+  - `acai_b` version `d1_dnn_20201130` -- phenomenological classifier, "bogus"
+
+##### ACAI
+In November 2020, we deployed a set of new phenomenological deep learning classifiers called
+ACAI (Alert-Classifying AI; publication in prep.).
+The system consists of 5 binary classifiers:
+
+- `acai_h` -- "hosted" -- genuine transient in the vicinity of a "host" with (some) morphology,
+   e.g. something one could call a galaxy; should catch SN, Novae etc
+- `acai_o` -- "orphan" -- a genuine orphan transient, i.e. there are no identifiable "hosts" in its vicinity;
+   catches asteroids and hostless (or with hosts that are too faint) transients
+- `acai_n` -- "nuclear" -- a genuine transient occurring in a galaxy/quasar nucleus; should catch AGN, TDEs, etc.
+- `acai_v` -- "variable star" -- variable star
+- `acai_b` -- "bogus" -- a new version of the real/bogus classifier; could be thought of as (1 - braai)
+
+Each classifier takes as input 25 features from the candidate section of a ZTF alert packet and a stack of
+full-sized thumbnails (science/reference (template)/difference) and produces a score from 0 to 1:
+
+![img/acai_h.d1_dnn_20201130.png](img/acai_h.d1_dnn_20201130.png)
+
+All classifiers were trained on more than 200,000 diverse alerts covering a large part of the phase space.
+The classifiers, although potentially correlated in their output, act independently and so can be
+mixed and matched and applied alongside other alert features.
 
 ### Filter examples
 
@@ -329,9 +432,43 @@ The output of the filter will look something like this:
 
 This alert will be posted to the candidates page with these annotations.
 
+#### ACAI-hosted filter
+
+Let us build a filter that primarily relies on the ACAI ML models to select transients that are confidently
+classified as "hosted" (and nothing else), and are a positive subtraction (`candidate.isdiffpos`) and
+not a known Solar system object (`candidate.ssdistnr`):
+
+```json
+[
+  {
+    "$match": {
+      "classifications.acai_h": {"$gte": 0.8},
+      "classifications.acai_b": {"$lt": 0.1},
+      "classifications.acai_v": {"$lt": 0.1},
+      "classifications.acai_o": {"$lt": 0.4},
+      "classifications.acai_n": {"$lt": 0.4},
+      "candidate.ssdistnr": {"$lt": 0},
+      "candidate.isdiffpos": {"$in": [1, "1", true, "t"]}
+    }
+  },
+  {
+    "$project": {
+      "annotations.age": {"$round": [{"$subtract": ["$candidate.jd", "$candidate.jdstarthist"]}, 5]},
+      "annotations.n_det": "$candidate.ndethist",
+      "annotations.candid": {"$toString": "$candid"},
+      "annotations.acai_h": {"$round": ["$classifications.acai_h", 5]},
+      "annotations.acai_v": {"$round": ["$classifications.acai_v", 5]},
+      "annotations.acai_o": {"$round": ["$classifications.acai_o", 5]},
+      "annotations.acai_n": {"$round": ["$classifications.acai_n", 5]},
+      "annotations.acai_b": {"$round": ["$classifications.acai_b", 5]}
+    }
+  }
+]
+```
+
 #### CLU filter
 
-Now that we've looked at a basic example, let us explore a real-life example and build a filter for
+Now that we've looked at basic examples, let us explore a more complex case and build a filter for
 the [Census of the Local Universe](https://ui.adsabs.harvard.edu/abs/2020arXiv200409029D/abstract) program.
 
 As a reference, we will use the filter definition (as of July 10, 2020)
@@ -1594,7 +1731,7 @@ As another example, below you will find a simplified version of the Bright Trans
 
 #### BTS/RCF program full filter
 
-Here you will find the full version (as of 2020) of the Bright Transient Survey filter
+Here you will find the full version (as of December 2020) of the Bright Transient Survey filter
 (the Redshift Completeness Factor program)
 
 {download}`fritz_filter_rcf.json <data/filter_examples/fritz_filter_rcf.json>`
@@ -1610,6 +1747,10 @@ In the `python` code snippet below, courtesy of Anna Ho and Yuhan Yao, a coarse 
 number of logical expressions would be evaluated on the query result:
 
 ```python
+from astropy.time import Time
+import numpy as np
+from penquins import Kowalski
+
 # Set search window
 obst = obs['UT_START'].values
 start = Time(obst[0], format='isot').jd - 0.02
@@ -1637,6 +1778,7 @@ q = {"query_type": "find",
          }
      }
      }
+kowalski = Kowalski()
 query_result = kowalski.query(query=q)
 out = query_result['data']
 names_all = np.array([val['objectId'] for val in out])
@@ -2172,32 +2314,13 @@ These will:
 - Sort them by `jd`
 - Group back into a single document with the `prv_candidates` in sorted order
 
-## Run your own Fritz
 
-### Bare-bones end-to-end demo
+## Feedback
 
-Clone the repo from `GitHub`:
-```bash
-git clone --recursive https://github.com/fritz-marshal/fritz.git && cd fritz
-```
+Please start by searching existing issues [here](https://github.com/fritz-marshal/fritz/issues).
+If the issue has already been reported, feel free to add to the existing discussion or to propose solutions.
 
-Make sure the requirements to run the `fritz` utility are met, e.g.:
-
-```bash
-pip install -r requirements.txt
-```
-
-Initialize `fritz` and run tests:
-
-```bash
-./fritz run --init
-./fritz test
-```
-
-Go to `http://localhost:5000/` -- you should see a few real alerts that passed a test filter among the displayed sources.
-
-To shut down `fritz`, run:
-
-```bash
-./fritz stop
-```
+If you found an as-yet-unreported problem, or you have a feature request,
+please create a [new issue](https://github.com/fritz-marshal/fritz/issues/new/choose).
+The team will triage issues so that, within a few hours, you should see a label appear
+that indicates its development priority.

@@ -300,6 +300,8 @@ kowalski:
     # fixme: use ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
     SECRET_KEY: "abc0123"
     JWT_SECRET_KEY: "abc0123"
+    JWT_ALGORITHM: "HS256"
+    JWT_EXP_DELTA_SECONDS: 7776000
     # fixme: use from cryptography.fernet import Fernet; Fernet.generate_key().decode()
     fernet_key: "irjsxvfJdqSJ2fcnpPacbH972dt-RPMMLE48PQ8J5Hg="
 
