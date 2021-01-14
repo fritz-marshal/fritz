@@ -14,7 +14,7 @@ To prepare, you should:
 
   ```sh
   git clone git@github.com:yourname/fritz
-  git remote add upstream git@github.com:fritz/fritz
+  git remote add upstream git@github.com:fritz-marshal/fritz
   ```
 
 Then, for each feature you wish to contribute, create a pull request:
