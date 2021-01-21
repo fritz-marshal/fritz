@@ -350,6 +350,7 @@ kowalski:
       alerts_ztf_filter: "ZTF_alerts_filter"
       alerts_zuds: "ZUDS_alerts"
       alerts_zuds_aux: "ZUDS_alerts_aux"
+      tns: "TNS"
 
     indexes:
       ZTF_alerts:
@@ -432,6 +433,17 @@ kowalski:
             - [ "candidate.magpsf", 1 ]
             - [ "candidate.isdiffpos", 1 ]
             - [ "objectId", -1 ]
+          unique: false
+
+      TNS:
+        - name: radec__id
+          fields:
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "_id", -1 ]
+          unique: false
+        - name: discovery_date
+          fields:
+            - [ "discovery_date", -1 ]
           unique: false
 
     filters:
@@ -635,9 +647,12 @@ kowalski:
     lifetime_stagger: 1 hours
     lifetime_restart: true
 
+  tns:
+    url: https://wis-tns.org
+
   misc:
     broker: True
-    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2"]
+    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2", "2.1.0", "2.1.1"]
     query_expiration_interval: 5
     max_time_ms: 300000
     max_retries: 100
