@@ -1366,6 +1366,50 @@ for individual documents.
 }
 ```
 
+### PS1_STRM
+
+```json
+{
+  "_id": "1019476000094893",
+  "objID": {
+    "$numberLong": "126012978959866990"
+  },
+  "uniquePspsOBid": {
+    "$numberLong": "1019476000094893"
+  },
+  "raMean": 297.895998,
+  "decMean": 15.013721900000002,
+  "l": 53.2189910788517,
+  "b": -6.02077803512053,
+  "class": "GALAXY",
+  "prob_Galaxy": 0.901703,
+  "prob_Star": 0.06004041,
+  "prob_QSO": 0.03825661,
+  "extrapolation_Class": 1,
+  "cellDistance_Class": 19.339466169917763,
+  "cellID_Class": 8394,
+  "z_phot": -1.074047327041626,
+  "z_photErr": 0.18997198833948975,
+  "z_phot0": -1.1336325,
+  "extrapolation_Photoz": 1,
+  "cellDistance_Photoz": 21.085969247165412,
+  "cellID_Photoz": 1947,
+  "coordinates": {
+    "radec_str": [
+      "19:51:35.0395",
+      "15:00:49.399"
+    ],
+    "radec_geojson": {
+      "type": "Point",
+      "coordinates": [
+        117.89599800000002,
+        15.013721900000002
+      ]
+    }
+  }
+}
+```
+
 ### RFC_2019d
 
 ```json

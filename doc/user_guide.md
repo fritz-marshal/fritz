@@ -331,7 +331,7 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 #### Alert data augmentation
 
-Fritz's Kowalski backend augments the alert data with the following: [as of December 2020]
+Fritz's Kowalski backend augments the alert data with the following: [as of January 2021]
 
 - Galactic coordinates
 
@@ -345,6 +345,7 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Dece
   - IPHAS_DR2 (all matches within 2")
   - LAMOST_DR5_v3 (all matches within 2")
   - PS1_DR1 (all matches within 2")
+  - PS1_STRM (all matches within 2")
   - galaxy_redshifts_20200522 (all matches within 2")
   - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_broker_ztf.py#L351))
 
