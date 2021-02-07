@@ -424,6 +424,8 @@ def run(args):
     c = ["python", "kowalski.py", "up"]
     if args.yes:
         c.append("--yes")
+    if args.init:
+        c.append("--init")
     p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
         raise RuntimeError("Failed to start Kowalski")

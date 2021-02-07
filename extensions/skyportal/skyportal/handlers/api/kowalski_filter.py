@@ -1,17 +1,23 @@
-import bson.json_util as bj
-import os
-import requests
+from penquins import Kowalski
 
 from baselayer.log import make_log
 from baselayer.app.access import auth_or_token
+from baselayer.app.env import load_env
 from ..base import BaseHandler
 from ...models import DBSession, Filter, Stream
 
 
+env, cfg = load_env()
 log = make_log("kowalski_filter")
 
 
-s = requests.Session()
+kowalski = Kowalski(
+    token=cfg["app.kowalski.token"],
+    protocol=cfg["app.kowalski.protocol"],
+    host=cfg["app.kowalski.host"],
+    port=int(cfg["app.kowalski.port"]),
+)
+log(f"Kowalski connection OK: {kowalski.ping()}")
 
 
 class KowalskiFilterHandler(BaseHandler):
@@ -21,6 +27,9 @@ class KowalskiFilterHandler(BaseHandler):
         ---
         single:
           description: Retrieve a filter as stored on Kowalski
+          tags:
+            - filters
+            - kowalski
           parameters:
             - in: path
               name: filter_id
@@ -50,46 +59,39 @@ class KowalskiFilterHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        if filter_id is not None:
-            f = (
-                DBSession()
-                .query(Filter)
-                .filter(
-                    Filter.id == filter_id,
-                    Filter.group_id.in_(
-                        [g.id for g in self.current_user.accessible_groups]
-                    ),
-                )
-                .first()
+        f = (
+            DBSession()
+            .query(Filter)
+            .filter(
+                Filter.id == filter_id,
+                Filter.group_id.in_(
+                    [g.id for g in self.current_user.accessible_groups]
+                ),
             )
-            if f is None:
-                return self.error("Invalid filter ID.")
+            .first()
+        )
+        if f is None:
+            return self.error("Invalid filter ID.")
+        response = kowalski.api(
+            method="get",
+            endpoint=f"api/filters/{filter_id}",
+        )
+        data = response.get("data")
+        status = response.get("status")
+        message = response.get("message")
 
-            group_id = f.group_id
-
-            base_url = (
-                f"{self.cfg['app.kowalski.protocol']}://"
-                f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-            )
-            headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
-
-            url = os.path.join(base_url, f"api/filters/{group_id}/{filter_id}")
-
-            resp = s.get(url, headers=headers, timeout=5)
-
-            if resp.status_code == requests.codes.ok:
-                data = bj.loads(resp.text).get("data")
-                return self.success(data=data)
-            else:
-                message = bj.loads(resp.text).get("message")
-                log(f"Failed to fetch data from Kowalski: {message}")
-                return self.error(f"Failed to fetch data from Kowalski: {message}")
+        if status == "success":
+            return self.success(data=data)
+        return self.error(message=message)
 
     @auth_or_token
     def post(self, filter_id):
         """
         ---
         description: POST a new filter version.
+        tags:
+          - filters
+          - kowalski
         requestBody:
           content:
             application/json:
@@ -161,37 +163,34 @@ class KowalskiFilterHandler(BaseHandler):
         # get stream:
         stream = DBSession().query(Stream).filter(Stream.id == f.stream_id).first()
 
-        base_url = (
-            f"{self.cfg['app.kowalski.protocol']}://"
-            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-        )
-        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
-
-        data = {
+        post_data = {
             "group_id": group_id,
             "filter_id": filter_id,
             "catalog": stream.altdata["collection"],
             "permissions": stream.altdata["selector"],
             "pipeline": pipeline,
         }
+        response = kowalski.api(
+            method="post",
+            endpoint="api/filters",
+            data=post_data,
+        )
+        data = response.get("data")
+        status = response.get("status")
+        message = response.get("message")
 
-        url = os.path.join(base_url, "api/filters")
-
-        resp = s.post(url, headers=headers, json=data, timeout=5)
-
-        if resp.status_code == requests.codes.ok:
-            data = bj.loads(resp.text).get("data")
+        if status == "success":
             return self.success(data=data)
-        else:
-            message = bj.loads(resp.text).get("message")
-            log(f"Failed to post filter to Kowalski: {message}")
-            return self.error(f"Failed to post filter to Kowalski: {message}")
+        return self.error(message=message)
 
     @auth_or_token
     def patch(self, filter_id):
         """
         ---
         description: Update a filter on Kowalski
+        tags:
+          - filters
+          - kowalski
         parameters:
           - in: path
             name: filter_id
@@ -202,43 +201,28 @@ class KowalskiFilterHandler(BaseHandler):
           content:
             application/json:
               schema:
-                oneOf:
-                  - type: object
-                    required:
-                      - group_id
-                      - filter_id
-                      - active
-                    properties:
-                      group_id:
-                        type: integer
-                        description: "[fritz] user group (science program) id"
-                        minimum: 1
-                      filter_id:
-                        type: integer
-                        description: "[fritz] science program filter id for this user group id"
-                        minimum: 1
-                      active:
-                        type: boolean
-                        description: "activate or deactivate filter"
-                  - type: object
-                    required:
-                      - group_id
-                      - filter_id
-                      - active_fid
-                    properties:
-                      group_id:
-                        type: integer
-                        description: "[fritz] user group (science program) id"
-                        minimum: 1
-                      filter_id:
-                        type: integer
-                        description: "[fritz] science program filter id for this user group id"
-                        minimum: 1
-                      active_fid:
-                        description: "set fid as active version"
-                        type: string
-                        minLength: 6
-                        maxLength: 6
+                - type: object
+                  required:
+                    - filter_id
+                  properties:
+                    filter_id:
+                      type: integer
+                      description: "[fritz] science program filter id for this user group id"
+                      minimum: 1
+                    active:
+                      type: boolean
+                      description: "activate or deactivate filter"
+                    active_fid:
+                      description: "set fid as active version"
+                      type: string
+                      minLength: 6
+                      maxLength: 6
+                    autosave:
+                      type: boolean
+                      description: "automatically save passing candidates to filter's group"
+                    update_annotations:
+                      type: boolean
+                      description: "update annotations for existing candidates"
         responses:
           200:
             content:
@@ -252,8 +236,12 @@ class KowalskiFilterHandler(BaseHandler):
         data = self.get_json()
         active = data.get("active", None)
         active_fid = data.get("active_fid", None)
-        if (active, active_fid).count(None) != 1:
-            return self.error("One and only one of (active, active_fid) must be set")
+        autosave = data.get("autosave", None)
+        update_annotations = data.get("update_annotations", None)
+        if (active, active_fid, autosave, update_annotations).count(None) < 1:
+            return self.error(
+                "At least one of (active, active_fid, autosave, update_annotations) must be set"
+            )
 
         f = (
             DBSession()
@@ -269,41 +257,38 @@ class KowalskiFilterHandler(BaseHandler):
         if f is None:
             return self.error("Invalid filter ID.")
 
-        group_id = f.group_id
-
-        base_url = (
-            f"{self.cfg['app.kowalski.protocol']}://"
-            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-        )
-        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
-
-        data = {
-            "group_id": group_id,
-            "filter_id": filter_id,
-        }
+        patch_data = {"filter_id": filter_id}
 
         if active is not None:
-            data["active"] = bool(active)
+            patch_data["active"] = bool(active)
         if active_fid is not None:
-            data["active_fid"] = str(active_fid)
+            patch_data["active_fid"] = str(active_fid)
+        if autosave is not None:
+            patch_data["autosave"] = bool(autosave)
+        if update_annotations is not None:
+            patch_data["update_annotations"] = bool(update_annotations)
 
-        url = os.path.join(base_url, "api/filters")
+        response = kowalski.api(
+            method="patch",
+            endpoint="api/filters",
+            data=patch_data,
+        )
+        data = response.get("data")
+        status = response.get("status")
+        message = response.get("message")
 
-        resp = s.put(url, headers=headers, json=data, timeout=5)
-
-        if resp.status_code == requests.codes.ok:
-            data = bj.loads(resp.text).get("data")
+        if status == "success":
             return self.success(data=data)
-        else:
-            message = bj.loads(resp.text).get("message")
-            log(f"Failed to update filter on Kowalski: {message}")
-            return self.error(f"Failed to update filter on Kowalski: {message}")
+        return self.error(message=message)
 
     @auth_or_token
     def delete(self, filter_id):
         """
         ---
-        description: Delete a filter
+        description: Delete a filter on Kowalski
+        tags:
+          - filters
+          - kowalski
         parameters:
           - in: path
             name: filter_id
@@ -330,27 +315,13 @@ class KowalskiFilterHandler(BaseHandler):
         if f is None:
             return self.error("Invalid filter ID.")
 
-        group_id = f.group_id
-
-        base_url = (
-            f"{self.cfg['app.kowalski.protocol']}://"
-            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
+        response = kowalski.api(
+            method="patch",
+            endpoint=f"api/filters/{filter_id}",
         )
-        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
+        status = response.get("status")
+        message = response.get("message")
 
-        data = {
-            "group_id": group_id,
-            "filter_id": filter_id,
-        }
-
-        url = os.path.join(base_url, "api/filters")
-
-        resp = s.delete(url, headers=headers, json=data, timeout=5)
-
-        if resp.status_code == requests.codes.ok:
-            data = bj.loads(resp.text).get("data")
-            return self.success(data=data)
-        else:
-            message = bj.loads(resp.text).get("message")
-            log(f"Failed to update filter on Kowalski: {message}")
-            return self.error(f"Failed to delete filter on Kowalski: {message}")
+        if status == "success":
+            return self.success()
+        return self.error(message=message)
