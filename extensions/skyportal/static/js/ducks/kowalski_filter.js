@@ -20,6 +20,16 @@ export const EDIT_ACTIVE_FID_FILTER_VERSION =
 export const EDIT_ACTIVE_FID_FILTER_VERSION_OK =
   "skyportal/EDIT_ACTIVE_FID_FILTER_VERSION_OK";
 
+export const EDIT_UPDATE_ANNOTATIONS =
+  "skyportal/EDIT_UPDATE_ANNOTATIONS";
+export const EDIT_UPDATE_ANNOTATIONS_OK =
+  "skyportal/EDIT_UPDATE_ANNOTATIONS_OK";
+
+export const EDIT_AUTOSAVE =
+  "skyportal/EDIT_AUTOSAVE";
+export const EDIT_AUTOSAVE_OK =
+  "skyportal/EDIT_AUTOSAVE_OK";
+
 export const DELETE_FILTER_VERSION = "skyportal/DELETE_FILTER_VERSION";
 export const DELETE_FILTER_VERSION_OK = "skyportal/DELETE_FILTER_VERSION_OK";
 
@@ -36,6 +46,18 @@ export function addFilterVersion({ filter_id, pipeline }) {
 export function editActiveFilterVersion({ filter_id, active }) {
   return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_ACTIVE_FILTER_VERSION, {
     active,
+  });
+}
+
+export function editAutosave({ filter_id, autosave }) {
+  return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_AUTOSAVE, {
+    autosave,
+  });
+}
+
+export function editUpdateAnnotations({ filter_id, update_annotations }) {
+  return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_UPDATE_ANNOTATIONS, {
+    update_annotations,
   });
 }
 

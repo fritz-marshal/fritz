@@ -63,7 +63,7 @@ class KowalskiFilterHandler(BaseHandler):
             DBSession()
             .query(Filter)
             .filter(
-                Filter.id == filter_id,
+                Filter.id == int(filter_id),
                 Filter.group_id.in_(
                     [g.id for g in self.current_user.accessible_groups]
                 ),
@@ -77,6 +77,9 @@ class KowalskiFilterHandler(BaseHandler):
             endpoint=f"api/filters/{filter_id}",
         )
         data = response.get("data")
+        # drop monogdb's _id's which are not (default) JSON-serializable
+        if data is not None:
+            data.pop("_id", None)
         status = response.get("status")
         message = response.get("message")
 
@@ -141,14 +144,14 @@ class KowalskiFilterHandler(BaseHandler):
         """
         data = self.get_json()
         pipeline = data.get("pipeline", None)
-        if not pipeline:
+        if pipeline is None:
             return self.error("Missing pipeline parameter")
 
         f = (
             DBSession()
             .query(Filter)
             .filter(
-                Filter.id == filter_id,
+                Filter.id == int(filter_id),
                 Filter.group_id.in_(
                     [g.id for g in self.current_user.accessible_groups]
                 ),
@@ -165,7 +168,7 @@ class KowalskiFilterHandler(BaseHandler):
 
         post_data = {
             "group_id": group_id,
-            "filter_id": filter_id,
+            "filter_id": int(filter_id),
             "catalog": stream.altdata["collection"],
             "permissions": stream.altdata["selector"],
             "pipeline": pipeline,
@@ -176,6 +179,8 @@ class KowalskiFilterHandler(BaseHandler):
             data=post_data,
         )
         data = response.get("data")
+        if data is not None:
+            data.pop("_id", None)
         status = response.get("status")
         message = response.get("message")
 
@@ -247,7 +252,7 @@ class KowalskiFilterHandler(BaseHandler):
             DBSession()
             .query(Filter)
             .filter(
-                Filter.id == filter_id,
+                Filter.id == int(filter_id),
                 Filter.group_id.in_(
                     [g.id for g in self.current_user.accessible_groups]
                 ),
@@ -257,7 +262,7 @@ class KowalskiFilterHandler(BaseHandler):
         if f is None:
             return self.error("Invalid filter ID.")
 
-        patch_data = {"filter_id": filter_id}
+        patch_data = {"filter_id": int(filter_id)}
 
         if active is not None:
             patch_data["active"] = bool(active)
@@ -274,6 +279,8 @@ class KowalskiFilterHandler(BaseHandler):
             data=patch_data,
         )
         data = response.get("data")
+        if data is not None:
+            data.pop("_id", None)
         status = response.get("status")
         message = response.get("message")
 
@@ -305,7 +312,7 @@ class KowalskiFilterHandler(BaseHandler):
             DBSession()
             .query(Filter)
             .filter(
-                Filter.id == filter_id,
+                Filter.id == int(filter_id),
                 Filter.group_id.in_(
                     [g.id for g in self.current_user.accessible_groups]
                 ),
