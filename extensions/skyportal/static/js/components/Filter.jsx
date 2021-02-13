@@ -109,7 +109,6 @@ const Filter = () => {
   const { register, handleSubmit } = useForm();
 
   const [filterLoadError, setFilterLoadError] = useState("");
-  const [filterVersionLoadError, setFilterVersionLoadError] = useState("");
   const [groupLoadError, setGroupLoadError] = useState("");
 
   const theme = useTheme();
@@ -131,19 +130,34 @@ const Filter = () => {
   }, [fid, loadedId, dispatch]);
 
   useEffect(() => {
+    // not using API/kowalski_filter duck here as that would throw an error if filter does not exist on K
+    const fetchInit = {
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "GET",
+    };
+
     const fetchFilterVersion = async () => {
-      const data = await dispatch(filterVersionActions.fetchFilterVersion(fid));
-      if (data.status === "error" && !data.message.includes("not found")) {
-        setFilterVersionLoadError(data.message);
-        if (filterVersionLoadError.length > 1) {
-          dispatch(showNotification(filterVersionLoadError, "error"));
-        }
+      const response = await fetch(`/api/filters/${fid}/v`, fetchInit);
+
+      let json = "";
+      try {
+        json = await response.json();
+      } catch (error) {
+        throw new Error(`JSON decoding error: ${error}`);
+      }
+      // exists on Kowalski?
+      if (json.status === "success") {
+        await dispatch(filterVersionActions.fetchFilterVersion(fid));
       }
     };
+
     if (loadedId !== fid) {
       fetchFilterVersion();
     }
-  }, [fid, loadedId, dispatch, filterVersionLoadError]);
+  }, [fid, loadedId, dispatch]);
 
   const group_id = useSelector((state) => state.filter.group_id);
 
@@ -310,7 +324,7 @@ const Filter = () => {
             Stream: {stream.name}
           </Typography>
         )}
-        {filter_v?.catalog && (
+        {filter && (
           <Accordion
             expanded={panelKowalskiExpanded}
             onChange={handlePanelKowalskiChange(true)}
@@ -373,109 +387,56 @@ const Filter = () => {
                     </DialogActions>
                   </form>
                 </Dialog>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleDiff}
-                  style={{ marginRight: 10 }}
-                >
-                  Inspect versions/diff
-                </Button>
-                <Dialog fullScreen open={openDiff} onClose={handleCloseDiff}>
-                  <AppBar className={classes.appBar}>
-                    <Toolbar>
-                      <IconButton edge="start" color="inherit" onClick={handleCloseDiff} aria-label="close">
-                        <CloseIcon />
-                      </IconButton>
-                      <Typography variant="h6" className={classes.marginLeft}>
-                        Inspect filter versions and diffs
-                      </Typography>
-                    </Toolbar>
-                  </AppBar>
-                  <Paper className={classes.paperDiv}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6} align="center">
-                        <FormControl className={classes.formControl}>
-                          <Select
-                            labelId="fv-diff-label"
-                            id="fv-diff"
-                            name="filter_diff"
-                            value={otherVersion}
-                            onChange={handleSelectFilterVersionDiff}
-                            className={classes.marginTop}
-                          >
-                            {filter_v.fv.map((fv) => (
-                              <MenuItem key={fv.fid} value={fv.fid}>
-                                {fv.fid}: {fv.created_at.slice(0, 19)}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                          <FormHelperText>Select version to diff</FormHelperText>
-                        </FormControl>
-                        {otherVersion.length > 0 && (
-                          <CopyToClipboard text={
-                            JSON.stringify(
-                              JSON.parse(
-                                filter_v.fv.filter((fv) => fv.fid === otherVersion)[0]
-                                  .pipeline
-                              ),
-                              null,
-                              2
-                            )
-                          }
-                          >
-                            <IconButton color="primary" aria-label="Copy def to clipboard" className={classes.marginTop}>
-                              <FileCopyIcon />
-                            </IconButton>
-                          </CopyToClipboard>
-                        )}
-                      </Grid>
-                      <Grid item xs={6} align="center">
-                        <Typography
-                          className={classes.big_font}
-                          color="textSecondary"
-                          gutterBottom
-                        >
-                          Active version:
-                        </Typography>
-                        <Typography
-                          className={classes.big_font}
-                          color="textPrimary"
-                          gutterBottom
-                        >
-                          {`${filter_v.active_fid}: ${filter_v.fv
-                            .filter((fv) => fv.fid === filter_v.active_fid)[0]
-                            .created_at.slice(0, 19)}`}
-                          <CopyToClipboard text={JSON.stringify(
-                              JSON.parse(
-                                filter_v.fv.filter(
-                                  (fv) => fv.fid === filter_v.active_fid
-                                )[0].pipeline
-                              ),
-                              null,
-                              2
-                            )}
-                          >
-                            <IconButton color="primary" aria-label="Copy def to clipboard">
-                              <FileCopyIcon />
-                            </IconButton>
-                          </CopyToClipboard>
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <ReactDiffViewer
-                          newValue={JSON.stringify(
-                            JSON.parse(
-                              filter_v.fv.filter(
-                                (fv) => fv.fid === filter_v.active_fid
-                              )[0].pipeline
-                            ),
-                            null,
-                            2
-                          )}
-                          oldValue={
-                            otherVersion.length > 0
-                              ? JSON.stringify(
+                {
+                  filter_v?.fv &&
+                  (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleDiff}
+                      style={{marginRight: 10}}
+                    >
+                      Inspect versions/diff
+                    </Button>
+                  )
+                }
+                {
+                  filter_v?.fv &&
+                  (
+                    <Dialog fullScreen open={openDiff} onClose={handleCloseDiff}>
+                      <AppBar className={classes.appBar}>
+                        <Toolbar>
+                          <IconButton edge="start" color="inherit" onClick={handleCloseDiff} aria-label="close">
+                            <CloseIcon />
+                          </IconButton>
+                          <Typography variant="h6" className={classes.marginLeft}>
+                            Inspect filter versions and diffs
+                          </Typography>
+                        </Toolbar>
+                      </AppBar>
+                      <Paper className={classes.paperDiv}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6} align="center">
+                            <FormControl className={classes.formControl}>
+                              <Select
+                                labelId="fv-diff-label"
+                                id="fv-diff"
+                                name="filter_diff"
+                                value={otherVersion}
+                                onChange={handleSelectFilterVersionDiff}
+                                className={classes.marginTop}
+                              >
+                                {filter_v.fv.map((fv) => (
+                                  <MenuItem key={fv.fid} value={fv.fid}>
+                                    {fv.fid}: {fv.created_at.slice(0, 19)}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                              <FormHelperText>Select version to diff</FormHelperText>
+                            </FormControl>
+                            {otherVersion.length > 0 && (
+                              <CopyToClipboard text={
+                                JSON.stringify(
                                   JSON.parse(
                                     filter_v.fv.filter((fv) => fv.fid === otherVersion)[0]
                                       .pipeline
@@ -483,81 +444,163 @@ const Filter = () => {
                                   null,
                                   2
                                 )
-                              : otherVersion
-                          }
-                          splitView
-                          showDiffOnly={false}
-                          useDarkTheme={darkTheme}
-                          renderContent={highlightSyntax}
+                              }
+                              >
+                                <IconButton color="primary" aria-label="Copy def to clipboard" className={classes.marginTop}>
+                                  <FileCopyIcon />
+                                </IconButton>
+                              </CopyToClipboard>
+                            )}
+                          </Grid>
+                          <Grid item xs={6} align="center">
+                            <Typography
+                              className={classes.big_font}
+                              color="textSecondary"
+                              gutterBottom
+                            >
+                              Active version:
+                            </Typography>
+                            <Typography
+                              className={classes.big_font}
+                              color="textPrimary"
+                              gutterBottom
+                            >
+                              {`${filter_v.active_fid}: ${filter_v.fv
+                                .filter((fv) => fv.fid === filter_v.active_fid)[0]
+                                .created_at.slice(0, 19)}`}
+                              <CopyToClipboard text={JSON.stringify(
+                                JSON.parse(
+                                  filter_v.fv.filter(
+                                    (fv) => fv.fid === filter_v.active_fid
+                                  )[0].pipeline
+                                ),
+                                null,
+                                2
+                              )}
+                              >
+                                <IconButton color="primary" aria-label="Copy def to clipboard">
+                                  <FileCopyIcon />
+                                </IconButton>
+                              </CopyToClipboard>
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <ReactDiffViewer
+                              newValue={JSON.stringify(
+                                JSON.parse(
+                                  filter_v.fv.filter(
+                                    (fv) => fv.fid === filter_v.active_fid
+                                  )[0].pipeline
+                                ),
+                                null,
+                                2
+                              )}
+                              oldValue={
+                                otherVersion.length > 0
+                                  ? JSON.stringify(
+                                  JSON.parse(
+                                    filter_v.fv.filter((fv) => fv.fid === otherVersion)[0]
+                                      .pipeline
+                                  ),
+                                  null,
+                                  2
+                                  )
+                                  : otherVersion
+                              }
+                              splitView
+                              showDiffOnly={false}
+                              useDarkTheme={darkTheme}
+                              renderContent={highlightSyntax}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Paper>
+                    </Dialog>
+                  )
+                }
+              </div>
+              {
+                filter_v?.fv &&
+                (
+                  <div className={classes.infoLine}>
+                    <FormControlLabel
+                      className={classes.formControl}
+                      control={
+                        <Switch
+                          checked={filter_v.active}
+                          size="small"
+                          onChange={handleChangeActiveFilter}
+                          name="filterActive"
                         />
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Dialog>
-              </div>
-              <div className={classes.infoLine}>
-                <FormControlLabel
-                  className={classes.formControl}
-                  control={
-                    <Switch
-                      checked={filter_v.active}
-                      size="small"
-                      onChange={handleChangeActiveFilter}
-                      name="filterActive"
+                      }
+                      label="Active"
                     />
-                  }
-                  label="Active"
-                />
-              </div>
-              <div className={classes.infoLine}>
-                <FormControl className={classes.formControl}>
-                  <InputLabel id="alert-stream-select-required-label">
-                    Active version
-                  </InputLabel>
-                  <Select
+                  </div>
+                )
+              }
+              {
+                filter_v?.fv &&
+                (
+                  <div className={classes.infoLine}>
+                    <FormControl className={classes.formControl}>
+                      <InputLabel id="alert-stream-select-required-label">
+                        Active version
+                      </InputLabel>
+                      <Select
+                        disabled={!filter_v.active}
+                        labelId="alert-stream-select-required-label"
+                        id="alert-stream-select"
+                        value={filter_v.active_fid}
+                        onChange={handleFidChange}
+                        className={classes.marginTop}
+                      >
+                        {filter_v.fv.map((fv) => (
+                          <MenuItem key={fv.fid} value={fv.fid}>
+                            {fv.fid}: {fv.created_at.slice(0, 19)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+                )
+              }
+              {
+                filter_v?.fv &&
+                (
+                  <FormControlLabel
+                    // style={{ marginLeft: "0.2rem", marginTop: "1rem" }}
+                    className={classes.formControl}
                     disabled={!filter_v.active}
-                    labelId="alert-stream-select-required-label"
-                    id="alert-stream-select"
-                    value={filter_v.active_fid}
-                    onChange={handleFidChange}
-                    className={classes.marginTop}
-                  >
-                    {filter_v.fv.map((fv) => (
-                      <MenuItem key={fv.fid} value={fv.fid}>
-                        {fv.fid}: {fv.created_at.slice(0, 19)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </div>
-              <FormControlLabel
-                // style={{ marginLeft: "0.2rem", marginTop: "1rem" }}
-                className={classes.formControl}
-                disabled={!filter_v.active}
-                control={
-                  <Switch
-                    checked={filter_v.update_annotations}
-                    size="small"
-                    onChange={handleChangeUpdateAnnotations}
-                    name="filterUpdateAnnotations"
+                    control={
+                      <Switch
+                        checked={filter_v.update_annotations}
+                        size="small"
+                        onChange={handleChangeUpdateAnnotations}
+                        name="filterUpdateAnnotations"
+                      />
+                    }
+                    label="Update auto-annotations every time an object passes the filter"
                   />
-                }
-                label="Update auto-annotations every time an object passes the filter"
-              />
-              <FormControlLabel
-                // style={{ marginLeft: "0.2rem", marginTop: "1rem" }}
-                className={classes.formControl}
-                disabled={!filter_v.active}
-                control={
-                  <Switch
-                    checked={filter_v.autosave}
-                    size="small"
-                    onChange={handleChangeAutosave}
-                    name="filterAutosave"
+                )
+              }
+              {
+                filter_v?.fv &&
+                (
+                  <FormControlLabel
+                    className={classes.formControl}
+                    disabled={!filter_v.active}
+                    control={
+                      <Switch
+                        checked={filter_v.autosave}
+                        size="small"
+                        onChange={handleChangeAutosave}
+                        name="filterAutosave"
+                      />
+                    }
+                    label={group?.name && `Automatically save all passing objects to ${group.name}`}
                   />
-                }
-                label={group?.name && `Automatically save all passing objects to ${group.name}`}
-              />
+                )
+              }
             </AccordionDetails>
           </Accordion>
         )}
