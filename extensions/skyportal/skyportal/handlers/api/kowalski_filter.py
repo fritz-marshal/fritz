@@ -243,7 +243,7 @@ class KowalskiFilterHandler(BaseHandler):
         active_fid = data.get("active_fid", None)
         autosave = data.get("autosave", None)
         update_annotations = data.get("update_annotations", None)
-        if (active, active_fid, autosave, update_annotations).count(None) < 1:
+        if (active, active_fid, autosave, update_annotations).count(None) == 4:
             return self.error(
                 "At least one of (active, active_fid, autosave, update_annotations) must be set"
             )
