@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-// import Prism from "prismjs";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useParams } from "react-router-dom";
 import Paper from "@material-ui/core/Paper";
@@ -301,7 +300,6 @@ const Filter = () => {
       style={{ display: 'inline', fontSize: "0.75rem", fontFamily: "Lucida Console, sans-serif" }}
       dangerouslySetInnerHTML={{
         __html: str
-        // __html: Prism.highlight(str, Prism.languages.javascript, "javascript"),
       }}
     />
   );
