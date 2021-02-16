@@ -68,6 +68,7 @@ skyportal:
         component: FindingChart
       - path: "/observability/:id"
         component: Observability
+
     kowalski:
       protocol: "http"
       host: "kowalski_api_1"
@@ -337,6 +338,8 @@ kowalski:
     max_pool_size: 200
     host: "kowalski_mongo_1"
     port: 27017
+    # if not null, must be same as in entrypoint of mongo container
+    replica_set: "rs0"
     db: "kowalski"
     admin_username: "mongoadmin"
     # fixme: use strong password if exposing the database to the world
@@ -595,6 +598,19 @@ kowalski:
             objtype: 1
             class: 1
             subclass:  1
+
+        PS1_STRM:
+          filter: { }
+          projection:
+            _id: 1
+            objID: 1
+            coordinates.radec_str: 1
+            class: 1
+            prob_Galaxy: 1
+            prob_Star: 1
+            prob_QSO: 1
+            z_phot: 1
+            z_phot_err: 1
 
         PS1_DR1:
           filter: {}
