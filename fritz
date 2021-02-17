@@ -665,6 +665,8 @@ def test(args):
 
 
 def doc(args):
+    check_config()
+
     subprocess.run(["make", "html"], cwd="doc", check=True)
 
     patch_skyportal()
