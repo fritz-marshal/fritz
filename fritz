@@ -113,14 +113,14 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
 
     # get Docker gateway IP
-    cmd = [
+    command = [
         "docker",
         "network",
         "inspect",
         "bridge",
-        "--format={{(index .IPAM.Config 0).Gateway}}",
+        '--format={{index .IPAM.Config 0 "Gateway"}}',
     ]
-    p = subprocess.run(cmd, stdout=subprocess.PIPE)
+    p = subprocess.run(command, stdout=subprocess.PIPE)
     gateway_ip = p.stdout.decode("utf-8").strip()
     config["kowalski"]["skyportal"]["host"] = gateway_ip
 
