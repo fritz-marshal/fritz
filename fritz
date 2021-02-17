@@ -665,7 +665,7 @@ def test(args):
 
 
 def doc(args):
-    check_config()
+    check_config(yes=True)
 
     subprocess.run(["make", "html"], cwd="doc", check=True)
 
