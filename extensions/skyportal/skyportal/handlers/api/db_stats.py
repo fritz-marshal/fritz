@@ -118,12 +118,8 @@ class StatsHandler(BaseHandler):
             "query_type": "count_documents",
             "query": {
                 "catalog": "ZTF_alerts",
-                "filter": {
-                    "candidate.jd": {
-                        "$gt": jd_start,
-                    }
-                }
-            }
+                "filter": {"candidate.jd": {"$gt": jd_start,}},
+            },
         }
         response = kowalski.query(query=k_query)
         data["Number of alerts ingested since 0h UTC today"] = response.get("data")
