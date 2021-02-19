@@ -1,7 +1,7 @@
 from penquins import Kowalski
 
 from baselayer.log import make_log
-from baselayer.app.access import auth_or_token
+from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from ..base import BaseHandler
 from ...models import DBSession, Filter, Stream
@@ -111,30 +111,9 @@ class KowalskiFilterHandler(BaseHandler):
                         data:
                           type: object
                           required:
-                            - group_id
                             - filter_id
-                            - catalog
-                            - permissions
                             - pipeline
                           properties:
-                            group_id:
-                              type: integer
-                              description: "[fritz] user group (science program) id"
-                              minimum: 1
-                            filter_id:
-                              type: integer
-                              description: "[fritz] science program filter id for this user group id"
-                              minimum: 1
-                            catalog:
-                              type: string
-                              description: "alert stream to filter"
-                              enum: [ZTF_alerts, ZUDS_alerts]
-                            permissions:
-                              type: array
-                              items:
-                                type: integer
-                              description: "permissions to access streams"
-                              minItems: 1
                             pipeline:
                               type: array
                               items:
@@ -288,7 +267,7 @@ class KowalskiFilterHandler(BaseHandler):
             return self.success(data=data)
         return self.error(message=message)
 
-    @auth_or_token
+    @permissions(["System admin"])
     def delete(self, filter_id):
         """
         ---
