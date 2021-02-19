@@ -663,9 +663,59 @@ def test(args):
     except subprocess.CalledProcessError:
         sys.exit(1)
 
+    print("Testing Fritz-specific SkyPortal extensions")
+
+    # use the generated config as test config for e.g. the correct db connection details
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "skyportal_web_1",
+        "cp",
+        "config.yaml",
+        "test_config.yaml",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
+    api_tests = [
+        test_file.name
+        for test_file in Path("extensions/skyportal/skyportal/tests/api").glob(
+            "test_*.py"
+        )
+    ]
+
+    for api_test in api_tests:
+        command = [
+            "docker",
+            "exec",
+            "-i",
+            "skyportal_web_1",
+            "python",
+            "-m",
+            "pytest",
+            "-s",
+            api_test,
+        ]
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError:
+            continue
+
 
 def doc(args):
     check_config(yes=True)
+    subprocess.run(
+        [
+            "cp",
+            "config.yaml",
+            "config.defaults.yaml",
+        ],
+        check=True,
+        cwd="skyportal",
+    )
 
     subprocess.run(["make", "html"], cwd="doc", check=True)
 

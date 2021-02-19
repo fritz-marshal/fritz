@@ -1,31 +1,35 @@
 from skyportal.tests import api
 
 
-def test_get_alert(view_only_token, public_source):
-    status, data = api("GET", f"alerts/ztf/{public_source.id}", token=view_only_token)
+def test_get_alert(view_only_token):
+    oid = "ZTF20aaelulu"
+    status, data = api("GET", f"alerts/ztf/{oid}", token=view_only_token)
     assert status == 200
     assert data["status"] == "success"
-    # assert all(
-    #     k in data["data"][0]
-    #     for k in ["query_string", "group_id"]
-    # )
+    assert "data" in data
+    assert len(data["data"]) > 0
+    assert all(k in data["data"][0] for k in ["candidate", "coordinates"])
 
 
 def test_get_alert_aux(view_only_token, public_source):
-    status, data = api(
-        "GET", f"alerts/ztf/{public_source.id}/aux", token=view_only_token
-    )
+    oid = "ZTF20aaelulu"
+    status, data = api("GET", f"alerts/ztf/{oid}/aux", token=view_only_token)
     assert status == 200
     assert data["status"] == "success"
+    assert "data" in data
+    assert all(k in data["data"] for k in ["_id", "cross_matches", "prv_candidates"])
+    assert data["data"]["_id"] == oid
 
 
-def test_get_alert_cutout(view_only_token, public_source):
+def test_get_alert_cutout(view_only_token):
+    oid = "ZTF20aaelulu"
+    candid = 1105522281015015000
     for cutout in ("science", "template", "difference"):
         for file_format in ("png", "fits"):
-            status, data = api(
+            response = api(
                 "GET",
-                f"/api/alerts/ztf/${public_source.id}/cutout"
-                f"?candid=${public_source.candid}&cutout={cutout}&file_format={file_format}",
+                f"/api/alerts/ztf/{oid}/cutout"
+                f"?candid={candid}&cutout={cutout}&file_format={file_format}",
+                raw_response=True,
             )
-            assert status == 200
-            assert data["status"] == "success"
+            assert response.status_code == 200
