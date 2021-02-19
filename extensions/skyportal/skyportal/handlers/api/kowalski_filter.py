@@ -183,28 +183,28 @@ class KowalskiFilterHandler(BaseHandler):
           content:
             application/json:
               schema:
-                - type: object
-                  required:
-                    - filter_id
-                  properties:
-                    filter_id:
-                      type: integer
-                      description: "[fritz] science program filter id for this user group id"
-                      minimum: 1
-                    active:
-                      type: boolean
-                      description: "activate or deactivate filter"
-                    active_fid:
-                      description: "set fid as active version"
-                      type: string
-                      minLength: 6
-                      maxLength: 6
-                    autosave:
-                      type: boolean
-                      description: "automatically save passing candidates to filter's group"
-                    update_annotations:
-                      type: boolean
-                      description: "update annotations for existing candidates"
+                type: object
+                required:
+                  - filter_id
+                properties:
+                  filter_id:
+                    type: integer
+                    description: "[fritz] science program filter id for this user group id"
+                    minimum: 1
+                  active:
+                    type: boolean
+                    description: "activate or deactivate filter"
+                  active_fid:
+                    description: "set fid as active version"
+                    type: string
+                    minLength: 6
+                    maxLength: 6
+                  autosave:
+                    type: boolean
+                    description: "automatically save passing candidates to filter's group"
+                  update_annotations:
+                    type: boolean
+                    description: "update annotations for existing candidates"
         responses:
           200:
             content:
