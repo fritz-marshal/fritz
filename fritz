@@ -707,15 +707,16 @@ def test(args):
 
 def doc(args):
     check_config(yes=True)
-    subprocess.run(
-        [
-            "cp",
-            "config.yaml",
-            "config.defaults.yaml",
-        ],
-        check=True,
-        cwd="skyportal",
-    )
+    for destination in ("config.defaults.yaml", "../"):
+        subprocess.run(
+            [
+                "cp",
+                "config.yaml",
+                destination,
+            ],
+            check=True,
+            cwd="skyportal",
+        )
 
     subprocess.run(["make", "html"], cwd="doc", check=True)
 
