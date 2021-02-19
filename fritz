@@ -707,7 +707,7 @@ def test(args):
 
 def doc(args):
     check_config(yes=True)
-    for destination in ("config.defaults.yaml", "../"):
+    for destination in ("config.defaults.yaml", "../", "../doc"):
         subprocess.run(
             [
                 "cp",
