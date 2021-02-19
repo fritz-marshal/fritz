@@ -693,11 +693,10 @@ def test(args):
             "exec",
             "-i",
             "skyportal_web_1",
-            "python",
-            "-m",
-            "pytest",
-            "-s",
-            api_test,
+            "/bin/bash",
+            "-c",
+            "source /skyportal_env/bin/activate;"
+            f"python -m pytest -s skyportal/tests/api/{api_test}",
         ]
         try:
             subprocess.run(command, check=True)
