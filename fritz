@@ -113,14 +113,14 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
 
     # get Docker gateway IP
-    cmd = [
+    command = [
         "docker",
         "network",
         "inspect",
         "bridge",
-        "--format={{(index .IPAM.Config 0).Gateway}}",
+        '--format={{index .IPAM.Config 0 "Gateway"}}',
     ]
-    p = subprocess.run(cmd, stdout=subprocess.PIPE)
+    p = subprocess.run(command, stdout=subprocess.PIPE)
     gateway_ip = p.stdout.decode("utf-8").strip()
     config["kowalski"]["skyportal"]["host"] = gateway_ip
 
@@ -422,8 +422,6 @@ def run(args):
 
     # start up kowalski
     c = ["python", "kowalski.py", "up"]
-    if args.yes:
-        c.append("--yes")
     p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
         raise RuntimeError("Failed to start Kowalski")
@@ -665,8 +663,74 @@ def test(args):
     except subprocess.CalledProcessError:
         sys.exit(1)
 
+    # show processing log from dask cluster
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "kowalski_ingester_1",
+        "cat",
+        "/data/logs/dask_cluster.log",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
+    print("Testing Fritz-specific SkyPortal extensions")
+
+    # use the generated config as test config for e.g. the correct db connection details
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "skyportal_web_1",
+        "cp",
+        "config.yaml",
+        "test_config.yaml",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
+    api_tests = [
+        test_file.name
+        for test_file in Path("extensions/skyportal/skyportal/tests/api").glob(
+            "test_*.py"
+        )
+    ]
+
+    for api_test in api_tests:
+        command = [
+            "docker",
+            "exec",
+            "-i",
+            "skyportal_web_1",
+            "/bin/bash",
+            "-c",
+            "source /skyportal_env/bin/activate &&"
+            f"python -m pytest -s skyportal/tests/api/{api_test}",
+        ]
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError:
+            continue
+
 
 def doc(args):
+    check_config(yes=True)
+    for destination in ("config.yaml.defaults",):
+        subprocess.run(
+            [
+                "cp",
+                "config.yaml",
+                destination,
+            ],
+            check=True,
+            cwd="skyportal",
+        )
+
     subprocess.run(["make", "html"], cwd="doc", check=True)
 
     patch_skyportal()
