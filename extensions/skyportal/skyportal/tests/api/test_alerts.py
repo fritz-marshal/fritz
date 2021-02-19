@@ -4,6 +4,7 @@ from skyportal.tests import api
 def test_get_alert(view_only_token):
     oid = "ZTF20aaelulu"
     status, data = api("GET", f"alerts/ztf/{oid}", token=view_only_token)
+    print(data)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data
@@ -11,9 +12,10 @@ def test_get_alert(view_only_token):
     assert all(k in data["data"][0] for k in ["candidate", "coordinates"])
 
 
-def test_get_alert_aux(view_only_token, public_source):
+def test_get_alert_aux(view_only_token):
     oid = "ZTF20aaelulu"
     status, data = api("GET", f"alerts/ztf/{oid}/aux", token=view_only_token)
+    print(data)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data

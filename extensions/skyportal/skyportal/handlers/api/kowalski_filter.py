@@ -81,11 +81,10 @@ class KowalskiFilterHandler(BaseHandler):
         if data is not None:
             data.pop("_id", None)
         status = response.get("status")
-        message = response.get("message")
-
-        if status == "success":
-            return self.success(data=data)
-        return self.error(message=message)
+        if status == "error":
+            message = response.get("message")
+            return self.error(message=message)
+        return self.success(data=data)
 
     @auth_or_token
     def post(self, filter_id):
@@ -161,11 +160,10 @@ class KowalskiFilterHandler(BaseHandler):
         if data is not None:
             data.pop("_id", None)
         status = response.get("status")
-        message = response.get("message")
-
-        if status == "success":
-            return self.success(data=data)
-        return self.error(message=message)
+        if status == "error":
+            message = response.get("message")
+            return self.error(message=message)
+        return self.success(data=data)
 
     @auth_or_token
     def patch(self, filter_id):
@@ -261,11 +259,10 @@ class KowalskiFilterHandler(BaseHandler):
         if data is not None:
             data.pop("_id", None)
         status = response.get("status")
-        message = response.get("message")
-
-        if status == "success":
-            return self.success(data=data)
-        return self.error(message=message)
+        if status == "error":
+            message = response.get("message")
+            return self.error(message=message)
+        return self.success(data=data)
 
     @permissions(["System admin"])
     def delete(self, filter_id):
@@ -306,8 +303,7 @@ class KowalskiFilterHandler(BaseHandler):
             endpoint=f"api/filters/{filter_id}",
         )
         status = response.get("status")
-        message = response.get("message")
-
-        if status == "success":
-            return self.success()
-        return self.error(message=message)
+        if status == "error":
+            message = response.get("message")
+            return self.error(message=message)
+        return self.success()
