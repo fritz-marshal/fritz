@@ -28,8 +28,6 @@ skyportal:
         exact: True
       - path: "/source/:id"
         component: Source
-      - path: "/source/:id/periodogram"
-        component: Periodogram
       - path: "/favorites"
         component: FavoritesPage
       - path: "/groups"
