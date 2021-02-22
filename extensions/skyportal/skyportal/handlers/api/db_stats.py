@@ -118,7 +118,11 @@ class StatsHandler(BaseHandler):
             "query_type": "count_documents",
             "query": {
                 "catalog": "ZTF_alerts",
-                "filter": {"candidate.jd": {"$gt": jd_start,}},
+                "filter": {
+                    "candidate.jd": {
+                        "$gt": jd_start,
+                    }
+                },
             },
         }
         response = kowalski.query(query=k_query)
