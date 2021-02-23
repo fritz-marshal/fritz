@@ -112,6 +112,40 @@ skyportal:
         icon: Info
         url: /about
 
+  homepage_grid:
+    # This section describes the grid on which Home Page widgets are laid out.
+    #
+    # The breakpoints describe screen sizes at which a different set of widget
+    # layouts should be used. Note that these breakpoints describe minimum width
+    # values, unlike the maximum width bounds used by Material UI breakpoints.
+    # For example, a breakpoint of "sm: 650" will match windows with width 650px
+    # or greater, until the next highest breakpoint is hit (probably a "md").
+    # This is different from Material UI, where a breakpoint of 650 would match
+    # window widths that are at most 650px.
+    #
+    # The cols describe the number of evenly spaced columns that make up the
+    # grid at a given breakpoint. For example, on extra-large screens (greater
+    # than ${breakpoints.xlg} pixels), the grid will use ${cols.xlg} columns of
+    # equal width to describe sizes of widgets based on the layouts provided.
+    #
+    # Optionally, you may provide a "row_height: {a rem value}" property in
+    # this section to change the height of a row on the grid. By default, this
+    # value is 9.375rem (150px for the default 16px = 1rem configuration).
+
+    breakpoints:
+      xlg: 1400
+      lg: 1150
+      md: 996
+      sm: 650
+      xs: 0
+
+    cols:
+      xlg: 16
+      lg: 12
+      md: 10
+      sm: 6
+      xs: 4
+
   homepage_widgets:
     # This section describes the specific widgets shown on the Home Page and how
     # they are laid out by default on the grid of the page.
@@ -143,11 +177,11 @@ skyportal:
     WeatherWidget:
       resizeable: false
       layouts:
-        xlg: [ 0, 10, 4, 1 ]
-        lg: [ 0, 10, 4, 1 ]
-        md: [ 0, 10, 4, 1 ]
-        sm: [ 0, 10, 4, 1 ]
-        xs: [ 0, 12, 4, 1 ]
+        xlg: [0, 10, 4, 1]
+        lg: [0, 10, 4, 1]
+        md: [0, 10, 4, 1]
+        sm: [0, 10, 4, 1]
+        xs: [0, 12, 4, 1]
 
     SourceCounts:
       props:
@@ -248,7 +282,7 @@ skyportal:
       url:
       port:
       # which log files, if any do you not want to send over to the 3rd party?
-      excluded_log_files: [ "log/websocket_server.log" ]
+      excluded_log_files: ["log/websocket_server.log"]
 
   weather:
     refresh_time: 3600.0
@@ -273,7 +307,7 @@ skyportal:
     sms_auth_token:
 
   invitations:
-    enabled: False  # If debug_login=True above, invite tokens won't be used during auth
+    enabled: False # If debug_login=True above, invite tokens won't be used during auth
     days_until_expiry: 3
     email_subject: "You have been invited to collaborate on Fritz"
     email_body_preamble: | # This can include HTML tags
@@ -367,129 +401,158 @@ kowalski:
       ZTF_alerts:
         - name: radec_candid
           fields:
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "candid", -1 ]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["candid", -1]
           unique: false
         - name: radec_objectId
           fields:
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "objectId", -1 ]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["objectId", -1]
           unique: false
         - name: jd_radec_candid
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "candid", -1 ]
+            - ["candidate.jd", 1]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["candid", -1]
           unique: false
         - name: jd_radec_objectId
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "objectId", -1 ]
+            - ["candidate.jd", 1]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["objectId", -1]
           unique: false
         - name: objectId
           fields:
-            - [ "objectId", -1 ]
+            - ["objectId", -1]
           unique: false
         - name: candid
           fields:
-            - [ "candid", -1 ]
+            - ["candid", -1]
           unique: true
         - name: pid
           fields:
-            - [ "candidate.pid", 1 ]
+            - ["candidate.pid", 1]
           unique: false
         - name: objectId_pid
           fields:
-            - [ "objectId", -1 ]
-            - [ "candidate.pid", 1 ]
+            - ["objectId", -1]
+            - ["candidate.pid", 1]
           unique: false
         - name: pdiffimfilename
           fields:
-            - [ "candidate.pdiffimfilename", 1 ]
+            - ["candidate.pdiffimfilename", 1]
           unique: false
         - name: jd_programid_programpi
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "candidate.programid", 1 ]
-            - [ "candidate.programpi", 1 ]
+            - ["candidate.jd", 1]
+            - ["candidate.programid", 1]
+            - ["candidate.programpi", 1]
           unique: false
         - name: jd_braai_candid
           fields:
-            - [ "candidate.jd", -1 ]
-            - [ "classifications.braai", -1 ]
-            - [ "candid", -1 ]
+            - ["candidate.jd", -1]
+            - ["classifications.braai", -1]
+            - ["candid", -1]
           unique: false
         - name: jd_drb_candid
           fields:
-            - [ "candidate.jd", -1 ]
-            - [ "candidate.drb", -1 ]
-            - [ "candid", -1 ]
+            - ["candidate.jd", -1]
+            - ["candidate.drb", -1]
+            - ["candid", -1]
           unique: false
         - name: jd_braai_magpsf_isdiffpos_ndethist
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "classifications.braai", 1 ]
-            - [ "candidate.magpsf", 1 ]
-            - [ "candidate.isdiffpos", 1 ]
-            - [ "candidate.ndethist", 1 ]
+            - ["candidate.jd", 1]
+            - ["classifications.braai", 1]
+            - ["candidate.magpsf", 1]
+            - ["candidate.isdiffpos", 1]
+            - ["candidate.ndethist", 1]
           unique: false
         - name: jd_field_drb_ndethhist_magpsf_isdiffpos_objectId
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "candidate.field", 1 ]
-            - [ "candidate.rb", 1 ]
-            - [ "candidate.drb", 1 ]
-            - [ "candidate.ndethist", 1 ]
-            - [ "candidate.magpsf", 1 ]
-            - [ "candidate.isdiffpos", 1 ]
-            - [ "objectId", -1 ]
+            - ["candidate.jd", 1]
+            - ["candidate.field", 1]
+            - ["candidate.rb", 1]
+            - ["candidate.drb", 1]
+            - ["candidate.ndethist", 1]
+            - ["candidate.magpsf", 1]
+            - ["candidate.isdiffpos", 1]
+            - ["objectId", -1]
           unique: false
 
       TNS:
         - name: radec__id
           fields:
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "_id", -1 ]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["_id", -1]
           unique: false
         - name: discovery_date
           fields:
-            - [ "discovery_date", -1 ]
+            - ["discovery_date", -1]
           unique: false
 
     filters:
       ZTF_alerts:
         # default upstream aggregation pipeline stages for filtering ZTF alerts:
-        - {"$match": {"candid": null, "candidate.programid": {"$in": null}}}
-        - {"$project": {"cutoutScience": 0, "cutoutTemplate": 0, "cutoutDifference": 0}}
-        - {"$lookup": {"from": "ZTF_alerts_aux", "localField": "objectId", "foreignField": "_id", "as": "aux"}}
-        - {"$project": {
-          "cross_matches": {
-            "$arrayElemAt": [
-              "$aux.cross_matches", 0
-            ]
-          },
-          "prv_candidates": {
-            "$filter": {
-              "input": {"$arrayElemAt": ["$aux.prv_candidates", 0]},
-              "as": "item",
-              "cond": {
-                "$and": [
-                {"$in": ["$$item.programid", null]},
-                {"$lt": [{"$subtract": ["$candidate.jd", "$$item.jd"]}, 100]}
-                ]
-              }
-            }
-          },
-          "schemavsn": 1,
-          "publisher": 1,
-          "objectId": 1,
-          "candid": 1,
-          "candidate": 1,
-          "classifications": 1,
-          "coordinates": 1
-        }
-        }
+        - {
+            "$match":
+              { "candid": null, "candidate.programid": { "$in": null } },
+          }
+        - {
+            "$project":
+              {
+                "cutoutScience": 0,
+                "cutoutTemplate": 0,
+                "cutoutDifference": 0,
+              },
+          }
+        - {
+            "$lookup":
+              {
+                "from": "ZTF_alerts_aux",
+                "localField": "objectId",
+                "foreignField": "_id",
+                "as": "aux",
+              },
+          }
+        - {
+            "$project":
+              {
+                "cross_matches": { "$arrayElemAt": ["$aux.cross_matches", 0] },
+                "prv_candidates":
+                  {
+                    "$filter":
+                      {
+                        "input": { "$arrayElemAt": ["$aux.prv_candidates", 0] },
+                        "as": "item",
+                        "cond":
+                          {
+                            "$and":
+                              [
+                                { "$in": ["$$item.programid", null] },
+                                {
+                                  "$lt":
+                                    [
+                                      {
+                                        "$subtract":
+                                          ["$candidate.jd", "$$item.jd"],
+                                      },
+                                      100,
+                                    ],
+                                },
+                              ],
+                          },
+                      },
+                  },
+                "schemavsn": 1,
+                "publisher": 1,
+                "objectId": 1,
+                "candid": 1,
+                "candidate": 1,
+                "classifications": 1,
+                "coordinates": 1,
+              },
+          }
 
     xmatch:
       cone_search_radius: 2
@@ -507,17 +570,17 @@ kowalski:
         AllWISE:
           filter: {}
           projection:
-             _id: 1
-             coordinates.radec_str: 1
-             w1mpro: 1
-             w1sigmpro: 1
-             w2mpro: 1
-             w2sigmpro: 1
-             w3mpro: 1
-             w3sigmpro: 1
-             w4mpro: 1
-             w4sigmpro: 1
-             ph_qual: 1
+            _id: 1
+            coordinates.radec_str: 1
+            w1mpro: 1
+            w1sigmpro: 1
+            w2mpro: 1
+            w2sigmpro: 1
+            w3mpro: 1
+            w3sigmpro: 1
+            w4mpro: 1
+            w4sigmpro: 1
+            ph_qual: 1
 
         Gaia_DR2:
           filter: {}
@@ -531,7 +594,7 @@ kowalski:
             phot_rp_mean_mag: 1
 
         Gaia_EDR3:
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -599,10 +662,10 @@ kowalski:
             snrz: 1
             objtype: 1
             class: 1
-            subclass:  1
+            subclass: 1
 
         PS1_STRM:
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             objID: 1
