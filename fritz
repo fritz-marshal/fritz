@@ -110,7 +110,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
             config["kowalski"]["server"]["JWT_EXP_DELTA_SECONDS"]
         ),
     )
-    config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
+    config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token.decode("utf-8")
 
     # get Docker gateway IP
     command = [
