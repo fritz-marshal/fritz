@@ -109,7 +109,10 @@ class StatsHandler(BaseHandler):
                 .first()
             )
             data["Latest cron job run times & statuses"].append(
-                f"{script[0]} ran at {cron_job_run.created_at} with exit status {cron_job_run.exit_status}"
+                {
+                    "summary": f"{script[0]} ran at {cron_job_run.created_at} with exit status {cron_job_run.exit_status}",
+                    "output": cron_job_run.output,
+                }
             )
 
         utc_now = datetime.datetime.utcnow()
