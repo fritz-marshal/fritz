@@ -100,6 +100,15 @@ const useStyles = makeStyles((theme) => ({
     display: "inline-block",
     verticalAlign: "super",
   },
+  sourceInfo: {
+    display: "flex",
+    flexFlow: "row wrap",
+    alignItems: "center",
+  },
+  position: {
+    fontWeight: "bold",
+    fontSize: "110%",
+  },
 }));
 
 function isString(x) {
@@ -153,7 +162,7 @@ const ZTFAlert = ({ route }) => {
       if (json.status === "success") {
         setsavedSource(true);
       }
-      setsCheckedIfSourceSaved(true)
+      setsCheckedIfSourceSaved(true);
     };
 
     if (!checkedIfSourceSaved) {
@@ -188,6 +197,11 @@ const ZTFAlert = ({ route }) => {
 
   const handlePanelXMatchChange = (panel) => (event, isExpanded) => {
     setPanelXMatchExpanded(isExpanded ? panel : false);
+  };
+
+  const [panelAlertsExpanded, setPanelAlertsExpanded] = useState(true);
+  const handlePanelAlertsExpandedChange = (panel) => (event, isExpanded) => {
+    setPanelAlertsExpanded(isExpanded ? panel : false);
   };
 
   const [candid, setCandid] = useState(0);
@@ -426,7 +440,7 @@ const ZTFAlert = ({ route }) => {
             </div>
             <div className={classes.name}>{objectId}</div>
             <br />
-            {savedSource || (loadedSourceId === objectId) ? (
+            {savedSource || loadedSourceId === objectId ? (
               <div className={classes.itemPaddingBottom}>
                 <Chip
                   size="small"
@@ -444,7 +458,11 @@ const ZTFAlert = ({ route }) => {
                 <br />
                 <div className={classes.saveAlertButton}>
                   <SaveAlertButton
-                    alert={{ id: objectId, candid: parseInt(candid), group_ids: userAccessibleGroupIds }}
+                    alert={{
+                      id: objectId,
+                      candid: parseInt(candid),
+                      group_ids: userAccessibleGroupIds,
+                    }}
                     userGroups={userAccessibleGroups}
                   />
                 </div>
@@ -456,33 +474,57 @@ const ZTFAlert = ({ route }) => {
                 &nbsp;
                 {candid}
                 <br />
-                <b>Position (J2000):</b>
-                &nbsp;
-                {alert_data.filter((a) => a.candid === candid)[0].candidate.ra},
-                &nbsp;
-                {alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
-                &nbsp; (&alpha;,&delta;=
-                {ra_to_hours(
-                  alert_data.filter((a) => a.candid === candid)[0].candidate.ra
-                )}
-                , &nbsp;
-                {dec_to_dms(
-                  alert_data.filter((a) => a.candid === candid)[0].candidate.dec
-                )}
-                )
-              </>
-            )}
-            {candid > 0 && alert_data.filter((a) => a.candid === candid)[0].coordinates.b && (
-              <>
-                &nbsp; (l,b=
-                {alert_data
-                  .filter((a) => a.candid === candid)[0]
-                  .coordinates?.l?.toFixed(6)}
-                , &nbsp;
-                {alert_data
-                  .filter((a) => a.candid === candid)[0]
-                  .coordinates?.b?.toFixed(6)}
-                )
+                <div className={classes.sourceInfo}>
+                  <div>
+                    <b>Position (J2000):&nbsp; &nbsp;</b>
+                  </div>
+                  <div>
+                    <span className={classes.position}>
+                      {ra_to_hours(
+                        alert_data.filter((a) => a.candid === candid)[0]
+                          .candidate.ra,
+                        ":"
+                      )}
+                      &nbsp;
+                      {dec_to_dms(
+                        alert_data.filter((a) => a.candid === candid)[0]
+                          .candidate.dec,
+                        ":"
+                      )}
+                      &nbsp;
+                    </span>
+                  </div>
+                </div>
+                <div className={classes.sourceInfo}>
+                  <div>
+                    (&alpha;,&delta;={" "}
+                    {
+                      alert_data.filter((a) => a.candid === candid)[0].candidate
+                        .ra
+                    }
+                    , &nbsp;
+                    {
+                      alert_data.filter((a) => a.candid === candid)[0].candidate
+                        .dec
+                    }
+                    ; &nbsp;
+                  </div>
+                  {candid > 0 &&
+                    alert_data.filter((a) => a.candid === candid)[0].coordinates
+                      .b && (
+                      <div>
+                        &nbsp; l,b=
+                        {alert_data
+                          .filter((a) => a.candid === candid)[0]
+                          .coordinates?.l?.toFixed(6)}
+                        , &nbsp;
+                        {alert_data
+                          .filter((a) => a.candid === candid)[0]
+                          .coordinates?.b?.toFixed(6)}
+                        )
+                      </div>
+                    )}
+                </div>
               </>
             )}
           </div>
@@ -494,7 +536,7 @@ const ZTFAlert = ({ route }) => {
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
               aria-controls="panel-content"
-              id="panel-header"
+              id="photometry-panel-header"
             >
               <Typography className={classes.accordionHeading}>
                 Photometry and cutouts
@@ -522,8 +564,14 @@ const ZTFAlert = ({ route }) => {
                 >
                   {candid > 0 && (
                     <ThumbnailList
-                      ra={alert_data.filter((a) => a.candid === candid)[0].candidate.ra}
-                      dec={alert_data.filter((a) => a.candid === candid)[0].candidate.dec}
+                      ra={
+                        alert_data.filter((a) => a.candid === candid)[0]
+                          .candidate.ra
+                      }
+                      dec={
+                        alert_data.filter((a) => a.candid === candid)[0]
+                          .candidate.dec
+                      }
                       thumbnails={thumbnails}
                       displayTypes={["new", "ref", "sub"]}
                       size="10rem"
@@ -534,16 +582,25 @@ const ZTFAlert = ({ route }) => {
             </AccordionDetails>
           </Accordion>
 
-          <Paper className={classes.root}>
-            <MuiThemeProvider theme={getMuiTheme(theme)}>
-              <MUIDataTable
-                title="Alerts"
-                data={rows}
-                columns={columns}
-                options={options}
-              />
-            </MuiThemeProvider>
-          </Paper>
+          <Accordion
+            expanded={panelAlertsExpanded}
+            onChange={handlePanelAlertsExpandedChange(true)}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="panel-content"
+              id="alerts-panel-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                Alerts
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails className={classes.accordion_details}>
+              <MuiThemeProvider theme={getMuiTheme(theme)}>
+                <MUIDataTable data={rows} columns={columns} options={options} />
+              </MuiThemeProvider>
+            </AccordionDetails>
+          </Accordion>
 
           <Accordion
             expanded={panelXMatchExpanded}
@@ -552,7 +609,7 @@ const ZTFAlert = ({ route }) => {
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
               aria-controls="panel-content"
-              id="panel-header"
+              id="xmatch-panel-header"
             >
               <Typography className={classes.accordionHeading}>
                 Cross-matches
