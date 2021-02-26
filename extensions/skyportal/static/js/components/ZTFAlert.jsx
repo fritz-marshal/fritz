@@ -73,7 +73,9 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "1.25rem",
     fontWeight: theme.typography.fontWeightRegular,
   },
-
+  accordionDetails: {
+    width: "100%",
+  },
   source: {
     padding: "1rem",
     display: "flex",
@@ -542,7 +544,7 @@ const ZTFAlert = ({ route }) => {
                 Photometry and cutouts
               </Typography>
             </AccordionSummary>
-            <AccordionDetails className={classes.accordion_details}>
+            <AccordionDetails className={classes.accordionDetails}>
               <Grid container spacing={2}>
                 <Grid item xs={12} lg={6}>
                   <Suspense fallback={<CircularProgress color="secondary" />}>
@@ -595,10 +597,16 @@ const ZTFAlert = ({ route }) => {
                 Alerts
               </Typography>
             </AccordionSummary>
-            <AccordionDetails className={classes.accordion_details}>
-              <MuiThemeProvider theme={getMuiTheme(theme)}>
-                <MUIDataTable data={rows} columns={columns} options={options} />
-              </MuiThemeProvider>
+            <AccordionDetails className={classes.accordionDetails}>
+              <div className={classes.accordionDetails}>
+                <MuiThemeProvider theme={getMuiTheme(theme)}>
+                  <MUIDataTable
+                    data={rows}
+                    columns={columns}
+                    options={options}
+                  />
+                </MuiThemeProvider>
+              </div>
             </AccordionDetails>
           </Accordion>
 
@@ -615,7 +623,7 @@ const ZTFAlert = ({ route }) => {
                 Cross-matches
               </Typography>
             </AccordionSummary>
-            <AccordionDetails className={classes.accordion_details}>
+            <AccordionDetails className={classes.accordionDetails}>
               <ReactJson
                 src={cross_matches}
                 name={false}
