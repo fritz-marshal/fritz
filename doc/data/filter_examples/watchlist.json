@@ -1,0 +1,264 @@
+[
+  {
+    "$project": {
+      "_id": 0,
+      "watchlist": [
+        {
+          "name": "my_favorite_spot",
+          "ra": 134.0779551,
+          "dec": -0.4421303
+        },
+        {
+          "name": "my_star",
+          "ra": 14.5551,
+          "dec": 37.4451303
+        }
+      ],
+      "max_distance_arcsec": {
+        "$literal": 2.0
+      },
+      "ra": {
+        "$degreesToRadians": "$candidate.ra"
+      },
+      "dec": {
+        "$degreesToRadians": "$candidate.dec"
+      }
+    }
+  },
+  {
+    "$project": {
+      "watchlist": 1,
+      "max_distance_arcsec": 1,
+      "dec": 1,
+      "dra_dec": {
+        "$zip": {
+          "inputs": [
+            {
+              "$map": {
+                "input": "$watchlist",
+                "as": "object",
+                "in": {
+                  "$subtract": [
+                    "$ra", {
+                      "$degreesToRadians": "$$object.ra"
+                    }
+                  ]
+                }
+              }
+            }, {
+              "$map": {
+                "input": "$watchlist",
+                "as": "object",
+                "in": {
+                  "$degreesToRadians": "$$object.dec"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "$project": {
+      "watchlist": 1,
+      "max_distance_arcsec": 1,
+      "distances_arcsec": {
+        "$map": {
+          "input": "$dra_dec",
+          "as": "s",
+          "in": {
+            "$multiply": [
+              3600.0, {
+                "$radiansToDegrees": {
+                  "$atan2": [
+                    {
+                      "$sqrt": {
+                        "$add": [
+                          {
+                            "$pow": [
+                              {
+                                "$multiply": [
+                                  {
+                                    "$cos": "$dec"
+                                  }, {
+                                    "$sin": {
+                                      "$arrayElemAt": [
+                                        "$$s", 0
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }, 2
+                            ]
+                          }, {
+                            "$pow": [
+                              {
+                                "$subtract": [
+                                  {
+                                    "$multiply": [
+                                      {
+                                        "$cos": {
+                                          "$arrayElemAt": [
+                                            "$$s", 1
+                                          ]
+                                        }
+                                      }, {
+                                        "$sin": "$dec"
+                                      }
+                                    ]
+                                  }, {
+                                    "$multiply": [
+                                      {
+                                        "$sin": {
+                                          "$arrayElemAt": [
+                                            "$$s", 1
+                                          ]
+                                        }
+                                      }, {
+                                        "$cos": "$dec"
+                                      }, {
+                                        "$cos": {
+                                          "$arrayElemAt": [
+                                            "$$s", 0
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }, 2
+                            ]
+                          }
+                        ]
+                      }
+                    }, {
+                      "$add": [
+                        {
+                          "$multiply": [
+                            {
+                              "$sin": {
+                                "$arrayElemAt": [
+                                  "$$s", 1
+                                ]
+                              }
+                            }, {
+                              "$sin": "$dec"
+                            }
+                          ]
+                        }, {
+                          "$multiply": [
+                            {
+                              "$cos": {
+                                "$arrayElemAt": [
+                                  "$$s", 1
+                                ]
+                              }
+                            }, {
+                              "$cos": "$dec"
+                            }, {
+                              "$cos": {
+                                "$arrayElemAt": [
+                                  "$$s", 0
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "$project": {
+      "watchlist": 1,
+      "distances_arcsec": 1,
+      "nearest_index": {
+        "$indexOfArray": [
+          "$distances_arcsec", {
+            "$min": "$distances_arcsec"
+          }
+        ]
+      },
+      "bingo": {
+        "$filter": {
+          "input": {
+            "$zip": {
+              "inputs": [
+                "$watchlist", "$distances_arcsec"
+              ]
+            }
+          },
+          "as": "item",
+          "cond": {
+            "$lte": [
+              {
+                "$arrayElemAt": [
+                  "$$item", 1
+                ]
+              }, "$max_distance_arcsec"
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "$match": {
+      "bingo.0": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "$project": {
+      "annotations.nearest_name": {
+        "$arrayElemAt": [
+          "$watchlist.name", "$nearest_index"
+        ]
+      },
+      "annotations.nearest_distance_arcsec": {
+        "$round": [
+          {
+            "$arrayElemAt": [
+              "$distances_arcsec", "$nearest_index"
+            ]
+          }, 3
+        ]
+      },
+      "annotations.matches": {
+        "$map": {
+          "input": "$bingo",
+          "as": "item",
+          "in": {
+            "$arrayElemAt": [
+              "$$item", 0
+            ]
+          }
+        }
+      },
+      "annotations.distances_arcsec": {
+        "$map": {
+          "input": "$bingo",
+          "as": "item",
+          "in": {
+            "$round": [
+              {
+                "$arrayElemAt": [
+                  "$$item", 1
+                ]
+              }, 3
+            ]
+          }
+        }
+      }
+    }
+  }
+]
