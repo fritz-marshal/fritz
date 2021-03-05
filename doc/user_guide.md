@@ -2266,7 +2266,7 @@ As we have seen above, we can build these kinds of logical expressions right int
 
 ### Watch lists
 
-Fritz's alert filters allow implementing watch lists for sets of objects of interest.
+Fritz's alert stream filters allow implementing watch lists for sets of objects of interest.
 
 In the example below, we define two named sky positions of interest. The coordinates are given in degrees.
 Any alert from an object within 2 arcseconds from these positions will pass this filter.
