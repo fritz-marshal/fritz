@@ -2264,6 +2264,289 @@ As we have seen above, we can build these kinds of logical expressions right int
 ]
 ```
 
+### Watch lists
+
+Fritz's alert stream filters allow implementing watch lists for sets of objects of interest.
+
+In the example below, we define two named sky positions of interest. The coordinates are given in degrees.
+Any alert from an object within 2 arcseconds from these positions will pass this filter.
+
+{download}`watchlist.json <data/filter_examples/watchlist.json>`
+
+```js
+[
+  // This is the only stage you would need to modify to set up your own watch list:
+  {
+    "$project": {
+      "_id": 0,
+      "watchlist": [
+        {
+          "name": "my_favorite_spot",
+          "ra": 134.0779551,
+          "dec": -0.4421303
+        },
+        {
+          "name": "my_star",
+          "ra": 14.5551,
+          "dec": 37.4451303
+        }
+      ],
+      "max_distance_arcsec": {
+        "$literal": 2.0
+      },
+      "ra": {
+        "$degreesToRadians": "$candidate.ra"
+      },
+      "dec": {
+        "$degreesToRadians": "$candidate.dec"
+      }
+    }
+  },
+  // In this stage, we prepare the quantities that will be needed for the spherical distance computations
+  {
+    "$project": {
+      "watchlist": 1,
+      "max_distance_arcsec": 1,
+      "dec": 1,
+      "dra_dec": {
+        "$zip": {
+          "inputs": [
+            {
+              "$map": {
+                "input": "$watchlist",
+                "as": "object",
+                "in": {
+                  "$subtract": [
+                    "$ra", {
+                      "$degreesToRadians": "$$object.ra"
+                    }
+                  ]
+                }
+              }
+            }, {
+              "$map": {
+                "input": "$watchlist",
+                "as": "object",
+                "in": {
+                  "$degreesToRadians": "$$object.dec"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  // In this stage, we perform an accurate spherical distance computation
+  // for all objects in the watch list and convert the results to arcseconds:
+  {
+    "$project": {
+      "watchlist": 1,
+      "max_distance_arcsec": 1,
+      "distances_arcsec": {
+        "$map": {
+          "input": "$dra_dec",
+          "as": "s",
+          "in": {
+            "$multiply": [
+              3600.0, {
+                "$radiansToDegrees": {
+                  "$atan2": [
+                    {
+                      "$sqrt": {
+                        "$add": [
+                          {
+                            "$pow": [
+                              {
+                                "$multiply": [
+                                  {
+                                    "$cos": "$dec"
+                                  }, {
+                                    "$sin": {
+                                      "$arrayElemAt": [
+                                        "$$s", 0
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }, 2
+                            ]
+                          }, {
+                            "$pow": [
+                              {
+                                "$subtract": [
+                                  {
+                                    "$multiply": [
+                                      {
+                                        "$cos": {
+                                          "$arrayElemAt": [
+                                            "$$s", 1
+                                          ]
+                                        }
+                                      }, {
+                                        "$sin": "$dec"
+                                      }
+                                    ]
+                                  }, {
+                                    "$multiply": [
+                                      {
+                                        "$sin": {
+                                          "$arrayElemAt": [
+                                            "$$s", 1
+                                          ]
+                                        }
+                                      }, {
+                                        "$cos": "$dec"
+                                      }, {
+                                        "$cos": {
+                                          "$arrayElemAt": [
+                                            "$$s", 0
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }, 2
+                            ]
+                          }
+                        ]
+                      }
+                    }, {
+                      "$add": [
+                        {
+                          "$multiply": [
+                            {
+                              "$sin": {
+                                "$arrayElemAt": [
+                                  "$$s", 1
+                                ]
+                              }
+                            }, {
+                              "$sin": "$dec"
+                            }
+                          ]
+                        }, {
+                          "$multiply": [
+                            {
+                              "$cos": {
+                                "$arrayElemAt": [
+                                  "$$s", 1
+                                ]
+                              }
+                            }, {
+                              "$cos": "$dec"
+                            }, {
+                              "$cos": {
+                                "$arrayElemAt": [
+                                  "$$s", 0
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  // Here, we look for objects that fall within max_distance_arcsec:
+  {
+    "$project": {
+      "watchlist": 1,
+      "distances_arcsec": 1,
+      "nearest_index": {
+        "$indexOfArray": [
+          "$distances_arcsec", {
+            "$min": "$distances_arcsec"
+          }
+        ]
+      },
+      "bingo": {
+        "$filter": {
+          "input": {
+            "$zip": {
+              "inputs": [
+                "$watchlist", "$distances_arcsec"
+              ]
+            }
+          },
+          "as": "item",
+          "cond": {
+            "$lte": [
+              {
+                "$arrayElemAt": [
+                  "$$item", 1
+                ]
+              }, "$max_distance_arcsec"
+            ]
+          }
+        }
+      }
+    }
+  },
+  // We declare victory if such objects exist:
+  {
+    "$match": {
+      "bingo.0": {
+        "$exists": true
+      }
+    }
+  },
+  // Finally, we are adding some useful annotations:
+  {
+    "$project": {
+      "annotations.nearest_name": {
+        "$arrayElemAt": [
+          "$watchlist.name", "$nearest_index"
+        ]
+      },
+      "annotations.nearest_distance_arcsec": {
+        "$round": [
+          {
+            "$arrayElemAt": [
+              "$distances_arcsec", "$nearest_index"
+            ]
+          }, 3
+        ]
+      },
+      "annotations.matches": {
+        "$map": {
+          "input": "$bingo",
+          "as": "item",
+          "in": {
+            "$arrayElemAt": [
+              "$$item", 0
+            ]
+          }
+        }
+      },
+      "annotations.distances_arcsec": {
+        "$map": {
+          "input": "$bingo",
+          "as": "item",
+          "in": {
+            "$round": [
+              {
+                "$arrayElemAt": [
+                  "$$item", 1
+                ]
+              }, 3
+            ]
+          }
+        }
+      }
+    }
+  }
+]
+```
+
 ### Tips and tricks
 
 #### `prv_candidates` array sorting
