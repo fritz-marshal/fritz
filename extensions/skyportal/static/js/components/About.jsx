@@ -66,6 +66,15 @@ const useStyles = makeStyles((theme) => ({
     width: "5rem",
     height: "5rem",
   },
+  documentation: {
+    float: "right",
+    maxWidth: "20rem",
+    padding: "0 1rem",
+    margin: "1rem",
+  },
+  header: {
+    display: "inline-block",
+  },
 }));
 
 const BibLink = ({ bibtex, children }) => {
@@ -134,6 +143,10 @@ const About = () => {
       src: "/static/images/developers/kasliwal.jpg",
     },
     {
+      name: "Don Neill",
+      src: "/static/images/developers/neill.jpg",
+    },
+    {
       name: "Guy Nir",
       src: "/static/images/developers/nir.jpg",
     },
@@ -152,10 +165,16 @@ const About = () => {
   ];
   return (
     <Paper className={classes.root}>
-      <Typography variant="h5">
+      <Typography className={classes.header} variant="h5">
         This is Fritz&nbsp;
         <code>v{version}</code>.
       </Typography>
+      <Paper variant="outlined" className={classes.documentation}>
+        <Typography variant="body1">
+          Documentation for Fritz is available at{" "}
+          <a href="https://docs.fritz.science/">https://docs.fritz.science/</a>.
+        </Typography>
+      </Paper>
       <Typography variant="body1">
         Fritz is an open source codebase that serves as a dynamic collaborative
         platform for time-domain astronomy. It is being jointly developed at
@@ -190,7 +209,7 @@ const About = () => {
         You may also interact with Fritz through its API. Generate a token from
         your&nbsp;
         <Link to="/profile">profile</Link>&nbsp;page, then refer to the&nbsp;
-        <a href="https://skyportal.io/docs/api.html">API documentation</a>.
+        <a href="https://docs.fritz.science/api.html">API documentation</a>.
       </Typography>
       <Typography variant="body1">
         Please file issues on our GitHub page at&nbsp;
