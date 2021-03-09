@@ -143,6 +143,10 @@ const About = () => {
       src: "/static/images/developers/kasliwal.jpg",
     },
     {
+      name: "Don Neill",
+      src: "/static/images/developers/neill.jpg",
+    },
+    {
       name: "Guy Nir",
       src: "/static/images/developers/nir.jpg",
     },
@@ -157,10 +161,6 @@ const About = () => {
     {
       name: "Stéfan van der Walt",
       src: "/static/images/developers/vanderwalt.jpg",
-    },
-    {
-      name: "Don Neill",
-      src: "/static/images/developers/neill.jpg",
     },
   ];
   return (
