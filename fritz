@@ -143,15 +143,34 @@ def update(args):
         p = subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
         if p.returncode != 0:
             raise RuntimeError("Failed to initialize fritz's submodules")
+
     # auto stash SP
-    p = subprocess.run(["git", "stash"], cwd="skyportal")
-    if p.returncode != 0:
-        raise RuntimeError("SkyPortal autostash failed")
+    for module in ["kowalski", "skyportal"]:
+        p = subprocess.run(["git", "stash"], cwd=module)
+        if p.returncode != 0:
+            raise RuntimeError(f"{module} autostash failed")
 
     # update submodules
     p = subprocess.run(["git", "submodule", "update", "--recursive"])
     if p.returncode != 0:
         raise RuntimeError("Failed to update fritz's submodules")
+
+    # octopus merge
+    for module in ["kowalski", "skyportal"]:
+
+        # get the branch names
+        gb = subprocess.check_output(["git", "branch"], cwd=module).split()
+        extensions = filter(lambda b: b.startswith("ext/"), gb)
+
+        # do an octopus merge
+        p = subprocess.run(["git", "merge"] + list(extensions), cwd=module)
+
+        if p.returncode != 0:
+            raise RuntimeError(
+                f"{module} extension octopus merge did "
+                f"not terminate cleanly. Please inspect the repo "
+                f"and resolve conflicts."
+            )
 
 
 def build(args):
