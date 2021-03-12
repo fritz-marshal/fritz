@@ -621,7 +621,6 @@ def test(args):
 
 
 def doc(args):
-    check_config(yes=True)
     for destination in ("config.yaml.defaults",):
         subprocess.run(
             [
