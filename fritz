@@ -160,10 +160,11 @@ def update(args):
 
         # get the branch names
         gb = subprocess.check_output(["git", "branch"], cwd=module).split()
-        extensions = filter(lambda b: b.startswith("ext/"), gb)
+        extensions = list(filter(lambda b: b.startswith("ext/"), gb))
 
         # do an octopus merge
-        p = subprocess.run(["git", "merge"] + list(extensions), cwd=module)
+        if len(extensions) > 0:
+            p = subprocess.run(["git", "merge"] + extensions, cwd=module)
 
         if p.returncode != 0:
             raise RuntimeError(
