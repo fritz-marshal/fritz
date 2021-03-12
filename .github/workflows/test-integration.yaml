@@ -25,10 +25,6 @@ jobs:
           pip install -r requirements.txt
           ./fritz develop
 
-      - name: Set up configs
-        run: |
-          cp fritz.defaults.yaml fritz.yaml
-
       - name: Build and spin up
         run: |
           cp kowalski/docker-compose.defaults.yaml kowalski/docker-compose.yaml
