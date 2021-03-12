@@ -1,4 +1,2 @@
--r .requirements/dev.txt
--r .requirements/doc.txt
--r .requirements/ext.txt
 -r kowalski/requirements.txt
+-r skyportal/requirements.txt
