@@ -18,6 +18,15 @@ SKYPORTAL_CONFIG = "skyportal/config.yaml.defaults"
 KOWALSKI_CONFIG = "kowalski/config.defaults.yaml"
 
 
+def run_and_print(cmd, cwd=None, **kwargs):
+    if cwd is None:
+        print(" ".join(cmd))
+    else:
+        print(f'cd {cwd} && {" ".join(cmd)} && cd -')
+
+    return subprocess.run(cmd, cwd=cwd, **kwargs)
+
+
 def generate_kowalski_token(
     user_id, jwt_secret, jwt_algorithm="HS256", jwt_exp_delta_seconds=30 * 86400 * 12
 ):
@@ -49,7 +58,7 @@ def get_skyportal_token():
     """
     Get admin token for Kowalski to access SkyPortal
     """
-    result = subprocess.run(
+    result = run_and_print(
         [
             "docker",
             "exec",
@@ -133,38 +142,41 @@ def update(args):
     """
     Update Fritz
     """
-    p = subprocess.run(["git", "pull", args.repo, args.branch])
+    p = run_and_print(["git", "pull", args.repo, args.branch])
     if p.returncode != 0:
         raise RuntimeError(f"Failed to git pull Fritz from {args.repo}/{args.branch}")
 
     if args.init:
         # initialize/update fritz's submodules kowalski and skyportal
         # pull skyportal and kowalski
-        p = subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
+        p = run_and_print(["git", "submodule", "update", "--init", "--recursive"])
         if p.returncode != 0:
             raise RuntimeError("Failed to initialize fritz's submodules")
 
     # auto stash SP
     for module in ["kowalski", "skyportal"]:
-        p = subprocess.run(["git", "stash"], cwd=module)
+        p = run_and_print(["git", "stash"], cwd=module)
         if p.returncode != 0:
             raise RuntimeError(f"{module} autostash failed")
 
     # update submodules
-    p = subprocess.run(["git", "submodule", "update", "--recursive"])
+    p = run_and_print(["git", "submodule", "update", "--recursive"])
     if p.returncode != 0:
         raise RuntimeError("Failed to update fritz's submodules")
 
     # octopus merge
     for module in ["kowalski", "skyportal"]:
 
+        run_and_print(["git", "fetch"], cwd=module)
+
         # get the branch names
         gb = subprocess.check_output(["git", "branch"], cwd=module).split()
-        extensions = list(filter(lambda b: b.startswith("ext/"), gb))
+        gb = map(str, gb)
+        extensions = list(filter(lambda b: b.strip().startswith("ext/"), gb))
 
         # do an octopus merge
         if len(extensions) > 0:
-            p = subprocess.run(["git", "merge"] + extensions, cwd=module)
+            p = run_and_print(["git", "merge"] + extensions, cwd=module)
 
         if p.returncode != 0:
             raise RuntimeError(
