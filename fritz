@@ -208,8 +208,8 @@ def build(args):
     Build Fritz
     """
 
-    env_old = os.environ.copy()
-    os.environ.update({"FLAGS": "--config=../skyportal/config.yaml"})
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../skyportal/config.yaml"})
 
     if not args.dev:
         update(args)
@@ -342,16 +342,14 @@ def build(args):
         # remove common network
         subprocess.run(["docker", "network", "remove", "fritz_net"])
 
-    os.environ = env_old
-
 
 def run(args):
     """
     Launch Fritz
     """
 
-    env_old = os.environ.copy()
-    os.environ.update({"FLAGS": "--config=../skyportal.yaml"})
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../skyportal.yaml"})
 
     if args.init:
         build(args=args)
@@ -390,8 +388,6 @@ def run(args):
         )
         if p.returncode != 0:
             raise RuntimeError("Failed to start Traefik")
-
-    os.environ = env_old
 
 
 def stop(args):
@@ -678,6 +674,18 @@ def test(args):
 def doc(args):
 
     merge_kowalski_and_skyportal_configs()
+
+    for destination in ("config.yaml.defaults",):
+        run_and_print(
+            [
+                "cp",
+                "config.yaml",
+                destination,
+            ],
+            check=True,
+            cwd="skyportal",
+        )
+
     subprocess.run(["make", "html"], cwd="doc", check=True)
 
     env = os.environ.copy()
