@@ -168,15 +168,26 @@ def update(args):
     for module in ["kowalski", "skyportal"]:
 
         run_and_print(["git", "fetch"], cwd=module)
+        run_and_print(["git", "checkout", "master"], cwd=module)
+
+        # create a new branch for the octopus merge
+        branch_name = datetime.datetime.utcnow().strftime("%Y%m%d-%Hh%Mm%Ss")
+        run_and_print(["git", "checkout", "-b", branch_name], cwd=module)
 
         # get the branch names
-        gb = subprocess.check_output(["git", "branch"], cwd=module).split()
-        gb = map(str, gb)
-        extensions = list(filter(lambda b: b.strip().startswith("ext/"), gb))
+        gb = (
+            subprocess.check_output(["git", "branch"], cwd=module)
+            .decode("ascii")
+            .split("\n")
+        )
+
+        extensions = list(
+            filter(lambda b: b.startswith("ext/"), [b[1:].strip() for b in gb])
+        ) + ["master"]
 
         # do an octopus merge
         if len(extensions) > 0:
-            p = run_and_print(["git", "merge"] + extensions, cwd=module)
+            p = run_and_print(["git", "merge", "--no-edit"] + extensions, cwd=module)
 
         if p.returncode != 0:
             raise RuntimeError(
@@ -184,6 +195,12 @@ def update(args):
                 f"not terminate cleanly. Please inspect the repo "
                 f"and resolve conflicts."
             )
+
+        run_and_print(["git", "push", "origin", branch_name], cwd=module)
+        run_and_print(["git", "add", module])
+
+    run_and_print(["git", "commit", "-m", "Update fritz"])
+    run_and_print(["git", "push", "origin", "master"])
 
 
 def build(args):
