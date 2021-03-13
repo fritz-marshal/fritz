@@ -208,6 +208,9 @@ def build(args):
     Build Fritz
     """
 
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../skyportal/config.yaml"})
+
     if not args.dev:
         update(args)
 
@@ -319,8 +322,6 @@ def build(args):
 
         # update fritz.yaml
         fritz_config["kowalski"]["skyportal"]["token"] = token
-        with open("fritz.yaml", "w") as fritz_config_yaml:
-            yaml.dump(fritz_config, fritz_config_yaml)
 
     if not args.no_kowalski:
         # Build kowalski's images
@@ -346,6 +347,9 @@ def run(args):
     """
     Launch Fritz
     """
+
+    env = os.environ.copy()
+    env.update({"FLAGS": "--config=../skyportal.yaml"})
 
     if args.init:
         build(args=args)
@@ -513,9 +517,7 @@ def prune(args):
 def test(args):
     print("Running integration testing...")
 
-    # load config
-    with open("fritz.yaml") as fritz_config_yaml:
-        fritz_config = yaml.load(fritz_config_yaml, Loader=yaml.FullLoader)
+    fritz_config = merge_kowalski_and_skyportal_configs()
 
     num_retries = 10
     # make sure the containers are up and running
