@@ -671,6 +671,7 @@ def test(args):
 
 def doc(args):
 
+    merge_kowalski_and_skyportal_configs()
     subprocess.run(["make", "html"], cwd="doc", check=True)
 
     env = os.environ.copy()
