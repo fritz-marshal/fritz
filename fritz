@@ -580,7 +580,7 @@ def test(args):
         f"{fritz_config['kowalski']['skyportal']['host']}:{fritz_config['kowalski']['skyportal']['port']}"
         "/api/sysinfo"
     )
-    token = fritz_config["kowalski"]["skyportal"]["token"]
+    token = get_skyportal_token()
     for i in range(num_retries):
         if i == num_retries - 1:
             raise RuntimeError("SkyPortal failed to spin up")
