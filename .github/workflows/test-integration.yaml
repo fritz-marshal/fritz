@@ -33,10 +33,3 @@ jobs:
       - name: Run integration tests
         run: |
           ./fritz test
-
-      - name: Upload skyportal logs
-        uses: actions/upload-artifact@v2
-        if: ${{ always() }}
-        with:
-          name: logs
-          path: skyportal/logs
