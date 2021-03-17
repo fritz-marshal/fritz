@@ -75,66 +75,129 @@ const Alerts = () => {
 
   const history = useHistory();
 
-  const { register, handleSubmit, control } = useForm();
+  const { register: registerObjIDForm, handleSubmit: handleSubmitObjIDForm, control: controlObjIDForm } = useForm();
+  const { register: registerCoordsForm, handleSubmit: handleSubmitCoordsForm } = useForm();
 
-  const submitForm = (data) => {
+  const submitSearchObjID = (data) => {
     const path = `/alerts/${data.instrument}/${data.object_id.trim()}`;
     history.push(path);
   };
 
+  const submitSearchByLocation = (data) => {
+    const path = `/alerts_by_coords/${data.ra.trim()}/${data.dec.trim()}/${data.radius.trim()}`;
+    console.log(path);
+    // history.push(path);
+  };
+
   return (
     <div>
-      <Typography variant="h6" className={classes.header}>
-        Search objects from alert streams
-      </Typography>
+      <div>
+        <Typography variant="h6" className={classes.header}>
+          Search objects from alert streams
+        </Typography>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          <Card className={classes.root}>
-            <form onSubmit={handleSubmit(submitForm)}>
-              <CardContent>
-                <FormControl required className={classes.selectEmpty}>
-                  <InputLabel name="alert-stream-select-required-label">
-                    Instrument
-                  </InputLabel>
-                  <Controller
-                    labelId="alert-stream-select-required-label"
-                    name="instrument"
-                    as={Select}
-                    defaultValue="ztf"
-                    control={control}
-                    rules={{ required: true }}
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <Card className={classes.root}>
+              <form onSubmit={handleSubmitObjIDForm(submitSearchObjID)}>
+                <CardContent>
+                  <FormControl required className={classes.selectEmpty}>
+                    <InputLabel name="alert-stream-select-required-label">
+                      Instrument
+                    </InputLabel>
+                    <Controller
+                      labelId="alert-stream-select-required-label"
+                      name="instrument"
+                      as={Select}
+                      defaultValue="ztf"
+                      control={controlObjIDForm}
+                      rules={{ required: true }}
+                    >
+                      <MenuItem value="ztf">ZTF</MenuItem>
+                    </Controller>
+                    <FormHelperText>Required</FormHelperText>
+                  </FormControl>
+
+                  <TextField
+                    autoFocus
+                    required
+                    margin="dense"
+                    name="object_id"
+                    label="objectId"
+                    type="text"
+                    fullWidth
+                    inputRef={registerObjIDForm({ required: true, minLength: 3 })}
+                  />
+                </CardContent>
+                <CardActions>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    className={classes.button_add}
                   >
-                    <MenuItem value="ztf">ZTF</MenuItem>
-                  </Controller>
-                  <FormHelperText>Required</FormHelperText>
-                </FormControl>
-
-                <TextField
-                  autoFocus
-                  required
-                  margin="dense"
-                  name="object_id"
-                  label="objectId"
-                  type="text"
-                  fullWidth
-                  inputRef={register({ required: true, minLength: 3 })}
-                />
-              </CardContent>
-              <CardActions>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  className={classes.button_add}
-                >
-                  Search
-                </Button>
-              </CardActions>
-            </form>
-          </Card>
+                    Search
+                  </Button>
+                </CardActions>
+              </form>
+            </Card>
+          </Grid>
         </Grid>
-      </Grid>
+      </div>
+      <br />
+      <div>
+        <Typography variant="h6" className={classes.header}>
+          Search alerts by coordinates
+        </Typography>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <Card className={classes.root}>
+              <form onSubmit={handleSubmitCoordsForm(submitSearchByLocation)}>
+                <CardContent>
+                  <TextField
+                    autoFocus
+                    required
+                    margin="dense"
+                    name="ra"
+                    label="RA (deg)"
+                    fullWidth
+                    inputRef={registerCoordsForm({ required: true })}
+                  />
+                  <TextField
+                    autoFocus
+                    required
+                    margin="dense"
+                    name="dec"
+                    label="Declination (deg)"
+                    fullWidth
+                    inputRef={registerCoordsForm({ required: true })}
+                  />
+                  <TextField
+                    autoFocus
+                    required
+                    margin="dense"
+                    name="radius"
+                    label="Radius (deg)"
+                    fullWidth
+                    inputRef={registerCoordsForm({ required: true })}
+                  />
+                </CardContent>
+                <CardActions>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    className={classes.button_add}
+                  >
+                    Search
+                  </Button>
+                </CardActions>
+              </form>
+            </Card>
+          </Grid>
+        </Grid>
+      </div>
     </div>
   );
 };
