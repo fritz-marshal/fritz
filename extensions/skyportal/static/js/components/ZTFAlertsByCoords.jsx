@@ -24,15 +24,7 @@ import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 import MUIDataTable from "mui-datatables";
 import ReactJson from "react-json-view";
 
-import SaveAlertButton from "./SaveAlertButton";
-import ThumbnailList from "./ThumbnailList";
-
-import { ra_to_hours, dec_to_dms } from "../units";
-import SharePage from "./SharePage";
-
-import * as Actions from "../ducks/alerts";
-
-const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
+import * as Actions from "../ducks/alertsByCoords";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -135,6 +127,7 @@ const ZTFAlertsByCoords = ({ route }) => {
   console.log("ra, dec, radius:", ra, dec, radius);
   const dispatch = useDispatch();
   const history = useHistory();
+  const [isFetched, setIsFetched] = useState(false);
 
   const userAccessibleGroups = useSelector(
     (state) => state.groups.userAccessible
@@ -147,7 +140,7 @@ const ZTFAlertsByCoords = ({ route }) => {
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
 
-  const alerts = useSelector((state) => state.alerts_by_coords);
+  const alerts = useSelector((state) => state.alertsByCoords);
 
   const makeRow = (alert) => {
     return {
@@ -160,84 +153,27 @@ const ZTFAlertsByCoords = ({ route }) => {
       drb: alert?.candidate.drb,
       isdiffpos: alert?.candidate.isdiffpos,
       programid: alert?.candidate.programid,
-      alert_actions: "show thumbnails",
     };
   };
 
   let rows = [];
 
-  if (alert_data !== null && !isString(alert_data)) {
-    rows = alert_data?.map((a) => makeRow(a));
+  if (alerts !== null && !isString(alerts)) {
+    rows = alerts?.map((a) => makeRow(a));
   }
-
-  const alert_aux_data = useSelector((state) => state.alert_aux_data);
-  let cross_matches = {};
-
-  if (alert_aux_data !== null && !isString(alert_aux_data)) {
-    cross_matches = alert_aux_data.cross_matches;
-    // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
-  }
-
-  const cachedObjectId =
-    alert_data !== null && !isString(alert_data) && candid > 0
-      ? route.id
-      : null;
-
-  const isCached = route.id === cachedObjectId;
 
   useEffect(() => {
-    const fetchAlert = async () => {
-      const data = await dispatch(Actions.fetchAlertData(objectId));
-      if (data.status === "success") {
-        // fetch aux data
-        await dispatch(Actions.fetchAuxData(objectId));
-
-        const candids = Array.from(
-          new Set(data.data.map((c) => c.candid))
-        ).sort();
-        const jds = Array.from(
-          new Set(data.data.map((c) => c.candidate.jd))
-        ).sort();
-        // grab the latest candid's thumbnails by default
-        setCandid(candids[candids.length - 1]);
-        setJd(jds[jds.length - 1]);
-      }
+    const fetchAlerts = async () => {
+      const data = await dispatch(Actions.fetchAlertsByCoords({ ra, dec, radius }));
+      setIsFetched(true);
     };
 
-    if (!isCached) {
-      fetchAlert();
+    if (!isFetched) {
+      fetchAlerts();
     }
-  }, [dispatch, isCached, route.id, objectId]);
+  }, [dispatch, isFetched, ra, dec, radius]);
 
   const classes = useStyles();
-
-  const thumbnails = [
-    {
-      type: "new",
-      id: 0,
-      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`,
-    },
-    {
-      type: "ref",
-      id: 1,
-      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`,
-    },
-    {
-      type: "sub",
-      id: 2,
-      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`,
-    },
-    // {
-    //   type: "sdss",
-    //   id: 3,
-    //   public_url: `http://skyserver.sdss.org/dr12/SkyserverWS/ImgCutout/getjpeg?ra=${alert_data.filter((a) => a.candid === candid)[0].candidate.ra}&dec=${alert_data.filter((a) => a.candid === candid)[0].candidate.dec}&scale=0.3&width=200&height=200&opt=G&query=&Grid=on`
-    // },
-    // {
-    //   type: "dr8",
-    //   id: 4,
-    //   public_url: `http://legacysurvey.org/viewer/jpeg-cutout?ra=${alert_data.filter((a) => a.candid === candid)[0].candidate.ra}&dec=${alert_data.filter((a) => a.candid === candid)[0].candidate.dec}&size=200&layer=dr8&pixscale=0.262&bands=grz`
-    // },
-  ];
 
   const options = {
     selectableRows: "none",
@@ -330,250 +266,58 @@ const ZTFAlertsByCoords = ({ route }) => {
         sort: true,
       },
     },
-    {
-      name: "alert_actions",
-      label: "actions",
-      options: {
-        filter: false,
-        sort: false,
-        customBodyRender: (value, tableMeta, updateValue) => (
-          <Button
-            size="small"
-            onClick={() => {
-              setCandid(tableMeta.rowData[0]);
-              setJd(tableMeta.rowData[1]);
-            }}
-          >
-            Show&nbsp;thumbnails
-          </Button>
-        ),
-      },
-    },
   ];
 
-  if (alert_data === null) {
+  if (alerts === null || !isFetched) {
     return (
       <div>
         <CircularProgress color="secondary" />
       </div>
     );
   }
-  if (isString(alert_data) || isString(alert_aux_data)) {
+  if (isString(alerts)) {
     return <div>Failed to fetch alert data, please try again later.</div>;
   }
-  if (alert_data.length === 0) {
+  if (alerts.length === 0) {
     return (
       <div>
         <Typography variant="h5" className={classes.header}>
-          {objectId} not found
+          No matching alerts found
         </Typography>
       </div>
     );
   }
-  if (alert_data.length > 0) {
-    return (
-      <Paper elevation={1} className={classes.source}>
-        <div className={classes.column}>
-          <div className={classes.leftColumnItem}>
-            <div className={classes.alignRight}>
-              <SharePage />
-            </div>
-            <div className={classes.name}>{objectId}</div>
-            <br />
-            {savedSource || loadedSourceId === objectId ? (
-              <div className={classes.itemPaddingBottom}>
-                <Chip
-                  size="small"
-                  label="Previously Saved"
-                  clickable
-                  onClick={() => history.push(`/source/${objectId}`)}
-                  onDelete={() => window.open(`/source/${objectId}`, "_blank")}
-                  deleteIcon={<OpenInNewIcon />}
-                  color="primary"
+  return (
+    <Paper elevation={1} className={classes.source}>
+      <div>
+        <Accordion
+          expanded={panelAlertsExpanded}
+          onChange={handlePanelAlertsExpandedChange(true)}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel-content"
+            id="alerts-panel-header"
+          >
+            <Typography className={classes.accordionHeading}>
+              Alerts
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordionDetails}>
+            <div className={classes.accordionDetails}>
+              <MuiThemeProvider theme={getMuiTheme(theme)}>
+                <MUIDataTable
+                  data={rows}
+                  columns={columns}
+                  options={options}
                 />
-              </div>
-            ) : (
-              <div className={classes.itemPaddingBottom}>
-                <Chip size="small" label="NOT SAVED" />
-                <br />
-                <div className={classes.saveAlertButton}>
-                  <SaveAlertButton
-                    alert={{
-                      id: objectId,
-                      candid: parseInt(candid),
-                      group_ids: userAccessibleGroupIds,
-                    }}
-                    userGroups={userAccessibleGroups}
-                  />
-                </div>
-              </div>
-            )}
-            {candid > 0 && (
-              <>
-                <b>candid:</b>
-                &nbsp;
-                {candid}
-                <br />
-                <div className={classes.sourceInfo}>
-                  <div>
-                    <b>Position (J2000):&nbsp; &nbsp;</b>
-                  </div>
-                  <div>
-                    <span className={classes.position}>
-                      {ra_to_hours(
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.ra,
-                        ":"
-                      )}
-                      &nbsp;
-                      {dec_to_dms(
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.dec,
-                        ":"
-                      )}
-                      &nbsp;
-                    </span>
-                  </div>
-                </div>
-                <div className={classes.sourceInfo}>
-                  <div>
-                    (&alpha;,&delta;={" "}
-                    {
-                      alert_data.filter((a) => a.candid === candid)[0].candidate
-                        .ra
-                    }
-                    , &nbsp;
-                    {
-                      alert_data.filter((a) => a.candid === candid)[0].candidate
-                        .dec
-                    }
-                    ; &nbsp;
-                  </div>
-                  {candid > 0 &&
-                    alert_data.filter((a) => a.candid === candid)[0].coordinates
-                      .b && (
-                      <div>
-                        &nbsp; l,b=
-                        {alert_data
-                          .filter((a) => a.candid === candid)[0]
-                          .coordinates?.l?.toFixed(6)}
-                        , &nbsp;
-                        {alert_data
-                          .filter((a) => a.candid === candid)[0]
-                          .coordinates?.b?.toFixed(6)}
-                        )
-                      </div>
-                    )}
-                </div>
-              </>
-            )}
-          </div>
-
-          <Accordion
-            expanded={panelPhotometryThumbnailsExpanded}
-            onChange={handlePanelPhotometryThumbnailsChange(true)}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-content"
-              id="photometry-panel-header"
-            >
-              <Typography className={classes.accordionHeading}>
-                Photometry and cutouts
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} lg={6}>
-                  <Suspense fallback={<CircularProgress color="secondary" />}>
-                    <VegaPlotZTFAlert
-                      dataUrl={`/api/alerts/ztf/${objectId}/aux`}
-                      jd={jd}
-                    />
-                  </Suspense>
-                </Grid>
-                <Grid
-                  container
-                  item
-                  xs={12}
-                  lg={6}
-                  spacing={1}
-                  className={classes.image}
-                  alignItems="stretch"
-                  alignContent="stretch"
-                >
-                  {candid > 0 && (
-                    <ThumbnailList
-                      ra={
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.ra
-                      }
-                      dec={
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.dec
-                      }
-                      thumbnails={thumbnails}
-                      displayTypes={["new", "ref", "sub"]}
-                      size="10rem"
-                    />
-                  )}
-                </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion
-            expanded={panelAlertsExpanded}
-            onChange={handlePanelAlertsExpandedChange(true)}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-content"
-              id="alerts-panel-header"
-            >
-              <Typography className={classes.accordionHeading}>
-                Alerts
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <div className={classes.accordionDetails}>
-                <MuiThemeProvider theme={getMuiTheme(theme)}>
-                  <MUIDataTable
-                    data={rows}
-                    columns={columns}
-                    options={options}
-                  />
-                </MuiThemeProvider>
-              </div>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion
-            expanded={panelXMatchExpanded}
-            onChange={handlePanelXMatchChange(true)}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-content"
-              id="xmatch-panel-header"
-            >
-              <Typography className={classes.accordionHeading}>
-                Cross-matches
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <ReactJson
-                src={cross_matches}
-                name={false}
-                theme={darkTheme ? "monokai" : "rjv-default"}
-              />
-            </AccordionDetails>
-          </Accordion>
-        </div>
-      </Paper>
-    );
-  }
-  return <div>Error rendering page...</div>;
+              </MuiThemeProvider>
+            </div>
+          </AccordionDetails>
+        </Accordion>
+      </div>
+    </Paper>
+  );
 };
 
 ZTFAlertsByCoords.propTypes = {

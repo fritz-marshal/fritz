@@ -16,6 +16,7 @@ export const fetchAlertsByCoords = ({ ra, dec, radius }) => (
 const reducer = (state = null, action) => {
   switch (action.type) {
     case FETCH_NEARBY_ALERTS_OK: {
+      console.log(action.data);
       return action.data;
     }
     case FETCH_NEARBY_ALERTS_ERROR: {

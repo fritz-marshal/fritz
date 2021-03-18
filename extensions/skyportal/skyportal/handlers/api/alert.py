@@ -1137,7 +1137,6 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                     }
                 },
             },
-            "kwargs": {"limit": 3},
         }
 
         try:
