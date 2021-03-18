@@ -1065,9 +1065,9 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             return self.error(f"failure: {_err}")
 
 
-def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
+class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
     @auth_or_token
-    async def get(self):
+    def get(self):
         """
         ---
         single:
@@ -1102,6 +1102,7 @@ def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                 application/json:
                   schema: Error
         """
+        print("GOT HERE")
         ra = self.get_query_argument("ra")
         dec = self.get_query_argument("dec")
         radius = self.get_query_argument("radius")
@@ -1111,6 +1112,7 @@ def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             return self.error("Missing required parameter: dec")
         if radius is None:
             return self.error("Missing required parameter: radius")
+        print("ra, dec, radius:", ra, dec, radius)
         streams = self.get_user_streams()
 
         # allow access to public data only by default
