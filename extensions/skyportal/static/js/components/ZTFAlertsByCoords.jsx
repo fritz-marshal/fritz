@@ -30,7 +30,7 @@ import ThumbnailList from "./ThumbnailList";
 import { ra_to_hours, dec_to_dms } from "../units";
 import SharePage from "./SharePage";
 
-import * as Actions from "../ducks/alert";
+import * as Actions from "../ducks/alerts";
 
 const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
 
@@ -132,45 +132,9 @@ const getMuiTheme = (theme) =>
 
 const ZTFAlertsByCoords = ({ route }) => {
   const { ra, dec, radius } = route;
+  console.log("ra, dec, radius:", ra, dec, radius);
   const dispatch = useDispatch();
   const history = useHistory();
-
-  // figure out if relevant objectIds have been saved as Sources
-  const [savedSources, setsavedSources] = useState({});
-  const [checkedIfSourceSaved, setsCheckedIfSourceSaved] = useState({});
-
-  // not using API/source duck as that would throw an error if source does not exist
-  const fetchInit = {
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "GET",
-  };
-
-  const loadedSourceId = useSelector((state) => state?.source?.id);
-
-  useEffect(() => {
-    const fetchSource = async (objectId) => {
-      const response = await fetch(`/api/sources/${objectId}`, fetchInit);
-
-      let json = "";
-      try {
-        json = await response.json();
-      } catch (error) {
-        throw new Error(`JSON decoding error: ${error}`);
-      }
-
-      if (json.status === "success") {
-        setsavedSource(true);
-      }
-      setsCheckedIfSourceSaved(true);
-    };
-
-    if (!checkedIfSourceSaved) {
-      fetchSource();
-    }
-  }, [objectId, dispatch, fetchInit]);
 
   const userAccessibleGroups = useSelector(
     (state) => state.groups.userAccessible
@@ -183,33 +147,7 @@ const ZTFAlertsByCoords = ({ route }) => {
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
 
-  const [
-    panelPhotometryThumbnailsExpanded,
-    setPanelPhotometryThumbnailsExpanded,
-  ] = useState(true);
-
-  const handlePanelPhotometryThumbnailsChange = (panel) => (
-    event,
-    isExpanded
-  ) => {
-    setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
-  };
-
-  const [panelXMatchExpanded, setPanelXMatchExpanded] = useState(true);
-
-  const handlePanelXMatchChange = (panel) => (event, isExpanded) => {
-    setPanelXMatchExpanded(isExpanded ? panel : false);
-  };
-
-  const [panelAlertsExpanded, setPanelAlertsExpanded] = useState(true);
-  const handlePanelAlertsExpandedChange = (panel) => (event, isExpanded) => {
-    setPanelAlertsExpanded(isExpanded ? panel : false);
-  };
-
-  const [candid, setCandid] = useState(0);
-  const [jd, setJd] = useState(0);
-
-  const alert_data = useSelector((state) => state.alert_data);
+  const alerts = useSelector((state) => state.alerts_by_coords);
 
   const makeRow = (alert) => {
     return {

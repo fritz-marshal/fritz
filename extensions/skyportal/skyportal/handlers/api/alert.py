@@ -1131,7 +1131,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                 "distance_units": "deg",
                 "radec": [ra, dec],
                 "catalogs": {
-                    "milliquas_v6": {
+                    "ZTF_Alerts": {
                         "filter": {},
                         "projection": {"_id": 1, "RA": 1, "DEC": 1},
                     }
