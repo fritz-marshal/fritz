@@ -1067,23 +1067,23 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
 
 def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
     @auth_or_token
-    async def get(self, ra, dec, radius):
+    async def get(self):
         """
         ---
         single:
           description: Retrieve a ZTF objectId from Kowalski
           parameters:
-            - in: path
+            - in: query
               name: ra
               required: true
               schema:
                 type: float
-            - in: path
+            - in: query
               name: dec
               required: true
               schema:
                 type: float
-            - in: path
+            - in: query
               name: radius
               required: true
               schema:
@@ -1102,6 +1102,15 @@ def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                 application/json:
                   schema: Error
         """
+        ra = self.get_query_argument("ra")
+        dec = self.get_query_argument("dec")
+        radius = self.get_query_argument("radius")
+        if ra is None:
+            return self.error("Missing required parameter: ra")
+        if dec is None:
+            return self.error("Missing required parameter: dec")
+        if radius is None:
+            return self.error("Missing required parameter: radius")
         streams = self.get_user_streams()
 
         # allow access to public data only by default
@@ -1113,26 +1122,24 @@ def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
 
         selector = list(selector)
 
-        q = {
-            "query_type": "cone_search",
+        query = {
+            "query_type": "near",
             "query": {
-                "object_coordinates": {
-                    "cone_search_radius": 2,
-                    "cone_search_unit": "arcsec",
-                    "radec": {[ra, dec]},
-                },
+                "max_distance": radius,
+                "distance_units": "deg",
+                "radec": [ra, dec],
                 "catalogs": {
-                    "ZTF_alerts": {
+                    "milliquas_v6": {
                         "filter": {},
-                        "projection": {"_id": 0, "candid": 1, "objectId": 1},
+                        "projection": {"_id": 1, "RA": 1, "DEC": 1},
                     }
                 },
             },
-            "kwargs": {"filter_first": False},
+            "kwargs": {"limit": 3},
         }
 
         try:
-            response = self.query_kowalski(q)
+            response = self.query_kowalski(query)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
