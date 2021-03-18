@@ -85,8 +85,7 @@ const Alerts = () => {
 
   const submitSearchByLocation = (data) => {
     const path = `/alerts_by_coords/${data.ra.trim()}/${data.dec.trim()}/${data.radius.trim()}`;
-    console.log(path);
-    // history.push(path);
+    history.push(path);
   };
 
   return (
