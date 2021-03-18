@@ -1063,3 +1063,81 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
+
+
+def ZTFAlertsByCoordsHandler(ZTFAlertHandler):
+    @auth_or_token
+    async def get(self, ra, dec, radius):
+        """
+        ---
+        single:
+          description: Retrieve a ZTF objectId from Kowalski
+          parameters:
+            - in: path
+              name: ra
+              required: true
+              schema:
+                type: float
+            - in: path
+              name: dec
+              required: true
+              schema:
+                type: float
+            - in: path
+              name: radius
+              required: true
+              schema:
+                type: float
+          responses:
+            200:
+              description: retrieved alert(s)
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        streams = self.get_user_streams()
+
+        # allow access to public data only by default
+        selector = {1}
+
+        for stream in streams:
+            if "ztf" in stream.name.lower():
+                selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
+
+        q = {
+            "query_type": "cone_search",
+            "query": {
+                "object_coordinates": {
+                    "cone_search_radius": 2,
+                    "cone_search_unit": "arcsec",
+                    "radec": {[ra, dec]},
+                },
+                "catalogs": {
+                    "ZTF_alerts": {
+                        "filter": {},
+                        "projection": {"_id": 0, "candid": 1, "objectId": 1},
+                    }
+                },
+            },
+            "kwargs": {"filter_first": False},
+        }
+
+        try:
+            response = self.query_kowalski(q)
+        except Exception:
+            _err = traceback.format_exc()
+            return self.error(f"failure: {_err}")
+
+        if response.status_code == requests.codes.ok:
+            alert_data = bj.loads(response.text).get("data")
+            return self.success(data=alert_data)
+        return self.error(response.status_code)
