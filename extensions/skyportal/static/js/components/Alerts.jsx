@@ -84,7 +84,7 @@ const Alerts = () => {
   };
 
   const submitSearchByLocation = (data) => {
-    const path = `/api/alerts_by_coords?ra=${data.ra.trim()}&dec=${data.dec.trim()}&radius=${data.radius.trim()}`;
+    const path = `/alerts_by_coords/${data.ra.trim()}/${data.dec.trim()}/${data.radius.trim()}`;
     history.push(path);
   };
 
