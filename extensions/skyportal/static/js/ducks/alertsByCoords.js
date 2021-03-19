@@ -8,7 +8,7 @@ const FETCH_NEARBY_ALERTS_FAIL = "skyportal/FETCH_NEARBY_ALERTS_FAIL";
 
 export const fetchAlertsByCoords = ({ ra, dec, radius }) => (
     API.GET(
-        `/api/alerts_by_coords&ra=${ra}&dec=${dec}&radius=${radius}`,
+        `/api/alerts_by_coords?ra=${ra}&dec=${dec}&radius=${radius}`,
         FETCH_NEARBY_ALERTS
         )
 );
