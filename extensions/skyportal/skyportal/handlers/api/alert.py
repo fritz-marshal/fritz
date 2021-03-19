@@ -1103,9 +1103,9 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                   schema: Error
         """
         print("GOT HERE")
-        ra = self.get_query_argument("ra")
-        dec = self.get_query_argument("dec")
-        radius = self.get_query_argument("radius")
+        ra = self.get_query_argument("ra", None)
+        dec = self.get_query_argument("dec", None)
+        radius = self.get_query_argument("radius", None)
         if ra is None:
             return self.error("Missing required parameter: ra")
         if dec is None:
