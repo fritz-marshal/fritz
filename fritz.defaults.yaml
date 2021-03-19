@@ -77,7 +77,7 @@ skyportal:
 
     kowalski:
       protocol: "http"
-      host: "kowalski_api_1"
+      host: "172.17.0.1"
       port: 4000
       token:
 
