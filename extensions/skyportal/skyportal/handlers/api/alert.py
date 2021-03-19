@@ -42,7 +42,7 @@ from .thumbnail import ThumbnailHandler
 log = make_log("alert")
 
 
-s = requests.Session()
+requests_session = requests.Session()
 
 
 def make_thumbnail(a, ttype, ztftype):
@@ -129,7 +129,7 @@ class ZTFAlertHandler(BaseHandler):
         )
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
-        resp = s.post(
+        resp = requests_session.post(
             os.path.join(base_url, "api/queries"),
             json=query,
             headers=headers,
@@ -1127,7 +1127,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             "query": {
                 "max_distance": radius,
                 "distance_units": "deg",
-                "radec": [ra, dec],
+                "radec": {"abc123": [ra, dec]},
                 "catalogs": {
                     "ZTF_Alerts": {
                         "filter": {},
@@ -1139,14 +1139,16 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
 
         try:
             response = self.query_kowalski(query)
-            print(response)
+            print(response, response.text)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
 
         if response.status_code == requests.codes.ok:
             alert_data = bj.loads(response.text).get("data")
-            return self.success(data=alert_data)
+            if "ZTF_Alerts" in alert_data and "abc123" in alert_data["ZTF_Alerts"]:
+                return self.success(data=alert_data["ZTF_Alerts"]["abc123"])
+            return self.error("Kowalski response data not structured as expected.")
         return self.error(
             f"Query to Kowalski failed with status code {response.status_code}"
         )
