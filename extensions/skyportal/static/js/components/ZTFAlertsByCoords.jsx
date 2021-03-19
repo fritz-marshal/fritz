@@ -2,7 +2,6 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useHistory } from "react-router-dom";
 
-import Button from "@material-ui/core/Button";
 import PropTypes from "prop-types";
 import {
   makeStyles,
@@ -11,18 +10,14 @@ import {
   MuiThemeProvider,
 } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
-import Grid from "@material-ui/core/Grid";
 import Accordion from "@material-ui/core/Accordion";
 import AccordionSummary from "@material-ui/core/AccordionSummary";
 import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 import CircularProgress from "@material-ui/core/CircularProgress";
-import Chip from "@material-ui/core/Chip";
-import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 
 import MUIDataTable from "mui-datatables";
-import ReactJson from "react-json-view";
 
 import * as Actions from "../ducks/alertsByCoords";
 
@@ -158,8 +153,8 @@ const ZTFAlertsByCoords = ({ route }) => {
 
   let rows = [];
 
-  if (alerts !== null && !isString(alerts)) {
-    rows = alerts?.map((a) => makeRow(a));
+  if (alerts !== null && !isString(alerts) && Array.isArray(alerts)) {
+    rows = alerts.map((a) => makeRow(a));
   }
 
   useEffect(() => {

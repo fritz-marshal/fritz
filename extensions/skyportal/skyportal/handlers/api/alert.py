@@ -1102,7 +1102,6 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                 application/json:
                   schema: Error
         """
-        print("GOT HERE")
         ra = self.get_query_argument("ra", None)
         dec = self.get_query_argument("dec", None)
         radius = self.get_query_argument("radius", None)
@@ -1112,7 +1111,6 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             return self.error("Missing required parameter: dec")
         if radius is None:
             return self.error("Missing required parameter: radius")
-        print("ra, dec, radius:", ra, dec, radius)
         streams = self.get_user_streams()
 
         # allow access to public data only by default
@@ -1141,6 +1139,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
 
         try:
             response = self.query_kowalski(query)
+            print(response)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
@@ -1148,4 +1147,6 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
         if response.status_code == requests.codes.ok:
             alert_data = bj.loads(response.text).get("data")
             return self.success(data=alert_data)
-        return self.error(response.status_code)
+        return self.error(
+            f"Query to Kowalski failed with status code {response.status_code}"
+        )
