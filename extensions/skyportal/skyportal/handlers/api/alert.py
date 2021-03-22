@@ -1071,7 +1071,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
         """
         ---
         single:
-          description: Retrieve a ZTF objectId from Kowalski
+          description: Query Kowalski for alerts near specified coords
           parameters:
             - in: query
               name: ra
@@ -1096,7 +1096,12 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                   schema:
                     allOf:
                       - $ref: '#/components/schemas/Success'
-
+                      - type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
             400:
               content:
                 application/json:
