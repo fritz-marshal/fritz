@@ -1003,9 +1003,9 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                alert = bj.loads(resp.text).get("data", list(dict()))[0]
+                alert = bj.loads(resp.text).get("data", [dict()])[0]
             else:
-                alert = dict()
+                return self.error("No cutout found.")
 
             cutout_data = bj.loads(bj.dumps([alert[f"cutout{cutout}"]["stampData"]]))[0]
 
@@ -1111,6 +1111,12 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             return self.error("Missing required parameter: dec")
         if radius is None:
             return self.error("Missing required parameter: radius")
+        try:
+            ra = float(ra)
+            dec = float(dec)
+            radius = float(radius)
+        except ValueError:
+            return self.error("Invalid (non-float) value provided.")
         streams = self.get_user_streams()
 
         # allow access to public data only by default
@@ -1132,9 +1138,15 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                     "ZTF_alerts": {
                         "filter": {},
                         "projection": {
-                            "candid": 1,
+                            "objectId": 1,
+                            "candid": {"$toString": "$candid"},
                             "candidate.ra": 1,
                             "candidate.dec": 1,
+                            "candidate.jd": 1,
+                            "candidate.fid": 1,
+                            "candidate.magpsf": 1,
+                            "candidate.sigmapsf": 1,
+                            "candidate.programid": 1,
                             "_id": 0,
                         },
                     }
@@ -1144,7 +1156,6 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
 
         try:
             response = self.query_kowalski(query)
-            print(response, response.text)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")

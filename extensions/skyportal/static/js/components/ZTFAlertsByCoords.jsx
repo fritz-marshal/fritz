@@ -10,14 +10,14 @@ import {
   MuiThemeProvider,
 } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
-import Accordion from "@material-ui/core/Accordion";
-import AccordionSummary from "@material-ui/core/AccordionSummary";
-import AccordionDetails from "@material-ui/core/AccordionDetails";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
+import TableCell from "@material-ui/core/TableCell";
+import TableRow from "@material-ui/core/TableRow";
+import Grid from "@material-ui/core/Grid";
 import Typography from "@material-ui/core/Typography";
 import CircularProgress from "@material-ui/core/CircularProgress";
-
 import MUIDataTable from "mui-datatables";
+
+import ThumbnailList from "./ThumbnailList";
 
 import * as Actions from "../ducks/alertsByCoords";
 
@@ -119,7 +119,6 @@ const getMuiTheme = (theme) =>
 
 const ZTFAlertsByCoords = ({ route }) => {
   const { ra, dec, radius } = route;
-  console.log("ra, dec, radius:", ra, dec, radius);
   const dispatch = useDispatch();
   const history = useHistory();
   const [isFetched, setIsFetched] = useState(false);
@@ -139,14 +138,12 @@ const ZTFAlertsByCoords = ({ route }) => {
 
   const makeRow = (alert) => {
     return {
+      objectId: alert?.objectId,
       candid: alert?.candid,
       jd: alert?.candidate.jd,
       fid: alert?.candidate.fid,
       mag: alert?.candidate.magpsf,
       emag: alert?.candidate.sigmapsf,
-      rb: alert?.candidate.rb,
-      drb: alert?.candidate.drb,
-      isdiffpos: alert?.candidate.isdiffpos,
       programid: alert?.candidate.programid,
     };
   };
@@ -170,8 +167,59 @@ const ZTFAlertsByCoords = ({ route }) => {
 
   const classes = useStyles();
 
+  // This is just passed to MUI datatables options -- not meant to be instantiated directly.
+  const renderPullOutRow = (rowData, rowMeta) => {
+    const colSpan = rowData.length + 1;
+    const alertData = alerts[rowMeta.dataIndex];
+    const thumbnails = [
+      {
+        type: "new",
+        id: 0,
+        public_url: `/api/alerts/ztf/${alertData.objectId}/cutout?candid=${alertData.candid}&cutout=science&file_format=png`,
+      },
+      {
+        type: "ref",
+        id: 1,
+        public_url: `/api/alerts/ztf/${alertData.objectId}/cutout?candid=${alertData.candid}&cutout=template&file_format=png`,
+      },
+      {
+        type: "sub",
+        id: 2,
+        public_url: `/api/alerts/ztf/${alertData.objectId}/cutout?candid=${alertData.candid}&cutout=difference&file_format=png`,
+      },
+    ];
+
+    return (
+      <TableRow data-testid={`alertRow_${alertData.candid}`}>
+        <TableCell
+          style={{ paddingBottom: 0, paddingTop: 0 }}
+          colSpan={colSpan}
+        >
+          <Grid
+            container
+            direction="row"
+            spacing={3}
+            justify="center"
+            alignItems="center"
+          >
+            <Grid item>
+            <ThumbnailList
+              thumbnails={thumbnails}
+              ra={alertData.candidate.ra}
+              dec={alertData.candidate.dec}
+              displayTypes={["new", "ref", "sub"]}
+            />
+            </Grid>
+          </Grid>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   const options = {
     selectableRows: "none",
+    expandableRows: true,
+    renderExpandableRow: renderPullOutRow,
     elevation: 1,
     sortOrder: {
       name: "jd",
@@ -180,6 +228,15 @@ const ZTFAlertsByCoords = ({ route }) => {
   };
 
   const columns = [
+    {
+      name: "objectId",
+      label: "Object ID",
+      options: {
+        filter: true,
+        sort: true,
+        sortDescFirst: true,
+      },
+    },
     {
       name: "candid",
       label: "candid",
@@ -226,34 +283,6 @@ const ZTFAlertsByCoords = ({ route }) => {
       },
     },
     {
-      name: "rb",
-      label: "rb",
-      options: {
-        filter: false,
-        sort: true,
-        sortDescFirst: true,
-        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
-      },
-    },
-    {
-      name: "drb",
-      label: "drb",
-      options: {
-        filter: false,
-        sort: true,
-        sortDescFirst: true,
-        customBodyRender: (value, tableMeta, updateValue) => value?.toFixed(5),
-      },
-    },
-    {
-      name: "isdiffpos",
-      label: "isdiffpos",
-      options: {
-        filter: true,
-        sort: true,
-      },
-    },
-    {
       name: "programid",
       label: "programid",
       options: {
@@ -285,31 +314,18 @@ const ZTFAlertsByCoords = ({ route }) => {
   return (
     <Paper elevation={1} className={classes.source}>
       <div>
-        <Accordion
-          expanded={panelAlertsExpanded}
-          onChange={handlePanelAlertsExpandedChange(true)}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel-content"
-            id="alerts-panel-header"
-          >
-            <Typography className={classes.accordionHeading}>
-              Alerts
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails className={classes.accordionDetails}>
-            <div className={classes.accordionDetails}>
-              <MuiThemeProvider theme={getMuiTheme(theme)}>
-                <MUIDataTable
-                  data={rows}
-                  columns={columns}
-                  options={options}
-                />
-              </MuiThemeProvider>
-            </div>
-          </AccordionDetails>
-        </Accordion>
+        <Typography className={classes.accordionHeading}>
+          Alerts within {radius} degrees of ({ra}, {dec})
+        </Typography>
+        <div className={classes.accordionDetails}>
+          <MuiThemeProvider theme={getMuiTheme(theme)}>
+            <MUIDataTable
+              data={rows}
+              columns={columns}
+              options={options}
+            />
+          </MuiThemeProvider>
+        </div>
       </div>
     </Paper>
   );
