@@ -143,6 +143,8 @@ const ZTFAlertsByCoords = ({ route }) => {
       jd: alert?.candidate.jd,
       ra: alert?.candidate.ra,
       dec: alert?.candidate.dec,
+      rb: alert?.candidate.rb,
+      drb: alert?.candidate.drb,
       fid: alert?.candidate.fid,
       mag: alert?.candidate.magpsf,
       emag: alert?.candidate.sigmapsf,
@@ -273,6 +275,22 @@ const ZTFAlertsByCoords = ({ route }) => {
         filter: false,
         sort: true,
         customBodyRender: (value, tableMeta, updateValue) => dec_to_dms(value, ":"),
+      },
+    },
+    {
+      name: "rb",
+      label: "rb",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "drb",
+      label: "drb",
+      options: {
+        filter: true,
+        sort: true,
       },
     },
     {
