@@ -282,6 +282,7 @@ const ZTFAlertsByCoords = ({ route }) => {
       options: {
         filter: true,
         sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
       },
     },
     {
