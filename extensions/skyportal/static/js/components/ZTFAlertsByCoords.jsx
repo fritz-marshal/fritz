@@ -18,7 +18,7 @@ import CircularProgress from "@material-ui/core/CircularProgress";
 import MUIDataTable from "mui-datatables";
 
 import ThumbnailList from "./ThumbnailList";
-
+import { ra_to_hours, dec_to_dms } from "../units";
 import * as Actions from "../ducks/alertsByCoords";
 
 const useStyles = makeStyles((theme) => ({
@@ -243,7 +243,6 @@ const ZTFAlertsByCoords = ({ route }) => {
       options: {
         filter: false,
         sort: true,
-        sortDescFirst: true,
       },
     },
     {
@@ -254,6 +253,24 @@ const ZTFAlertsByCoords = ({ route }) => {
         sort: true,
         sortDescFirst: true,
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "ra",
+      label: "RA",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => ra_to_hours(value, ":"),
+      },
+    },
+    {
+      name: "dec",
+      label: "Dec.",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => dec_to_dms(value, ":"),
       },
     },
     {
