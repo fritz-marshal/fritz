@@ -35,3 +35,16 @@ def test_get_alert_cutout(view_only_token):
                 raw_response=True,
             )
             assert response.status_code == 200
+
+
+def test_get_alerts_by_coords(view_only_token):
+    ra = 22.23
+    dec = 22.23
+    radius = 20.0
+    status, data = api(
+        "GET",
+        f"/api/alerts_by_coords?ra={ra}&dec={dec}&radius={radius}",
+        token=view_only_token,
+    )
+    assert status == 200
+    assert all(["objectId" in alert for alert in data["data"]])

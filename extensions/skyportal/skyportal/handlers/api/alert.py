@@ -1078,16 +1078,19 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
               required: true
               schema:
                 type: float
+              description: RA in degrees
             - in: query
               name: dec
               required: true
               schema:
                 type: float
+              description: Dec. in degrees
             - in: query
               name: radius
               required: true
               schema:
                 type: float
+              description: Max distance from specified (RA, Dec) in degrees
           responses:
             200:
               description: retrieved alert(s)
