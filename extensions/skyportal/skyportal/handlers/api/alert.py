@@ -1127,11 +1127,16 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             "query": {
                 "max_distance": radius,
                 "distance_units": "deg",
-                "radec": {"abc123": [ra, dec]},
+                "radec": {"query_coords": [ra, dec]},
                 "catalogs": {
-                    "ZTF_Alerts": {
+                    "ZTF_alerts": {
                         "filter": {},
-                        "projection": {"_id": 1, "RA": 1, "DEC": 1},
+                        "projection": {
+                            "candid": 1,
+                            "candidate.ra": 1,
+                            "candidate.dec": 1,
+                            "_id": 0,
+                        },
                     }
                 },
             },
@@ -1146,8 +1151,11 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
 
         if response.status_code == requests.codes.ok:
             alert_data = bj.loads(response.text).get("data")
-            if "ZTF_Alerts" in alert_data and "abc123" in alert_data["ZTF_Alerts"]:
-                return self.success(data=alert_data["ZTF_Alerts"]["abc123"])
+            if (
+                "ZTF_alerts" in alert_data
+                and "query_coords" in alert_data["ZTF_alerts"]
+            ):
+                return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
             return self.error("Kowalski response data not structured as expected.")
         return self.error(
             f"Query to Kowalski failed with status code {response.status_code}"
