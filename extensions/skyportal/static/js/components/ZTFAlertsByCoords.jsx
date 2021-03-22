@@ -141,6 +141,8 @@ const ZTFAlertsByCoords = ({ route }) => {
       objectId: alert?.objectId,
       candid: alert?.candid,
       jd: alert?.candidate.jd,
+      ra: alert?.candidate.ra,
+      dec: alert?.candidate.dec,
       fid: alert?.candidate.fid,
       mag: alert?.candidate.magpsf,
       emag: alert?.candidate.sigmapsf,
