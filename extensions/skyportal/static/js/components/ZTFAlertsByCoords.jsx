@@ -222,6 +222,7 @@ const ZTFAlertsByCoords = ({ route }) => {
   const options = {
     selectableRows: "none",
     expandableRows: true,
+    expandableRowsOnClick: true,
     renderExpandableRow: renderPullOutRow,
     elevation: 1,
     sortOrder: {
