@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useHistory } from "react-router-dom";
+import { useHistory, Link } from "react-router-dom";
 
 import PropTypes from "prop-types";
 import {
@@ -239,6 +239,11 @@ const ZTFAlertsByCoords = ({ route }) => {
         filter: true,
         sort: true,
         sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => (
+          <Link to={`/alerts/ztf/${value}`} role="link">
+            <Button size="small">{value}</Button>
+          </Link>
+        ),
       },
     },
     {
