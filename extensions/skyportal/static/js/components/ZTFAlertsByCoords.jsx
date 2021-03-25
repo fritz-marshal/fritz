@@ -351,7 +351,7 @@ const ZTFAlertsByCoords = ({ route }) => {
     <Paper elevation={1} className={classes.source}>
       <div>
         <Typography className={classes.accordionHeading}>
-          Alerts within {radius} degrees of ({ra}, {dec})
+          Alerts within {radius} arcseconds of ({ra}, {dec})
         </Typography>
         <div className={classes.accordionDetails}>
           <MuiThemeProvider theme={getMuiTheme(theme)}>

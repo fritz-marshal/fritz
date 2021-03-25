@@ -177,7 +177,7 @@ const Alerts = () => {
                     required
                     margin="dense"
                     name="radius"
-                    label="Radius (deg)"
+                    label="Radius (arcsec)"
                     fullWidth
                     inputRef={registerCoordsForm({ required: true })}
                   />
