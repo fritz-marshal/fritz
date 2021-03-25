@@ -1,7 +1,7 @@
 import * as API from "../API";
 import store from "../store";
 
-const FETCH_NEARBY_ALERTS = "skyportal/FETCH_NEARBY_ALERTs";
+const FETCH_NEARBY_ALERTS = "skyportal/FETCH_NEARBY_ALERTS";
 const FETCH_NEARBY_ALERTS_OK = "skyportal/FETCH_NEARBY_ALERTS_OK";
 const FETCH_NEARBY_ALERTS_ERROR = "skyportal/FETCH_NEARBY_ALERTS_ERROR";
 const FETCH_NEARBY_ALERTS_FAIL = "skyportal/FETCH_NEARBY_ALERTS_FAIL";
