@@ -1090,7 +1090,13 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
               required: true
               schema:
                 type: float
-              description: Max distance from specified (RA, Dec) in degrees
+              description: Max distance from specified (RA, Dec)
+            - in: query
+              name: radius_units
+              required: true
+              schema:
+                type: string
+              description: Distance units (either "deg", "arcmin", or "arcsec")
           responses:
             200:
               description: retrieved alert(s)
@@ -1113,12 +1119,20 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
         ra = self.get_query_argument("ra", None)
         dec = self.get_query_argument("dec", None)
         radius = self.get_query_argument("radius", None)
+        radius_units = self.get_query_argument("radius_units", None)
         if ra is None:
             return self.error("Missing required parameter: ra")
         if dec is None:
             return self.error("Missing required parameter: dec")
         if radius is None:
             return self.error("Missing required parameter: radius")
+        if radius_units is None:
+            return self.error("Missing required parameter: radius_units")
+        if radius_units not in ["deg", "arcmin", "arcsec"]:
+            return self.error(
+                "Invalid radius_units value. Must be one of either "
+                "'deg', 'arcmin' or 'arcsec'."
+            )
         try:
             ra = float(ra)
             dec = float(dec)
@@ -1140,7 +1154,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             "query_type": "near",
             "query": {
                 "max_distance": radius,
-                "distance_units": "deg",
+                "distance_units": radius_units,
                 "radec": {"query_coords": [ra, dec]},
                 "catalogs": {
                     "ZTF_alerts": {
