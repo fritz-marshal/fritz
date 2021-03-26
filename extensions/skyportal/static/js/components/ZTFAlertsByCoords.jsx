@@ -146,8 +146,8 @@ const ZTFAlertsByCoords = ({ route }) => {
       dec: alert?.candidate.dec,
       drb: alert?.candidate.drb,
       fid: alert?.candidate.fid,
-      mag: alert?.candidate.magpsf,
-      emag: alert?.candidate.sigmapsf,
+      magpsf: alert?.candidate.magpsf,
+      sigmapsf: alert?.candidate.sigmapsf,
       programid: alert?.candidate.programid,
     };
   };
@@ -301,8 +301,8 @@ const ZTFAlertsByCoords = ({ route }) => {
       },
     },
     {
-      name: "mag",
-      label: "mag",
+      name: "magpsf",
+      label: "magpsf",
       options: {
         filter: false,
         sort: true,
@@ -310,8 +310,8 @@ const ZTFAlertsByCoords = ({ route }) => {
       },
     },
     {
-      name: "emag",
-      label: "e_mag",
+      name: "sigmapsf",
+      label: "sigmapsf",
       options: {
         filter: false,
         sort: true,

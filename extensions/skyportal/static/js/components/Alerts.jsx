@@ -92,7 +92,7 @@ const Alerts = () => {
     <div>
       <div>
         <Typography variant="h6" className={classes.header}>
-          Search objects from alert streams
+          Search objects from alert streams by ID
         </Typography>
 
         <Grid container spacing={2}>
