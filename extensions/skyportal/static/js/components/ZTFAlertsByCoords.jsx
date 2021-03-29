@@ -99,6 +99,9 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: "bold",
     fontSize: "110%",
   },
+  button: {
+    textTransform: "none",
+  },
 }));
 
 function isString(x) {
@@ -247,7 +250,7 @@ const ZTFAlertsByCoords = ({ route }) => {
         sortDescFirst: true,
         customBodyRender: (value, tableMeta, updateValue) => (
           <Link to={`/alerts/ztf/${value}`} role="link">
-            <Button size="small" variant="contained">{value}</Button>
+            <Button className={classes.button} size="small" variant="contained">{value}</Button>
           </Link>
         ),
       },
