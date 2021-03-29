@@ -30,7 +30,7 @@ def test_get_alert_cutout(view_only_token):
         for file_format in ("png", "fits"):
             response = api(
                 "GET",
-                f"/api/alerts/ztf/{oid}/cutout"
+                f"alerts/ztf/{oid}/cutout"
                 f"?candid={candid}&cutout={cutout}&file_format={file_format}",
                 raw_response=True,
             )
@@ -40,10 +40,10 @@ def test_get_alert_cutout(view_only_token):
 def test_get_alerts_by_coords(view_only_token):
     ra = 22.23
     dec = 22.23
-    radius = 20.0
+    radius = 1
     status, data = api(
         "GET",
-        f"/api/alerts_by_coords/ztf?ra={ra}&dec={dec}&radius={radius}",
+        f"alerts_by_coords/ztf?ra={ra}&dec={dec}&radius={radius}&radius_units=deg",
         token=view_only_token,
     )
     assert status == 200
