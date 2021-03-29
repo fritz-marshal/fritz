@@ -122,7 +122,7 @@ class ZTFAlertHandler(BaseHandler):
     #
     #     return resp
 
-    def query_kowalski(self, query: dict, timeout=7):
+    def query_kowalski(self, query: dict, timeout=10):
         base_url = (
             f"{self.cfg['app.kowalski.protocol']}://"
             f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
@@ -1071,7 +1071,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
         """
         ---
         single:
-          description: Query Kowalski for alerts near specified coords
+          description: Query Kowalski for alerts near specified coords. Results capped at 1000 alerts.
           parameters:
             - in: query
               name: ra
@@ -1175,6 +1175,9 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                         },
                     }
                 },
+            },
+            "kwargs": {
+                "limit": 1000,
             },
         }
 
