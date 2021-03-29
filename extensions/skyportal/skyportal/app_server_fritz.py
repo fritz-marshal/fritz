@@ -18,7 +18,7 @@ fritz_handlers = [
     (r"/api/alerts/ztf/(.+)", ZTFAlertHandler),
     # Alert Stream filter versioning via K:
     (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
-    (r"/api/alerts_by_coords", ZTFAlertsByCoordsHandler),
+    (r"/api/alerts_by_coords/ztf", ZTFAlertsByCoordsHandler),
 ]
 
 

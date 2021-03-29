@@ -43,7 +43,7 @@ def test_get_alerts_by_coords(view_only_token):
     radius = 20.0
     status, data = api(
         "GET",
-        f"/api/alerts_by_coords?ra={ra}&dec={dec}&radius={radius}",
+        f"/api/alerts_by_coords/ztf?ra={ra}&dec={dec}&radius={radius}",
         token=view_only_token,
     )
     assert status == 200
