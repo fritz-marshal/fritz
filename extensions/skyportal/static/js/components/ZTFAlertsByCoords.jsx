@@ -56,7 +56,6 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: "0.625rem",
     color: theme.palette.text.primary,
   },
-
   accordionHeading: {
     fontSize: "1.25rem",
     fontWeight: theme.typography.fontWeightRegular,
@@ -68,6 +67,7 @@ const useStyles = makeStyles((theme) => ({
     padding: "1rem",
     display: "flex",
     flexDirection: "row",
+    width: "100%",
   },
   column: {
     display: "flex",
@@ -99,6 +99,9 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: "bold",
     fontSize: "110%",
   },
+  button: {
+    textTransform: "none",
+  },
 }));
 
 function isString(x) {
@@ -107,6 +110,7 @@ function isString(x) {
 
 const getMuiTheme = (theme) =>
   createMuiTheme({
+    palette: theme.palette,
     overrides: {
       MUIDataTableBodyCell: {
         root: {
@@ -247,7 +251,7 @@ const ZTFAlertsByCoords = ({ route }) => {
         sortDescFirst: true,
         customBodyRender: (value, tableMeta, updateValue) => (
           <Link to={`/alerts/ztf/${value}`} role="link">
-            <Button size="small" variant="contained">{value}</Button>
+            <Button className={classes.button} size="small" variant="contained">{value}</Button>
           </Link>
         ),
       },
