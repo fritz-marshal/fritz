@@ -216,8 +216,8 @@ const ZTFAlert = ({ route }) => {
       candid: alert?.candid,
       jd: alert?.candidate.jd,
       fid: alert?.candidate.fid,
-      mag: alert?.candidate.magpsf,
-      emag: alert?.candidate.sigmapsf,
+      magpsf: alert?.candidate.magpsf,
+      sigmapsf: alert?.candidate.sigmapsf,
       rb: alert?.candidate.rb,
       drb: alert?.candidate.drb,
       isdiffpos: alert?.candidate.isdiffpos,
@@ -339,8 +339,8 @@ const ZTFAlert = ({ route }) => {
       },
     },
     {
-      name: "mag",
-      label: "mag",
+      name: "magpsf",
+      label: "magpsf",
       options: {
         filter: false,
         sort: true,
@@ -348,8 +348,8 @@ const ZTFAlert = ({ route }) => {
       },
     },
     {
-      name: "emag",
-      label: "e_mag",
+      name: "sigmapsf",
+      label: "sigmapsf",
       options: {
         filter: false,
         sort: true,

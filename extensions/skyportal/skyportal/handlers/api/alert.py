@@ -42,7 +42,7 @@ from .thumbnail import ThumbnailHandler
 log = make_log("alert")
 
 
-s = requests.Session()
+requests_session = requests.Session()
 
 
 def make_thumbnail(a, ttype, ztftype):
@@ -122,14 +122,14 @@ class ZTFAlertHandler(BaseHandler):
     #
     #     return resp
 
-    def query_kowalski(self, query: dict, timeout=7):
+    def query_kowalski(self, query: dict, timeout=10):
         base_url = (
             f"{self.cfg['app.kowalski.protocol']}://"
             f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
         )
         headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
 
-        resp = s.post(
+        resp = requests_session.post(
             os.path.join(base_url, "api/queries"),
             json=query,
             headers=headers,
@@ -1003,9 +1003,9 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             resp = self.query_kowalski(query=query)
 
             if resp.status_code == requests.codes.ok:
-                alert = bj.loads(resp.text).get("data", list(dict()))[0]
+                alert = bj.loads(resp.text).get("data", [dict()])[0]
             else:
-                alert = dict()
+                return self.error("No cutout found.")
 
             cutout_data = bj.loads(bj.dumps([alert[f"cutout{cutout}"]["stampData"]]))[0]
 
@@ -1063,3 +1063,144 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
+
+
+class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
+    @auth_or_token
+    def get(self):
+        """
+        ---
+        single:
+          description: Query Kowalski for alerts near specified coords. Results capped at 10000 alerts.
+          parameters:
+            - in: query
+              name: ra
+              required: true
+              schema:
+                type: float
+              description: RA in degrees
+            - in: query
+              name: dec
+              required: true
+              schema:
+                type: float
+              description: Dec. in degrees
+            - in: query
+              name: radius
+              required: true
+              schema:
+                type: float
+              description: Max distance from specified (RA, Dec) (capped at 1 deg)
+            - in: query
+              name: radius_units
+              required: true
+              schema:
+                type: string
+              description: Distance units (either "deg", "arcmin", or "arcsec")
+          responses:
+            200:
+              description: retrieved alert(s)
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        ra = self.get_query_argument("ra", None)
+        dec = self.get_query_argument("dec", None)
+        radius = self.get_query_argument("radius", None)
+        radius_units = self.get_query_argument("radius_units", None)
+        if ra is None:
+            return self.error("Missing required parameter: ra")
+        if dec is None:
+            return self.error("Missing required parameter: dec")
+        if radius is None:
+            return self.error("Missing required parameter: radius")
+        if radius_units is None:
+            return self.error("Missing required parameter: radius_units")
+        if radius_units not in ["deg", "arcmin", "arcsec"]:
+            return self.error(
+                "Invalid radius_units value. Must be one of either "
+                "'deg', 'arcmin' or 'arcsec'."
+            )
+        try:
+            ra = float(ra)
+            dec = float(dec)
+            radius = float(radius)
+        except ValueError:
+            return self.error("Invalid (non-float) value provided.")
+        if (
+            (radius_units == "deg" and radius > 1)
+            or (radius_units == "arcmin" and radius > 60)
+            or (radius_units == "arcsec" and radius > 3600)
+        ):
+            return self.error("Radius must be <= 1.0 deg")
+        streams = self.get_user_streams()
+
+        # allow access to public data only by default
+        selector = {1}
+
+        for stream in streams:
+            if "ztf" in stream.name.lower():
+                selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
+
+        query = {
+            "query_type": "near",
+            "query": {
+                "max_distance": radius,
+                "distance_units": radius_units,
+                "radec": {"query_coords": [ra, dec]},
+                "catalogs": {
+                    "ZTF_alerts": {
+                        "filter": {},
+                        "projection": {
+                            "objectId": 1,
+                            "candid": {"$toString": "$candid"},
+                            "candidate.ra": 1,
+                            "candidate.dec": 1,
+                            "candidate.jd": 1,
+                            "candidate.fid": 1,
+                            "candidate.magpsf": 1,
+                            "candidate.sigmapsf": 1,
+                            "candidate.drb": 1,
+                            "candidate.programid": 1,
+                            "classifications": 1,
+                            "_id": 0,
+                        },
+                    }
+                },
+            },
+            "kwargs": {
+                "limit": 10000,
+            },
+        }
+
+        try:
+            response = self.query_kowalski(query)
+        except Exception:
+            _err = traceback.format_exc()
+            return self.error(f"failure: {_err}")
+
+        if response.status_code == requests.codes.ok:
+            alert_data = bj.loads(response.text).get("data")
+            if (
+                "ZTF_alerts" in alert_data
+                and "query_coords" in alert_data["ZTF_alerts"]
+            ):
+                return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
+            return self.error("Kowalski response data not structured as expected.")
+        return self.error(
+            f"Query to Kowalski failed with status code {response.status_code}"
+        )
