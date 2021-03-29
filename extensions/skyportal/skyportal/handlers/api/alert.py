@@ -1142,7 +1142,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
         if (
             (radius_units == "deg" and radius > 1)
             or (radius_units == "arcmin" and radius > 60)
-            or (radius_units == "arcmin" and radius > 3600)
+            or (radius_units == "arcsec" and radius > 3600)
         ):
             return self.error("Radius must be <= 1.0 deg")
         streams = self.get_user_streams()
