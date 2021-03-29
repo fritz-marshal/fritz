@@ -145,6 +145,11 @@ const ZTFAlertsByCoords = ({ route }) => {
       ra: alert?.candidate.ra,
       dec: alert?.candidate.dec,
       drb: alert?.candidate.drb,
+      acai_h: alert?.classifications?.acai_h,
+      acai_n: alert?.classifications?.acai_n,
+      acai_o: alert?.classifications?.acai_o,
+      acai_v: alert?.classifications?.acai_v,
+      acai_b: alert?.classifications?.acai_b,
       fid: alert?.candidate.fid,
       magpsf: alert?.candidate.magpsf,
       sigmapsf: alert?.candidate.sigmapsf,
@@ -242,7 +247,7 @@ const ZTFAlertsByCoords = ({ route }) => {
         sortDescFirst: true,
         customBodyRender: (value, tableMeta, updateValue) => (
           <Link to={`/alerts/ztf/${value}`} role="link">
-            <Button size="small">{value}</Button>
+            <Button size="small" variant="contained">{value}</Button>
           </Link>
         ),
       },
@@ -293,6 +298,51 @@ const ZTFAlertsByCoords = ({ route }) => {
       },
     },
     {
+      name: "acai_h",
+      label: "acai_h",
+      options: {
+        filter: true,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_n",
+      label: "acai_n",
+      options: {
+        filter: true,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_o",
+      label: "acai_o",
+      options: {
+        filter: true,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_v",
+      label: "acai_v",
+      options: {
+        filter: true,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_b",
+      label: "acai_b",
+      options: {
+        filter: true,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
       name: "fid",
       label: "fid",
       options: {
@@ -336,7 +386,7 @@ const ZTFAlertsByCoords = ({ route }) => {
     );
   }
   if (isString(alerts)) {
-    return <div>Failed to fetch alert data, please try again later.</div>;
+    return <div>Failed to fetch alert data.</div>;
   }
   if (alerts.length === 0) {
     return (

@@ -1170,6 +1170,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                             "candidate.sigmapsf": 1,
                             "candidate.drb": 1,
                             "candidate.programid": 1,
+                            "classifications": 1,
                             "_id": 0,
                         },
                     }
