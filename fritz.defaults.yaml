@@ -62,7 +62,7 @@ skyportal:
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
-      - path: "/alerts_by_coords/:ra/:dec/:radius"
+      - path: "/alerts_by_coords/ztf/:ra/:dec/:radius"
         component: ZTFAlertsByCoords
       - path: "/upload_spectrum/:id"
         component: UploadSpectrum

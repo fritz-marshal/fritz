@@ -1071,7 +1071,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
         """
         ---
         single:
-          description: Query Kowalski for alerts near specified coords. Results capped at 1000 alerts.
+          description: Query Kowalski for alerts near specified coords. Results capped at 10000 alerts.
           parameters:
             - in: query
               name: ra
@@ -1090,7 +1090,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
               required: true
               schema:
                 type: float
-              description: Max distance from specified (RA, Dec)
+              description: Max distance from specified (RA, Dec) (capped at 1 deg)
             - in: query
               name: radius_units
               required: true
@@ -1139,6 +1139,12 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
             radius = float(radius)
         except ValueError:
             return self.error("Invalid (non-float) value provided.")
+        if (
+            (radius_units == "deg" and radius > 1)
+            or (radius_units == "arcmin" and radius > 60)
+            or (radius_units == "arcmin" and radius > 3600)
+        ):
+            return self.error("Radius must be <= 1.0 deg")
         streams = self.get_user_streams()
 
         # allow access to public data only by default
@@ -1177,7 +1183,7 @@ class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
                 },
             },
             "kwargs": {
-                "limit": 1000,
+                "limit": 10000,
             },
         }
 

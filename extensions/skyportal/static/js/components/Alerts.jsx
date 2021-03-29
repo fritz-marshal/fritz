@@ -84,7 +84,7 @@ const Alerts = () => {
   };
 
   const submitSearchByLocation = (data) => {
-    const path = `/alerts_by_coords/${data.ra.trim()}/${data.dec.trim()}/${data.radius.trim()}`;
+    const path = `/alerts_by_coords/ztf/${data.ra.trim()}/${data.dec.trim()}/${data.radius.trim()}`;
     history.push(path);
   };
 
@@ -154,6 +154,7 @@ const Alerts = () => {
             <Card className={classes.root}>
               <form onSubmit={handleSubmitCoordsForm(submitSearchByLocation)}>
                 <CardContent>
+                  <em>Note: max radius is 1 degree; results limited to 10k/query</em>
                   <TextField
                     autoFocus
                     required
