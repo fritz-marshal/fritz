@@ -56,7 +56,6 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: "0.625rem",
     color: theme.palette.text.primary,
   },
-
   accordionHeading: {
     fontSize: "1.25rem",
     fontWeight: theme.typography.fontWeightRegular,
@@ -68,6 +67,7 @@ const useStyles = makeStyles((theme) => ({
     padding: "1rem",
     display: "flex",
     flexDirection: "row",
+    width: "100%",
   },
   column: {
     display: "flex",
