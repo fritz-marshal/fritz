@@ -702,6 +702,7 @@ def test(args):
         )
     ]
 
+    error = False
     for api_test in api_tests:
         command = [
             "docker",
@@ -716,7 +717,10 @@ def test(args):
         try:
             subprocess.run(command, check=True)
         except subprocess.CalledProcessError:
+            error = True
             continue
+    if error:
+        sys.exit(1)
 
 
 def doc(args):
