@@ -38,8 +38,8 @@ def test_get_alert_cutout(view_only_token):
 
 
 def test_get_alerts_by_coords(view_only_token):
-    ra = 22.23
-    dec = 22.23
+    ra = 108.5
+    dec = 35.8
     radius = 1
     status, data = api(
         "GET",
