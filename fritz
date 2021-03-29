@@ -11,7 +11,7 @@ import sys
 import time
 import yaml
 
-from tools.check_environment import deps_ok
+from tools.check_environment import dependencies_ok
 
 sys.path.insert(0, "skyportal")
 
@@ -124,6 +124,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     p = subprocess.run(command, stdout=subprocess.PIPE)
     gateway_ip = p.stdout.decode("utf-8").strip()
     config["kowalski"]["skyportal"]["host"] = gateway_ip
+    config["skyportal"]["kowalski"]["host"] = gateway_ip
 
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
@@ -255,7 +256,7 @@ def build(args):
         update(args)
 
     # check environment
-    env_ok = deps_ok()
+    env_ok = dependencies_ok()
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied system dependencies")
 
