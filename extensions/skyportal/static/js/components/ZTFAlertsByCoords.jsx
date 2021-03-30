@@ -25,6 +25,10 @@ import * as Actions from "../ducks/alertsByCoords";
 const useStyles = makeStyles((theme) => ({
   root: {
     width: "100%",
+    padding: "1rem",
+  },
+  maindiv: {
+    width: "100%",
   },
   container: {
     maxHeight: 440,
@@ -61,12 +65,6 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: theme.typography.fontWeightRegular,
   },
   accordionDetails: {
-    width: "100%",
-  },
-  source: {
-    padding: "1rem",
-    display: "flex",
-    flexDirection: "row",
     width: "100%",
   },
   column: {
@@ -402,8 +400,8 @@ const ZTFAlertsByCoords = ({ route }) => {
     );
   }
   return (
-    <Paper elevation={1} className={classes.source}>
-      <div>
+    <Paper elevation={1} className={classes.root}>
+      <div className={classes.maindiv}>
         <Typography className={classes.accordionHeading}>
           Alerts within {radius} arcseconds of ({ra}, {dec})
         </Typography>
