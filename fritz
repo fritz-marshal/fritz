@@ -234,7 +234,7 @@ class Fritz:
         branch: str = "master",
         traefik: bool = False,
         no_kowalski: bool = False,
-        update: bool = True,
+        update: bool = False,
         skyportal_tag: str = "skyportal/web:latest",
         yes: bool = False,
     ):
@@ -508,7 +508,7 @@ class Fritz:
         if p.returncode != 0:
             raise RuntimeError("Failed to display fritz's logs")
 
-    def prune(self, yes: bool = True):
+    def prune(self, yes: bool = False):
         """☠️ Prune fritz's docker containers and volumes and reset configs to defaults
 
         :param yes: agree to all potentially asked questions
@@ -567,7 +567,7 @@ class Fritz:
         branch: str = "master",
         traefik: bool = False,
         no_kowalski: bool = False,
-        update: bool = True,
+        update: bool = False,
         skyportal_tag: str = "skyportal/web:latest",
         yes: bool = False,
     ):
