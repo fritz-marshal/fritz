@@ -30,8 +30,21 @@ def test_get_alert_cutout(view_only_token):
         for file_format in ("png", "fits"):
             response = api(
                 "GET",
-                f"/api/alerts/ztf/{oid}/cutout"
+                f"alerts/ztf/{oid}/cutout"
                 f"?candid={candid}&cutout={cutout}&file_format={file_format}",
                 raw_response=True,
             )
             assert response.status_code == 200
+
+
+def test_get_alerts_by_coords(view_only_token):
+    ra = 108.5
+    dec = 35.8
+    radius = 1
+    status, data = api(
+        "GET",
+        f"alerts_by_coords/ztf?ra={ra}&dec={dec}&radius={radius}&radius_units=deg",
+        token=view_only_token,
+    )
+    assert status == 200
+    assert all(["objectId" in alert for alert in data["data"]])

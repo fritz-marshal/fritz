@@ -124,7 +124,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False, **kwargs):
     p = subprocess.run(command, stdout=subprocess.PIPE)
     gateway_ip = p.stdout.decode("utf-8").strip()
     config["kowalski"]["skyportal"]["host"] = gateway_ip
-    config["skyportal"]["kowalski"]["host"] = gateway_ip
+    config["skyportal"]["app"]["kowalski"]["host"] = gateway_ip
 
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
@@ -703,6 +703,7 @@ def test(args):
         )
     ]
 
+    error = False
     for api_test in api_tests:
         command = [
             "docker",
@@ -717,7 +718,10 @@ def test(args):
         try:
             subprocess.run(command, check=True)
         except subprocess.CalledProcessError:
+            error = True
             continue
+    if error:
+        sys.exit(1)
 
 
 def doc(args):
