@@ -400,7 +400,7 @@ class Fritz:
         """Install tools for developing Fritz"""
         subprocess.run(["pre-commit", "install"])
 
-    def doc(self, yes: bool = True, upload: bool = False):
+    def doc(self, yes: bool = False, upload: bool = False):
         """Build the documentation
 
         :param yes: agree to all potentially asked questions
