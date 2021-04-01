@@ -116,6 +116,12 @@ skyportal:
         icon: Info
         url: /about
 
+    security:
+      strict: true
+      slack:
+        enabled: false
+        url: null
+
     homepage_grid:
       # This section describes the grid on which Home Page widgets are laid out.
       #
@@ -353,6 +359,10 @@ kowalski:
     JWT_EXP_DELTA_SECONDS: 7776000
     # fixme: use from cryptography.fernet import Fernet; Fernet.generate_key().decode()
     fernet_key: "irjsxvfJdqSJ2fcnpPacbH972dt-RPMMLE48PQ8J5Hg="
+
+  ztf:
+    # fixme: use the port-forwarded IP for the mountain
+    mountain_ip: null
 
   path:
     app: "/app"
@@ -752,6 +762,11 @@ kowalski:
     logging_level: "debug"
     openapi_validate: False
 
+  slack:
+    # Used by the performance_reporter.py task to post Slack messages
+    slack_bot_token:
+    slack_channel_id:
+
   # this is used to make supervisord.conf files at build time
   supervisord:
     api:
@@ -870,3 +885,13 @@ kowalski:
         stdout_logfile_maxbytes: 30MB
         redirect_stderr: True
         environment: "PRODUCTION=1"
+
+      "program:performance_reporter":
+        command: /usr/local/bin/python performance_reporter.py --send_to_slack --days_ago 1
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/performance_reporter_stdout.log
+        stdout_logfile_maxbytes: 10MB
+        redirect_stderr: True
