@@ -116,6 +116,12 @@ skyportal:
         icon: Info
         url: /about
 
+    security:
+      strict: true
+      slack:
+        enabled: false
+        url: null
+
     homepage_grid:
       # This section describes the grid on which Home Page widgets are laid out.
       #
