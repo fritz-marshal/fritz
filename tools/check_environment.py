@@ -136,8 +136,32 @@ def dependencies_ok(check_python_requirements: bool = True):
             )
             print()
 
-    if unsatisfied_system_dependencies or unsatisfied_python_requirements:
+    if unsatisfied_system_dependencies:
         return False
+
+    if unsatisfied_python_requirements:
+        attempt_resolving = input(
+            "Would you like to attempt resolving unsatisfied "
+            "python package requirements in your current environment? [y/N] "
+        ).lower()
+        if attempt_resolving in ("y", "yes", "yup", "yea", "yeah"):
+            p = subprocess.run(
+                [
+                    "python",
+                    "-m",
+                    "pip",
+                    "install",
+                    "-r",
+                    pathlib.Path(__file__).parent.parent.absolute()
+                    / "requirements.txt",
+                ],
+                check=True,
+            )
+            if p.returncode != 0:
+                print("\nAttempt failed.\n")
+                return False
+        else:
+            return False
 
     print("-" * 20)
     return True
