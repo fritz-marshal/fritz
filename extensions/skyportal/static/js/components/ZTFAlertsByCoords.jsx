@@ -25,6 +25,10 @@ import * as Actions from "../ducks/alertsByCoords";
 const useStyles = makeStyles((theme) => ({
   root: {
     width: "100%",
+    padding: "1rem",
+  },
+  maindiv: {
+    width: "100%",
   },
   container: {
     maxHeight: 440,
@@ -56,18 +60,12 @@ const useStyles = makeStyles((theme) => ({
     paddingBottom: "0.625rem",
     color: theme.palette.text.primary,
   },
-
   accordionHeading: {
     fontSize: "1.25rem",
     fontWeight: theme.typography.fontWeightRegular,
   },
   accordionDetails: {
     width: "100%",
-  },
-  source: {
-    padding: "1rem",
-    display: "flex",
-    flexDirection: "row",
   },
   column: {
     display: "flex",
@@ -99,6 +97,9 @@ const useStyles = makeStyles((theme) => ({
     fontWeight: "bold",
     fontSize: "110%",
   },
+  button: {
+    textTransform: "none",
+  },
 }));
 
 function isString(x) {
@@ -107,6 +108,7 @@ function isString(x) {
 
 const getMuiTheme = (theme) =>
   createMuiTheme({
+    palette: theme.palette,
     overrides: {
       MUIDataTableBodyCell: {
         root: {
@@ -247,7 +249,7 @@ const ZTFAlertsByCoords = ({ route }) => {
         sortDescFirst: true,
         customBodyRender: (value, tableMeta, updateValue) => (
           <Link to={`/alerts/ztf/${value}`} role="link">
-            <Button size="small" variant="contained">{value}</Button>
+            <Button className={classes.button} size="small" variant="contained">{value}</Button>
           </Link>
         ),
       },
@@ -398,8 +400,8 @@ const ZTFAlertsByCoords = ({ route }) => {
     );
   }
   return (
-    <Paper elevation={1} className={classes.source}>
-      <div>
+    <Paper elevation={1} className={classes.root}>
+      <div className={classes.maindiv}>
         <Typography className={classes.accordionHeading}>
           Alerts within {radius} arcseconds of ({ra}, {dec})
         </Typography>
