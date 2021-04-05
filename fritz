@@ -8,11 +8,24 @@ import requests
 import subprocess
 import sys
 import time
+from typing import Optional
 import yaml
 
 from tools.check_environment import dependencies_ok
 
 sys.path.insert(0, "skyportal")
+
+
+def initialize_submodules():
+    """Initialize submodules if either submodule directory is empty"""
+    do_initialize = any(
+        len(list(Path(submodule).glob("*"))) == 0
+        for submodule in ("kowalski", "skyportal")
+    )
+    if do_initialize:
+        p = subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
+        if p.returncode != 0:
+            raise RuntimeError("Failed to initialize fritz's submodules")
 
 
 class Fritz:
@@ -252,8 +265,6 @@ class Fritz:
         if update:
             self.update(init=init, repo=repo, branch=branch)
 
-        # check environment
-        env_ok = dependencies_ok()
         if not env_ok:
             raise RuntimeError("Halting because of unsatisfied system dependencies")
 
@@ -822,16 +833,23 @@ class Fritz:
             sys.exit(1)
 
     @staticmethod
-    def update(init: bool = False, repo: str = "origin", branch: str = "master"):
+    def update(
+        init: bool = False,
+        repo: Optional[str] = None,
+        branch: Optional[str] = None,
+    ):
         """Update Fritz
 
         :param init: Initialize before updating Fritz
         :param repo: Remote repository to pull from
         :param branch: Branch on the remote repository
         """
-        p = subprocess.run(["git", "pull", repo, branch])
+        git_pull_command = ["git", "pull"]
+        if repo is not None and branch is not None:
+            git_pull_command.extend([repo, branch])
+        p = subprocess.run(git_pull_command)
         if p.returncode != 0:
-            raise RuntimeError(f"Failed to git pull Fritz from {repo}/{branch}")
+            raise RuntimeError("Failed to git pull Fritz")
 
         if init:
             # initialize/update fritz's submodules kowalski and skyportal
@@ -852,6 +870,7 @@ class Fritz:
 
 if __name__ == "__main__":
     # check environment
+    initialize_submodules()
     env_ok = dependencies_ok()
     if not env_ok:
         raise RuntimeError("Halting because of unsatisfied dependencies")
