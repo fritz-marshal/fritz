@@ -348,7 +348,7 @@ kowalski:
     version: "2.0.0"
     description: "Kowalski: a toolkit for Time-Domain Astronomy"
     host: "0.0.0.0"
-    port: "4000"
+    port: 4000
     admin_username: "admin"
     # fixme: use ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
     admin_password: "admin"
@@ -356,7 +356,7 @@ kowalski:
     SECRET_KEY: "abc0123"
     JWT_SECRET_KEY: "abc0123"
     JWT_ALGORITHM: "HS256"
-    JWT_EXP_DELTA_SECONDS: 7776000
+    JWT_EXP_DELTA_SECONDS:
     # fixme: use from cryptography.fernet import Fernet; Fernet.generate_key().decode()
     fernet_key: "irjsxvfJdqSJ2fcnpPacbH972dt-RPMMLE48PQ8J5Hg="
 

@@ -29,9 +29,6 @@ def initialize_submodules():
 
 
 class Fritz:
-    # def __init__(self):
-    #     pass
-
     @staticmethod
     def _patch_skyportal():
         """Make fritz-specific file modifications to SkyPortal."""
@@ -142,9 +139,7 @@ class Fritz:
             user_id=config["kowalski"]["server"]["admin_username"],
             jwt_secret=config["kowalski"]["server"]["JWT_SECRET_KEY"],
             jwt_algorithm=config["kowalski"]["server"]["JWT_ALGORITHM"],
-            jwt_exp_delta_seconds=int(
-                config["kowalski"]["server"]["JWT_EXP_DELTA_SECONDS"]
-            ),
+            jwt_exp_delta_seconds=config["kowalski"]["server"]["JWT_EXP_DELTA_SECONDS"],
         )
 
         config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
@@ -189,7 +184,7 @@ class Fritz:
         user_id: str,
         jwt_secret: str,
         jwt_algorithm: str = "HS256",
-        jwt_exp_delta_seconds: int = 30 * 86400 * 12,
+        jwt_exp_delta_seconds: Optional[int] = None,
     ):
         """
         Generate a token for SkyPortal to access Kowalski
@@ -203,13 +198,11 @@ class Fritz:
             "JWT_EXP_DELTA_SECONDS": jwt_exp_delta_seconds,
         }
 
-        payload = {
-            "user_id": jwt_config["user_id"],
-            "exp": (
-                datetime.datetime.utcnow()
-                + datetime.timedelta(seconds=jwt_config["JWT_EXP_DELTA_SECONDS"])
-            ),
-        }
+        payload = {"user_id": jwt_config["user_id"]}
+        if jwt_config["JWT_EXP_DELTA_SECONDS"]:
+            payload["exp"] = datetime.datetime.utcnow() + datetime.timedelta(
+                seconds=jwt_config["JWT_EXP_DELTA_SECONDS"]
+            )
         jwt_token = jwt.encode(
             payload, jwt_config["JWT_SECRET"], jwt_config["JWT_ALGORITHM"]
         )
