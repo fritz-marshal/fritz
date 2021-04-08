@@ -159,15 +159,15 @@ class Fritz:
 
         # strip down, adjust, and copy over to Kowalski and SkyPortal
         config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
-        with open("kowalski/config.yaml", "w") as config_yaml:
-            yaml.dump(config_kowalski, config_yaml)
+        with open("kowalski/config.yaml", "w") as kowalski_config_yaml:
+            yaml.dump(config_kowalski, kowalski_config_yaml)
 
         # Docker-specific SkyPortal stuff:
         config["skyportal"]["database"]["host"] = "db"
         config["skyportal"]["server"]["url"] = "http://localhost:5000"
         config_skyportal = config["skyportal"]  # don't need the K stuff
-        with open("skyportal/config.yaml", "w") as config_yaml:
-            yaml.dump(config_skyportal, config_yaml)
+        with open("skyportal/config.yaml", "w") as skyportal_config_yaml:
+            yaml.dump(config_skyportal, skyportal_config_yaml)
 
         # update fritz.yaml:
         with open(c, "w") as config_yaml:
@@ -365,15 +365,15 @@ class Fritz:
                 raise RuntimeError("Failed to init SkyPortal and load seed data")
 
             # generate a token for Kowalski to talk to SkyPortal:
-            with open("kowalski/config.yaml") as cyaml:
-                config = yaml.load(cyaml, Loader=yaml.FullLoader)
+            with open("kowalski/config.yaml") as kowalski_config_yaml:
+                config = yaml.load(kowalski_config_yaml, Loader=yaml.FullLoader)
 
             token = self._get_skyportal_token()
             config["kowalski"]["skyportal"]["token"] = token
 
             # save it to K's config:
-            with open("kowalski/config.yaml", "w") as cyaml:
-                yaml.dump(config, cyaml)
+            with open("kowalski/config.yaml", "w") as kowalski_config_yaml:
+                yaml.dump(config, kowalski_config_yaml)
 
             # update fritz.yaml
             fritz_config["kowalski"]["skyportal"]["token"] = token
@@ -728,7 +728,7 @@ class Fritz:
         # ensure that the SkyPortal app is responding to requests
         url = (
             f"{fritz_config['kowalski']['skyportal']['protocol']}://"
-            f"{fritz_config['kowalski']['skyportal']['host']}:{fritz_config['kowalski']['skyportal']['port']}"
+            f"localhost:{fritz_config['kowalski']['skyportal']['port']}"
             "/api/sysinfo"
         )
         token = fritz_config["kowalski"]["skyportal"]["token"]
