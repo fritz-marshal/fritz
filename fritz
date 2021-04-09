@@ -242,7 +242,7 @@ def build(
 ):
     """Build Fritz
 
-    :param init: Initialize before updating Fritz
+    :param init: Initialize Fritz
     :param repo: Remote repository to pull from
     :param branch: Branch on the remote repository
     :param traefik: Build Fritz to run behind Traefik
