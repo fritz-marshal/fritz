@@ -8,6 +8,7 @@ on:
 jobs:
   build-test-doc:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
 
     - uses: actions/checkout@v2
@@ -33,7 +34,7 @@ jobs:
         pip install wheel
         pip install -r skyportal/baselayer/requirements.txt
         pip install -r skyportal/requirements.txt
-        ./fritz doc
+        ./fritz doc --yes
 
     - name: Install SSH Client 🔑
       if: github.ref == 'refs/heads/master'

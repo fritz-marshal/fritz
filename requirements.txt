@@ -2,3 +2,4 @@
 -r .requirements/doc.txt
 -r .requirements/ext.txt
 -r kowalski/requirements.txt
+fire>=0.3.1
