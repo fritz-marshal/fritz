@@ -16,8 +16,24 @@ import Select from "@material-ui/core/Select";
 import Grid from "@material-ui/core/Grid";
 
 import Button from "@material-ui/core/Button";
-import { makeStyles } from "@material-ui/core/styles";
+import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
 import { useForm, Controller } from "react-hook-form";
+import Paper from "@material-ui/core/Paper";
+import MUIDataTable from "mui-datatables";
+
+const getMuiTheme = (theme) =>
+  createMuiTheme({
+    palette: theme.palette,
+    overrides: {
+      MUIDataTableBodyCell: {
+        root: {
+          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
+            0.25
+          )}px ${theme.spacing(1)}px`,
+        },
+      },
+    },
+  });
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -68,37 +84,60 @@ const useStyles = makeStyles((theme) => ({
   header: {
     paddingBottom: "0.625rem",
   },
+  grid_item_table: {
+    order: 1,
+    [theme.breakpoints.down('lg')]: {
+      order: 2,
+    },
+  },
+  grid_item_search_box: {
+    order: 2,
+    [theme.breakpoints.down('md')]: {
+      order: 1,
+    },
+  },
 }));
 
 const Alerts = () => {
   const classes = useStyles();
 
+  const theme = useTheme();
+  const darkTheme = theme.palette.type === "dark";
+
   const history = useHistory();
 
-  const { register: registerObjIDForm, handleSubmit: handleSubmitObjIDForm, control: controlObjIDForm } = useForm();
-  const { register: registerCoordsForm, handleSubmit: handleSubmitCoordsForm } = useForm();
+  const { register: registerForm, handleSubmit: handleSubmitForm, control: controlForm } = useForm();
 
-  const submitSearchObjID = (data) => {
-    const path = `/alerts/${data.instrument}/${data.object_id.trim()}`;
-    history.push(path);
-  };
-
-  const submitSearchByLocation = (data) => {
-    const path = `/alerts_by_coords/ztf/${data.ra.trim()}/${data.dec.trim()}/${data.radius.trim()}`;
-    history.push(path);
+  const submitSearch = (data) => {
+    console.log(data);
   };
 
   return (
-    <div>
+    <>
       <div>
-        <Typography variant="h6" className={classes.header}>
-          Search objects from alert streams by ID
-        </Typography>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
+        <Grid
+          container
+          direction="row"
+          justify="flex-start"
+          alignItems="flex-start"
+          spacing={1}
+        >
+          <Grid item xs={12} lg={10} className={classes.grid_item_table}>
+            <Paper elevation={1}>
+              <div className={classes.maindiv}>
+                <div className={classes.accordionDetails}>
+                  <MuiThemeProvider theme={getMuiTheme(theme)}>
+                    <MUIDataTable
+                      title="Objects from alert streams"
+                    />
+                  </MuiThemeProvider>
+                </div>
+              </div>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} lg={2} className={classes.grid_item_search_box}>
             <Card className={classes.root}>
-              <form onSubmit={handleSubmitObjIDForm(submitSearchObjID)}>
+              <form onSubmit={handleSubmitForm(submitSearch)}>
                 <CardContent>
                   <FormControl required className={classes.selectEmpty}>
                     <InputLabel name="alert-stream-select-required-label">
@@ -109,78 +148,42 @@ const Alerts = () => {
                       name="instrument"
                       as={Select}
                       defaultValue="ztf"
-                      control={controlObjIDForm}
+                      control={controlForm}
                       rules={{ required: true }}
                     >
                       <MenuItem value="ztf">ZTF</MenuItem>
                     </Controller>
                     <FormHelperText>Required</FormHelperText>
                   </FormControl>
-
                   <TextField
                     autoFocus
-                    required
                     margin="dense"
                     name="object_id"
                     label="objectId"
                     type="text"
                     fullWidth
-                    inputRef={registerObjIDForm({ required: true, minLength: 3 })}
+                    inputRef={registerForm({ minLength: 3, required: false })}
                   />
-                </CardContent>
-                <CardActions>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    className={classes.button_add}
-                  >
-                    Search
-                  </Button>
-                </CardActions>
-              </form>
-            </Card>
-          </Grid>
-        </Grid>
-      </div>
-      <br />
-      <div>
-        <Typography variant="h6" className={classes.header}>
-          Search alerts by coordinates
-        </Typography>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <Card className={classes.root}>
-              <form onSubmit={handleSubmitCoordsForm(submitSearchByLocation)}>
-                <CardContent>
-                  <em>Note: max radius is 1 degree; results limited to 10k/query</em>
                   <TextField
-                    autoFocus
-                    required
                     margin="dense"
                     name="ra"
-                    label="RA (deg)"
+                    label="R.A. (deg)"
                     fullWidth
-                    inputRef={registerCoordsForm({ required: true })}
+                    inputRef={registerForm({ required: false })}
                   />
                   <TextField
-                    autoFocus
-                    required
                     margin="dense"
                     name="dec"
-                    label="Declination (deg)"
+                    label="Decl. (deg)"
                     fullWidth
-                    inputRef={registerCoordsForm({ required: true })}
+                    inputRef={registerForm({ required: false })}
                   />
                   <TextField
-                    autoFocus
-                    required
                     margin="dense"
                     name="radius"
                     label="Radius (arcsec)"
                     fullWidth
-                    inputRef={registerCoordsForm({ required: true })}
+                    inputRef={registerForm({ required: false })}
                   />
                 </CardContent>
                 <CardActions>
@@ -198,7 +201,7 @@ const Alerts = () => {
           </Grid>
         </Grid>
       </div>
-    </div>
+    </>
   );
 };
 

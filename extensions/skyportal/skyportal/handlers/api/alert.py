@@ -16,14 +16,15 @@ import io
 from marshmallow.exceptions import ValidationError
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 import pathlib
+from penquins import Kowalski
 import requests
 import tornado.escape
 import traceback
 
 from baselayer.app.access import auth_or_token
+from baselayer.app.env import load_env
 from baselayer.log import make_log
 from ..base import BaseHandler
 from ...models import (
@@ -39,10 +40,17 @@ from .photometry import PhotometryHandler
 from .thumbnail import ThumbnailHandler
 
 
+env, cfg = load_env()
 log = make_log("alert")
 
 
-requests_session = requests.Session()
+kowalski = Kowalski(
+    token=cfg["app.kowalski.token"],
+    protocol=cfg["app.kowalski.protocol"],
+    host=cfg["app.kowalski.host"],
+    port=int(cfg["app.kowalski.port"]),
+    timeout=10,
+)
 
 
 def make_thumbnail(a, ttype, ztftype):
@@ -107,39 +115,8 @@ class ZTFAlertHandler(BaseHandler):
 
         return streams
 
-    # async def query_kowalski(self, query: dict, timeout=7):
-    #     base_url = f"{self.cfg['app.kowalski.protocol']}://" \
-    #                f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-    #     headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
-    #
-    #     resp = await c.fetch(
-    #         os.path.join(base_url, 'api/queries'),
-    #         method='POST',
-    #         body=tornado.escape.json_encode(query),
-    #         headers=headers,
-    #         request_timeout=timeout
-    #     )
-    #
-    #     return resp
-
-    def query_kowalski(self, query: dict, timeout=10):
-        base_url = (
-            f"{self.cfg['app.kowalski.protocol']}://"
-            f"{self.cfg['app.kowalski.host']}:{self.cfg['app.kowalski.port']}"
-        )
-        headers = {"Authorization": f"Bearer {self.cfg['app.kowalski.token']}"}
-
-        resp = requests_session.post(
-            os.path.join(base_url, "api/queries"),
-            json=query,
-            headers=headers,
-            timeout=timeout,
-        )
-
-        return resp
-
     @auth_or_token
-    async def get(self, objectId: str = None):
+    async def get(self, object_id: str = None):
         """
         ---
         single:
@@ -173,20 +150,41 @@ class ZTFAlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
+
         streams = self.get_user_streams()
 
         # allow access to public data only by default
-        selector = {1}
+        program_id_selector = {1}
 
         for stream in streams:
             if "ztf" in stream.name.lower():
-                selector.update(set(stream.altdata.get("selector", [])))
+                program_id_selector.update(set(stream.altdata.get("selector", [])))
 
-        selector = list(selector)
+        program_id_selector = list(program_id_selector)
+
+        default_projection = {
+            "_id": 0,
+            "objectId": 1,
+            "candid": {"$toString": "$candid"},
+            "candidate.ra": 1,
+            "candidate.dec": 1,
+            "candidate.jd": 1,
+            "candidate.fid": 1,
+            "candidate.magpsf": 1,
+            "candidate.sigmapsf": 1,
+            "candidate.isdiffpos": 1,
+            "candidate.rb": 1,
+            "candidate.drb": 1,
+            "candidate.programid": 1,
+            "classifications": 1,
+            "coordinates.l": 1,
+            "coordinates.b": 1,
+        }
 
         include_all_fields = self.get_query_argument("includeAllFields", False)
 
-        try:
+        if object_id is not None:
+            # grabbing alerts by single objectId
             query = {
                 "query_type": "aggregate",
                 "query": {
@@ -194,28 +192,12 @@ class ZTFAlertHandler(BaseHandler):
                     "pipeline": [
                         {
                             "$match": {
-                                "objectId": objectId,
-                                "candidate.programid": {"$in": selector},
+                                "objectId": object_id,
+                                "candidate.programid": {"$in": program_id_selector},
                             }
                         },
                         {
-                            "$project": {
-                                # grab only what's going to be rendered
-                                "_id": 0,
-                                "candid": {"$toString": "$candid"},  # js luvz bigints
-                                "candidate.jd": 1,
-                                "candidate.programid": 1,
-                                "candidate.fid": 1,
-                                "candidate.ra": 1,
-                                "candidate.dec": 1,
-                                "candidate.magpsf": 1,
-                                "candidate.sigmapsf": 1,
-                                "candidate.rb": 1,
-                                "candidate.drb": 1,
-                                "candidate.isdiffpos": 1,
-                                "coordinates.l": 1,
-                                "coordinates.b": 1,
-                            }
+                            "$project": default_projection
                             if not include_all_fields
                             else {
                                 "_id": 0,
@@ -226,26 +208,134 @@ class ZTFAlertHandler(BaseHandler):
                         },
                     ],
                 },
-                # "kwargs": {
-                #     "max_time_ms": 10000
-                # }
+                "kwargs": {"max_time_ms": 10000},
             }
 
             candid = self.get_query_argument("candid", None)
             if candid:
                 query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
 
-            resp = self.query_kowalski(query=query)
+            response = kowalski.query(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get("data")
+            if response.get("status", "error") == "success":
+                alert_data = response.get("data")
                 return self.success(data=alert_data)
             else:
-                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+                return self.error(f"Failed to fetch data for {object_id} from Kowalski")
 
-        except Exception:
-            _err = traceback.format_exc()
-            return self.error(f"failure: {_err}")
+        # executing a general search
+        object_id = self.get_query_argument("objectId", None)
+        ra = self.get_query_argument("ra", None)
+        dec = self.get_query_argument("dec", None)
+        radius = self.get_query_argument("radius", None)
+        radius_units = self.get_query_argument("radius_units", None)
+
+        position_tuple = (ra, dec, radius, radius_units)
+
+        if not any((object_id, ra, dec, radius, radius_units)):
+            return self.error("Missing required parameters")
+
+        if not all(position_tuple) and any(position_tuple):
+            # incomplete positional arguments? throw errors, since
+            # either all or none should be provided
+            if ra is None:
+                return self.error("Missing required parameter: ra")
+            if dec is None:
+                return self.error("Missing required parameter: dec")
+            if radius is None:
+                return self.error("Missing required parameter: radius")
+            if radius_units is None:
+                return self.error("Missing required parameter: radius_units")
+        if all(position_tuple):
+            # complete positional arguments? run "near" query
+            if radius_units not in ["deg", "arcmin", "arcsec"]:
+                return self.error(
+                    "Invalid radius_units value. Must be one of either "
+                    "'deg', 'arcmin', or 'arcsec'."
+                )
+            try:
+                ra = float(ra)
+                dec = float(dec)
+                radius = float(radius)
+            except ValueError:
+                return self.error("Invalid (non-float) value provided.")
+            if (
+                (radius_units == "deg" and radius > 1)
+                or (radius_units == "arcmin" and radius > 60)
+                or (radius_units == "arcsec" and radius > 3600)
+            ):
+                return self.error("Radius must be <= 1.0 deg")
+
+            query = {
+                "query_type": "near",
+                "query": {
+                    "max_distance": radius,
+                    "distance_units": radius_units,
+                    "radec": {"query_coords": [ra, dec]},
+                    "catalogs": {
+                        "ZTF_alerts": {
+                            "filter": {
+                                "candidate.programid": {"$in": program_id_selector},
+                            },
+                            "projection": default_projection
+                            if not include_all_fields
+                            else {
+                                "_id": 0,
+                                "cutoutScience": 0,
+                                "cutoutTemplate": 0,
+                                "cutoutDifference": 0,
+                            },
+                        }
+                    },
+                },
+                "kwargs": {
+                    "max_time_ms": 10000,
+                    "limit": 10000,
+                },
+            }
+
+            # additional filters?
+            if object_id is not None:
+                query["query"]["catalogs"]["ZTF_alerts"]["filter"][
+                    "objectId"
+                ] = object_id
+
+            response = kowalski.query(query=query)
+
+            if response.get("status", "error") == "success":
+                alert_data = response.get("data")
+                return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
+
+            return self.error(response("message"))
+
+        # otherwise, run a find query with the specified filter
+        query = {
+            "query_type": "find",
+            "query": {
+                "catalog": "ZTF_alerts",
+                "filter": {"objectId": object_id},
+                "projection": default_projection
+                if not include_all_fields
+                else {
+                    "_id": 0,
+                    "cutoutScience": 0,
+                    "cutoutTemplate": 0,
+                    "cutoutDifference": 0,
+                },
+            },
+            "kwargs": {
+                "max_time_ms": 10000,
+                "limit": 10000,
+            },
+        }
+
+        response = kowalski.query(query=query)
+
+        if response.get("status", "error") == "success":
+            alert_data = response.get("data")
+            return self.success(data=alert_data)
+
+        return self.error(response("message"))
 
     @auth_or_token
     def post(self, objectId):
@@ -712,10 +802,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     }
                 )
 
-            resp = self.query_kowalski(query=query)
+            response = kowalski.query(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get("data")
+            if response.get("status", "error") == "success":
+                alert_data = response.get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -724,7 +814,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     self.finish()
                     return
             else:
-                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+                return self.error(response("message"))
 
             # grab and append most recent candid as it should not be in prv_candidates
             query = {
@@ -768,10 +858,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
+            response = kowalski.query(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get("data", list(dict()))
+            if response.get("status", "error") == "success":
+                latest_alert_data = response.get("data", list(dict()))
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
                 else:
@@ -780,7 +870,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     self.finish()
                     return
             else:
-                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+                return self.error(response("message"))
 
             candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
             if latest_alert_data["candidate"]["candid"] not in candids:
@@ -839,10 +929,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 "kwargs": {"filter_first": False},
             }
 
-            resp = self.query_kowalski(query=query)
+            response = kowalski.query(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                tns_data = bj.loads(resp.text).get("data").get("TNS").get(objectId)
+            if response.get("status", "error") == "success":
+                tns_data = response.get("data").get("TNS").get(objectId)
                 alert_data["cross_matches"]["TNS"] = tns_data
 
             if not include_prv_candidates:
@@ -1000,10 +1090,10 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
                 "kwargs": {"limit": 1, "max_time_ms": 5000},
             }
 
-            resp = self.query_kowalski(query=query)
+            response = kowalski.query(query=query)
 
-            if resp.status_code == requests.codes.ok:
-                alert = bj.loads(resp.text).get("data", [dict()])[0]
+            if response.get("status", "error") == "success":
+                alert = response.get("data", [dict()])[0]
             else:
                 return self.error("No cutout found.")
 
@@ -1063,144 +1153,3 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
-
-
-class ZTFAlertsByCoordsHandler(ZTFAlertHandler):
-    @auth_or_token
-    def get(self):
-        """
-        ---
-        single:
-          description: Query Kowalski for alerts near specified coords. Results capped at 10000 alerts.
-          parameters:
-            - in: query
-              name: ra
-              required: true
-              schema:
-                type: float
-              description: RA in degrees
-            - in: query
-              name: dec
-              required: true
-              schema:
-                type: float
-              description: Dec. in degrees
-            - in: query
-              name: radius
-              required: true
-              schema:
-                type: float
-              description: Max distance from specified (RA, Dec) (capped at 1 deg)
-            - in: query
-              name: radius_units
-              required: true
-              schema:
-                type: string
-              description: Distance units (either "deg", "arcmin", or "arcsec")
-          responses:
-            200:
-              description: retrieved alert(s)
-              content:
-                application/json:
-                  schema:
-                    allOf:
-                      - $ref: '#/components/schemas/Success'
-                      - type: object
-                        properties:
-                          data:
-                            type: array
-                            items:
-                              type: object
-            400:
-              content:
-                application/json:
-                  schema: Error
-        """
-        ra = self.get_query_argument("ra", None)
-        dec = self.get_query_argument("dec", None)
-        radius = self.get_query_argument("radius", None)
-        radius_units = self.get_query_argument("radius_units", None)
-        if ra is None:
-            return self.error("Missing required parameter: ra")
-        if dec is None:
-            return self.error("Missing required parameter: dec")
-        if radius is None:
-            return self.error("Missing required parameter: radius")
-        if radius_units is None:
-            return self.error("Missing required parameter: radius_units")
-        if radius_units not in ["deg", "arcmin", "arcsec"]:
-            return self.error(
-                "Invalid radius_units value. Must be one of either "
-                "'deg', 'arcmin' or 'arcsec'."
-            )
-        try:
-            ra = float(ra)
-            dec = float(dec)
-            radius = float(radius)
-        except ValueError:
-            return self.error("Invalid (non-float) value provided.")
-        if (
-            (radius_units == "deg" and radius > 1)
-            or (radius_units == "arcmin" and radius > 60)
-            or (radius_units == "arcsec" and radius > 3600)
-        ):
-            return self.error("Radius must be <= 1.0 deg")
-        streams = self.get_user_streams()
-
-        # allow access to public data only by default
-        selector = {1}
-
-        for stream in streams:
-            if "ztf" in stream.name.lower():
-                selector.update(set(stream.altdata.get("selector", [])))
-
-        selector = list(selector)
-
-        query = {
-            "query_type": "near",
-            "query": {
-                "max_distance": radius,
-                "distance_units": radius_units,
-                "radec": {"query_coords": [ra, dec]},
-                "catalogs": {
-                    "ZTF_alerts": {
-                        "filter": {},
-                        "projection": {
-                            "objectId": 1,
-                            "candid": {"$toString": "$candid"},
-                            "candidate.ra": 1,
-                            "candidate.dec": 1,
-                            "candidate.jd": 1,
-                            "candidate.fid": 1,
-                            "candidate.magpsf": 1,
-                            "candidate.sigmapsf": 1,
-                            "candidate.drb": 1,
-                            "candidate.programid": 1,
-                            "classifications": 1,
-                            "_id": 0,
-                        },
-                    }
-                },
-            },
-            "kwargs": {
-                "limit": 10000,
-            },
-        }
-
-        try:
-            response = self.query_kowalski(query)
-        except Exception:
-            _err = traceback.format_exc()
-            return self.error(f"failure: {_err}")
-
-        if response.status_code == requests.codes.ok:
-            alert_data = bj.loads(response.text).get("data")
-            if (
-                "ZTF_alerts" in alert_data
-                and "query_coords" in alert_data["ZTF_alerts"]
-            ):
-                return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
-            return self.error("Kowalski response data not structured as expected.")
-        return self.error(
-            f"Query to Kowalski failed with status code {response.status_code}"
-        )

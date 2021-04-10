@@ -4,7 +4,6 @@ from skyportal.handlers.api.alert import (
     ZTFAlertHandler,
     ZTFAlertAuxHandler,
     ZTFAlertCutoutHandler,
-    ZTFAlertsByCoordsHandler,
 )
 from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 
@@ -15,10 +14,9 @@ fritz_handlers = [
     # most descriptive paths must be defined first
     (r"/api/alerts/ztf/(.+)/aux", ZTFAlertAuxHandler),
     (r"/api/alerts/ztf/(.+)/cutout", ZTFAlertCutoutHandler),
-    (r"/api/alerts/ztf/(.+)", ZTFAlertHandler),
+    (r"/api/alerts/ztf(/.*)?", ZTFAlertHandler),
     # Alert Stream filter versioning via K:
     (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
-    (r"/api/alerts_by_coords/ztf", ZTFAlertsByCoordsHandler),
 ]
 
 
