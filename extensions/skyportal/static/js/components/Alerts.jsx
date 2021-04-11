@@ -1,7 +1,6 @@
 import React from "react";
-import { useHistory } from "react-router-dom";
+import {Link} from "react-router-dom";
 
-import Typography from "@material-ui/core/Typography";
 import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
@@ -20,6 +19,20 @@ import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-
 import { useForm, Controller } from "react-hook-form";
 import Paper from "@material-ui/core/Paper";
 import MUIDataTable from "mui-datatables";
+import CircularProgress from "@material-ui/core/CircularProgress";
+
+import {useDispatch, useSelector} from "react-redux";
+
+import TableRow from "@material-ui/core/TableRow";
+import TableCell from "@material-ui/core/TableCell";
+import ThumbnailList from "./ThumbnailList";
+import {dec_to_dms, ra_to_hours} from "../units";
+
+import * as Actions from "../ducks/alerts";
+
+function isString(x) {
+  return Object.prototype.toString.call(x) === "[object String]";
+}
 
 const getMuiTheme = (theme) =>
   createMuiTheme({
@@ -84,6 +97,25 @@ const useStyles = makeStyles((theme) => ({
   header: {
     paddingBottom: "0.625rem",
   },
+  button: {
+    textTransform: "none",
+  },
+  wrapperRoot: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  wrapper: {
+    margin: theme.spacing(1),
+    position: 'relative',
+  },
+  buttonProgress: {
+    color: theme.palette.text.secondary,
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -12,
+    marginLeft: -12,
+  },
   grid_item_table: {
     order: 1,
     [theme.breakpoints.down('lg')]: {
@@ -99,17 +131,259 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const Alerts = () => {
+  const dispatch = useDispatch();
   const classes = useStyles();
+
+  const [loading, setLoading] = React.useState(false);
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
 
-  const history = useHistory();
+  const alerts = useSelector((state) => state.alerts);
+
+  const makeRow = (alert) => ({
+      objectId: alert?.objectId,
+      candid: alert?.candid,
+      jd: alert?.candidate.jd,
+      ra: alert?.candidate.ra,
+      dec: alert?.candidate.dec,
+      fid: alert?.candidate.fid,
+      magpsf: alert?.candidate.magpsf,
+      sigmapsf: alert?.candidate.sigmapsf,
+      programid: alert?.candidate.programid,
+      isdiffpos: alert?.candidate.isdiffpos,
+      drb: alert?.candidate.drb,
+      acai_h: alert?.classifications?.acai_h,
+      acai_n: alert?.classifications?.acai_n,
+      acai_o: alert?.classifications?.acai_o,
+      acai_v: alert?.classifications?.acai_v,
+      acai_b: alert?.classifications?.acai_b,
+    });
+
+  let rows = [];
+
+  if (alerts !== null && !isString(alerts) && Array.isArray(alerts)) {
+    rows = alerts.map((a) => makeRow(a));
+  }
+
+  // This is just passed to MUI datatables options -- not meant to be instantiated directly.
+  const renderPullOutRow = (rowData, rowMeta) => {
+    const colSpan = rowData.length + 1;
+    const alertData = alerts[rowMeta.dataIndex];
+    const thumbnails = [
+      {
+        type: "new",
+        id: 0,
+        public_url: `/api/alerts_cutouts/${alertData.objectId}?candid=${alertData.candid}&cutout=science`,
+      },
+      {
+        type: "ref",
+        id: 1,
+        public_url: `/api/alerts_cutouts/${alertData.objectId}?candid=${alertData.candid}&cutout=template`,
+      },
+      {
+        type: "sub",
+        id: 2,
+        public_url: `/api/alerts_cutouts/${alertData.objectId}?candid=${alertData.candid}&cutout=difference`,
+      },
+    ];
+
+    return (
+      <TableRow data-testid={`alertRow_${alertData.candid}`}>
+        <TableCell
+          style={{ paddingBottom: 0, paddingTop: 0 }}
+          colSpan={colSpan}
+        >
+          <Grid
+            container
+            direction="row"
+            spacing={3}
+            justify="center"
+            alignItems="center"
+          >
+            <Grid item>
+              <ThumbnailList
+                thumbnails={thumbnails}
+                ra={alertData.candidate.ra}
+                dec={alertData.candidate.dec}
+                displayTypes={["new", "ref", "sub"]}
+              />
+            </Grid>
+          </Grid>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const options = {
+    selectableRows: "none",
+    expandableRows: true,
+    expandableRowsOnClick: true,
+    renderExpandableRow: renderPullOutRow,
+    elevation: 1,
+    sortOrder: {
+      name: "jd",
+      direction: "desc",
+    },
+  };
+
+  const columns = [
+    {
+      name: "objectId",
+      label: "Object ID",
+      options: {
+        filter: true,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => (
+          <Link to={`/alerts/ztf/${value}`} role="link">
+            <Button className={classes.button} size="small" variant="contained">{value}</Button>
+          </Link>
+        ),
+      },
+    },
+    {
+      name: "candid",
+      label: "candid",
+      options: {
+        filter: false,
+        display: false,
+        sort: true,
+      },
+    },
+    {
+      name: "jd",
+      label: "JD",
+      options: {
+        filter: false,
+        sort: true,
+        sortDescFirst: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
+      },
+    },
+    {
+      name: "ra",
+      label: "R.A.",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => ra_to_hours(value, ":"),
+      },
+    },
+    {
+      name: "dec",
+      label: "Decl.",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => dec_to_dms(value, ":"),
+      },
+    },
+    {
+      name: "fid",
+      label: "fid",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "magpsf",
+      label: "magpsf",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+      },
+    },
+    {
+      name: "sigmapsf",
+      label: "sigmapsf",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+      },
+    },
+    {
+      name: "programid",
+      label: "programid",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "isdiffpos",
+      label: "isdiffpos",
+      options: {
+        filter: true,
+        sort: true,
+      },
+    },
+    {
+      name: "drb",
+      label: "drb",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_h",
+      label: "acai_h",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_n",
+      label: "acai_n",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_o",
+      label: "acai_o",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_v",
+      label: "acai_v",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "acai_b",
+      label: "acai_b",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+  ];
 
   const { register: registerForm, handleSubmit: handleSubmitForm, control: controlForm } = useForm();
 
-  const submitSearch = (data) => {
-    console.log(data);
+  const submitSearch = async (data) => {
+    setLoading(true);
+    const {object_id, ra, dec, radius} = data;
+    await dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
+    setLoading(false);
   };
 
   return (
@@ -128,7 +402,10 @@ const Alerts = () => {
                 <div className={classes.accordionDetails}>
                   <MuiThemeProvider theme={getMuiTheme(theme)}>
                     <MUIDataTable
-                      title="Objects from alert streams"
+                      title="Alerts"
+                      data={rows}
+                      columns={columns}
+                      options={options}
                     />
                   </MuiThemeProvider>
                 </div>
@@ -187,14 +464,20 @@ const Alerts = () => {
                   />
                 </CardContent>
                 <CardActions>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    className={classes.button_add}
-                  >
-                    Search
-                  </Button>
+                  <div className={classes.wrapperRoot}>
+                    <div className={classes.wrapper}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        color="primary"
+                        // className={classes.button_add}
+                        disabled={loading}
+                      >
+                        Search
+                      </Button>
+                      {loading && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
+                    </div>
+                  </div>
                 </CardActions>
               </form>
             </Card>

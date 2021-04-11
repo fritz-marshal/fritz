@@ -1,20 +1,19 @@
 from skyportal.app_server import make_app
 
 from skyportal.handlers.api.alert import (
-    ZTFAlertHandler,
-    ZTFAlertAuxHandler,
-    ZTFAlertCutoutHandler,
+    AlertHandler,
+    AlertAuxHandler,
+    AlertCutoutHandler,
 )
 from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 
 
 fritz_handlers = [
     # Fritz-specific API endpoints
-    # ZTF Alerts
-    # most descriptive paths must be defined first
-    (r"/api/alerts/ztf/(.+)/aux", ZTFAlertAuxHandler),
-    (r"/api/alerts/ztf/(.+)/cutout", ZTFAlertCutoutHandler),
-    (r"/api/alerts/ztf(/.*)?", ZTFAlertHandler),
+    # Alerts
+    (r"/api/alerts(/.+)?", AlertHandler),
+    (r"/api/alerts_aux(/.+)?", AlertAuxHandler),
+    (r"/api/alerts_cutouts(/.+)?", AlertCutoutHandler),
     # Alert Stream filter versioning via K:
     (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
 ]

@@ -53,6 +53,9 @@ kowalski = Kowalski(
 )
 
 
+INSTRUMENTS = {"ZTF"}
+
+
 def make_thumbnail(a, ttype, ztftype):
 
     cutout_data = a[f"cutout{ztftype}"]["stampData"]
@@ -100,7 +103,7 @@ def make_thumbnail(a, ttype, ztftype):
     return thumb
 
 
-class ZTFAlertHandler(BaseHandler):
+class AlertHandler(BaseHandler):
     def get_user_streams(self):
 
         streams = (
@@ -120,11 +123,19 @@ class ZTFAlertHandler(BaseHandler):
         """
         ---
         single:
-          description: Retrieve a ZTF objectId from Kowalski
+          description: Retrieve an object from Kowalski by object_id
+          tags:
+            - alerts
+            - kowalski
           parameters:
             - in: path
               name: objectId
               required: true
+              schema:
+                type: str
+            - in: query
+              name: instrument
+              required: false
               schema:
                 type: str
             - in: query
@@ -161,6 +172,10 @@ class ZTFAlertHandler(BaseHandler):
                 program_id_selector.update(set(stream.altdata.get("selector", [])))
 
         program_id_selector = list(program_id_selector)
+
+        instrument = self.get_query_argument("instrument", "ZTF").upper()
+        if instrument not in INSTRUMENTS:
+            raise ValueError("Instrument name not recognised")
 
         default_projection = {
             "_id": 0,
@@ -707,19 +722,27 @@ class ZTFAlertHandler(BaseHandler):
             return self.error(f"failure: {_err}")
 
 
-class ZTFAlertAuxHandler(ZTFAlertHandler):
+class AlertAuxHandler(AlertHandler):
     @auth_or_token
-    def get(self, objectId: str = None):
+    def get(self, object_id: str = None):
         """
         ---
         single:
           description: Retrieve aux data for an objectId from Kowalski
+          tags:
+            - alerts
+            - kowalski
           parameters:
             - in: path
-              name: objectId
+              name: object_id
               required: true
               schema:
                 type: string
+            - in: query
+              name: instrument
+              required: false
+              schema:
+                type: str
             - in: query
               name: includePrvCandidates
               required: false
@@ -743,6 +766,10 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
         """
         streams = self.get_user_streams()
 
+        instrument = self.get_query_argument("instrument", "ZTF").upper()
+        if instrument not in INSTRUMENTS:
+            raise ValueError("Instrument name not recognised")
+
         # allow access to public data only by default
         selector = {1}
 
@@ -765,7 +792,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                 "query": {
                     "catalog": "ZTF_alerts_aux",
                     "pipeline": [
-                        {"$match": {"_id": objectId}},
+                        {"$match": {"_id": object_id}},
                         {
                             "$project": {
                                 "_id": 1,
@@ -824,7 +851,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     "pipeline": [
                         {
                             "$match": {
-                                "objectId": objectId,
+                                "objectId": object_id,
                                 "candidate.programid": {"$in": selector},
                             }
                         },
@@ -905,7 +932,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
                     "object_coordinates": {
                         "cone_search_radius": 2,
                         "cone_search_unit": "arcsec",
-                        "radec": {objectId: [ra, dec]},
+                        "radec": {object_id: [ra, dec]},
                     },
                     "catalogs": {
                         "TNS": {
@@ -932,7 +959,7 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
             response = kowalski.query(query=query)
 
             if response.get("status", "error") == "success":
-                tns_data = response.get("data").get("TNS").get(objectId)
+                tns_data = response.get("data").get("TNS").get(object_id)
                 alert_data["cross_matches"]["TNS"] = tns_data
 
             if not include_prv_candidates:
@@ -945,16 +972,28 @@ class ZTFAlertAuxHandler(ZTFAlertHandler):
             return self.error(_err)
 
 
-class ZTFAlertCutoutHandler(ZTFAlertHandler):
+class AlertCutoutHandler(AlertHandler):
     @auth_or_token
-    async def get(self, objectId: str = None):
+    async def get(self, object_id: str = None):
         """
         ---
-        summary: Serve ZTF alert cutout as fits or png
+        summary: Serve alert cutout as fits or png
         tags:
-          - lab
+          - alerts
+          - kowalski
 
         parameters:
+          - in: query
+            name: instrument
+            required: false
+            schema:
+              type: str
+          - in: query
+            name: candid
+            description: "ZTF alert candid"
+            required: true
+            schema:
+              type: integer
           - in: query
             name: candid
             description: "ZTF alert candid"
@@ -972,6 +1011,7 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             name: file_format
             description: "response file format: original loss-less FITS or rendered png"
             required: true
+            default: png
             schema:
               type: string
               enum: [fits, png]
@@ -1018,6 +1058,10 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         """
         streams = self.get_user_streams()
 
+        instrument = self.get_query_argument("instrument", "ZTF").upper()
+        if instrument not in INSTRUMENTS:
+            raise ValueError("Instrument name not recognised")
+
         # allow access to public data only by default
         selector = {1}
 
@@ -1030,7 +1074,7 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
         try:
             candid = int(self.get_argument("candid"))
             cutout = self.get_argument("cutout").capitalize()
-            file_format = self.get_argument("file_format").lower()
+            file_format = self.get_argument("file_format", "png").lower()
             interval = self.get_argument("interval", default=None)
             stretch = self.get_argument("stretch", default=None)
             cmap = self.get_argument("cmap", default=None)
@@ -1038,12 +1082,12 @@ class ZTFAlertCutoutHandler(ZTFAlertHandler):
             known_cutouts = ["Science", "Template", "Difference"]
             if cutout not in known_cutouts:
                 return self.error(
-                    f"cutout {cutout} of {objectId}/{candid} not in {str(known_cutouts)}"
+                    f"cutout {cutout} of {object_id}/{candid} not in {str(known_cutouts)}"
                 )
             known_file_formats = ["fits", "png"]
             if file_format not in known_file_formats:
                 return self.error(
-                    f"file format {file_format} of {objectId}/{candid}/{cutout} not in {str(known_file_formats)}"
+                    f"file format {file_format} of {object_id}/{candid}/{cutout} not in {str(known_file_formats)}"
                 )
 
             normalization_methods = {
