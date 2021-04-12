@@ -995,12 +995,6 @@ class AlertCutoutHandler(AlertHandler):
             schema:
               type: integer
           - in: query
-            name: candid
-            description: "ZTF alert candid"
-            required: true
-            schema:
-              type: integer
-          - in: query
             name: cutout
             description: "retrieve science, template, or difference cutout image?"
             required: true
