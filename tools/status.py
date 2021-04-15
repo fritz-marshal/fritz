@@ -6,7 +6,7 @@ import io
 @contextmanager
 def redirect_std(out):
     """
-    Contextmanager to temporarily redirect stdout toa StringIO object.
+    Contextmanager to temporarily redirect stdout to a StringIO object.
 
     """
     sys.stdout.flush()
