@@ -117,15 +117,15 @@ const useStyles = makeStyles((theme) => ({
     marginLeft: -12,
   },
   grid_item_table: {
-    order: 1,
-    [theme.breakpoints.down('lg')]: {
-      order: 2,
+    order: 2,
+    [theme.breakpoints.up('lg')]: {
+      order: 1,
     },
   },
   grid_item_search_box: {
-    order: 2,
-    [theme.breakpoints.down('md')]: {
-      order: 1,
+    order: 1,
+    [theme.breakpoints.up('lg')]: {
+      order: 2,
     },
   },
 }));
@@ -470,7 +470,6 @@ const Alerts = () => {
                         type="submit"
                         variant="contained"
                         color="primary"
-                        // className={classes.button_add}
                         disabled={loading}
                       >
                         Search
