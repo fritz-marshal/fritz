@@ -27,6 +27,7 @@ import TableRow from "@material-ui/core/TableRow";
 import TableCell from "@material-ui/core/TableCell";
 import ThumbnailList from "./ThumbnailList";
 import {dec_to_dms, ra_to_hours} from "../units";
+import { showNotification } from "baselayer/components/Notifications";
 
 import * as Actions from "../ducks/alerts";
 
@@ -389,7 +390,13 @@ const Alerts = () => {
   const submitSearch = async (data) => {
     setLoading(true);
     const {object_id, ra, dec, radius} = data;
-    await dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
+    // check that if positional query is requested then all required data are supplied
+    if ((ra.length || dec.length || radius.length) && !(ra.length && dec.length && radius.length)) {
+      dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
+    }
+    else {
+      await dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
+    }
     setLoading(false);
   };
 
