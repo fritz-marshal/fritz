@@ -172,6 +172,7 @@ class AlertHandler(BaseHandler):
               required: false
               schema:
                 type: str
+              description: can be a single objectId or a comma-separated list of objectIds
             - in: query
               name: instrument
               required: false
@@ -304,7 +305,9 @@ class AlertHandler(BaseHandler):
                 return self.error(f"Failed to fetch data for {object_id} from Kowalski")
 
         # executing a general search
-        object_id = self.get_query_argument("objectId", None)
+        object_ids = self.get_query_argument(
+            "objectId", None
+        )  # could be a comma-separated list
         ra = self.get_query_argument("ra", None)
         dec = self.get_query_argument("dec", None)
         radius = self.get_query_argument("radius", None)
@@ -312,7 +315,7 @@ class AlertHandler(BaseHandler):
 
         position_tuple = (ra, dec, radius, radius_units)
 
-        if not any((object_id, ra, dec, radius, radius_units)):
+        if not any((object_ids, ra, dec, radius, radius_units)):
             return self.error("Missing required parameters")
 
         if not all(position_tuple) and any(position_tuple):
@@ -375,10 +378,10 @@ class AlertHandler(BaseHandler):
             }
 
             # additional filters?
-            if object_id is not None:
-                query["query"]["catalogs"]["ZTF_alerts"]["filter"][
-                    "objectId"
-                ] = object_id
+            if object_ids is not None:
+                query["query"]["catalogs"]["ZTF_alerts"]["filter"]["objectId"] = {
+                    "$in": [oid.strip() for oid in object_ids.split(",")]
+                }
 
             response = kowalski.query(query=query)
 
@@ -393,7 +396,9 @@ class AlertHandler(BaseHandler):
             "query_type": "find",
             "query": {
                 "catalog": "ZTF_alerts",
-                "filter": {"objectId": object_id},
+                "filter": {
+                    "objectId": {"$in": [oid.strip() for oid in object_ids.split(",")]}
+                },
                 "projection": default_projection
                 if not include_all_fields
                 else {
