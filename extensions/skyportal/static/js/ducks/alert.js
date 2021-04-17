@@ -15,14 +15,14 @@ export const SAVE_ALERT = "skyportal/SAVE_ALERT";
 export const SAVE_ALERT_OK = "skyportal/SAVE_ALERT_OK";
 
 export function fetchAlertData(id) {
-  return API.GET(`/api/alerts/ztf/${id}`, FETCH_ALERT);
+  return API.GET(`/api/alerts/${id}`, FETCH_ALERT);
 }
 
 export const fetchAuxData = (id) =>
-  API.GET(`/api/alerts/ztf/${id}/aux`, FETCH_AUX);
+  API.GET(`/api/alerts/${id}/aux`, FETCH_AUX);
 
 export function saveAlertAsSource({ id, payload }) {
-  return API.POST(`/api/alerts/ztf/${id}`, SAVE_ALERT, payload);
+  return API.POST(`/api/alerts/${id}`, SAVE_ALERT, payload);
 }
 
 const alertDataReducer = (state = null, action) => {

@@ -236,9 +236,16 @@ const Alerts = () => {
         sort: true,
         sortDescFirst: true,
         customBodyRender: (value, tableMeta, updateValue) => (
-          <Link to={`/alerts/ztf/${value}`} role="link">
-            <Button className={classes.button} size="small" variant="contained">{value}</Button>
-          </Link>
+          <a
+            href={`/alerts/ztf/${value}`}
+            target="_blank"
+            data-testid={value}
+            rel="noreferrer"
+          >
+            <Button className={classes.button} size="small" variant="contained">
+              {value}
+            </Button>
+          </a>
         ),
       },
     },
