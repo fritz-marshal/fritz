@@ -123,7 +123,7 @@ class AlertHandler(BaseHandler):
         """
         ---
         single:
-          description: Retrieve an object from Kowalski by object_id
+          description: Retrieve an object from Kowalski by objectId
           tags:
             - alerts
             - kowalski
@@ -136,6 +136,7 @@ class AlertHandler(BaseHandler):
             - in: query
               name: instrument
               required: false
+              default: 'ZTF'
               schema:
                 type: str
             - in: query
@@ -156,6 +157,70 @@ class AlertHandler(BaseHandler):
                   schema:
                     allOf:
                       - $ref: '#/components/schemas/Success'
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          description: Retrieve objects from Kowalski by objectId and or position
+          tags:
+            - alerts
+            - kowalski
+          parameters:
+            - in: query
+              name: objectId
+              required: false
+              schema:
+                type: str
+            - in: query
+              name: instrument
+              required: false
+              default: 'ZTF'
+              schema:
+                type: str
+            - in: query
+              name: ra
+              required: false
+              schema:
+                type: float
+              description: RA in degrees
+            - in: query
+              name: dec
+              required: false
+              schema:
+                type: float
+              description: Dec. in degrees
+            - in: query
+              name: radius
+              required: false
+              schema:
+                type: float
+              description: Max distance from specified (RA, Dec) (capped at 1 deg)
+            - in: query
+              name: radius_units
+              required: false
+              schema:
+                type: string
+              description: Distance units (either "deg", "arcmin", or "arcsec")
+            - in: query
+              name: includeAllFields
+              required: false
+              schema:
+                type: boolean
+          responses:
+            200:
+              description: retrieved alert(s)
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
             400:
               content:
                 application/json:
@@ -227,7 +292,7 @@ class AlertHandler(BaseHandler):
             }
 
             candid = self.get_query_argument("candid", None)
-            if candid:
+            if candid is not None:
                 query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
 
             response = kowalski.query(query=query)
@@ -357,6 +422,9 @@ class AlertHandler(BaseHandler):
         """
         ---
         description: Save ZTF objectId from Kowalski as source in SkyPortal
+        tags:
+          - alerts
+          - kowalski
         requestBody:
           content:
             application/json:
@@ -1076,12 +1144,12 @@ class AlertCutoutHandler(AlertHandler):
             known_cutouts = ["Science", "Template", "Difference"]
             if cutout not in known_cutouts:
                 return self.error(
-                    f"cutout {cutout} of {object_id}/{candid} not in {str(known_cutouts)}"
+                    f"Cutout {cutout} of {object_id}/{candid} not in {str(known_cutouts)}"
                 )
             known_file_formats = ["fits", "png"]
             if file_format not in known_file_formats:
                 return self.error(
-                    f"file format {file_format} of {object_id}/{candid}/{cutout} not in {str(known_file_formats)}"
+                    f"File format {file_format} of {object_id}/{candid}/{cutout} not in {str(known_file_formats)}"
                 )
 
             normalization_methods = {
