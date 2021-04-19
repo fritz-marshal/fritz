@@ -62,9 +62,9 @@ def patch_skyportal():
         f.write("".join(out).encode("utf-8"))
 
     # Add git logs for SkyPortal and Kowalski
-    from skyportal.utils import gitlog
+    from skyportal.utils.gitlog import get_gitlog
 
-    skyportal_log = gitlog.get_gitlog(
+    skyportal_log = get_gitlog(
         cwd="skyportal",
         name="S",
         pr_url_base="https://github.com/skyportal/skyportal/pull",
@@ -74,7 +74,7 @@ def patch_skyportal():
     with open("skyportal/data/gitlog-skyportal.json", "w") as f:
         json.dump(skyportal_log, f)
 
-    kowalski_log = gitlog.get_gitlog(
+    kowalski_log = get_gitlog(
         cwd="kowalski",
         name="K",
         pr_url_base="https://github.com/dmitryduev/kowalski",
