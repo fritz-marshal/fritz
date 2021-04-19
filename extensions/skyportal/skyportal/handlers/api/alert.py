@@ -33,7 +33,6 @@ from ...models import (
     GroupStream,
     Obj,
     Stream,
-    StreamUser,
     Source,
 )
 from .photometry import PhotometryHandler
@@ -104,20 +103,6 @@ def make_thumbnail(a, ttype, ztftype):
 
 
 class AlertHandler(BaseHandler):
-    def get_user_streams(self):
-
-        streams = (
-            DBSession()
-            .query(Stream)
-            .join(StreamUser)
-            .filter(StreamUser.user_id == self.associated_user_object.id)
-            .all()
-        )
-        if streams is None:
-            streams = []
-
-        return streams
-
     @auth_or_token
     async def get(self, object_id: str = None):
         """
@@ -227,13 +212,10 @@ class AlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-
-        streams = self.get_user_streams()
-
         # allow access to public data only by default
         program_id_selector = {1}
 
-        for stream in streams:
+        for stream in self.associated_user_object.streams:
             if "ztf" in stream.name.lower():
                 program_id_selector.update(set(stream.altdata.get("selector", [])))
 
@@ -795,7 +777,7 @@ class AlertHandler(BaseHandler):
             return self.error(f"failure: {_err}")
 
 
-class AlertAuxHandler(AlertHandler):
+class AlertAuxHandler(BaseHandler):
     @auth_or_token
     def get(self, object_id: str = None):
         """
@@ -837,8 +819,6 @@ class AlertAuxHandler(AlertHandler):
                 application/json:
                   schema: Error
         """
-        streams = self.get_user_streams()
-
         instrument = self.get_query_argument("instrument", "ZTF").upper()
         if instrument not in INSTRUMENTS:
             raise ValueError("Instrument name not recognised")
@@ -846,7 +826,7 @@ class AlertAuxHandler(AlertHandler):
         # allow access to public data only by default
         selector = {1}
 
-        for stream in streams:
+        for stream in self.associated_user_object.streams:
             if "ztf" in stream.name.lower():
                 selector.update(set(stream.altdata.get("selector", [])))
 
@@ -1045,7 +1025,7 @@ class AlertAuxHandler(AlertHandler):
             return self.error(_err)
 
 
-class AlertCutoutHandler(AlertHandler):
+class AlertCutoutHandler(BaseHandler):
     @auth_or_token
     async def get(self, object_id: str = None):
         """
@@ -1123,8 +1103,6 @@ class AlertCutoutHandler(AlertHandler):
               application/json:
                 schema: Error
         """
-        streams = self.get_user_streams()
-
         instrument = self.get_query_argument("instrument", "ZTF").upper()
         if instrument not in INSTRUMENTS:
             raise ValueError("Instrument name not recognised")
@@ -1132,7 +1110,7 @@ class AlertCutoutHandler(AlertHandler):
         # allow access to public data only by default
         selector = {1}
 
-        for stream in streams:
+        for stream in self.associated_user_object.streams:
             if "ztf" in stream.name.lower():
                 selector.update(set(stream.altdata.get("selector", [])))
 
