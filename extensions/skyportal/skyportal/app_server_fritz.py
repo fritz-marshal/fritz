@@ -1,24 +1,24 @@
+import asyncio
+import concurrent
+
 from skyportal.app_server import make_app
 
 from skyportal.handlers.api.alert import (
-    ZTFAlertHandler,
-    ZTFAlertAuxHandler,
-    ZTFAlertCutoutHandler,
-    ZTFAlertsByCoordsHandler,
+    AlertHandler,
+    AlertAuxHandler,
+    AlertCutoutHandler,
 )
 from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 
 
 fritz_handlers = [
     # Fritz-specific API endpoints
-    # ZTF Alerts
-    # most descriptive paths must be defined first
-    (r"/api/alerts/ztf/(.+)/aux", ZTFAlertAuxHandler),
-    (r"/api/alerts/ztf/(.+)/cutout", ZTFAlertCutoutHandler),
-    (r"/api/alerts/ztf/(.+)", ZTFAlertHandler),
+    # Alerts
+    (r"/api/alerts(/.+)?", AlertHandler),
+    (r"/api/alerts_aux(/.+)?", AlertAuxHandler),
+    (r"/api/alerts_cutouts(/.+)?", AlertCutoutHandler),
     # Alert Stream filter versioning via K:
     (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
-    (r"/api/alerts_by_coords/ztf", ZTFAlertsByCoordsHandler),
 ]
 
 
@@ -38,6 +38,13 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings, process=None, en
 
     """
     app = make_app(cfg, baselayer_handlers, baselayer_settings, process, env)
+
+    # Limit the number of threads on each Tornado instance.
+    # This is to ensure that we don't run out of database connections,
+    # or overload our SQLAlchemy connection pool.
+    asyncio.get_event_loop().set_default_executor(
+        concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    )
 
     app.add_handlers(r".*", fritz_handlers)  # match any host
 

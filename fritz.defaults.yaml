@@ -62,8 +62,6 @@ skyportal:
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
-      - path: "/alerts_by_coords/ztf/:ra/:dec/:radius"
-        component: ZTFAlertsByCoords
       - path: "/upload_spectrum/:id"
         component: UploadSpectrum
       - path: "/source/:id/finder"
@@ -659,7 +657,7 @@ kowalski:
             NUVmag: 1
             e_NUVmag: 1
 
-        IPHAS_DR2:
+        IGAPS_DR2:
           filter: {}
           projection:
             _id: 0
@@ -671,6 +669,8 @@ kowalski:
             iErr: 1
             ha: 1
             haErr: 1
+            U_RGO: 1
+            UErr: 1
 
         LAMOST_DR5_v3:
           filter: {}

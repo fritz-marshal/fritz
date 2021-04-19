@@ -109,7 +109,7 @@ def dependencies_ok(check_python_requirements: bool = True):
 
     unsatisfied_python_requirements = []
     if check_python_requirements:
-        print("Checking python requirements:")
+        print("\nChecking python requirements:")
 
         for requirement in get_python_requirements():
             try:
