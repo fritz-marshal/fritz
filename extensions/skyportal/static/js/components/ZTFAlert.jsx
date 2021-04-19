@@ -277,17 +277,17 @@ const ZTFAlert = ({ route }) => {
     {
       type: "new",
       id: 0,
-      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=science&file_format=png`,
+      public_url: `/api/alerts_cutouts?objectId=${objectId}&candid=${candid}&cutout=science`,
     },
     {
       type: "ref",
       id: 1,
-      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=template&file_format=png`,
+      public_url: `/api/alerts_cutouts?objectId=${objectId}&candid=${candid}&cutout=template`,
     },
     {
       type: "sub",
       id: 2,
-      public_url: `/api/alerts/ztf/${objectId}/cutout?candid=${candid}&cutout=difference&file_format=png`,
+      public_url: `/api/alerts_cutouts?objectId=${objectId}&candid=${candid}&cutout=difference`,
     },
     // {
     //   type: "sdss",
@@ -549,7 +549,7 @@ const ZTFAlert = ({ route }) => {
                 <Grid item xs={12} lg={6}>
                   <Suspense fallback={<CircularProgress color="secondary" />}>
                     <VegaPlotZTFAlert
-                      dataUrl={`/api/alerts/ztf/${objectId}/aux`}
+                      dataUrl={`/api/alerts_aux/${objectId}`}
                       jd={jd}
                     />
                   </Suspense>
