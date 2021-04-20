@@ -19,7 +19,7 @@ export function fetchAlertData(id) {
 }
 
 export const fetchAuxData = (id) =>
-  API.GET(`/api/alerts/${id}/aux`, FETCH_AUX);
+  API.GET(`/api/alerts_aux/${id}`, FETCH_AUX);
 
 export function saveAlertAsSource({ id, payload }) {
   return API.POST(`/api/alerts/${id}`, SAVE_ALERT, payload);
