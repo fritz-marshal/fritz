@@ -811,10 +811,16 @@ class AlertAuxHandler(BaseHandler):
                 type: boolean
           responses:
             200:
-              description: retrieval failed
+              description: retrieved aux data
               content:
                 application/json:
-                  schema: Success
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: object
             400:
               content:
                 application/json:
