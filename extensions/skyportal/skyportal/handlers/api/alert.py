@@ -379,7 +379,8 @@ class AlertHandler(BaseHandler):
             "query": {
                 "catalog": "ZTF_alerts",
                 "filter": {
-                    "objectId": {"$in": [oid.strip() for oid in object_ids.split(",")]}
+                    "objectId": {"$in": [oid.strip() for oid in object_ids.split(",")]},
+                    "candidate.programid": {"$in": program_id_selector},
                 },
                 "projection": default_projection
                 if not include_all_fields
