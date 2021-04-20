@@ -305,9 +305,15 @@ const About = () => {
           <Paper mt={1} className={classes.gitlogPaper}>
             <Box p={1}>
               <div>
-                See all pull requests at{" "}
-                <a href="https://github.com/skyportal/skyportal/pulls?q=is%3Apr+">
-                  https://github.com/skyportal/skyportal/pulls
+                See all pull requests for{" "}
+                <a href="https://github.com/fritz-marshal/fritz/pulls">
+                  Fritz
+                </a>, {" "}
+                <a href="https://github.com/skyportal/skyportal/pulls">
+                  SkyPortal
+                </a>, and{" "}
+                <a href="https://github.com/dmitryduev/kowalski/pulls">
+                  Kowalski
                 </a>
               </div>
               <ul className={classes.gitlogList}>

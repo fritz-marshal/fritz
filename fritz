@@ -61,23 +61,28 @@ def patch_skyportal():
     with open(init_file, "wb") as f:
         f.write("".join(out).encode("utf-8"))
 
-    # get the git log for SP and add it to the SP distro
-    p = subprocess.run(
-        [
-            "git",
-            "--git-dir=.git",
-            "log",
-            "--no-merges",
-            "--pretty=format:[%cI %h %cE] %s",
-            "-1000",
-        ],
-        capture_output=True,
-        universal_newlines=True,
+    # Add git logs for SkyPortal and Kowalski
+    from skyportal.utils.gitlog import get_gitlog
+
+    skyportal_log = get_gitlog(
         cwd="skyportal",
+        name="S",
+        pr_url_base="https://github.com/skyportal/skyportal/pull",
+        commit_url_base="https://github.com/skyportal/skyportal/commit",
+        N=1000,
     )
-    out = p.stdout
-    with open("skyportal/data/gitlog.txt", "w") as spgl:
-        spgl.write(out)
+    with open("skyportal/data/gitlog-skyportal.json", "w") as f:
+        json.dump(skyportal_log, f)
+
+    kowalski_log = get_gitlog(
+        cwd="kowalski",
+        name="K",
+        pr_url_base="https://github.com/dmitryduev/kowalski",
+        commit_url_base="https://github.com/dmitryduev/kowalski/commit",
+        N=1000,
+    )
+    with open("skyportal/data/gitlog-kowalski.json", "w") as f:
+        json.dump(kowalski_log, f)
 
     # add Fritz-specific dependencies for SP
     # js
