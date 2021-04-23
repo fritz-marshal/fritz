@@ -74,8 +74,13 @@ skyportal:
         component: DBStats
 
     kowalski:
-      protocol: "http"
-      host: "kowalski_api_1"
+      protocol: http
+      host: kowalski_api_1
+      port: 4000
+      token:
+    gloria:
+      protocol: http
+      host: kowalski_api_1
       port: 4000
       token:
 

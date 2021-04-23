@@ -371,7 +371,7 @@ class AlertHandler(BaseHandler):
                 alert_data = response.get("data")
                 return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
 
-            return self.error(response("message"))
+            return self.error(response.get("message"))
 
         # otherwise, run a find query with the specified filter
         query = {
@@ -403,7 +403,7 @@ class AlertHandler(BaseHandler):
             alert_data = response.get("data")
             return self.success(data=alert_data)
 
-        return self.error(response("message"))
+        return self.error(response.get("message"))
 
     @auth_or_token
     def post(self, objectId):
@@ -901,7 +901,7 @@ class AlertAuxHandler(BaseHandler):
                     self.finish()
                     return
             else:
-                return self.error(response("message"))
+                return self.error(response.get("message"))
 
             # grab and append most recent candid as it should not be in prv_candidates
             query = {
@@ -957,7 +957,7 @@ class AlertAuxHandler(BaseHandler):
                     self.finish()
                     return
             else:
-                return self.error(response("message"))
+                return self.error(response.get("message"))
 
             candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
             if latest_alert_data["candidate"]["candid"] not in candids:
