@@ -180,6 +180,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False):
     )
 
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
+    config["skyportal"]["app"]["gloria"]["token"] = kowalski_token
 
     # get Docker gateway IP
     command = [
@@ -193,6 +194,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False):
     gateway_ip = p.stdout.decode("utf-8").strip()
     config["kowalski"]["skyportal"]["host"] = gateway_ip
     config["skyportal"]["app"]["kowalski"]["host"] = gateway_ip
+    config["skyportal"]["app"]["gloria"]["host"] = gateway_ip
 
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
