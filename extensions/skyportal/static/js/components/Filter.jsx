@@ -109,6 +109,7 @@ const Filter = () => {
 
   const [filterLoadError, setFilterLoadError] = useState("");
   const [groupLoadError, setGroupLoadError] = useState("");
+  const [streamLoadError, setStreamLoadError] = useState("");
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
@@ -159,6 +160,7 @@ const Filter = () => {
   }, [fid, loadedId, dispatch]);
 
   const group_id = useSelector((state) => state.filter.group_id);
+  const stream_id = useSelector((state) => state.filter.stream_id);
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -173,10 +175,23 @@ const Filter = () => {
     if (group_id) fetchGroup();
   }, [group_id, dispatch, groupLoadError]);
 
+  useEffect(() => {
+    const fetchStream = async () => {
+      const data = await dispatch(streamActions.fetchStream(stream_id));
+      if (data.status === "error") {
+        setStreamLoadError(data.message);
+        if (streamLoadError.length > 1) {
+          dispatch(showNotification(streamLoadError, "error"));
+        }
+      }
+    };
+    if (stream_id) fetchStream();
+  }, [stream_id, dispatch, streamLoadError]);
+
   const filter = useSelector((state) => state.filter);
   const filter_v = useSelector((state) => state.filter_v);
   const group = useSelector((state) => state.group);
-  const stream = useSelector((state) => state.filter.stream);
+  const stream = useSelector((state) => state.stream);
 
   const [otherVersion, setOtherVersion] = React.useState("");
 
