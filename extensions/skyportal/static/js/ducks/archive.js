@@ -33,8 +33,8 @@ const reducerCatalogNames = (state = null, action) => {
 };
 
 // eslint-disable-next-line import/prefer-default-export
-export const fetchZTFLightCurves = ({ ra, dec, radius }) => API.GET(
-  `/api/archive?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
+export const fetchZTFLightCurves = ({ catalog, ra, dec, radius }) => API.GET(
+  `/api/archive?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
   FETCH_ZTF_LIGHT_CURVES
 )
 

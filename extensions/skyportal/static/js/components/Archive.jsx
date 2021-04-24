@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {Suspense, useEffect, useState} from "react";
 
 import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
@@ -29,6 +29,8 @@ import {dec_to_dms, ra_to_hours} from "../units";
 import { showNotification } from "baselayer/components/Notifications";
 
 import * as Actions from "../ducks/archive";
+import SaveIcon from "@material-ui/icons/Save";
+import {IconButton} from "@material-ui/core";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -47,6 +49,8 @@ const getMuiTheme = (theme) =>
       },
     },
   });
+
+const VegaPlotZTFArchive = React.lazy(() => import("./VegaPlotZTFArchive"));
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -128,7 +132,16 @@ const useStyles = makeStyles((theme) => ({
       order: 2,
     },
   },
+  buttonSave: {
+    marginRight: theme.spacing(2),
+  }
 }));
+
+const ZTFLightCurveColors = {
+  1: "#28a745",
+  2: "#dc3545",
+  3: "#f3dc11",
+};
 
 const Archive = () => {
   const dispatch = useDispatch();
@@ -183,7 +196,14 @@ const Archive = () => {
     const colSpan = rowData.length + 1;
     // eslint-disable-next-line no-underscore-dangle
     const ZTFLightCurveId = ztf_light_curves[rowMeta.dataIndex]._id;
-    const ZTFLightCurveData = ztf_light_curves[rowMeta.dataIndex].data;
+    const ZTFLightCurveFilterId = ztf_light_curves[rowMeta.dataIndex].filter;
+    const ZTFLightCurveData = ztf_light_curves[rowMeta.dataIndex].data.map(
+      obj => ({ ...obj, filter: ZTFLightCurveFilterId })
+    );
+    const colorScale = {
+      domain: [ZTFLightCurveFilterId],
+      range: [ZTFLightCurveColors[ZTFLightCurveFilterId]],
+    }
 
     return (
       <TableRow data-testid={`ZTFLightCurveRow_${ZTFLightCurveId}`}>
@@ -194,12 +214,19 @@ const Archive = () => {
           <Grid
             container
             direction="row"
-            spacing={3}
+            spacing={2}
             justify="center"
             alignItems="center"
           >
             <Grid item>
-              LOL YOPTA
+              {ZTFLightCurveData.length && (
+                <Suspense fallback={<CircularProgress color="secondary" />}>
+                  <VegaPlotZTFArchive
+                    data={ZTFLightCurveData}
+                    color_scale={colorScale}
+                  />
+                </Suspense>
+              )}
             </Grid>
           </Grid>
         </TableCell>
@@ -209,6 +236,15 @@ const Archive = () => {
 
   const options = {
     selectableRows: "multiple",
+    customToolbarSelect: selectedRows => (
+      <IconButton
+        className={classes.buttonSave}
+        aria-label="save"
+        onClick={() => console.log(selectedRows)}
+      >
+        <SaveIcon />
+      </IconButton>
+     ),
     expandableRows: true,
     expandableRowsOnClick: true,
     renderExpandableRow: renderPullOutRow,
@@ -313,10 +349,10 @@ const Archive = () => {
 
   const submitSearch = async (data) => {
     setLoading(true);
-    const {ra, dec, radius} = data;
+    const {catalog, ra, dec, radius} = data;
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
-      await dispatch(Actions.fetchZTFLightCurves({ ra, dec, radius }));
+      await dispatch(Actions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
     }
     else {
       dispatch(showNotification(`Positional parameters should be set all or none`));
@@ -399,6 +435,7 @@ const Archive = () => {
                     name="ra"
                     label="R.A. (deg)"
                     fullWidth
+                    required
                     inputRef={registerForm({ required: true })}
                   />
                   <TextField
@@ -406,6 +443,7 @@ const Archive = () => {
                     name="dec"
                     label="Decl. (deg)"
                     fullWidth
+                    required
                     inputRef={registerForm({ required: true })}
                   />
                   <TextField
@@ -413,6 +451,7 @@ const Archive = () => {
                     name="radius"
                     label="Radius (arcsec)"
                     fullWidth
+                    required
                     inputRef={registerForm({ required: true })}
                   />
                 </CardContent>
