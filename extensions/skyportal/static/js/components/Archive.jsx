@@ -270,7 +270,7 @@ const Archive = () => {
       <IconButton
         className={classes.buttonSave}
         aria-label="save"
-        onClick={() => console.log(selectedRows)}
+        onClick={() => alert("Not implemented")}
       >
         <SaveIcon />
       </IconButton>
