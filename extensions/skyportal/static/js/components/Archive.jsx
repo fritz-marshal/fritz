@@ -31,6 +31,8 @@ import { showNotification } from "baselayer/components/Notifications";
 import * as Actions from "../ducks/archive";
 import SaveIcon from "@material-ui/icons/Save";
 import {IconButton} from "@material-ui/core";
+import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
+import Popover from "@material-ui/core/Popover";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -45,6 +47,17 @@ const getMuiTheme = (theme) =>
           padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
             0.25
           )}px ${theme.spacing(1)}px`,
+        },
+      },
+    },
+  });
+
+const getMuiPopoverTheme = () =>
+  createMuiTheme({
+    overrides: {
+      MuiPopover: {
+        paper: {
+          maxWidth: "30rem",
         },
       },
     },
@@ -134,7 +147,14 @@ const useStyles = makeStyles((theme) => ({
   },
   buttonSave: {
     marginRight: theme.spacing(2),
-  }
+  },
+  typography: {
+    padding: theme.spacing(2),
+  },
+  helpButton: {
+    marginLeft: theme.spacing(2),
+    display: "inline-block",
+  },
 }));
 
 const ZTFLightCurveColors = {
@@ -152,6 +172,16 @@ const Archive = () => {
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
+
+  const [searchHeaderAnchor, setSearchHeaderAnchor] = useState(null);
+  const searchHelpOpen = Boolean(searchHeaderAnchor);
+  const searchHelpId = searchHelpOpen ? "simple-popover" : undefined;
+  const handleClickSearchHelp = (event) => {
+    setSearchHeaderAnchor(event.currentTarget);
+  };
+  const handleCloseSearchHelp = () => {
+    setSearchHeaderAnchor(null);
+  };
 
   const catalogNames = useSelector((state) => state.catalog_names);
 
@@ -467,6 +497,35 @@ const Archive = () => {
                         Search
                       </Button>
                       {loading && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
+                      <IconButton
+                        aria-label="help"
+                        size="small"
+                        onClick={handleClickSearchHelp}
+                        className={classes.helpButton}
+                      >
+                        <HelpOutlineIcon />
+                      </IconButton>
+                      <MuiThemeProvider theme={getMuiPopoverTheme(theme)}>
+                        <Popover
+                          id={searchHelpId}
+                          open={searchHelpOpen}
+                          anchorEl={searchHeaderAnchor}
+                          onClose={handleCloseSearchHelp}
+                          anchorOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                          transformOrigin={{
+                            vertical: "top",
+                            horizontal: "left",
+                          }}
+                        >
+                          <Typography className={classes.typography}>
+                            Maximum search radius is 2 degrees.<br />
+                            At most 1,000 nearest sources (to the requested position) will be returned.
+                          </Typography>
+                        </Popover>
+                      </MuiThemeProvider>
                     </div>
                   </div>
                 </CardActions>
