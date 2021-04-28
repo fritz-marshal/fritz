@@ -1,38 +1,33 @@
 import React, {Suspense, useEffect, useState} from "react";
+import { useForm, Controller } from "react-hook-form";
+import {useDispatch, useSelector} from "react-redux";
+import MUIDataTable from "mui-datatables";
 
+import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
+import Button from "@material-ui/core/Button";
 import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
-
-import Typography from "@material-ui/core/Typography";
-import TextField from "@material-ui/core/TextField";
+import CircularProgress from "@material-ui/core/CircularProgress";
+import FormControl from "@material-ui/core/FormControl";
+import FormHelperText from "@material-ui/core/FormHelperText";
+import Grid from "@material-ui/core/Grid";
+import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
+import IconButton from "@material-ui/core/IconButton";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Select from "@material-ui/core/Select";
-
-import Grid from "@material-ui/core/Grid";
-
-import Button from "@material-ui/core/Button";
-import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
-import { useForm, Controller } from "react-hook-form";
 import Paper from "@material-ui/core/Paper";
-import MUIDataTable from "mui-datatables";
-import CircularProgress from "@material-ui/core/CircularProgress";
-
-import {useDispatch, useSelector} from "react-redux";
-
-import TableRow from "@material-ui/core/TableRow";
-import TableCell from "@material-ui/core/TableCell";
-import {dec_to_dms, ra_to_hours} from "../units";
-import { showNotification } from "baselayer/components/Notifications";
-
-import * as Actions from "../ducks/archive";
-import SaveIcon from "@material-ui/icons/Save";
-import {IconButton} from "@material-ui/core";
-import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
 import Popover from "@material-ui/core/Popover";
+import SaveIcon from "@material-ui/icons/Save";
+import Select from "@material-ui/core/Select";
+import TableCell from "@material-ui/core/TableCell";
+import TableRow from "@material-ui/core/TableRow";
+import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
+
+import { showNotification } from "baselayer/components/Notifications";
+import {dec_to_dms, ra_to_hours} from "../units";
+import * as archiveActions from "../ducks/archive";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -187,7 +182,7 @@ const Archive = () => {
 
   useEffect(() => {
     const fetchCatalogNames = async () => {
-      const data = await dispatch(Actions.fetchCatalogNames());
+      const data = await dispatch(archiveActions.fetchCatalogNames());
       if (data.status === "error") {
         setCatalogNamesLoadError();
         if (catalogNamesLoadError.length > 1) {
@@ -382,7 +377,7 @@ const Archive = () => {
     const {catalog, ra, dec, radius} = data;
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
-      await dispatch(Actions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
+      await dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
     }
     else {
       dispatch(showNotification(`Positional parameters should be set all or none`));
