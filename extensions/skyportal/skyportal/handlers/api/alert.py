@@ -440,17 +440,16 @@ class AlertHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        streams = self.get_user_streams()
         obj_already_exists = Obj.query.get(objectId) is not None
 
         # allow access to public data only by default
-        selector = {1}
+        program_id_selector = {1}
 
-        for stream in streams:
+        for stream in self.associated_user_object.streams:
             if "ztf" in stream.name.lower():
-                selector.update(set(stream.altdata.get("selector", [])))
+                program_id_selector.update(set(stream.altdata.get("selector", [])))
 
-        selector = list(selector)
+        program_id_selector = list(program_id_selector)
 
         data = self.get_json()
         candid = data.get("candid", None)
@@ -471,7 +470,12 @@ class AlertHandler(BaseHandler):
                                     "$filter": {
                                         "input": "$prv_candidates",
                                         "as": "item",
-                                        "cond": {"$in": ["$$item.programid", selector]},
+                                        "cond": {
+                                            "$in": [
+                                                "$$item.programid",
+                                                program_id_selector,
+                                            ]
+                                        },
                                     }
                                 },
                             }
@@ -515,7 +519,7 @@ class AlertHandler(BaseHandler):
                         {
                             "$match": {
                                 "objectId": objectId,
-                                "candidate.programid": {"$in": selector},
+                                "candidate.programid": {"$in": program_id_selector},
                             }
                         },
                         {
@@ -740,7 +744,7 @@ class AlertHandler(BaseHandler):
                         "catalog": "ZTF_alerts",
                         "filter": {
                             "candid": candid,
-                            "candidate.programid": {"$in": selector},
+                            "candidate.programid": {"$in": program_id_selector},
                         },
                         "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
                     },
