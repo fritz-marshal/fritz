@@ -25,14 +25,29 @@ import {useDispatch, useSelector} from "react-redux";
 
 import TableRow from "@material-ui/core/TableRow";
 import TableCell from "@material-ui/core/TableCell";
-import {dec_to_dms, ra_to_hours} from "../units";
 import { showNotification } from "baselayer/components/Notifications";
 
-import * as Actions from "../ducks/archive";
 import SaveIcon from "@material-ui/icons/Save";
 import {IconButton} from "@material-ui/core";
 import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
 import Popover from "@material-ui/core/Popover";
+import useMediaQuery from "@material-ui/core/useMediaQuery";
+
+import DialogTitle from "@material-ui/core/DialogTitle";
+import DialogContent from "@material-ui/core/DialogContent";
+import DialogContentText from "@material-ui/core/DialogContentText";
+// import OpenInNewIcon from "@material-ui/icons/OpenInNew";
+import DialogActions from "@material-ui/core/DialogActions";
+import Dialog from "@material-ui/core/Dialog";
+
+import Radio from '@material-ui/core/Radio';
+import RadioGroup from '@material-ui/core/RadioGroup';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import Checkbox from "@material-ui/core/Checkbox";
+import FormValidationError from "./FormValidationError";
+
+import {dec_to_dms, ra_to_hours} from "../units";
+import * as archiveActions from "../ducks/archive";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -155,6 +170,9 @@ const useStyles = makeStyles((theme) => ({
     marginLeft: theme.spacing(2),
     display: "inline-block",
   },
+  marginTop: {
+    marginTop: theme.spacing(2),
+  }
 }));
 
 const ZTFLightCurveColors = {
@@ -171,7 +189,32 @@ const Archive = () => {
   const [catalogNamesLoadError, setCatalogNamesLoadError] = React.useState("");
 
   const theme = useTheme();
-  const darkTheme = theme.palette.type === "dark";
+
+  // save data to SP
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
+  const { errors: errorsSaveForm, handleSubmit: handleSubmitSaveForm, control: controlSaveForm, getValues: getValuesSaveForm} = useForm();
+  const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
+
+  const [rowsToSave, setRowsToSave] = useState([]);
+
+  const handleSaveDialogClose = () => {
+    setRowsToSave([]);
+    setSaveDialogOpen(false);
+  };
+
+  const handleSaveDialogOpen = (selectedRows) => {
+    setRowsToSave(selectedRows);
+    setSaveDialogOpen(true);
+  };
+
+  const userGroups = useSelector(
+    (state) => state.groups.userAccessible
+  );
+
+  const userGroupIds = useSelector((state) =>
+    state.groups.userAccessible?.map((a) => a.id)
+  );
 
   const [searchHeaderAnchor, setSearchHeaderAnchor] = useState(null);
   const searchHelpOpen = Boolean(searchHeaderAnchor);
@@ -187,9 +230,9 @@ const Archive = () => {
 
   useEffect(() => {
     const fetchCatalogNames = async () => {
-      const data = await dispatch(Actions.fetchCatalogNames());
+      const data = await dispatch(archiveActions.fetchCatalogNames());
       if (data.status === "error") {
-        setCatalogNamesLoadError();
+        setCatalogNamesLoadError("Failed to fetch available catalog names.");
         if (catalogNamesLoadError.length > 1) {
           dispatch(showNotification(catalogNamesLoadError, "error"));
         }
@@ -270,11 +313,14 @@ const Archive = () => {
       <IconButton
         className={classes.buttonSave}
         aria-label="save"
-        onClick={() => alert("Not implemented")}
+        onClick={() => {
+          handleSaveDialogOpen(selectedRows);
+        }}
       >
         <SaveIcon />
       </IconButton>
      ),
+    // selectableRowsOnClick: true,
     expandableRows: true,
     expandableRowsOnClick: true,
     renderExpandableRow: renderPullOutRow,
@@ -377,17 +423,70 @@ const Archive = () => {
 
   const { register: registerForm, handleSubmit: handleSubmitForm, control: controlForm } = useForm();
 
+  const [selectedCatalog, setSelectedCatalog] = useState(
+    ZTFLightCurveCatalogNames?.length ? ZTFLightCurveCatalogNames[0] : null
+  );
+
   const submitSearch = async (data) => {
     setLoading(true);
     const {catalog, ra, dec, radius} = data;
+    setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
-      await dispatch(Actions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
+      await dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
     }
     else {
-      dispatch(showNotification(`Positional parameters should be set all or none`));
+      dispatch(showNotification(`Positional parameters must be all set`));
     }
     setLoading(false);
+  };
+
+  // save light curve data
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveNewSource, setSaveNewSource] = useState(true);
+
+  const createNewSourceText = "Create new source";
+
+  const validateGroups = () => {
+    const formState = getValuesSaveForm({ nest: true });
+    if (saveNewSource) {
+      return formState.group_ids.filter((value) => Boolean(value)).length >= 1;
+    }
+    return true;
+  };
+
+  const onSubmitSave = async (data) => {
+    const objID = data.obj_id === createNewSourceText ? null : data.obj_id;
+    // IDs of selected groups:
+    const groupIDs = userGroupIds.filter(
+      (groupId, index) => data.group_ids[index]
+    );
+    // IDs of selected light curves
+    const lightCurveIDs = rowsToSave.data.map(
+      // eslint-disable-next-line no-underscore-dangle
+      (rowToSave) => rows[rowToSave.dataIndex]._id
+    );
+    setIsSubmitting(true);
+
+    const payload = {
+      obj_id: objID,
+      catalog: selectedCatalog,
+      light_curve_ids: lightCurveIDs,
+    };
+
+    if (objID == null) {
+      payload.group_ids = groupIDs;
+    }
+
+    const result = await dispatch(archiveActions.saveLightCurves(payload));
+    if (result.status === "error") {
+      setIsSubmitting(false);
+    } else {
+      setIsSubmitting(false);
+      dispatch(showNotification("Successfully saved data"));
+      handleSaveDialogClose();
+    }
+
   };
 
   // renders
@@ -533,6 +632,101 @@ const Archive = () => {
             </Card>
           </Grid>
         </Grid>
+        <Dialog
+          fullScreen={fullScreen}
+          open={saveDialogOpen}
+          onClose={handleSaveDialogClose}
+          aria-labelledby="responsive-dialog-title"
+        >
+          <form onSubmit={handleSubmitSaveForm(onSubmitSave)}>
+            <DialogTitle id="responsive-dialog-title">
+              Save selected data to Fritz
+            </DialogTitle>
+            <DialogContent dividers>
+              <DialogContentText>
+                Post photometry data to source:
+              </DialogContentText>
+              <FormControl required>
+                <Controller
+                  name="obj_id"
+                  color="primary"
+                  render={(props) => (
+                    <RadioGroup
+                      color="primary"
+                      /* eslint-disable-next-line react/jsx-props-no-spreading */
+                      {...props}
+                      onChange={(event) => {
+                        props.onChange(event);
+                        if (event.target.value === createNewSourceText) {
+                         setSaveNewSource(true);
+                        }
+                        else {
+                          setSaveNewSource(false);
+                        }
+                      }}
+                    >
+                      {/* fixme: get list of nearby saved sources: */}
+                      <FormControlLabel value="ZTF21bsbsbsbs" control={<Radio />} label="ZTF21bsbsbsbs" />
+                      <FormControlLabel value={createNewSourceText} control={<Radio />} label={createNewSourceText} />
+                    </RadioGroup>
+                  )}
+                  defaultValue={createNewSourceText}
+                  control={controlSaveForm}
+                  rules={{ required: true }}
+                />
+              </FormControl>
+              <DialogContentText className={classes.marginTop}>
+                Select groups to save new source to:
+              </DialogContentText>
+              {saveNewSource && errorsSaveForm.group_ids && (
+                <FormValidationError message="Select at least one group." />
+              )}
+              {userGroups.map((userGroup, idx) => (
+                <FormControlLabel
+                  key={userGroup.id}
+                  control={
+                    <Controller
+                      name={`group_ids[${idx}]`}
+                      control={controlSaveForm}
+                      rules={{ validate: validateGroups }}
+                      defaultValue={false}
+                      render={(props) => (
+                        <Checkbox
+                          color="primary"
+                          disabled={!saveNewSource}
+                          /* eslint-disable-next-line react/jsx-props-no-spreading */
+                          {...props}
+                          checked={props.value}
+                          onChange={(e) => props.onChange(e.target.checked)}
+                        />
+                      )}
+                    />
+                  }
+                  label={userGroup.name}
+                />
+              ))}
+            </DialogContent>
+            <DialogActions>
+              <Button
+                variant="contained"
+                color="primary"
+                className={classes.search_button}
+                type="submit"
+                data-testid="save-dialog-submit"
+                disabled={isSubmitting}
+              >
+                Save
+              </Button>
+              <Button
+                autoFocus
+                onClick={handleSaveDialogClose}
+                color="primary"
+              >
+                Dismiss
+              </Button>
+            </DialogActions>
+          </form>
+        </Dialog>
       </div>
     </>
   );

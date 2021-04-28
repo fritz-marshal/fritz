@@ -11,6 +11,8 @@ const FETCH_ZTF_LIGHT_CURVES_OK = "skyportal/FETCH_ZTF_LIGHT_CURVES_OK";
 const FETCH_ZTF_LIGHT_CURVES_ERROR = "skyportal/FETCH_ZTF_LIGHT_CURVES_ERROR";
 const FETCH_ZTF_LIGHT_CURVES_FAIL = "skyportal/FETCH_ZTF_LIGHT_CURVES_FAIL";
 
+const SAVE_LIGHT_CURVES = "skyportal/SAVE_LIGHT_CURVES";
+
 export const fetchCatalogNames = () => API.GET(
   `/api/archive_catalogs`,
   FETCH_CATALOG_NAMES
@@ -37,6 +39,10 @@ export const fetchZTFLightCurves = ({ catalog, ra, dec, radius }) => API.GET(
   `/api/archive?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
   FETCH_ZTF_LIGHT_CURVES
 )
+
+export function saveLightCurves(payload) {
+  return API.POST(`/api/archive`, SAVE_LIGHT_CURVES, payload);
+}
 
 const reducer = (state = null, action) => {
   switch (action.type) {

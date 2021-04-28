@@ -23,7 +23,7 @@ import requests
 import tornado.escape
 import traceback
 
-from baselayer.app.access import auth_or_token
+from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 from ..base import BaseHandler
@@ -405,7 +405,7 @@ class AlertHandler(BaseHandler):
 
         return self.error(response.get("message"))
 
-    @auth_or_token
+    @permissions(["Upload data"])
     def post(self, objectId):
         """
         ---
