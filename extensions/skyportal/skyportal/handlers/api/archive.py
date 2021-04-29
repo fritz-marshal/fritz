@@ -10,6 +10,7 @@ env, cfg = load_env()
 log = make_log("archive")
 
 
+# A (dedicated) Kowalski instance holding the ZTF light curve data referred to as Gloria
 gloria = Kowalski(
     token=cfg["app.gloria.token"],
     protocol=cfg["app.gloria.protocol"],
@@ -23,6 +24,32 @@ log(f"Gloria connection OK: {gloria.ping()}")
 class ArchiveCatalogsHandler(BaseHandler):
     @auth_or_token
     def get(self):
+        """
+        ---
+        summary: Retrieve available catalog names from Kowalski/Gloria
+        tags:
+          - archive
+          - kowalski
+        responses:
+          200:
+            description: retrieved catalog names
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            type: str
+                          description: "array of catalog names"
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
         catalog_names = gloria.query(query=query).get("data")
         return self.success(data=catalog_names)
@@ -31,6 +58,62 @@ class ArchiveCatalogsHandler(BaseHandler):
 class ArchiveHandler(BaseHandler):
     @auth_or_token
     def get(self):
+        """
+        ---
+        summary: Retrieve archival light curve data from Kowalski/Gloria by position
+        tags:
+          - archive
+          - kowalski
+        parameters:
+          - in: query
+            name: catalog
+            required: true
+            schema:
+              type: str
+          - in: query
+            name: ra
+            required: true
+            schema:
+              type: float
+            description: RA in degrees
+          - in: query
+            name: dec
+            required: true
+            schema:
+              type: float
+            description: Dec. in degrees
+          - in: query
+            name: radius
+            required: true
+            schema:
+              type: float
+            description: Max distance from specified (RA, Dec) (capped at 1 deg)
+          - in: query
+            name: radius_units
+            required: true
+            schema:
+              type: string
+            description: Distance units (either "deg", "arcmin", or "arcsec")
+        responses:
+          200:
+            description: retrieved light curve data
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            type: object
+                          description: "array of light curves"
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
         # expose only the ZTF light curves for now
         available_catalogs = [

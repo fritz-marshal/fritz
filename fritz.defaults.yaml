@@ -78,6 +78,7 @@ skyportal:
       host: kowalski_api_1
       port: 4000
       token:
+    # a (dedicated) Kowalski instance holding the ZTF light curve data referred to as Gloria
     gloria:
       protocol: http
       host: kowalski_api_1
