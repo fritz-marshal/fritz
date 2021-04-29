@@ -575,7 +575,6 @@ class ArchiveHandler(BaseHandler):
             photometry = {
                 "obj_id": obj_id,
                 "stream_ids": df_photometry["programid"].tolist(),
-                # "group_ids": [1, 7, 8],
                 "instrument_id": instrument_id,
                 "mjd": df_photometry["mjd"].tolist(),
                 "mag": df_photometry["mag"].tolist(),

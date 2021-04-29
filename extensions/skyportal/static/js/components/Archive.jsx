@@ -35,8 +35,8 @@ import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
 import useMediaQuery from "@material-ui/core/useMediaQuery";
 
-import FormValidationError from "./FormValidationError";
 import { showNotification } from "baselayer/components/Notifications";
+import FormValidationError from "./FormValidationError";
 import {dec_to_dms, ra_to_hours} from "../units";
 import * as archiveActions from "../ducks/archive";
 

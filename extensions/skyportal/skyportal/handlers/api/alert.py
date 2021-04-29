@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import pathlib
 from penquins import Kowalski
-import requests
 import tornado.escape
 import traceback
 
@@ -499,10 +498,9 @@ class AlertHandler(BaseHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
-
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get("data")
+            response = kowalski.query(query=query)
+            if response.get("status", "error") == "success":
+                alert_data = response.get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -545,10 +543,9 @@ class AlertHandler(BaseHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
-
-            if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get("data")
+            response = kowalski.query(query=query)
+            if response.get("status", "error") == "success":
+                latest_alert_data = response.get("data")
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
             else:
@@ -753,10 +750,9 @@ class AlertHandler(BaseHandler):
                     },
                 }
 
-                resp = self.query_kowalski(query=query)
-
-                if resp.status_code == requests.codes.ok:
-                    cutout = bj.loads(resp.text).get("data", list(dict()))[0]
+                response = kowalski.query(query=query)
+                if response.get("status", "error") == "success":
+                    cutout = response.get("data", list(dict()))[0]
                 else:
                     cutout = dict()
 
