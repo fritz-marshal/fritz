@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import pathlib
 from penquins import Kowalski
-import requests
 import tornado.escape
 import traceback
 
@@ -440,7 +439,9 @@ class AlertHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        obj_already_exists = Obj.query.get(objectId) is not None
+        obj_already_exists = (
+            Obj.get_if_accessible_by(objectId, self.current_user) is not None
+        )
 
         # allow access to public data only by default
         program_id_selector = {1}
@@ -499,10 +500,9 @@ class AlertHandler(BaseHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
-
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get("data")
+            response = kowalski.query(query=query)
+            if response.get("status", "error") == "success":
+                alert_data = response.get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -545,10 +545,9 @@ class AlertHandler(BaseHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
-
-            if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get("data")
+            response = kowalski.query(query=query)
+            if response.get("status", "error") == "success":
+                latest_alert_data = response.get("data")
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
             else:
@@ -623,7 +622,7 @@ class AlertHandler(BaseHandler):
                 return self.error(
                     "Invalid/missing parameters: " f"{e.normalized_messages()}"
                 )
-            groups = Group.query.filter(Group.id.in_(group_ids)).all()
+            groups = Group.get_if_accessible_by(group_ids, self.current_user)
             if not groups:
                 return self.error(
                     "Invalid group_ids field. Please specify at least "
@@ -641,7 +640,7 @@ class AlertHandler(BaseHandler):
                     for group in groups
                 ]
             )
-            DBSession().commit()
+            self.verify_and_commit()
             if not obj_already_exists:
                 obj.add_linked_thumbnails()
 
@@ -669,11 +668,17 @@ class AlertHandler(BaseHandler):
             # get group stream access and map it to ZTF alert program ids
             group_stream_access = []
             for group in groups:
-                group_streams = (
-                    DBSession()
-                    .query(Stream)
-                    .join(GroupStream)
+                group_stream_subquery = (
+                    GroupStream.query_records_accessible_by(self.current_user)
                     .filter(GroupStream.group_id == group.id)
+                    .subquery()
+                )
+                group_streams = (
+                    Stream.query_records_accessible_by(self.current_user)
+                    .join(
+                        group_stream_subquery,
+                        Stream.id == group_stream_subquery.c.stream_id,
+                    )
                     .all()
                 )
                 if group_streams is None:
@@ -753,10 +758,9 @@ class AlertHandler(BaseHandler):
                     },
                 }
 
-                resp = self.query_kowalski(query=query)
-
-                if resp.status_code == requests.codes.ok:
-                    cutout = bj.loads(resp.text).get("data", list(dict()))[0]
+                response = kowalski.query(query=query)
+                if response.get("status", "error") == "success":
+                    cutout = response.get("data", list(dict()))[0]
                 else:
                     cutout = dict()
 
