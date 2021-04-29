@@ -4,7 +4,7 @@ from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from ..base import BaseHandler
-from ...models import DBSession, Filter, Stream
+from ...models import Filter, Stream
 
 
 env, cfg = load_env()
@@ -59,19 +59,10 @@ class KowalskiFilterHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        f = (
-            DBSession()
-            .query(Filter)
-            .filter(
-                Filter.id == int(filter_id),
-                Filter.group_id.in_(
-                    [g.id for g in self.current_user.accessible_groups]
-                ),
-            )
-            .first()
+        # permission check
+        _ = Filter.get_if_accessible_by(
+            filter_id, self.current_user, raise_if_none=True
         )
-        if f is None:
-            return self.error("Invalid filter ID.")
         response = kowalski.api(
             method="get",
             endpoint=f"api/filters/{filter_id}",
@@ -125,24 +116,16 @@ class KowalskiFilterHandler(BaseHandler):
         if pipeline is None:
             return self.error("Missing pipeline parameter")
 
-        f = (
-            DBSession()
-            .query(Filter)
-            .filter(
-                Filter.id == int(filter_id),
-                Filter.group_id.in_(
-                    [g.id for g in self.current_user.accessible_groups]
-                ),
-            )
-            .first()
+        f = Filter.get_if_accessible_by(
+            filter_id, self.current_user, raise_if_none=True
         )
-        if f is None:
-            return self.error("Invalid filter ID.")
 
         group_id = f.group_id
 
         # get stream:
-        stream = DBSession().query(Stream).filter(Stream.id == f.stream_id).first()
+        stream = Stream.get_if_accessible_by(
+            f.stream_id, self.current_user, raise_if_none=True
+        )
 
         post_data = {
             "group_id": group_id,
@@ -225,19 +208,10 @@ class KowalskiFilterHandler(BaseHandler):
                 "At least one of (active, active_fid, autosave, update_annotations) must be set"
             )
 
-        f = (
-            DBSession()
-            .query(Filter)
-            .filter(
-                Filter.id == int(filter_id),
-                Filter.group_id.in_(
-                    [g.id for g in self.current_user.accessible_groups]
-                ),
-            )
-            .first()
+        # permission check
+        _ = Filter.get_if_accessible_by(
+            filter_id, self.current_user, raise_if_none=True
         )
-        if f is None:
-            return self.error("Invalid filter ID.")
 
         patch_data = {"filter_id": int(filter_id)}
 
@@ -284,19 +258,10 @@ class KowalskiFilterHandler(BaseHandler):
               application/json:
                 schema: Success
         """
-        f = (
-            DBSession()
-            .query(Filter)
-            .filter(
-                Filter.id == int(filter_id),
-                Filter.group_id.in_(
-                    [g.id for g in self.current_user.accessible_groups]
-                ),
-            )
-            .first()
+        # permission check
+        _ = Filter.get_if_accessible_by(
+            filter_id, self.current_user, raise_if_none=True
         )
-        if f is None:
-            return self.error("Invalid filter ID.")
 
         response = kowalski.api(
             method="patch",
