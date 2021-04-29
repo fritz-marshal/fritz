@@ -248,7 +248,7 @@ const Archive = () => {
                 <Suspense fallback={<CircularProgress color="secondary" />}>
                   <VegaPlotZTFArchive
                     data={ZTFLightCurveData}
-                    color_scale={colorScale}
+                    colorScale={colorScale}
                   />
                 </Suspense>
               )}

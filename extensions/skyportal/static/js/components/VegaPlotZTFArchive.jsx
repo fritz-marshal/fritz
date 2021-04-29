@@ -5,7 +5,7 @@ import { isMobileOnly, withOrientationChange } from "react-device-detect";
 
 const jdNow = Date.now() / 86400000.0 + 40587. + 2400000.5;
 
-const spec = (values, color_scale, isPortrait) => ({
+const spec = (values, colorScale, isPortrait) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: isMobileOnly && isPortrait ? 250 : 500,
   // width: "container",
@@ -70,7 +70,7 @@ const spec = (values, color_scale, isPortrait) => ({
         color: {
           field: "filter",
           type: "nominal",
-          scale: color_scale,
+          scale: colorScale,
         },
         tooltip: [
           { field: "magAndErr", title: "mag", type: "nominal" },
@@ -139,7 +139,7 @@ const spec = (values, color_scale, isPortrait) => ({
         color: {
           field: "filter",
           type: "nominal",
-          scale: color_scale,
+          scale: colorScale,
           legend: {
             orient: isMobileOnly ? "bottom" : "right",
           },
@@ -153,10 +153,10 @@ const spec = (values, color_scale, isPortrait) => ({
   ],
 });
 
-const VegaPlot = withOrientationChange(({ data, color_scale, isPortrait }) => (
+const VegaPlot = withOrientationChange(({ data, colorScale, isPortrait }) => (
   <div
     ref={(node) => {
-      embed(node, spec(data, color_scale, isPortrait), {
+      embed(node, spec(data, colorScale, isPortrait), {
         actions: false,
       });
     }}
@@ -180,7 +180,7 @@ VegaPlot.propTypes = {
       uexpid: PropTypes.number,
     })
   ).isRequired,
-  color_scale: PropTypes.shape({
+  colorScale: PropTypes.shape({
     domain: PropTypes.arrayOf(PropTypes.number),
     range: PropTypes.arrayOf(PropTypes.string),
   }).isRequired,
