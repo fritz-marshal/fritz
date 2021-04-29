@@ -50,7 +50,7 @@ def radec_to_iau_name(ra: float, dec: float, prefix: str = "ZTFJ"):
     return prefix + hms + dms
 
 
-DEFAULT_TIMEOUT = 5  # seconds
+DEFAULT_TIMEOUT = 60  # seconds
 
 
 class TimeoutHTTPAdapter(HTTPAdapter):
@@ -79,7 +79,7 @@ retries = Retry(
     status_forcelist=[405, 429, 500, 502, 503, 504],
     method_whitelist=["HEAD", "GET", "PUT", "POST", "PATCH"],
 )
-adapter = TimeoutHTTPAdapter(timeout=5, max_retries=retries)
+adapter = TimeoutHTTPAdapter(timeout=60, max_retries=retries)
 session.mount("http://", adapter)
 
 
@@ -439,7 +439,6 @@ class ArchiveHandler(BaseHandler):
                 schema: Error
         """
         data = self.get_json()
-        print(data)  # fixme
 
         obj_id = data.pop("obj_id", None)
         catalog = data.pop("catalog", None)
@@ -574,7 +573,6 @@ class ArchiveHandler(BaseHandler):
 
             photometry = {
                 "obj_id": obj_id,
-                "stream_ids": df_photometry["programid"].tolist(),
                 "instrument_id": instrument_id,
                 "mjd": df_photometry["mjd"].tolist(),
                 "mag": df_photometry["mag"].tolist(),
@@ -585,6 +583,28 @@ class ArchiveHandler(BaseHandler):
                 "ra": df_photometry["ra"].tolist(),
                 "dec": df_photometry["dec"].tolist(),
             }
+
+            # handle data access permissions
+            ztf_program_id_to_stream_id = {0: 3, 1: 1, 2: 2, 3: 3}
+            response = api_skyportal("GET", "/api/streams", token_id)
+            print(response.json())
+            if (
+                response.json()["status"] == "success"
+                and len(response.json()["data"]) > 0
+            ):
+                for stream in response.json()["data"]:
+                    if stream.get("name") == "ZTF Public":
+                        ztf_program_id_to_stream_id[1] = stream.get("id", 1)
+                    if stream.get("name") == "ZTF Public+Partnership":
+                        ztf_program_id_to_stream_id[2] = stream.get("id", 2)
+                    if stream.get("name") == "ZTF Public+Partnership+Caltech":
+                        # programid=0 is engineering data
+                        ztf_program_id_to_stream_id[0] = stream.get("id", 3)
+                        ztf_program_id_to_stream_id[3] = stream.get("id", 3)
+                df_photometry["stream_ids"] = df_photometry["programid"].apply(
+                    lambda x: ztf_program_id_to_stream_id[x]
+                )
+                photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
 
             if len(photometry.get("mag", ())) > 0:
                 response = api_skyportal("PUT", "/api/photometry", token_id, photometry)

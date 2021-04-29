@@ -199,6 +199,10 @@ const Archive = () => {
     setSaveDialogOpen(true);
   };
 
+  const nearestSources = useSelector(
+    (state) => state.nearest_sources?.sources
+  );
+
   const userGroups = useSelector(
     (state) => state.groups.userAccessible
   );
@@ -425,6 +429,8 @@ const Archive = () => {
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
       await dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
+      // also fetch nearest saved sources within 5 arcsec from requested position
+      await dispatch(archiveActions.fetchNearestSources({ra, dec}));
     }
     else {
       dispatch(showNotification(`Positional parameters must be all set`));
@@ -656,8 +662,18 @@ const Archive = () => {
                         }
                       }}
                     >
-                      {/* fixme: get list of nearby saved sources: */}
-                      <FormControlLabel value="ZTF21bsbsbsbs" control={<Radio />} label="ZTF21bsbsbsbs" />
+                      {/* display list of nearby saved sources: */}
+                      {
+                        nearestSources != null && nearestSources.length > 0 &&
+                        nearestSources?.map((source) => (
+                          <FormControlLabel
+                            key={source.id}
+                            value={source.id}
+                            control={<Radio />}
+                            label={`${source.id} (found within 5" from search position)`}
+                          />
+                        ))
+                      }
                       <FormControlLabel value={createNewSourceText} control={<Radio />} label={createNewSourceText} />
                     </RadioGroup>
                   )}

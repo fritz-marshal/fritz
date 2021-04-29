@@ -11,6 +11,11 @@ const FETCH_ZTF_LIGHT_CURVES_OK = "skyportal/FETCH_ZTF_LIGHT_CURVES_OK";
 const FETCH_ZTF_LIGHT_CURVES_ERROR = "skyportal/FETCH_ZTF_LIGHT_CURVES_ERROR";
 const FETCH_ZTF_LIGHT_CURVES_FAIL = "skyportal/FETCH_ZTF_LIGHT_CURVES_FAIL";
 
+const FETCH_NEAREST_SOURCES = "skyportal/FETCH_NEAREST_SOURCES";
+const FETCH_NEAREST_SOURCES_OK = "skyportal/FETCH_NEAREST_SOURCES_OK";
+const FETCH_NEAREST_SOURCES_ERROR = "skyportal/FETCH_NEAREST_SOURCES_ERROR";
+const FETCH_NEAREST_SOURCES_FAIL = "skyportal/FETCH_NEAREST_SOURCES_FAIL";
+
 const SAVE_LIGHT_CURVES = "skyportal/SAVE_LIGHT_CURVES";
 
 export const fetchCatalogNames = () => API.GET(
@@ -60,5 +65,28 @@ const reducer = (state = null, action) => {
   }
 };
 
+
+export function fetchNearestSources({ra, dec}) {
+  // fetch nearest existing sources within 5 arcseconds from (ra, dec)
+  return API.GET(`/api/sources?&ra=${ra}&dec=${dec}&radius=${5/3600}`, FETCH_NEAREST_SOURCES);
+}
+
+const reducerNearestSources = (state = null, action) => {
+  switch (action.type) {
+    case FETCH_NEAREST_SOURCES_OK: {
+      return action.data;
+    }
+    case FETCH_NEAREST_SOURCES_ERROR: {
+      return action.message;
+    }
+    case FETCH_NEAREST_SOURCES_FAIL: {
+      return "uncaught error";
+    }
+    default:
+      return state;
+  }
+};
+
 store.injectReducer("catalog_names", reducerCatalogNames);
 store.injectReducer("ztf_light_curves", reducer);
+store.injectReducer("nearest_sources", reducerNearestSources);
