@@ -8,6 +8,10 @@ from skyportal.handlers.api.alert import (
     AlertAuxHandler,
     AlertCutoutHandler,
 )
+from skyportal.handlers.api.archive import (
+    ArchiveCatalogsHandler,
+    ArchiveHandler,
+)
 from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 
 
@@ -17,6 +21,9 @@ fritz_handlers = [
     (r"/api/alerts(/.+)?", AlertHandler),
     (r"/api/alerts_aux(/.+)?", AlertAuxHandler),
     (r"/api/alerts_cutouts(/.+)?", AlertCutoutHandler),
+    # Archive
+    (r"/api/archive_catalogs", ArchiveCatalogsHandler),
+    (r"/api/archive", ArchiveHandler),
     # Alert Stream filter versioning via K:
     (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
 ]

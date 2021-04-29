@@ -19,11 +19,10 @@ import numpy as np
 import pandas as pd
 import pathlib
 from penquins import Kowalski
-import requests
 import tornado.escape
 import traceback
 
-from baselayer.app.access import auth_or_token
+from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 from ..base import BaseHandler
@@ -371,7 +370,7 @@ class AlertHandler(BaseHandler):
                 alert_data = response.get("data")
                 return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
 
-            return self.error(response("message"))
+            return self.error(response.get("message"))
 
         # otherwise, run a find query with the specified filter
         query = {
@@ -403,9 +402,9 @@ class AlertHandler(BaseHandler):
             alert_data = response.get("data")
             return self.success(data=alert_data)
 
-        return self.error(response("message"))
+        return self.error(response.get("message"))
 
-    @auth_or_token
+    @permissions(["Upload data"])
     def post(self, objectId):
         """
         ---
@@ -440,19 +439,18 @@ class AlertHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        streams = self.get_user_streams()
         obj_already_exists = (
             Obj.get_if_accessible_by(objectId, self.current_user) is not None
         )
 
         # allow access to public data only by default
-        selector = {1}
+        program_id_selector = {1}
 
-        for stream in streams:
+        for stream in self.associated_user_object.streams:
             if "ztf" in stream.name.lower():
-                selector.update(set(stream.altdata.get("selector", [])))
+                program_id_selector.update(set(stream.altdata.get("selector", [])))
 
-        selector = list(selector)
+        program_id_selector = list(program_id_selector)
 
         data = self.get_json()
         candid = data.get("candid", None)
@@ -473,7 +471,12 @@ class AlertHandler(BaseHandler):
                                     "$filter": {
                                         "input": "$prv_candidates",
                                         "as": "item",
-                                        "cond": {"$in": ["$$item.programid", selector]},
+                                        "cond": {
+                                            "$in": [
+                                                "$$item.programid",
+                                                program_id_selector,
+                                            ]
+                                        },
                                     }
                                 },
                             }
@@ -497,10 +500,9 @@ class AlertHandler(BaseHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
-
-            if resp.status_code == requests.codes.ok:
-                alert_data = bj.loads(resp.text).get("data")
+            response = kowalski.query(query=query)
+            if response.get("status", "error") == "success":
+                alert_data = response.get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -517,7 +519,7 @@ class AlertHandler(BaseHandler):
                         {
                             "$match": {
                                 "objectId": objectId,
-                                "candidate.programid": {"$in": selector},
+                                "candidate.programid": {"$in": program_id_selector},
                             }
                         },
                         {
@@ -543,10 +545,9 @@ class AlertHandler(BaseHandler):
                 },
             }
 
-            resp = self.query_kowalski(query=query)
-
-            if resp.status_code == requests.codes.ok:
-                latest_alert_data = bj.loads(resp.text).get("data")
+            response = kowalski.query(query=query)
+            if response.get("status", "error") == "success":
+                latest_alert_data = response.get("data")
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
             else:
@@ -748,7 +749,7 @@ class AlertHandler(BaseHandler):
                         "catalog": "ZTF_alerts",
                         "filter": {
                             "candid": candid,
-                            "candidate.programid": {"$in": selector},
+                            "candidate.programid": {"$in": program_id_selector},
                         },
                         "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
                     },
@@ -757,10 +758,9 @@ class AlertHandler(BaseHandler):
                     },
                 }
 
-                resp = self.query_kowalski(query=query)
-
-                if resp.status_code == requests.codes.ok:
-                    cutout = bj.loads(resp.text).get("data", list(dict()))[0]
+                response = kowalski.query(query=query)
+                if response.get("status", "error") == "success":
+                    cutout = response.get("data", list(dict()))[0]
                 else:
                     cutout = dict()
 
@@ -909,7 +909,7 @@ class AlertAuxHandler(BaseHandler):
                     self.finish()
                     return
             else:
-                return self.error(response("message"))
+                return self.error(response.get("message"))
 
             # grab and append most recent candid as it should not be in prv_candidates
             query = {
@@ -965,7 +965,7 @@ class AlertAuxHandler(BaseHandler):
                     self.finish()
                     return
             else:
-                return self.error(response("message"))
+                return self.error(response.get("message"))
 
             candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
             if latest_alert_data["candidate"]["candid"] not in candids:

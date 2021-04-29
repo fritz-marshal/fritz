@@ -1,34 +1,33 @@
-import React from "react";
+import React, {Suspense, useEffect, useState} from "react";
+import { useForm, Controller } from "react-hook-form";
+import {useDispatch, useSelector} from "react-redux";
+import MUIDataTable from "mui-datatables";
 
+import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
+import Button from "@material-ui/core/Button";
 import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
-
-import TextField from "@material-ui/core/TextField";
+import CircularProgress from "@material-ui/core/CircularProgress";
+import FormControl from "@material-ui/core/FormControl";
+import FormHelperText from "@material-ui/core/FormHelperText";
+import Grid from "@material-ui/core/Grid";
+import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
+import IconButton from "@material-ui/core/IconButton";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Select from "@material-ui/core/Select";
-
-import Grid from "@material-ui/core/Grid";
-
-import Button from "@material-ui/core/Button";
-import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
-import { useForm, Controller } from "react-hook-form";
 import Paper from "@material-ui/core/Paper";
-import MUIDataTable from "mui-datatables";
-import CircularProgress from "@material-ui/core/CircularProgress";
-
-import {useDispatch, useSelector} from "react-redux";
-
-import TableRow from "@material-ui/core/TableRow";
+import Popover from "@material-ui/core/Popover";
+import SaveIcon from "@material-ui/icons/Save";
+import Select from "@material-ui/core/Select";
 import TableCell from "@material-ui/core/TableCell";
-import ThumbnailList from "./ThumbnailList";
-import {dec_to_dms, ra_to_hours} from "../units";
-import { showNotification } from "baselayer/components/Notifications";
+import TableRow from "@material-ui/core/TableRow";
+import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
 
-import * as Actions from "../ducks/alerts";
+import { showNotification } from "baselayer/components/Notifications";
+import {dec_to_dms, ra_to_hours} from "../units";
+import * as archiveActions from "../ducks/archive";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -47,6 +46,19 @@ const getMuiTheme = (theme) =>
       },
     },
   });
+
+const getMuiPopoverTheme = () =>
+  createMuiTheme({
+    overrides: {
+      MuiPopover: {
+        paper: {
+          maxWidth: "30rem",
+        },
+      },
+    },
+  });
+
+const VegaPlotZTFArchive = React.lazy(() => import("./VegaPlotZTFArchive"));
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -128,68 +140,98 @@ const useStyles = makeStyles((theme) => ({
       order: 2,
     },
   },
+  buttonSave: {
+    marginRight: theme.spacing(2),
+  },
+  typography: {
+    padding: theme.spacing(2),
+  },
+  helpButton: {
+    marginLeft: theme.spacing(2),
+    display: "inline-block",
+  },
 }));
 
-const Alerts = () => {
+const ZTFLightCurveColors = {
+  1: "#28a745",
+  2: "#dc3545",
+  3: "#f3dc11",
+};
+
+const Archive = () => {
   const dispatch = useDispatch();
   const classes = useStyles();
 
   const [loading, setLoading] = React.useState(false);
+  const [catalogNamesLoadError, setCatalogNamesLoadError] = React.useState("");
 
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
 
-  const alerts = useSelector((state) => state.alerts);
+  const [searchHeaderAnchor, setSearchHeaderAnchor] = useState(null);
+  const searchHelpOpen = Boolean(searchHeaderAnchor);
+  const searchHelpId = searchHelpOpen ? "simple-popover" : undefined;
+  const handleClickSearchHelp = (event) => {
+    setSearchHeaderAnchor(event.currentTarget);
+  };
+  const handleCloseSearchHelp = () => {
+    setSearchHeaderAnchor(null);
+  };
 
-  const makeRow = (alert) => ({
-      objectId: alert?.objectId,
-      candid: alert?.candid,
-      jd: alert?.candidate.jd,
-      ra: alert?.candidate.ra,
-      dec: alert?.candidate.dec,
-      fid: alert?.candidate.fid,
-      magpsf: alert?.candidate.magpsf,
-      sigmapsf: alert?.candidate.sigmapsf,
-      programid: alert?.candidate.programid,
-      isdiffpos: alert?.candidate.isdiffpos,
-      drb: alert?.candidate.drb,
-      acai_h: alert?.classifications?.acai_h,
-      acai_n: alert?.classifications?.acai_n,
-      acai_o: alert?.classifications?.acai_o,
-      acai_v: alert?.classifications?.acai_v,
-      acai_b: alert?.classifications?.acai_b,
+  const catalogNames = useSelector((state) => state.catalog_names);
+
+  useEffect(() => {
+    const fetchCatalogNames = async () => {
+      const data = await dispatch(archiveActions.fetchCatalogNames());
+      if (data.status === "error") {
+        setCatalogNamesLoadError();
+        if (catalogNamesLoadError.length > 1) {
+          dispatch(showNotification(catalogNamesLoadError, "error"));
+        }
+      }
+    };
+    if (!catalogNames) fetchCatalogNames();
+  }, [catalogNames, dispatch, catalogNamesLoadError]);
+
+  const ZTFLightCurveCatalogNames = catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1)
+
+  const ztf_light_curves = useSelector((state) => state.ztf_light_curves);
+
+  const makeRow = (light_curve) => ({
+    // eslint-disable-next-line no-underscore-dangle
+    _id: light_curve?._id,
+    ra: light_curve?.ra,
+    dec: light_curve?.dec,
+    filter: light_curve?.filter,
+    meanmag: light_curve?.meanmag,
+    vonneumannratio: light_curve?.vonneumannratio,
+    refchi: light_curve?.refchi,
+    refmag: light_curve?.refmag,
+    refmagerr: light_curve?.refmagerr,
+    iqr: light_curve?.iqr,
     });
-
   let rows = [];
 
-  if (alerts !== null && !isString(alerts) && Array.isArray(alerts)) {
-    rows = alerts.map((a) => makeRow(a));
+  if (ztf_light_curves !== null && !isString(ztf_light_curves) && Array.isArray(ztf_light_curves)) {
+    rows = ztf_light_curves.map((a) => makeRow(a));
   }
 
   // This is just passed to MUI datatables options -- not meant to be instantiated directly.
   const renderPullOutRow = (rowData, rowMeta) => {
     const colSpan = rowData.length + 1;
-    const alertData = alerts[rowMeta.dataIndex];
-    const thumbnails = [
-      {
-        type: "new",
-        id: 0,
-        public_url: `/api/alerts_cutouts/${alertData.objectId}?candid=${alertData.candid}&cutout=science`,
-      },
-      {
-        type: "ref",
-        id: 1,
-        public_url: `/api/alerts_cutouts/${alertData.objectId}?candid=${alertData.candid}&cutout=template`,
-      },
-      {
-        type: "sub",
-        id: 2,
-        public_url: `/api/alerts_cutouts/${alertData.objectId}?candid=${alertData.candid}&cutout=difference`,
-      },
-    ];
+    // eslint-disable-next-line no-underscore-dangle
+    const ZTFLightCurveId = ztf_light_curves[rowMeta.dataIndex]._id;
+    const ZTFLightCurveFilterId = ztf_light_curves[rowMeta.dataIndex].filter;
+    const ZTFLightCurveData = ztf_light_curves[rowMeta.dataIndex].data.map(
+      obj => ({ ...obj, filter: ZTFLightCurveFilterId })
+    );
+    const colorScale = {
+      domain: [ZTFLightCurveFilterId],
+      range: [ZTFLightCurveColors[ZTFLightCurveFilterId]],
+    }
 
     return (
-      <TableRow data-testid={`alertRow_${alertData.candid}`}>
+      <TableRow data-testid={`ZTFLightCurveRow_${ZTFLightCurveId}`}>
         <TableCell
           style={{ paddingBottom: 0, paddingTop: 0 }}
           colSpan={colSpan}
@@ -197,17 +239,19 @@ const Alerts = () => {
           <Grid
             container
             direction="row"
-            spacing={3}
+            spacing={2}
             justify="center"
             alignItems="center"
           >
             <Grid item>
-              <ThumbnailList
-                thumbnails={thumbnails}
-                ra={alertData.candidate.ra}
-                dec={alertData.candidate.dec}
-                displayTypes={["new", "ref", "sub"]}
-              />
+              {ZTFLightCurveData.length && (
+                <Suspense fallback={<CircularProgress color="secondary" />}>
+                  <VegaPlotZTFArchive
+                    data={ZTFLightCurveData}
+                    colorScale={colorScale}
+                  />
+                </Suspense>
+              )}
             </Grid>
           </Grid>
         </TableCell>
@@ -216,56 +260,34 @@ const Alerts = () => {
   };
 
   const options = {
-    selectableRows: "none",
+    selectableRows: "multiple",
+    customToolbarSelect: selectedRows => (
+      <IconButton
+        className={classes.buttonSave}
+        aria-label="save"
+        onClick={() => alert("Not implemented")}
+      >
+        <SaveIcon />
+      </IconButton>
+     ),
     expandableRows: true,
     expandableRowsOnClick: true,
     renderExpandableRow: renderPullOutRow,
     elevation: 1,
     sortOrder: {
-      name: "jd",
+      name: "_id",
       direction: "desc",
     },
   };
 
   const columns = [
     {
-      name: "objectId",
-      label: "Object ID",
+      name: "_id",
+      label: "_id",
       options: {
         filter: true,
         sort: true,
         sortDescFirst: true,
-        customBodyRender: (value, tableMeta, updateValue) => (
-          <a
-            href={`/alerts/ztf/${value}`}
-            target="_blank"
-            data-testid={value}
-            rel="noreferrer"
-          >
-            <Button className={classes.button} size="small" variant="contained">
-              {value}
-            </Button>
-          </a>
-        ),
-      },
-    },
-    {
-      name: "candid",
-      label: "candid",
-      options: {
-        filter: false,
-        display: false,
-        sort: true,
-      },
-    },
-    {
-      name: "jd",
-      label: "JD",
-      options: {
-        filter: false,
-        sort: true,
-        sortDescFirst: true,
-        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
       },
     },
     {
@@ -287,16 +309,16 @@ const Alerts = () => {
       },
     },
     {
-      name: "fid",
-      label: "fid",
+      name: "filter",
+      label: "filter",
       options: {
         filter: true,
         sort: true,
       },
     },
     {
-      name: "magpsf",
-      label: "magpsf",
+      name: "meanmag",
+      label: "meanmag",
       options: {
         filter: false,
         sort: true,
@@ -304,8 +326,8 @@ const Alerts = () => {
       },
     },
     {
-      name: "sigmapsf",
-      label: "sigmapsf",
+      name: "vonneumannratio",
+      label: "vonneumannratio",
       options: {
         filter: false,
         sort: true,
@@ -313,24 +335,24 @@ const Alerts = () => {
       },
     },
     {
-      name: "programid",
-      label: "programid",
+      name: "refchi",
+      label: "refchi",
       options: {
-        filter: true,
+        filter: false,
         sort: true,
       },
     },
     {
-      name: "isdiffpos",
-      label: "isdiffpos",
+      name: "refmag",
+      label: "refmag",
       options: {
-        filter: true,
+        filter: false,
         sort: true,
       },
     },
     {
-      name: "drb",
-      label: "drb",
+      name: "refmagerr",
+      label: "refmagerr",
       options: {
         filter: false,
         sort: true,
@@ -338,44 +360,8 @@ const Alerts = () => {
       },
     },
     {
-      name: "acai_h",
-      label: "acai_h",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
-      },
-    },
-    {
-      name: "acai_n",
-      label: "acai_n",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
-      },
-    },
-    {
-      name: "acai_o",
-      label: "acai_o",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
-      },
-    },
-    {
-      name: "acai_v",
-      label: "acai_v",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
-      },
-    },
-    {
-      name: "acai_b",
-      label: "acai_b",
+      name: "iqr",
+      label: "iqr",
       options: {
         filter: false,
         sort: true,
@@ -388,18 +374,38 @@ const Alerts = () => {
 
   const submitSearch = async (data) => {
     setLoading(true);
-    const {object_id, ra, dec, radius} = data;
+    const {catalog, ra, dec, radius} = data;
     // check that if positional query is requested then all required data are supplied
-    if ((ra.length || dec.length || radius.length) && !(ra.length && dec.length && radius.length)) {
-      dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
+    if (ra.length && dec.length && radius.length) {
+      await dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
     }
     else {
-      await dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
+      dispatch(showNotification(`Positional parameters should be set all or none`));
     }
     setLoading(false);
   };
 
-  return (
+  // renders
+
+  if (!ZTFLightCurveCatalogNames) {
+    return (
+      <div>
+        <CircularProgress color="secondary" />
+      </div>
+    );
+  }
+
+  if (!ZTFLightCurveCatalogNames.length) {
+    return (
+      <div>
+        <Typography variant="h5" className={classes.header}>
+          ZTF light curve data not available.
+        </Typography>
+      </div>
+    );
+  }
+
+  return (ZTFLightCurveCatalogNames.length &&
     <>
       <div>
         <Grid
@@ -415,7 +421,7 @@ const Alerts = () => {
                 <div className={classes.accordionDetails}>
                   <MuiThemeProvider theme={getMuiTheme(theme)}>
                     <MUIDataTable
-                      title="Alerts"
+                      title="ZTF Light Curves"
                       data={rows}
                       columns={columns}
                       options={options}
@@ -431,49 +437,47 @@ const Alerts = () => {
                 <CardContent>
                   <FormControl required className={classes.selectEmpty}>
                     <InputLabel name="alert-stream-select-required-label">
-                      Instrument
+                      Catalog
                     </InputLabel>
                     <Controller
                       labelId="alert-stream-select-required-label"
-                      name="instrument"
+                      name="catalog"
                       as={Select}
-                      defaultValue="ztf"
+                      defaultValue={ZTFLightCurveCatalogNames[0]}
                       control={controlForm}
                       rules={{ required: true }}
                     >
-                      <MenuItem value="ztf">ZTF</MenuItem>
+                      {ZTFLightCurveCatalogNames?.map((catalogName) => (
+                        <MenuItem key={catalogName} value={catalogName}>
+                          {catalogName}
+                        </MenuItem>
+                      ))}
                     </Controller>
                     <FormHelperText>Required</FormHelperText>
                   </FormControl>
-                  <TextField
-                    autoFocus
-                    margin="dense"
-                    name="object_id"
-                    label="objectId"
-                    type="text"
-                    fullWidth
-                    inputRef={registerForm({ minLength: 3, required: false })}
-                  />
                   <TextField
                     margin="dense"
                     name="ra"
                     label="R.A. (deg)"
                     fullWidth
-                    inputRef={registerForm({ required: false })}
+                    required
+                    inputRef={registerForm({ required: true })}
                   />
                   <TextField
                     margin="dense"
                     name="dec"
                     label="Decl. (deg)"
                     fullWidth
-                    inputRef={registerForm({ required: false })}
+                    required
+                    inputRef={registerForm({ required: true })}
                   />
                   <TextField
                     margin="dense"
                     name="radius"
                     label="Radius (arcsec)"
                     fullWidth
-                    inputRef={registerForm({ required: false })}
+                    required
+                    inputRef={registerForm({ required: true })}
                   />
                 </CardContent>
                 <CardActions>
@@ -488,6 +492,35 @@ const Alerts = () => {
                         Search
                       </Button>
                       {loading && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
+                      <IconButton
+                        aria-label="help"
+                        size="small"
+                        onClick={handleClickSearchHelp}
+                        className={classes.helpButton}
+                      >
+                        <HelpOutlineIcon />
+                      </IconButton>
+                      <MuiThemeProvider theme={getMuiPopoverTheme(theme)}>
+                        <Popover
+                          id={searchHelpId}
+                          open={searchHelpOpen}
+                          anchorEl={searchHeaderAnchor}
+                          onClose={handleCloseSearchHelp}
+                          anchorOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                          transformOrigin={{
+                            vertical: "top",
+                            horizontal: "left",
+                          }}
+                        >
+                          <Typography className={classes.typography}>
+                            Maximum search radius is 2 degrees.<br />
+                            At most 1,000 nearest sources (to the requested position) will be returned.
+                          </Typography>
+                        </Popover>
+                      </MuiThemeProvider>
                     </div>
                   </div>
                 </CardActions>
@@ -500,4 +533,4 @@ const Alerts = () => {
   );
 };
 
-export default Alerts;
+export default Archive;
