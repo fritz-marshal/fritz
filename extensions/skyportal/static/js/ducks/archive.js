@@ -65,7 +65,6 @@ const reducer = (state = null, action) => {
   }
 };
 
-
 export function fetchNearestSources({ra, dec}) {
   // fetch nearest existing sources within 5 arcseconds from (ra, dec)
   return API.GET(`/api/sources?&ra=${ra}&dec=${dec}&radius=${5/3600}`, FETCH_NEAREST_SOURCES);
