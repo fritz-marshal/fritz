@@ -441,7 +441,9 @@ class AlertHandler(BaseHandler):
                 schema: Error
         """
         streams = self.get_user_streams()
-        obj_already_exists = Obj.query.get(objectId) is not None
+        obj_already_exists = (
+            Obj.get_if_accessible_by(objectId, self.current_user) is not None
+        )
 
         # allow access to public data only by default
         selector = {1}
@@ -619,7 +621,7 @@ class AlertHandler(BaseHandler):
                 return self.error(
                     "Invalid/missing parameters: " f"{e.normalized_messages()}"
                 )
-            groups = Group.query.filter(Group.id.in_(group_ids)).all()
+            groups = Group.get_if_accessible_by(group_ids, self.current_user)
             if not groups:
                 return self.error(
                     "Invalid group_ids field. Please specify at least "
@@ -637,7 +639,7 @@ class AlertHandler(BaseHandler):
                     for group in groups
                 ]
             )
-            DBSession().commit()
+            self.verify_and_commit()
             if not obj_already_exists:
                 obj.add_linked_thumbnails()
 
@@ -665,11 +667,17 @@ class AlertHandler(BaseHandler):
             # get group stream access and map it to ZTF alert program ids
             group_stream_access = []
             for group in groups:
-                group_streams = (
-                    DBSession()
-                    .query(Stream)
-                    .join(GroupStream)
+                group_stream_subquery = (
+                    GroupStream.query_records_accessible_by(self.current_user)
                     .filter(GroupStream.group_id == group.id)
+                    .subquery()
+                )
+                group_streams = (
+                    Stream.query_records_accessible_by(self.current_user)
+                    .join(
+                        group_stream_subquery,
+                        Stream.id == group_stream_subquery.c.stream_id,
+                    )
                     .all()
                 )
                 if group_streams is None:
