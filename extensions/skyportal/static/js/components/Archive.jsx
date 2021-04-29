@@ -1,51 +1,42 @@
 import React, {Suspense, useEffect, useState} from "react";
+import { useForm, Controller } from "react-hook-form";
+import {useDispatch, useSelector} from "react-redux";
+import MUIDataTable from "mui-datatables";
 
+import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
+import Button from "@material-ui/core/Button";
 import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
-
-import Typography from "@material-ui/core/Typography";
-import TextField from "@material-ui/core/TextField";
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Select from "@material-ui/core/Select";
-
-import Grid from "@material-ui/core/Grid";
-
-import Button from "@material-ui/core/Button";
-import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
-import { useForm, Controller } from "react-hook-form";
-import Paper from "@material-ui/core/Paper";
-import MUIDataTable from "mui-datatables";
+import Checkbox from "@material-ui/core/Checkbox";
 import CircularProgress from "@material-ui/core/CircularProgress";
-
-import {useDispatch, useSelector} from "react-redux";
-
-import TableRow from "@material-ui/core/TableRow";
-import TableCell from "@material-ui/core/TableCell";
-import { showNotification } from "baselayer/components/Notifications";
-
-import SaveIcon from "@material-ui/icons/Save";
-import {IconButton} from "@material-ui/core";
-import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
-import Popover from "@material-ui/core/Popover";
-import useMediaQuery from "@material-ui/core/useMediaQuery";
-
-import DialogTitle from "@material-ui/core/DialogTitle";
+import Dialog from "@material-ui/core/Dialog";
+import DialogActions from "@material-ui/core/DialogActions";
 import DialogContent from "@material-ui/core/DialogContent";
 import DialogContentText from "@material-ui/core/DialogContentText";
-// import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import DialogActions from "@material-ui/core/DialogActions";
-import Dialog from "@material-ui/core/Dialog";
-
+import DialogTitle from "@material-ui/core/DialogTitle";
+import FormControl from "@material-ui/core/FormControl";
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormHelperText from "@material-ui/core/FormHelperText";
+import Grid from "@material-ui/core/Grid";
+import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
+import IconButton from "@material-ui/core/IconButton";
+import InputLabel from "@material-ui/core/InputLabel";
+import MenuItem from "@material-ui/core/MenuItem";
+import Paper from "@material-ui/core/Paper";
+import Popover from "@material-ui/core/Popover";
 import Radio from '@material-ui/core/Radio';
 import RadioGroup from '@material-ui/core/RadioGroup';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Checkbox from "@material-ui/core/Checkbox";
-import FormValidationError from "./FormValidationError";
+import SaveIcon from "@material-ui/icons/Save";
+import Select from "@material-ui/core/Select";
+import TableCell from "@material-ui/core/TableCell";
+import TableRow from "@material-ui/core/TableRow";
+import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
+import useMediaQuery from "@material-ui/core/useMediaQuery";
 
+import FormValidationError from "./FormValidationError";
+import { showNotification } from "baselayer/components/Notifications";
 import {dec_to_dms, ra_to_hours} from "../units";
 import * as archiveActions from "../ducks/archive";
 
@@ -296,7 +287,7 @@ const Archive = () => {
                 <Suspense fallback={<CircularProgress color="secondary" />}>
                   <VegaPlotZTFArchive
                     data={ZTFLightCurveData}
-                    color_scale={colorScale}
+                    colorScale={colorScale}
                   />
                 </Suspense>
               )}
