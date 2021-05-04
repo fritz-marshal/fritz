@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import PropTypes from "prop-types";
 
-import tnsInfoActions from "../ducks/tnsInfo";
+import * as tnsInfoActions from "../ducks/tnsInfo";
 
 const TNSInfo = ({ objID }) => {
   const dispatch = useDispatch();
