@@ -62,6 +62,8 @@ skyportal:
         component: Alerts
       - path: "/alerts/ztf/:id"
         component: ZTFAlert
+      - path: "/archive"
+        component: Archive
       - path: "/upload_spectrum/:id"
         component: UploadSpectrum
       - path: "/source/:id/finder"
@@ -107,6 +109,10 @@ skyportal:
       - name: Alerts
         icon: Explore
         url: /alerts
+        
+      - name: Archive
+        icon: CloudCircle
+        url: /archive
 
       - name: Groups
         icon: GroupWork
