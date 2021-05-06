@@ -51,11 +51,14 @@ const useStyles = makeStyles((theme) => ({
   gitlogList: {
     fontFamily: "monospace",
   },
+  gitlogName: {
+    paddingRight: "0.25rem",
+  },
   gitlogSHA: {
-    color: `${theme.palette.secondary.dark} !important`,
+    color: `${theme.palette.error.main} !important`,
   },
   gitlogPR: {
-    color: theme.palette.primary.dark,
+    color: theme.palette.secondary.dark,
   },
   dev: {
     display: "flex",
@@ -318,8 +321,19 @@ const About = () => {
               </div>
               <ul className={classes.gitlogList}>
                 {gitlog.map(
-                  ({ time, sha, description, pr_nr, pr_url, commit_url }) => (
+                  ({
+                    name,
+                    time,
+                    sha,
+                    description,
+                    pr_nr,
+                    pr_url,
+                    commit_url,
+                  }) => (
                     <li key={sha}>
+                      {name && (
+                        <span className={classes.gitlogName}>[{name}]</span>
+                      )}
                       [{dayjs(time).format("YYYY-MM-DD")}
                       <a className={classes.gitlogSHA} href={commit_url}>
                         &nbsp;{sha}
