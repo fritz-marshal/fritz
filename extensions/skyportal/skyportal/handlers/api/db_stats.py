@@ -148,9 +148,15 @@ class StatsHandler(BaseHandler):
             "kwargs": {"sort": [("discovery_date", -1)], "limit": 1},
         }
         response = kowalski.query(query=query_tns_latest_object)
-        data["Latest object from TNS collection discovery date (UTC)"] = response.get(
-            "data"
+        response_data = response.get("data")
+        latest_tns_object_discovery_date = (
+            response_data[0]["discovery_date_(ut)"]
+            if response_data is not None
+            else None
         )
+        data[
+            "Latest object from TNS collection discovery date (UTC)"
+        ] = latest_tns_object_discovery_date
 
         utc_now = datetime.datetime.utcnow()
         jd_start = Time(datetime.datetime(utc_now.year, utc_now.month, utc_now.day)).jd
