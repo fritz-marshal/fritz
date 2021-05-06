@@ -128,9 +128,33 @@ class StatsHandler(BaseHandler):
                 }
             )
 
+        query_tns_count = {
+            "query_type": "count_documents",
+            "query": {
+                "catalog": "TNS",
+                "filter": {},
+            },
+        }
+        response = kowalski.query(query=query_tns_count)
+        data["Number of objects in TNS collection"] = response.get("data")
+
+        query_tns_latest_object = {
+            "query_type": "find",
+            "query": {
+                "catalog": "TNS",
+                "filter": {},
+                "projection": {"_id": 0, "discovery_date_(ut)": 1},
+            },
+            "kwargs": {"sort": [("discovery_date", -1)], "limit": 1},
+        }
+        response = kowalski.query(query=query_tns_latest_object)
+        data["Latest object from TNS collection discovery date (UTC)"] = response.get(
+            "data"
+        )
+
         utc_now = datetime.datetime.utcnow()
         jd_start = Time(datetime.datetime(utc_now.year, utc_now.month, utc_now.day)).jd
-        k_query = {
+        query_ztf_alerts_count = {
             "query_type": "count_documents",
             "query": {
                 "catalog": "ZTF_alerts",
@@ -141,6 +165,7 @@ class StatsHandler(BaseHandler):
                 },
             },
         }
-        response = kowalski.query(query=k_query)
-        data["Number of alerts ingested since 0h UTC today"] = response.get("data")
+        response = kowalski.query(query=query_ztf_alerts_count)
+        data["Number of ZTF alerts ingested since 0h UTC today"] = response.get("data")
+
         return self.success(data=data)
