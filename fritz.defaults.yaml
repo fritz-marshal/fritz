@@ -384,8 +384,12 @@ kowalski:
     fernet_key: "irjsxvfJdqSJ2fcnpPacbH972dt-RPMMLE48PQ8J5Hg="
 
   ztf:
-    # fixme: use the port-forwarded IP for the mountain
     mountain_ip: null
+    mountain_port: null
+    mountain_username: null
+    mountain_password: null
+    mountain_bind_ip: null
+    mountain_bind_port: null
 
   path:
     app: "/app"
