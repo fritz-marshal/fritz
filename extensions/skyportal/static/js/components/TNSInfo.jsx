@@ -22,7 +22,20 @@ const TNSInfo = ({ objID }) => {
   if (tnsInfo === null) {
     return <>Fetching TNS data...</>;
   }
-  return <span>{tnsInfo?.name ? tnsInfo.name : `No matches found`}</span>;
+  return (
+    <span>
+      {tnsInfo?.name ? (
+        <a
+          href={`https://www.wis-tns.org/object/${tnsInfo.name}`}
+          target="_blank"
+        >
+          {tnsInfo.name}
+        </a>
+      ) : (
+        `No matches found`
+      )}
+    </span>
+  );
 };
 TNSInfo.propTypes = {
   objID: PropTypes.string.isRequired,
