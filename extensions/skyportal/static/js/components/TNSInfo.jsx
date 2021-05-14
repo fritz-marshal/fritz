@@ -28,6 +28,7 @@ const TNSInfo = ({ objID }) => {
         <a
           href={`https://www.wis-tns.org/object/${tnsInfo.name}`}
           target="_blank"
+          rel="noopener noreferrer"
         >
           {tnsInfo.name}
         </a>
