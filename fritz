@@ -77,7 +77,7 @@ def patch_skyportal():
     kowalski_log = get_gitlog(
         cwd="kowalski",
         name="K",
-        pr_url_base="https://github.com/dmitryduev/kowalski",
+        pr_url_base="https://github.com/dmitryduev/kowalski/pull",
         commit_url_base="https://github.com/dmitryduev/kowalski/commit",
         N=1000,
     )
