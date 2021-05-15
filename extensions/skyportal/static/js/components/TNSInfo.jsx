@@ -25,13 +25,17 @@ const TNSInfo = ({ objID }) => {
   return (
     <span>
       {tnsInfo?.name ? (
-        <a
-          href={`https://www.wis-tns.org/object/${tnsInfo.name}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {tnsInfo.name}
-        </a>
+        typeof tnsInfo.name === "string" ? (
+          <a
+            href={`https://www.wis-tns.org/object/${tnsInfo.name.split(" ")[1]}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {tnsInfo.name}
+          </a>
+        ) : (
+          tnsInfo.name
+        )
       ) : (
         `No matches found`
       )}
