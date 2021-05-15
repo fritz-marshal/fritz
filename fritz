@@ -766,6 +766,24 @@ def test():
     except subprocess.CalledProcessError:
         sys.exit(1)
 
+    print("Testing auxiliary catalog ingestion")
+
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "kowalski_ingester_1",
+        "python",
+        "-m",
+        "pytest",
+        "-s",
+        "test_tools.py",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
     # show processing log from dask cluster
     command = [
         "docker",

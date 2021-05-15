@@ -19,14 +19,21 @@ log = make_log("archive")
 
 
 # A (dedicated) Kowalski instance holding the ZTF light curve data referred to as Gloria
-gloria = Kowalski(
-    token=cfg["app.gloria.token"],
-    protocol=cfg["app.gloria.protocol"],
-    host=cfg["app.gloria.host"],
-    port=int(cfg["app.gloria.port"]),
-    timeout=10,
-)
-log(f"Gloria connection OK: {gloria.ping()}")
+try:
+    gloria = Kowalski(
+        token=cfg["app.gloria.token"],
+        protocol=cfg["app.gloria.protocol"],
+        host=cfg["app.gloria.host"],
+        port=int(cfg["app.gloria.port"]),
+        timeout=10,
+    )
+    connection_ok = gloria.ping()
+    log(f"Gloria connection OK: {connection_ok}")
+    if not connection_ok:
+        gloria = None
+except Exception as e:
+    log(f"Gloria connection failed: {str(e)}")
+    gloria = None
 
 
 def radec_to_iau_name(ra: float, dec: float, prefix: str = "ZTFJ"):
