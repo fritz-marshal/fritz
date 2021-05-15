@@ -594,7 +594,6 @@ class ArchiveHandler(BaseHandler):
             # handle data access permissions
             ztf_program_id_to_stream_id = {0: 3, 1: 1, 2: 2, 3: 3}
             response = api_skyportal("GET", "/api/streams", token_id)
-            print(response.json())
             if (
                 response.json()["status"] == "success"
                 and len(response.json()["data"]) > 0

@@ -315,7 +315,6 @@ const Archive = () => {
         <SaveIcon />
       </IconButton>
      ),
-    // selectableRowsOnClick: true,
     expandableRows: true,
     expandableRowsOnClick: true,
     renderExpandableRow: renderPullOutRow,
