@@ -113,7 +113,7 @@ class AlertHandler(BaseHandler):
             - kowalski
           parameters:
             - in: path
-              name: objectId
+              name: object_id
               required: true
               schema:
                 type: str
