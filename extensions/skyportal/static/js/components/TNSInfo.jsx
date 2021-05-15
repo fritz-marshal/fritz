@@ -6,35 +6,34 @@ import * as tnsInfoActions from "../ducks/tnsInfo";
 
 const TNSInfo = ({ objID }) => {
   const dispatch = useDispatch();
-  const [requestSubmitted, setRequestSubmitted] = useState(false);
   const tnsInfo = useSelector((state) => state.tnsInfo);
 
   useEffect(
     function fetchTNSInfo() {
-      if (!requestSubmitted) {
+      if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
         dispatch(tnsInfoActions.fetchTNSInfo(objID));
-        setRequestSubmitted(true);
       }
     },
-    [objID, dispatch, requestSubmitted]
+    [objID, dispatch, tnsInfo]
   );
 
-  if (tnsInfo === null) {
+  if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
     return <>Fetching TNS data...</>;
   }
+  const objTnsInfo = tnsInfo[objID];
   return (
     <span>
-      {tnsInfo?.name ? (
-        typeof tnsInfo.name === "string" ? (
+      {objTnsInfo?.name ? (
+        typeof objTnsInfo.name === "string" ? (
           <a
-            href={`https://www.wis-tns.org/object/${tnsInfo.name.split(" ")[1]}`}
+            href={`https://www.wis-tns.org/object/${objTnsInfo.name.split(" ")[1]}`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            {tnsInfo.name}
+            {objTnsInfo.name}
           </a>
         ) : (
-          tnsInfo.name
+          objTnsInfo.name
         )
       ) : (
         `No matches found`
