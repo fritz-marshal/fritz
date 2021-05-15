@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import PropTypes from "prop-types";
 
@@ -9,7 +9,7 @@ const TNSInfo = ({ objID }) => {
   const tnsInfo = useSelector((state) => state.tnsInfo);
 
   useEffect(
-    function fetchTNSInfo() {
+    () => {
       if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
         dispatch(tnsInfoActions.fetchTNSInfo(objID));
       }
@@ -21,23 +21,23 @@ const TNSInfo = ({ objID }) => {
     return <>Fetching TNS data...</>;
   }
   const objTnsInfo = tnsInfo[objID];
+
   return (
     <span>
-      {objTnsInfo?.name ? (
-        typeof objTnsInfo.name === "string" ? (
+      {
+        objTnsInfo !== null && objTnsInfo?.length > 0 ?
+        objTnsInfo.map((TNSMatch) => (
           <a
-            href={`https://www.wis-tns.org/object/${objTnsInfo.name.split(" ")[1]}`}
+            key={TNSMatch.name}
+            href={`https://www.wis-tns.org/object/${TNSMatch.name.split(" ")[1]}`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            {objTnsInfo.name}
+            {`${TNSMatch.name} `}
           </a>
-        ) : (
-          objTnsInfo.name
-        )
-      ) : (
+        )) :
         `No matches found`
-      )}
+      }
     </span>
   );
 };
