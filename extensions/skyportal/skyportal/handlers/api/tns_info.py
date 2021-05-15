@@ -54,4 +54,4 @@ class TNSInfoHandler(BaseHandler):
         if response.get("status", None) != "success":
             return self.error("Error querying Kowalksi for TNS name.")
         tns_data = response.get("data").get("TNS").get(obj_id)
-        return self.success(data=tns_data)
+        return self.success(data={obj_id: tns_data})
