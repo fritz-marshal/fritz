@@ -42,13 +42,21 @@ env, cfg = load_env()
 log = make_log("alert")
 
 
-kowalski = Kowalski(
-    token=cfg["app.kowalski.token"],
-    protocol=cfg["app.kowalski.protocol"],
-    host=cfg["app.kowalski.host"],
-    port=int(cfg["app.kowalski.port"]),
-    timeout=10,
-)
+try:
+    kowalski = Kowalski(
+        token=cfg["app.kowalski.token"],
+        protocol=cfg["app.kowalski.protocol"],
+        host=cfg["app.kowalski.host"],
+        port=int(cfg["app.kowalski.port"]),
+        timeout=10,
+    )
+    connection_ok = kowalski.ping()
+    log(f"Kowalski connection OK: {connection_ok}")
+    if not connection_ok:
+        kowalski = None
+except Exception as e:
+    log(f"Kowalski connection failed: {str(e)}")
+    kowalski = None
 
 
 INSTRUMENTS = {"ZTF"}
