@@ -9,7 +9,8 @@ const TNSInfo = ({ objID }) => {
   const tnsInfo = useSelector((state) => state.tnsInfo);
 
   useEffect(
-    () => {
+    // eslint-disable-next-line
+    function fetchTNSInfo() {
       if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
         dispatch(tnsInfoActions.fetchTNSInfo(objID));
       }
@@ -26,16 +27,23 @@ const TNSInfo = ({ objID }) => {
     <span>
       {
         objTnsInfo !== null && objTnsInfo?.length > 0 ?
-        objTnsInfo.map((TNSMatch) => (
-          <a
-            key={TNSMatch.name}
-            href={`https://www.wis-tns.org/object/${TNSMatch.name.split(" ")[1]}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {`${TNSMatch.name} `}
-          </a>
-        )) :
+        objTnsInfo.map(
+          (TNSMatch) => {
+            if (typeof TNSMatch.name === "string" && TNSMatch.name.split(" ").length === 2) {
+              return (
+                <a
+                  key={TNSMatch.name}
+                  href={`https://www.wis-tns.org/object/${TNSMatch.name.split(" ")[1]}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {`${TNSMatch.name} `}
+                </a>
+              );
+            }
+            return TNSMatch.name;
+          }
+        ) :
         `No matches found`
       }
     </span>
