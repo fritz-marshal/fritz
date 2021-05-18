@@ -73,3 +73,37 @@ def test_post_ztf_light_curve(super_admin_token):
     assert data["status"] == "success"
     assert "data" in data
     assert "obj_id" in data["data"]
+
+    # attempt posting to the newly created obj_id
+    status, data = api(
+        "POST",
+        "archive",
+        data={
+            "obj_id": data["data"]["obj_id"],
+            "group_ids": [1],
+            "catalog": ztf_sources_catalog,
+            "light_curve_ids": light_curve_ids,
+        },
+        token=super_admin_token,
+    )
+    assert status == 200
+    assert data["status"] == "success"
+    assert "data" in data
+    assert "obj_id" in data["data"]
+
+    # posting with obj_id=None would attempt creating
+    # an Obj with an already existing name
+    # and should thus raise an error:
+    status, data = api(
+        "POST",
+        "archive",
+        data={
+            "obj_id": None,
+            "group_ids": [1],
+            "catalog": ztf_sources_catalog,
+            "light_curve_ids": light_curve_ids,
+        },
+        token=super_admin_token,
+    )
+    assert status == 400
+    assert data["status"] == "error"

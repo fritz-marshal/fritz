@@ -513,7 +513,9 @@ class ArchiveHandler(BaseHandler):
         # generate a temporary token
         token_name = str(uuid.uuid4())
         token_id = create_token(
-            ACLs=["Upload data"],
+            ACLs=["Upload data"]
+            if not self.associated_user_object.is_admin
+            else ["System admin"],
             user_id=self.associated_user_object.id,
             name=token_name,
         )
