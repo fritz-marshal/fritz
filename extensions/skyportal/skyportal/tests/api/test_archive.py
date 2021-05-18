@@ -42,6 +42,7 @@ def test_post_ztf_light_curve(super_admin_token):
 
     # an object from Kowalski's test suite
     ra, dec = 178.9587118, -22.4106486
+    # ra, dec = 3.0618363, -22.4289153
     radius, radius_units = 2, "arcsec"
 
     status, data = api(
@@ -62,7 +63,7 @@ def test_post_ztf_light_curve(super_admin_token):
         "archive",
         data={
             "obj_id": None,
-            "group_ids": "all",
+            "group_ids": [1],
             "catalog": ztf_sources_catalog,
             "light_curve_ids": light_curve_ids,
         },
