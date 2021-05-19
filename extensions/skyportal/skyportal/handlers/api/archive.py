@@ -577,6 +577,8 @@ class ArchiveHandler(BaseHandler):
                 and len(response.json()["data"]) > 0
             ):
                 instrument_id = response.json()["data"][0]["id"]
+            else:
+                raise LookupError("ZTF instrument not found")
 
             photometry = {
                 "obj_id": obj_id,
@@ -592,7 +594,7 @@ class ArchiveHandler(BaseHandler):
             }
 
             # handle data access permissions
-            ztf_program_id_to_stream_id = {0: 3, 1: 1, 2: 2, 3: 3}
+            ztf_program_id_to_stream_id = dict()
             response = api_skyportal("GET", "/api/streams", token_id)
             if (
                 response.json()["status"] == "success"
@@ -611,6 +613,8 @@ class ArchiveHandler(BaseHandler):
                     lambda x: ztf_program_id_to_stream_id[x]
                 )
                 photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
+            else:
+                raise LookupError("Failed to get programid to stream_id mapping")
 
             if len(photometry.get("mag", ())) > 0:
                 response = api_skyportal("PUT", "/api/photometry", token_id, photometry)
