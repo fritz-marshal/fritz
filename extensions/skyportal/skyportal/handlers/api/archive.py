@@ -568,7 +568,6 @@ class ArchiveHandler(BaseHandler):
             df_photometry = make_photometry(light_curves, drop_flagged=True)
 
             # get ZTF instrument id:
-            instrument_id = 1
             response = api_skyportal(
                 "GET", "/api/instrument", token_id, {"name": "ZTF"}
             )
