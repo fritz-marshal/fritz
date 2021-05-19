@@ -203,6 +203,8 @@ def check_config(cfg="fritz.defaults.yaml", yes=False):
 
     # Docker-specific SkyPortal stuff:
     config["skyportal"]["database"]["host"] = "db"
+    config["skyportal"]["server"]["host"] = "localhost"
+    config["skyportal"]["server"]["port"] = 5000
     config["skyportal"]["server"]["url"] = "http://localhost:5000"
     config_skyportal = config["skyportal"]  # don't need the K stuff
     with open("skyportal/config.yaml", "w") as skyportal_config_yaml:
