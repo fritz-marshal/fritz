@@ -1,15 +1,14 @@
 import React from "react";
 import PropTypes from "prop-types";
 import embed from "vega-embed";
-import { isMobileOnly, withOrientationChange } from "react-device-detect";
+import { isMobileOnly } from "react-device-detect";
 
 const jdNow = Date.now() / 86400000.0 + 40587. + 2400000.5;
 
-const spec = (values, colorScale, isPortrait) => ({
+const spec = (values, colorScale) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
-  width: isMobileOnly && isPortrait ? 250 : 500,
-  // width: "container",
-  height: isMobileOnly && isPortrait ? 150 : 250,
+  width: isMobileOnly ? 250 : 500,
+  height: isMobileOnly ? 150 : 250,
   data: {
     values,
     format: {
@@ -153,15 +152,21 @@ const spec = (values, colorScale, isPortrait) => ({
   ],
 });
 
-const VegaPlot = withOrientationChange(({ data, colorScale, isPortrait }) => (
-  <div
-    ref={(node) => {
-      embed(node, spec(data, colorScale, isPortrait), {
-        actions: false,
-      });
-    }}
-  />
-));
+const VegaPlot = React.memo((props) => {
+  const { data, colorScale } = props;
+
+  return (
+    <div
+      ref={(node) => {
+        if (node) {
+          embed(node, spec(data, colorScale), {
+            actions: false,
+          });
+        }
+      }}
+    />
+  );
+});
 
 VegaPlot.propTypes = {
   data: PropTypes.arrayOf(
