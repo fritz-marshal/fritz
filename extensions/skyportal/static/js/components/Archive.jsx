@@ -452,6 +452,8 @@ const Archive = () => {
   };
 
   const onSubmitSave = async (data) => {
+    setIsSubmitting(true);
+
     const objID = data.obj_id === createNewSourceText ? null : data.obj_id;
     // IDs of selected groups:
     const groupIDs = userGroupIds.filter(
@@ -462,7 +464,6 @@ const Archive = () => {
       // eslint-disable-next-line no-underscore-dangle
       (rowToSave) => rows[rowToSave.dataIndex]._id
     );
-    setIsSubmitting(true);
 
     const payload = {
       obj_id: objID,
