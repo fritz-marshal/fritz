@@ -69,6 +69,7 @@ def test_post_ztf_light_curve(super_admin_token):
         },
         token=super_admin_token,
     )
+    print(data)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data
