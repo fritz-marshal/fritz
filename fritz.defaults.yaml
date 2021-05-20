@@ -260,7 +260,7 @@ skyportal:
 
   database:
     database: skyportal
-    host: localhost
+    host: db
     port: 5432
     user: skyportal
     password: password
@@ -754,10 +754,10 @@ kowalski:
 
   skyportal:
     protocol: "http"
-    host: "172.17.0.1"
+    host: skyportal_web_1
     port: 5000
-    username: "kowalski"
-    token: "<token>"
+    username: kowalski
+    token: <token>
 
   ztf_depot:
     # fixme:
