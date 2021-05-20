@@ -35,8 +35,8 @@ jobs:
         run: |
           ./fritz build --init
           docker network create fritz_net
-          docker network inspect fritz_net
           ./fritz run
+          docker network inspect fritz_net
 
       - name: Run integration tests
         run: |

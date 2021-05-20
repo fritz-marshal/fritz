@@ -124,13 +124,16 @@ def api_skyportal(
         "User-Agent": "fritz:archive",
     }
 
-    base_url = (
-        f"http://{cfg['server.host']}"
-        if cfg["server.host"] != "<host>"
-        else "localhost"
-    )
-    if cfg["server.port"] is not None:
-        base_url += f":{cfg['server.port']}"
+    if cfg["server.url"] is not None:
+        base_url = cfg["server.url"]
+    else:
+        base_url = (
+            f"http://{cfg['server.host']}"
+            if cfg["server.host"] != "<host>"
+            else "http://localhost"
+        )
+        if cfg["server.port"] is not None:
+            base_url += f":{cfg['server.port']}"
 
     if method == "get":
         response = methods[method](
