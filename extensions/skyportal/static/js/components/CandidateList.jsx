@@ -37,6 +37,7 @@ import ScanningPageCandidateAnnotations, {
 import EditSourceGroups from "./EditSourceGroups";
 import { ra_to_hours, dec_to_dms } from "../units";
 import RejectButton from "./RejectButton";
+import TNSInfo from "./TNSInfo";
 
 const VegaPlot = React.lazy(() =>
   import(/* webpackChunkName: "VegaPlot" */ "./VegaPlot")
@@ -703,6 +704,10 @@ const CandidateList = () => {
             {candidateObj.gal_lon.toFixed(3)}&nbsp;&nbsp;
             {candidateObj.gal_lat.toFixed(3)}
           </span>
+        </div>
+        <div className={classes.infoItem}>
+          <b>TNS:&nbsp;</b>
+          <TNSInfo objID={candidateObj.id} />
         </div>
         {candidateObj.classifications && recentClassification && (
           <div className={classes.infoItemPadded}>
