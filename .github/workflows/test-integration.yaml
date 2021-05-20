@@ -33,7 +33,10 @@ jobs:
 
       - name: Build and spin up
         run: |
-          ./fritz run --init
+          ./fritz build --init
+          docker network create fritz_net
+          docker network inspect fritz_net
+          ./fritz run
 
       - name: Run integration tests
         run: |
