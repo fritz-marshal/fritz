@@ -298,7 +298,7 @@ class ArchiveHandler(BaseHandler):
 
         catalog = self.get_query_argument("catalog")
         if catalog not in available_catalogs:
-            raise ValueError(f"Catalog {catalog} not available")
+            return self.error(f"Catalog {catalog} not available")
 
         # executing a cone search
         ra = self.get_query_argument("ra", None)
@@ -588,7 +588,7 @@ class ArchiveHandler(BaseHandler):
             ):
                 instrument_id = response.json()["data"][0]["id"]
             else:
-                raise LookupError("ZTF instrument not found")
+                return self.error("ZTF instrument not found in the system")
 
             photometry = {
                 "obj_id": obj_id,
@@ -624,7 +624,7 @@ class ArchiveHandler(BaseHandler):
                 )
                 photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
             else:
-                raise LookupError("Failed to get programid to stream_id mapping")
+                return self.error("Failed to get programid to stream_id mapping")
 
             if len(photometry.get("mag", ())) > 0:
                 response = api_skyportal("PUT", "/api/photometry", token_id, photometry)
