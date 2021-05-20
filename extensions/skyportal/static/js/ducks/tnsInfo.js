@@ -10,7 +10,14 @@ export const fetchTNSInfo = (objID) =>
 const reducer = (state = null, action) => {
   switch (action.type) {
     case FETCH_TNS_INFO_OK: {
-      return action.data;
+      if (state === null) {
+        return action.data;
+      } else {
+        return {
+          ...state,
+          ...action.data,
+        };
+      }
     }
     default: {
       return state;
