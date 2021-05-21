@@ -17,7 +17,7 @@ kowalski = Kowalski(
 
 class TNSInfoHandler(BaseHandler):
     @auth_or_token
-    def get(self, obj_id):
+    async def get(self, obj_id):
         obj = Obj.get_if_accessible_by(obj_id, self.current_user, raise_if_none=True)
         query = {
             "query_type": "cone_search",
