@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import PropTypes from "prop-types";
 
@@ -6,16 +6,18 @@ import * as tnsInfoActions from "../ducks/tnsInfo";
 
 const TNSInfo = ({ objID }) => {
   const dispatch = useDispatch();
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
   const tnsInfo = useSelector((state) => state.tnsInfo);
 
   useEffect(
     // eslint-disable-next-line
     function fetchTNSInfo() {
-      if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
+      if (!requestSubmitted && (tnsInfo === null || !Object.keys(tnsInfo).includes(objID))) {
         dispatch(tnsInfoActions.fetchTNSInfo(objID));
+        setRequestSubmitted(true);
       }
     },
-    [objID, dispatch, tnsInfo]
+    [objID, dispatch, tnsInfo, requestSubmitted]
   );
 
   if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
