@@ -278,7 +278,7 @@ skyportal:
     port:
 
     ssl: False
-    processes: 1
+    processes: 4
 
     auth:
       debug_login: True
