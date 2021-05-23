@@ -476,13 +476,11 @@ const Archive = () => {
     }
 
     const result = await dispatch(archiveActions.saveLightCurves(payload));
-    if (result.status === "error") {
-      setIsSubmitting(false);
-    } else {
-      setIsSubmitting(false);
+    if (result.status === "success") {
       dispatch(showNotification("Successfully saved data"));
       handleSaveDialogClose();
     }
+    setIsSubmitting(false);
 
   };
 
