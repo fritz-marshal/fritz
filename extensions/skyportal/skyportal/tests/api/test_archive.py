@@ -1,4 +1,7 @@
 from skyportal.tests import api
+from baselayer.app.env import load_env
+
+_, cfg = load_env()
 
 
 def test_get_archive_catalog(view_only_token):
@@ -40,6 +43,15 @@ def test_post_ztf_light_curve(super_admin_token):
     assert len(ztf_sources_catalog) > 0
     ztf_sources_catalog = ztf_sources_catalog[0]
 
+    # get Sitewide Group id
+    status, data = api(
+        "GET", f"groups?name={cfg['misc.public_group_name']}", token=super_admin_token
+    )
+    assert data["status"] == "success"
+    assert len(data["data"]) == 1
+    assert data["data"][0]["name"] == cfg["misc.public_group_name"]
+    group_id = data["data"][0]["id"]
+
     # an object from Kowalski's test suite
     ra, dec = 178.9587118, -22.4106486
     # ra, dec = 3.0618363, -22.4289153
@@ -57,19 +69,19 @@ def test_post_ztf_light_curve(super_admin_token):
     assert "data" in data
     assert len(data["data"]) > 0
 
+    # post to Sitewide group
     light_curve_ids = [light_curve["_id"] for light_curve in data["data"]]
     status, data = api(
         "POST",
         "archive",
         data={
             "obj_id": None,
-            "group_ids": [1],
+            "group_ids": [group_id],
             "catalog": ztf_sources_catalog,
             "light_curve_ids": light_curve_ids,
         },
         token=super_admin_token,
     )
-    print(data)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data
@@ -81,7 +93,7 @@ def test_post_ztf_light_curve(super_admin_token):
         "archive",
         data={
             "obj_id": data["data"]["obj_id"],
-            "group_ids": [1],
+            "group_ids": [group_id],
             "catalog": ztf_sources_catalog,
             "light_curve_ids": light_curve_ids,
         },
@@ -100,7 +112,7 @@ def test_post_ztf_light_curve(super_admin_token):
         "archive",
         data={
             "obj_id": None,
-            "group_ids": [1],
+            "group_ids": [group_id],
             "catalog": ztf_sources_catalog,
             "light_curve_ids": light_curve_ids,
         },

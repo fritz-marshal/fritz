@@ -11,6 +11,7 @@ from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from ..base import BaseHandler
+from ...models import Instrument, Candidate, Source, Stream
 from skyportal.model_util import create_token, delete_token
 
 
@@ -81,12 +82,12 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 session = requests.Session()
 
 retries = Retry(
-    total=5,
+    total=3,
     backoff_factor=2,
     status_forcelist=[405, 429, 500, 502, 503, 504],
     method_whitelist=["HEAD", "GET", "PUT", "POST", "PATCH"],
 )
-adapter = TimeoutHTTPAdapter(timeout=60, max_retries=retries)
+adapter = TimeoutHTTPAdapter(timeout=20, max_retries=retries)
 session.mount("http://", adapter)
 
 
@@ -553,13 +554,16 @@ class ArchiveHandler(BaseHandler):
                 obj_id = radec_to_iau_name(ra_mean, dec_mean, prefix="ZTFJ")
 
                 # create new source, reset obj_id
-                response = api_skyportal("HEAD", f"/api/candidates/{obj_id}", token_id)
-                is_candidate = response.status_code == 200
-                response = api_skyportal("HEAD", f"/api/sources/{obj_id}", token_id)
-                is_source = response.status_code == 200
+                num_sources = (
+                    Source.query_records_accessible_by(self.current_user)
+                    .filter(Candidate.obj_id == obj_id)
+                    .count()
+                )
+                self.verify_and_commit()
+                is_source = num_sources > 0
 
-                if is_candidate or is_source:
-                    return self.error(f"Obj {obj_id} exists")
+                if is_source:
+                    return self.error(f"Source {obj_id} exists")
 
                 post_source_data = {
                     "id": obj_id,
@@ -568,7 +572,6 @@ class ArchiveHandler(BaseHandler):
                     "group_ids": group_ids,
                     "origin": "Fritz",
                 }
-
                 response = api_skyportal(
                     "POST", "/api/sources", token_id, post_source_data
                 )
@@ -578,17 +581,16 @@ class ArchiveHandler(BaseHandler):
             # post photometry to obj_id; drop flagged data
             df_photometry = make_photometry(light_curves, drop_flagged=True)
 
-            # get ZTF instrument id:
-            response = api_skyportal(
-                "GET", "/api/instrument", token_id, {"name": "ZTF"}
-            )
-            if (
-                response.json()["status"] == "success"
-                and len(response.json()["data"]) > 0
-            ):
-                instrument_id = response.json()["data"][0]["id"]
-            else:
+            # ZTF instrument id:
+            ztf_instrument = (
+                Instrument.query_records_accessible_by(
+                    self.current_user, mode="read"
+                ).filter(Instrument.name == "ZTF")
+            ).first()
+            self.verify_and_commit()
+            if ztf_instrument is None:
                 return self.error("ZTF instrument not found in the system")
+            instrument_id = ztf_instrument.id
 
             photometry = {
                 "obj_id": obj_id,
@@ -605,26 +607,23 @@ class ArchiveHandler(BaseHandler):
 
             # handle data access permissions
             ztf_program_id_to_stream_id = dict()
-            response = api_skyportal("GET", "/api/streams", token_id)
-            if (
-                response.json()["status"] == "success"
-                and len(response.json()["data"]) > 0
-            ):
-                for stream in response.json()["data"]:
-                    if stream.get("name") == "ZTF Public":
-                        ztf_program_id_to_stream_id[1] = stream.get("id", 1)
-                    if stream.get("name") == "ZTF Public+Partnership":
-                        ztf_program_id_to_stream_id[2] = stream.get("id", 2)
-                    if stream.get("name") == "ZTF Public+Partnership+Caltech":
-                        # programid=0 is engineering data
-                        ztf_program_id_to_stream_id[0] = stream.get("id", 3)
-                        ztf_program_id_to_stream_id[3] = stream.get("id", 3)
-                df_photometry["stream_ids"] = df_photometry["programid"].apply(
-                    lambda x: ztf_program_id_to_stream_id[x]
-                )
-                photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
-            else:
+            streams = Stream.get_records_accessible_by(self.current_user)
+            self.verify_and_commit()
+            if streams is None:
                 return self.error("Failed to get programid to stream_id mapping")
+            for stream in streams:
+                if stream.name == "ZTF Public":
+                    ztf_program_id_to_stream_id[1] = stream.id
+                if stream.name == "ZTF Public+Partnership":
+                    ztf_program_id_to_stream_id[2] = stream.id
+                if stream.name == "ZTF Public+Partnership+Caltech":
+                    # programid=0 is engineering data
+                    ztf_program_id_to_stream_id[0] = stream.id
+                    ztf_program_id_to_stream_id[3] = stream.id
+            df_photometry["stream_ids"] = df_photometry["programid"].apply(
+                lambda x: ztf_program_id_to_stream_id[x]
+            )
+            photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
 
             if len(photometry.get("mag", ())) > 0:
                 response = api_skyportal("PUT", "/api/photometry", token_id, photometry)
