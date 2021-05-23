@@ -11,7 +11,7 @@ from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from ..base import BaseHandler
-from ...models import Instrument, Candidate, Source, Stream
+from ...models import Instrument, Source, Stream
 from skyportal.model_util import create_token, delete_token
 
 
@@ -556,7 +556,7 @@ class ArchiveHandler(BaseHandler):
                 # create new source, reset obj_id
                 num_sources = (
                     Source.query_records_accessible_by(self.current_user)
-                    .filter(Candidate.obj_id == obj_id)
+                    .filter(Source.obj_id == obj_id)
                     .count()
                 )
                 self.verify_and_commit()
