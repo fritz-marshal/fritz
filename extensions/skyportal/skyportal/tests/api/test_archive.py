@@ -44,13 +44,10 @@ def test_post_ztf_light_curve(super_admin_token):
     ztf_sources_catalog = ztf_sources_catalog[0]
 
     # get Sitewide Group id
-    status, data = api(
-        "GET", f"groups?name={cfg['misc.public_group_name']}", token=super_admin_token
-    )
+    status, data = api("GET", "groups/public", token=super_admin_token)
     assert data["status"] == "success"
-    assert len(data["data"]) == 1
-    assert data["data"][0]["name"] == cfg["misc.public_group_name"]
-    group_id = data["data"][0]["id"]
+    assert len(data["data"]) > 0
+    group_id = data["data"]["id"]
 
     # an object from Kowalski's test suite
     ra, dec = 178.9587118, -22.4106486
