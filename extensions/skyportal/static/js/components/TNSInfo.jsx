@@ -6,18 +6,21 @@ import * as tnsInfoActions from "../ducks/tnsInfo";
 
 const TNSInfo = ({ objID }) => {
   const dispatch = useDispatch();
-  const [requestSubmitted, setRequestSubmitted] = useState(false);
+  const [requestsSubmitted, setRequestsSubmitted] = useState([]);
   const tnsInfo = useSelector((state) => state.tnsInfo);
 
   useEffect(
     // eslint-disable-next-line
     function fetchTNSInfo() {
-      if (!requestSubmitted && (tnsInfo === null || !Object.keys(tnsInfo).includes(objID))) {
+      if (!requestsSubmitted.includes(objID) && (tnsInfo === null || !Object.keys(tnsInfo).includes(objID))) {
         dispatch(tnsInfoActions.fetchTNSInfo(objID));
-        setRequestSubmitted(true);
+        setRequestsSubmitted([
+          ...requestsSubmitted,
+          objId,
+        ]);
       }
     },
-    [objID, dispatch, tnsInfo, requestSubmitted]
+    [objID, dispatch, tnsInfo, requestsSubmitted]
   );
 
   if (tnsInfo === null || !Object.keys(tnsInfo).includes(objID)) {
