@@ -451,7 +451,17 @@ class ArchiveHandler(BaseHandler):
           200:
             content:
               application/json:
-                schema: Success
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                       properties:
+                         data:
+                           type: object
+                           properties:
+                             obj_id:
+                               type: string
+                               description: The SkyPortal Obj the light curve was posted to.
           400:
             content:
               application/json:
