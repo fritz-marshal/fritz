@@ -16,7 +16,7 @@ const TNSInfo = ({ objID }) => {
         dispatch(tnsInfoActions.fetchTNSInfo(objID));
         setRequestsSubmitted([
           ...requestsSubmitted,
-          objId,
+          objID,
         ]);
       }
     },
