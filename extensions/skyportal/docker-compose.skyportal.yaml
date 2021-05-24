@@ -2,8 +2,8 @@ version: "3.7"
 
 networks:
   default:
-    external:
-      name: fritz_net
+    external: true
+    name: fritz_net
 
 services:
   web:

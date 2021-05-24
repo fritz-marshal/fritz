@@ -182,20 +182,6 @@ def check_config(cfg="fritz.defaults.yaml", yes=False):
     config["skyportal"]["app"]["kowalski"]["token"] = kowalski_token
     config["skyportal"]["app"]["gloria"]["token"] = kowalski_token
 
-    # get Docker gateway IP
-    command = [
-        "docker",
-        "network",
-        "inspect",
-        "bridge",
-        '--format={{index .IPAM.Config 0 "Gateway"}}',
-    ]
-    p = subprocess.run(command, stdout=subprocess.PIPE)
-    gateway_ip = p.stdout.decode("utf-8").strip()
-    config["kowalski"]["skyportal"]["host"] = gateway_ip
-    config["skyportal"]["app"]["kowalski"]["host"] = gateway_ip
-    config["skyportal"]["app"]["gloria"]["host"] = gateway_ip
-
     # strip down, adjust, and copy over to Kowalski and SkyPortal
     config_kowalski = {"kowalski": config["kowalski"]}  # don't need the SP stuff
     with open("kowalski/config.yaml", "w") as kowalski_config_yaml:
@@ -774,6 +760,24 @@ def test():
         "kowalski_ingester_1",
         "cat",
         "/data/logs/dask_cluster.log",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        sys.exit(1)
+
+    print("Testing auxiliary catalog ingestion")
+
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "kowalski_ingester_1",
+        "python",
+        "-m",
+        "pytest",
+        "-s",
+        "test_tools.py",
     ]
     try:
         subprocess.run(command, check=True)
