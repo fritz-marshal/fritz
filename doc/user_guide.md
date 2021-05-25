@@ -410,7 +410,7 @@ the alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` col
 ```
 
 - The final [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage reshapes
-the joined data for convenience, selects the last 100 days of photometry history (which is done having practical
+the joined data for convenience, selects the last 365 days of photometry history (which is done having practical
 considerations in mind and may be relaxed in the future),
 and applies ACLs to the detection history stored in `prv_candidates`:
 
@@ -445,14 +445,14 @@ and applies ACLs to the detection history stored in `prv_candidates`:
               ]
             },
             {
-              "$gt": [
+              "$lt": [
                 {
                   "$subtract": [
                     "$candidate.jd",
                     "$$item.jd"
                   ]
                 },
-                100
+                365
               ]
             }
           ]
