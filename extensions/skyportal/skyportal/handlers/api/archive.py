@@ -133,7 +133,7 @@ def api_skyportal(
         base_url = (
             f"{protocol}://{cfg['server.host']}"
             if cfg["server.host"] != "<host>"
-            else "{protocol}://localhost"
+            else f"{protocol}://localhost"
         )
         if cfg["server.port"] is not None:
             base_url += f":{cfg['server.port']}"
