@@ -89,6 +89,7 @@ retries = Retry(
 )
 adapter = TimeoutHTTPAdapter(timeout=20, max_retries=retries)
 session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 
 def api_skyportal(
@@ -128,10 +129,11 @@ def api_skyportal(
     if cfg["server.url"] is not None:
         base_url = cfg["server.url"]
     else:
+        protocol = "https" if cfg["server.ssl"] else "http"
         base_url = (
-            f"http://{cfg['server.host']}"
+            f"{protocol}://{cfg['server.host']}"
             if cfg["server.host"] != "<host>"
-            else "http://localhost"
+            else "{protocol}://localhost"
         )
         if cfg["server.port"] is not None:
             base_url += f":{cfg['server.port']}"
