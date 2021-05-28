@@ -13,6 +13,7 @@ import AccordionSummary from "@material-ui/core/AccordionSummary";
 import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
+import { log10, abs, ceil } from "mathjs";
 
 import CommentList from "./CommentList";
 import ClassificationList from "./ClassificationList";
@@ -155,6 +156,10 @@ const SourceDesktop = ({ source }) => {
     (g) => !g.single_user_group
   );
 
+  const z_round = source.redshift_error
+    ? ceil(abs(log10(source.redshift_error)))
+    : 4;
+
   return (
     <Grid container spacing={2} className={classes.source}>
       <Grid item xs={7}>
@@ -205,7 +210,9 @@ const SourceDesktop = ({ source }) => {
           <div className={classes.infoLine}>
             <div className={classes.redshiftInfo}>
               <b>Redshift: &nbsp;</b>
-              {source.redshift && source.redshift.toFixed(4)}
+              {source.redshift && source.redshift.toFixed(z_round)}
+              {source.redshift_error && <b>&nbsp; &plusmn; &nbsp;</b>}
+              {source.redshift_error && source.redshift_error.toFixed(z_round)}
               <UpdateSourceRedshift source={source} />
               <SourceRedshiftHistory
                 redshiftHistory={source.redshift_history}
@@ -578,6 +585,7 @@ SourceDesktop.propTypes = {
     loadError: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
     thumbnails: PropTypes.arrayOf(PropTypes.shape({})),
     redshift: PropTypes.number,
+    redshift_error: PropTypes.number,
     groups: PropTypes.arrayOf(PropTypes.shape({})),
     gal_lon: PropTypes.number,
     gal_lat: PropTypes.number,
