@@ -1,5 +1,7 @@
 import asyncio
 import concurrent
+import sentry_sdk
+from sentry_sdk.integrations.tornado import TornadoIntegration
 
 from skyportal.app_server import make_app
 
@@ -32,6 +34,7 @@ fritz_handlers = [
 
 
 def make_app_fritz(cfg, baselayer_handlers, baselayer_settings, process=None, env=None):
+
     """Create and return a `tornado.web.Application` object with (Fritz-specific) specified
     handlers and settings.
 
@@ -46,6 +49,13 @@ def make_app_fritz(cfg, baselayer_handlers, baselayer_settings, process=None, en
         Settings needed for baselayer to function.
 
     """
+
+    sentry_sdk.init(
+        cfg["external_logging.sentry.endpoint"],
+        traces_sample_rate=cfg["external_logging.sentry.traces_sample_rate"],
+        integrations=[TornadoIntegration(send_default_pii=True)],
+    )
+
     app = make_app(cfg, baselayer_handlers, baselayer_settings, process, env)
 
     # Limit the number of threads on each Tornado instance.
