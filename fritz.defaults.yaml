@@ -311,7 +311,7 @@ skyportal:
       # which log files, if any do you not want to send over to the 3rd party?
       excluded_log_files: ["log/websocket_server.log"]
     sentry:
-      endpoint: "https://ff4377a055c4420489076a1163fec63a@o729016.ingest.sentry.io/5783108"
+      endpoint:
       # Set traces_sample_rate to 1.0 to capture 100%
       # of transactions for performance monitoring.
       # Sentry recommends adjusting this value in production.
