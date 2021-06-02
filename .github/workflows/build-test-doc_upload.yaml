@@ -32,8 +32,8 @@ jobs:
     - name: Build docs
       run: |
         pip install wheel
-        pip install -r skyportal/baselayer/requirements.txt
         pip install -r skyportal/requirements.txt
+        pip install -r skyportal/baselayer/requirements.txt
         ./fritz doc --yes
 
     - name: Install SSH Client 🔑

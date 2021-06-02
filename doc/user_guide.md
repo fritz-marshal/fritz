@@ -144,10 +144,14 @@ Users can query the objects that exist in Fritz's SkyPortal on the Sources page:
 ![lsst-ws-sources](https://user-images.githubusercontent.com/7557205/113937545-2bceaa00-97ae-11eb-9e66-1fe19aa79a62.gif)
 
 Only the objects that have been posted to `Fritz`'s `SkyPortal` backend are saved in its database.
-However, `Fritz`'s users can access the entire archive of ZTF alerts via the Alerts page:
+However, `Fritz`'s users can access the entire archive of ZTF alerts (~390M as of June 2021) via the Alerts page:
 
-![lsst-ws-alerts](https://user-images.githubusercontent.com/7557205/113936965-5d934100-97ad-11eb-9942-04c24bc6a2e0.gif)
+![alerts-20210601](https://user-images.githubusercontent.com/7557205/120433501-287c1880-c330-11eb-907f-9c5327b9e0aa.gif)
 
+`Fritz`'s users also have access to the entire archive of photometric light curves of ZTF sources
+(~4B as of June 2021) via the Archive page:
+
+![archive-20210601](https://user-images.githubusercontent.com/7557205/120433545-36319e00-c330-11eb-9399-e68146a05d8b.gif)
 
 #### Mobile experience
 Fritz's interfaces are mobile-friendly, so the app will work as expected on your phone or tablet:
