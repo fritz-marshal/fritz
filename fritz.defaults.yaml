@@ -277,7 +277,7 @@ skyportal:
     host: <host>
     port:
 
-    ssl: False
+    ssl: True
     processes: 4
 
     auth:
