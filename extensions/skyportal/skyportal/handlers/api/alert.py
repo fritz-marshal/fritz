@@ -603,22 +603,24 @@ class AlertHandler(BaseHandler):
                 return self.error(
                     "You must belong to one or more groups before you can add sources."
                 )
-            if (group_ids is not None) and (
-                len(set(group_ids) - set(user_accessible_group_ids)) > 0
-            ):
-                forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
-                return self.error(
-                    "Insufficient group access permissions. Not a member of "
-                    f"group IDs: {forbidden_groups}."
-                )
-            try:
-                group_ids = [
-                    int(_id)
-                    for _id in group_ids
-                    if int(_id) in user_accessible_group_ids
-                ]
-            except Exception:
-                group_ids = user_group_ids
+            if group_ids is not None:
+                if len(set(group_ids) - set(user_accessible_group_ids)) > 0:
+                    forbidden_groups = list(
+                        set(group_ids) - set(user_accessible_group_ids)
+                    )
+                    return self.error(
+                        "Insufficient group access permissions. Not a member of "
+                        f"group IDs: {forbidden_groups}."
+                    )
+            else:
+                try:
+                    group_ids = [
+                        int(_id)
+                        for _id in group_ids
+                        if int(_id) in user_accessible_group_ids
+                    ]
+                except Exception:
+                    group_ids = user_group_ids
             if not group_ids:
                 return self.error(
                     "Invalid group_ids field. Please specify at least "
