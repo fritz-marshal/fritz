@@ -603,21 +603,26 @@ class AlertHandler(BaseHandler):
                 return self.error(
                     "You must belong to one or more groups before you can add sources."
                 )
-            if (group_ids is not None) and (
-                len(set(group_ids) - set(user_accessible_group_ids)) > 0
-            ):
-                forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
-                return self.error(
-                    "Insufficient group access permissions. Not a member of "
-                    f"group IDs: {forbidden_groups}."
-                )
-            try:
-                group_ids = [
-                    int(_id)
-                    for _id in group_ids
-                    if int(_id) in user_accessible_group_ids
-                ]
-            except Exception:
+            if group_ids is not None:
+                if len(set(group_ids) - set(user_accessible_group_ids)) > 0:
+                    forbidden_groups = list(
+                        set(group_ids) - set(user_accessible_group_ids)
+                    )
+                    return self.error(
+                        "Insufficient group access permissions. Not a member of "
+                        f"group IDs: {forbidden_groups}."
+                    )
+                try:
+                    group_ids = [
+                        int(_id)
+                        for _id in group_ids
+                        if int(_id) in user_accessible_group_ids
+                    ]
+                except ValueError:
+                    return self.error(
+                        "Invalid group_ids parameter: all elements must be integers."
+                    )
+            else:
                 group_ids = user_group_ids
             if not group_ids:
                 return self.error(
@@ -628,7 +633,7 @@ class AlertHandler(BaseHandler):
                 obj = schema.load(alert_thin)
             except ValidationError as e:
                 return self.error(
-                    "Invalid/missing parameters: " f"{e.normalized_messages()}"
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
                 )
             groups = Group.get_if_accessible_by(group_ids, self.current_user)
             if not groups:
