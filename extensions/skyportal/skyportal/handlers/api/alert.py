@@ -620,7 +620,7 @@ class AlertHandler(BaseHandler):
                     ]
                 except ValueError:
                     return self.error(
-                        "Invalid group_ids parameter: all elements must " "be integers."
+                        "Invalid group_ids parameter: all elements must be integers."
                     )
             else:
                 group_ids = user_group_ids
@@ -633,7 +633,7 @@ class AlertHandler(BaseHandler):
                 obj = schema.load(alert_thin)
             except ValidationError as e:
                 return self.error(
-                    "Invalid/missing parameters: " f"{e.normalized_messages()}"
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
                 )
             groups = Group.get_if_accessible_by(group_ids, self.current_user)
             if not groups:
