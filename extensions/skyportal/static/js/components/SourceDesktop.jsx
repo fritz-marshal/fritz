@@ -38,6 +38,7 @@ import PhotometryTable from "./PhotometryTable";
 import FavoritesButton from "./FavoritesButton";
 import TNSInfo from "./TNSInfo";
 import AlertsSearchButton from "./AlertsSearchButton";
+import ArchiveSearchButton from "./ArchiveSearchButton";
 
 const VegaHR = React.lazy(() => import("./VegaHR"));
 
@@ -248,6 +249,11 @@ const SourceDesktop = ({ source }) => {
           <div className={classes.infoLine}>
             <div className={classes.sourceInfo}>
               <AlertsSearchButton objID={source.id} ra={source.ra} dec={source.dec} />
+            </div>
+          </div>
+          <div className={classes.infoLine}>
+            <div className={classes.sourceInfo}>
+              <ArchiveSearchButton ra={source.ra} dec={source.dec} />
             </div>
           </div>
           <div className={`${classes.infoLine} ${classes.findingChart}`}>
