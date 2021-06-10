@@ -434,7 +434,9 @@ class AlertHandler(BaseHandler):
                     type: array
                     items:
                       type: integer
-                    description: Group ids to save source to
+                    description: |
+                      Group IDs to save source to. Can alternatively be the string
+                      'all' to save to all of requesting user's groups.
                     minItems: 1
                 required:
                   - group_ids
@@ -606,10 +608,12 @@ class AlertHandler(BaseHandler):
                 return self.error(
                     "You must belong to one or more groups before you can add sources."
                 )
-            if not isinstance(group_ids, list):
+            if not isinstance(group_ids, list) and group_ids != "all":
                 return self.error(
-                    "Invalid parameter value: group_ids must be a list of integers"
+                    "Invalid parameter value: group_ids must be a list of integers or the string 'all'"
                 )
+            if group_ids == "all":
+                group_ids = user_group_ids
             if len(group_ids) == 0:
                 return self.error(
                     "Invalid group_ids field. Please specify at least "
