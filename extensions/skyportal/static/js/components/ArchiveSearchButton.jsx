@@ -7,7 +7,7 @@ import Button from "@material-ui/core/Button";
 import { showNotification } from "baselayer/components/Notifications";
 import * as archiveActions from "../ducks/archive";
 
-const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
+const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
   const dispatch = useDispatch();
   const catalogNames = useSelector((state) => state.catalog_names);
 
@@ -48,14 +48,14 @@ const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
   );
 };
 
-AlertsSearchButton.propTypes = {
+ArchiveSearchButton.propTypes = {
   objID: PropTypes.string.isRequired,
   ra: PropTypes.number.isRequired,
   dec: PropTypes.number.isRequired,
   radius: PropTypes.number,
 };
-AlertsSearchButton.defaultProps = {
+ArchiveSearchButton.defaultProps = {
   radius: 3,
 };
 
-export default AlertsSearchButton;
+export default ArchiveSearchButton;
