@@ -424,19 +424,22 @@ class AlertHandler(BaseHandler):
           content:
             application/json:
               schema:
-                allOf:
-                  - type: object
-                    properties:
-                      candid:
-                        type: integer
-                        description: "alert candid to use to pull thumbnails. defaults to latest alert"
-                        minimum: 1
-                      group_ids:
-                        type: array
-                        items:
-                          type: integer
-                        description: "group ids to save source to. defaults to all user groups"
-                        minItems: 1
+                type: object
+                properties:
+                  candid:
+                    type: integer
+                    description: Alert candid to use to pull thumbnails. Defaults to latest alert
+                    minimum: 1
+                  group_ids:
+                    type: array
+                    items:
+                      type: integer
+                    description: |
+                      Group IDs to save source to. Can alternatively be the string
+                      'all' to save to all of requesting user's groups.
+                    minItems: 1
+                required:
+                  - group_ids
         responses:
           200:
             content:
@@ -463,6 +466,8 @@ class AlertHandler(BaseHandler):
         data = self.get_json()
         candid = data.get("candid", None)
         group_ids = data.pop("group_ids", None)
+        if group_ids is None:
+            return self.error("Missing required `group_ids` parameter.")
 
         try:
             query = {
@@ -603,32 +608,34 @@ class AlertHandler(BaseHandler):
                 return self.error(
                     "You must belong to one or more groups before you can add sources."
                 )
-            if (group_ids is not None) and (
-                len(set(group_ids) - set(user_accessible_group_ids)) > 0
-            ):
-                forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
+            if not isinstance(group_ids, list) and group_ids != "all":
                 return self.error(
-                    "Insufficient group access permissions. Not a member of "
-                    f"group IDs: {forbidden_groups}."
+                    "Invalid parameter value: group_ids must be a list of integers or the string 'all'"
                 )
-            try:
-                group_ids = [
-                    int(_id)
-                    for _id in group_ids
-                    if int(_id) in user_accessible_group_ids
-                ]
-            except Exception:
+            if group_ids == "all":
                 group_ids = user_group_ids
-            if not group_ids:
+            if len(group_ids) == 0:
                 return self.error(
                     "Invalid group_ids field. Please specify at least "
                     "one valid group ID that you belong to."
                 )
             try:
+                group_ids = [int(_id) for _id in group_ids]
+            except ValueError:
+                return self.error(
+                    "Invalid group_ids parameter: all elements must be integers."
+                )
+            forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
+            if len(forbidden_groups) > 0:
+                return self.error(
+                    "Insufficient group access permissions. Not a member of "
+                    f"group IDs: {forbidden_groups}."
+                )
+            try:
                 obj = schema.load(alert_thin)
             except ValidationError as e:
                 return self.error(
-                    "Invalid/missing parameters: " f"{e.normalized_messages()}"
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
                 )
             groups = Group.get_if_accessible_by(group_ids, self.current_user)
             if not groups:
