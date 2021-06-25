@@ -11,6 +11,7 @@ from skyportal.handlers.api.alert import (
 from skyportal.handlers.api.archive import (
     ArchiveCatalogsHandler,
     ArchiveHandler,
+    CrossMatchHandler,
 )
 from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 from skyportal.handlers.api.tns_info import TNSInfoHandler
@@ -25,6 +26,7 @@ fritz_handlers = [
     # Archive
     (r"/api/archive_catalogs", ArchiveCatalogsHandler),
     (r"/api/archive", ArchiveHandler),
+    (r"/api/cross_match", CrossMatchHandler),
     # Alert Stream filter versioning via K:
     (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
     (r"/api/tns_info/(.*)", TNSInfoHandler),
