@@ -781,7 +781,9 @@ kowalski:
     lifetime_restart: true
 
   tns:
-    url: https://wis-tns.org
+    bot_id: 31415926
+    bot_name: Null
+    url: https://www.wis-tns.org
 
   misc:
     broker: True
