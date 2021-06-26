@@ -324,7 +324,6 @@ class CrossMatchHandler(BaseHandler):
             ):
                 return self.error("Radius must be <= 1.0 deg")
 
-            # grab id's first
             query = {
                 "query_type": "near",
                 "query": {
