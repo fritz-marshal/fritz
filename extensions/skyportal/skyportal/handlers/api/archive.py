@@ -276,11 +276,11 @@ class CrossMatchHandler(BaseHandler):
                 schema: Error
         """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
-        # expose all but the ZTF-related catalogs
+        # expose all but the ZTF/PTF-related catalogs
         catalogs = [
             catalog
             for catalog in gloria.query(query=query).get("data")
-            if not catalog.startswith("ZTF")
+            if not catalog.startswith("ZTF") and not catalog.startswith("PTF")
         ]
         if len(catalogs) == 0:
             return self.error("No catalogs available to run cross-match against.")
