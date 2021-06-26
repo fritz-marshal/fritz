@@ -6,6 +6,7 @@ import embed from "vega-embed";
 import * as d3 from "d3";
 import convertLength from "convert-css-length";
 import * as photometryActions from "../ducks/photometry";
+import * as archiveActions from "../ducks/archive";
 
 const useStyles = makeStyles(() => ({
   centroidPlotDiv: (props) => ({
@@ -177,6 +178,9 @@ const spec = (inputData) => ({
             titleFontSize: 14,
             titlePadding: 8,
           },
+          scale: {
+            domain: inputData.domain,
+          }
         },
         y: {
           field: "delDec",
@@ -186,6 +190,9 @@ const spec = (inputData) => ({
             titleFontSize: 14,
             titlePadding: 8,
           },
+          scale: {
+            domain: inputData.domain,
+          }
         },
         tooltip: [
           { field: "id", type: "quantitative" },
@@ -197,25 +204,91 @@ const spec = (inputData) => ({
         color: {
           field: "filter",
           type: "nominal",
-          scale: { range: ["#2f5492", "#ff7f0e", "#2ca02c"] },
+          scale: inputData.colorScale,
           legend: {
             title: "Filter",
             titleFontSize: 14,
             labelFontSize: 12,
-            titleLimit: 240,
-            lableLimit: 240,
+            titleLimit: 400,
+            lableLimit: 400,
             rowPadding: 4,
             orient: "bottom",
           },
         },
-        shape: {
-          field: "filter",
-          type: "nominal",
-          scale: { range: ["circle", "square", "triangle"] },
-        },
-        size: { value: 35 },
+        // shape: {
+        //   field: "filter",
+        //   type: "nominal",
+        //   scale: { range: ["circle", "square", "triangle"] },
+        // },
+        size: { value: 40 },
         fillOpacity: { value: 1.0 },
-        strokeOpacity: { value: 0 },
+        strokeOpacity: { value: 1.0 },
+      },
+    },
+
+    // Render cross-matches
+    {
+      data: {
+        values: inputData.crossMatchData,
+      },
+      mark: {
+        type: "point",
+        filled: true,
+      },
+      encoding: {
+        x: {
+          field: "delRA",
+          type: "quantitative",
+          axis: {
+            title: "\u0394RA (arcsec)",
+            titleFontSize: 14,
+            titlePadding: 8,
+          },
+          scale: {
+            domain: inputData.domain,
+          }
+        },
+        y: {
+          field: "delDec",
+          type: "quantitative",
+          axis: {
+            title: "\u0394Dec (arcsec)",
+            titleFontSize: 14,
+            titlePadding: 8,
+          },
+          scale: {
+            domain: inputData.domain,
+          }
+        },
+        tooltip: [
+          { field: "_id", type: "nominal", title: "id" },
+          { field: "delRA", type: "quantitative" },
+          { field: "delDec", type: "quantitative" },
+          { field: "ra", type: "quantitative", title: "RA" },
+          { field: "dec", type: "quantitative", title: "Dec" },
+        ],
+        color: {
+          field: "catalog",
+          type: "nominal",
+          scale: inputData.colorScale,
+          legend: {
+            title: "Catalog",
+            titleFontSize: 14,
+            labelFontSize: 12,
+            titleLimit: 400,
+            lableLimit: 400,
+            rowPadding: 4,
+            orient: "bottom",
+          },
+        },
+        // shape: {
+        //   field: "catalog",
+        //   type: "nominal",
+        //   scale: inputData.colorScale,
+        // },
+        size: { value: 140 },
+        fillOpacity: { value: 1.0 },
+        strokeOpacity: { value: 1.0 },
       },
     },
 
@@ -242,33 +315,28 @@ const spec = (inputData) => ({
         fill: { value: "black" },
       },
     },
-
-    // Render text messages
-    {
-      data: {
-        values: inputData.messages,
-      },
-      mark: {
-        type: "text",
-        fontSize: 14,
-        fontWeight: 500,
-      },
-      encoding: {
-        text: { field: "message", type: "nominal" },
-        x: {
-          field: "x",
-          type: "quantitative",
-        },
-        y: {
-          field: "y",
-          type: "quantitative",
-        },
-      },
-    },
   ],
 });
 
-const processData = (photometry) => {
+const surveyColors = {
+  "ztfg": "#28a745",
+  "ztfr": "#dc3545",
+  "ztfi": "#f3dc11",
+  "AllWISE": "#2f5492",
+  "Gaia_EDR3": "#ff7f0e",
+  "PS1_DR1": "#893bd5",
+  "TNS": "#34d2cd"
+};
+
+const getColor = (key) => {
+  if (key in surveyColors) {
+    return surveyColors[key]
+  }
+  // if not known, generate a random color
+  return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+}
+
+const processData = (photometry, crossMatches) => {
   // Only take points with a non-null RA and Dec
   const filteredPhotometry = photometry.filter(
     (point) => point.ra && point.dec
@@ -283,7 +351,7 @@ const processData = (photometry) => {
   const ras = Object.values(filteredPhotometry).map((point) => point.ra);
   const decs = Object.values(filteredPhotometry).map((point) => point.dec);
 
-  // For now, set single reference nearest object to median values for the RA
+  // Set single reference nearest object to median values for the RA
   // and Dec in the photometry
   const { refRA, refDec } = getReferencePoint(ras, decs);
 
@@ -304,6 +372,44 @@ const processData = (photometry) => {
     computeDeltas(delRaGroup, delDecGroup)
   );
 
+  const filters = [
+    ...new Set(Object.values(filteredPhotometry).map((point) => point.filter)),
+    ...Object.keys(crossMatches).filter((catalog) => crossMatches[catalog].length > 0)
+  ];
+  const colorScale = {
+    domain: filters,
+    range: filters.map((filter) => getColor(filter)),
+  }
+
+  // Cross-matches as a flattened array.
+  // for each source, store catalog name and position deltas
+  const crossMatchesAsArray = Object.keys(crossMatches).map(
+    (catalog) => crossMatches[catalog].map(
+      (source) => ({
+        ...source,
+        catalog
+      })
+    )
+  ).flat().map(
+    (source) => {
+      const { delRA, delDec } = relativeCoord(source.ra, source.dec, refRA, refDec);
+      return {
+        ...source,
+        delRA,
+        delDec,
+      };
+    }
+  );
+  const delRaCrossMatches = crossMatchesAsArray.map((point) => point.delRA);
+  const delDecCrossMatches = crossMatchesAsArray.map((point) => point.delDec);
+
+  // Delta range to set x and y axis domains to keep scale ratio at 1:1
+  const minDeltaRa = Math.min(...[...delRaGroup, ...delRaCrossMatches])
+  const maxDeltaRa = Math.max(...[...delRaGroup, ...delRaCrossMatches])
+  const minDeltaDec = Math.min(...[...delDecGroup, ...delDecCrossMatches])
+  const maxDeltaDec = Math.max(...[...delDecGroup, ...delDecCrossMatches])
+  const domain = [Math.min(minDeltaRa, minDeltaDec), Math.max(maxDeltaRa, maxDeltaDec)]
+
   // Sigma circle
   const circlePoints = getCirclePoints(delRaGroup, delDecGroup);
 
@@ -314,6 +420,9 @@ const processData = (photometry) => {
 
   return {
     photometryData: photometryAsArray,
+    crossMatchData: crossMatchesAsArray,
+    domain,
+    colorScale,
     circlePoints,
     centerPoint,
     messages,
@@ -330,6 +439,11 @@ const CentroidPlot = ({ sourceId, size }) => {
 
   const dispatch = useDispatch();
   const photometry = useSelector((state) => state.photometry[sourceId]);
+  const ra = useSelector((state) => state.source.ra);
+  const dec = useSelector((state) => state.source.dec);
+  const radius = 10.0;
+  const crossMatches = useSelector((state) => state.cross_matches);
+  const [loadedSourceId, setloadedSourceId] = React.useState("");
 
   useEffect(() => {
     if (!photometry) {
@@ -337,7 +451,14 @@ const CentroidPlot = ({ sourceId, size }) => {
     }
   }, [sourceId, photometry, dispatch]);
 
-  const plotData = photometry ? processData(photometry) : null;
+  useEffect(() => {
+    if (loadedSourceId !== sourceId && ra && dec) {
+      dispatch(archiveActions.fetchCrossMatches({ra, dec, radius}));
+      setloadedSourceId(sourceId)
+    }
+  }, [loadedSourceId, sourceId, ra, dec, radius, dispatch]);
+
+  const plotData = photometry && crossMatches ? processData(photometry, crossMatches) : null;
 
   if (plotData) {
     if (plotData.photometryData.length > 0) {

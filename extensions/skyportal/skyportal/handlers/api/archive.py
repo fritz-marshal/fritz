@@ -334,7 +334,7 @@ class CrossMatchHandler(BaseHandler):
                     "catalogs": {
                         catalog: {
                             "filter": {},
-                            "projection": {"coordinates": 0},
+                            "projection": {},
                         }
                         for catalog in catalogs
                     },
@@ -347,10 +347,21 @@ class CrossMatchHandler(BaseHandler):
 
             response = gloria.query(query=query)
             if response.get("status", "error") == "success":
+                # unpack the result
                 data = {
                     catalog: query_coords["query_coords"]
                     for catalog, query_coords in response.get("data").items()
                 }
+                # normalize positional data
+                for catalog, sources in data.items():
+                    for source in sources:
+                        source["ra"] = (
+                            source["coordinates"]["radec_geojson"]["coordinates"][0]
+                            + 180
+                        )
+                        source["dec"] = source["coordinates"]["radec_geojson"][
+                            "coordinates"
+                        ][1]
                 return self.success(data=data)
 
             return self.error(response.get("message"))
