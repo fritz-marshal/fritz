@@ -12,6 +12,23 @@ def test_get_archive_catalog(view_only_token):
     assert len(data["data"]) > 0
 
 
+def test_cross_match(view_only_token):
+    # an object from Kowalski's test suite
+    ra, dec = 0.00017675657877000002, 80.01266744553764
+    radius, radius_units = 2, "arcsec"
+
+    status, data = api(
+        "GET",
+        f"cross_match?ra={ra}&dec={dec}"
+        f"&radius={radius}&radius_units={radius_units}",
+        token=view_only_token,
+    )
+    assert status == 200
+    assert data["status"] == "success"
+    assert "data" in data
+    assert len(data["data"]) > 0
+
+
 def test_get_ztf_light_curve(view_only_token):
     status, data = api("GET", "archive_catalogs", token=view_only_token)
     catalogs = data["data"]
