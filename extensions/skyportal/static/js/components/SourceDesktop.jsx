@@ -550,7 +550,7 @@ const SourceDesktop = ({ source }) => {
                 <CentroidPlot
                   className={classes.smallPlot}
                   sourceId={source.id}
-                  size="21.875rem"
+                  size="30rem"
                 />
               </Suspense>
             </AccordionDetails>
