@@ -14,7 +14,7 @@ def test_get_archive_catalog(view_only_token):
 
 def test_cross_match(view_only_token):
     # an object from Kowalski's test suite
-    ra, dec = 0.00017675657877000002, 80.01266744553764
+    ra, dec = 0.00017675657877, 80.01266744553764
     radius, radius_units = 2, "arcsec"
 
     status, data = api(
@@ -23,6 +23,7 @@ def test_cross_match(view_only_token):
         f"&radius={radius}&radius_units={radius_units}",
         token=view_only_token,
     )
+    print(status, data)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data
