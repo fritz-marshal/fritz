@@ -24,7 +24,7 @@ const FETCH_CROSS_MATCHES_ERROR = "skyportal/FETCH_CROSS_MATCHES_ERROR";
 const FETCH_CROSS_MATCHES_FAIL = "skyportal/FETCH_CROSS_MATCHES_FAIL";
 
 export const fetchCatalogNames = () => API.GET(
-  `/api/archive_catalogs`,
+  `/api/archive/catalogs`,
   FETCH_CATALOG_NAMES
 )
 
@@ -45,7 +45,7 @@ const reducerCatalogNames = (state = null, action) => {
 };
 
 export const fetchCrossMatches = ({ ra, dec, radius }) => API.GET(
-  `/api/cross_match?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
+  `/api/archive/cross_match?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
   FETCH_CROSS_MATCHES
 )
 

@@ -5,7 +5,7 @@ _, cfg = load_env()
 
 
 def test_get_archive_catalog(view_only_token):
-    status, data = api("GET", "archive_catalogs", token=view_only_token)
+    status, data = api("GET", "archive/catalogs", token=view_only_token)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data
@@ -19,7 +19,7 @@ def test_cross_match(view_only_token):
 
     status, data = api(
         "GET",
-        f"cross_match?ra={ra}&dec={dec}"
+        f"archive/cross_match?ra={ra}&dec={dec}"
         f"&radius={radius}&radius_units={radius_units}",
         token=view_only_token,
     )
@@ -31,7 +31,7 @@ def test_cross_match(view_only_token):
 
 
 def test_get_ztf_light_curve(view_only_token):
-    status, data = api("GET", "archive_catalogs", token=view_only_token)
+    status, data = api("GET", "archive/catalogs", token=view_only_token)
     catalogs = data["data"]
     ztf_sources_catalog = [catalog for catalog in catalogs if "ZTF_sources_" in catalog]
     assert len(ztf_sources_catalog) > 0
@@ -55,7 +55,7 @@ def test_get_ztf_light_curve(view_only_token):
 
 
 def test_post_ztf_light_curve(super_admin_token):
-    status, data = api("GET", "archive_catalogs", token=super_admin_token)
+    status, data = api("GET", "archive/catalogs", token=super_admin_token)
     catalogs = data["data"]
     ztf_sources_catalog = [catalog for catalog in catalogs if "ZTF_sources_" in catalog]
     assert len(ztf_sources_catalog) > 0
