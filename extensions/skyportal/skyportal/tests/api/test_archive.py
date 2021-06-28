@@ -23,7 +23,6 @@ def test_cross_match(view_only_token):
         f"&radius={radius}&radius_units={radius_units}",
         token=view_only_token,
     )
-    print(status, data)
     assert status == 200
     assert data["status"] == "success"
     assert "data" in data
