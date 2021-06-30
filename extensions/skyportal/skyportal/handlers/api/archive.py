@@ -30,11 +30,17 @@ try:
     )
     connection_ok = gloria.ping()
     log(f"Gloria connection OK: {connection_ok}")
+
+    catalog_names_query = {"query_type": "info", "query": {"command": "catalog_names"}}
+    cached_catalog_names = gloria.query(query=catalog_names_query).get("data")
+
     if not connection_ok:
         gloria = None
+        cached_catalog_names = None
 except Exception as e:
     log(f"Gloria connection failed: {str(e)}")
     gloria = None
+    cached_catalog_names = None
 
 
 def radec_to_iau_name(ra: float, dec: float, prefix: str = "ZTFJ"):
@@ -250,12 +256,13 @@ class CrossMatchHandler(BaseHandler):
             required: true
             schema:
               type: float
-            description: Max distance from specified (RA, Dec) (capped at 1 deg)
+            description: Maximum distance in `radius_units` from specified (RA, Dec) (capped at 1 deg)
           - in: query
             name: radius_units
             required: true
             schema:
               type: string
+              enum: [deg, arcmin, arcsec]
             description: Distance units (either "deg", "arcmin", or "arcsec")
         responses:
           200:
@@ -275,11 +282,15 @@ class CrossMatchHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if cached_catalog_names is None:
+            query = {"query_type": "info", "query": {"command": "catalog_names"}}
+            available_catalog_names = gloria.query(query=query).get("data")
+        else:
+            available_catalog_names = cached_catalog_names
         # expose all but the ZTF/PTF-related catalogs
         catalogs = [
             catalog
-            for catalog in gloria.query(query=query).get("data")
+            for catalog in available_catalog_names
             if not catalog.startswith("ZTF") and not catalog.startswith("PTF")
         ]
         if len(catalogs) == 0:
@@ -317,6 +328,14 @@ class CrossMatchHandler(BaseHandler):
                 radius = float(radius)
             except ValueError:
                 return self.error("Invalid (non-float) value provided.")
+            if not (0 <= ra < 360):
+                return self.error(
+                    "Invalid R.A. value provided: must be 0 <= R.A. [deg] < 360"
+                )
+            if not (-90 <= dec <= 90):
+                return self.error(
+                    "Invalid Decl. value provided: must be -90 <= Decl. [deg] <= 90"
+                )
             if (
                 (radius_units == "deg" and radius > 1)
                 or (radius_units == "arcmin" and radius > 60)
@@ -425,12 +444,14 @@ class ArchiveHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if cached_catalog_names is None:
+            query = {"query_type": "info", "query": {"command": "catalog_names"}}
+            available_catalog_names = gloria.query(query=query).get("data")
+        else:
+            available_catalog_names = cached_catalog_names
         # expose only the ZTF light curves for now
         available_catalogs = [
-            catalog
-            for catalog in gloria.query(query=query).get("data")
-            if "ZTF_sources" in catalog
+            catalog for catalog in available_catalog_names if "ZTF_sources" in catalog
         ]
 
         # allow access to public data only by default
