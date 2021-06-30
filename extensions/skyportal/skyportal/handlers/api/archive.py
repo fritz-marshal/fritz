@@ -30,17 +30,11 @@ try:
     )
     connection_ok = gloria.ping()
     log(f"Gloria connection OK: {connection_ok}")
-
-    catalog_names_query = {"query_type": "info", "query": {"command": "catalog_names"}}
-    cached_catalog_names = gloria.query(query=catalog_names_query).get("data")
-
     if not connection_ok:
         gloria = None
-        cached_catalog_names = None
 except Exception as e:
     log(f"Gloria connection failed: {str(e)}")
     gloria = None
-    cached_catalog_names = None
 
 
 def radec_to_iau_name(ra: float, dec: float, prefix: str = "ZTFJ"):
@@ -282,11 +276,8 @@ class CrossMatchHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        if cached_catalog_names is None:
-            query = {"query_type": "info", "query": {"command": "catalog_names"}}
-            available_catalog_names = gloria.query(query=query).get("data")
-        else:
-            available_catalog_names = cached_catalog_names
+        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        available_catalog_names = gloria.query(query=query).get("data")
         # expose all but the ZTF/PTF-related catalogs
         catalogs = [
             catalog
@@ -444,11 +435,8 @@ class ArchiveHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        if cached_catalog_names is None:
-            query = {"query_type": "info", "query": {"command": "catalog_names"}}
-            available_catalog_names = gloria.query(query=query).get("data")
-        else:
-            available_catalog_names = cached_catalog_names
+        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        available_catalog_names = gloria.query(query=query).get("data")
         # expose only the ZTF light curves for now
         available_catalogs = [
             catalog for catalog in available_catalog_names if "ZTF_sources" in catalog
