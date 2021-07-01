@@ -49,16 +49,33 @@ export function saveLightCurves(payload) {
   return API.POST(`/api/archive`, SAVE_LIGHT_CURVES, payload);
 }
 
-const reducer = (state = null, action) => {
+const reducer = (state = { lightCurves: null, queryInProgress: false }, action) => {
   switch (action.type) {
+    case FETCH_ZTF_LIGHT_CURVES: {
+      return {
+        ...state,
+        queryInProgress: true,
+      };
+    }
     case FETCH_ZTF_LIGHT_CURVES_OK: {
-      return action.data;
+      return {
+        lightCurves: action.data,
+        queryInProgress: false,
+      };
     }
     case FETCH_ZTF_LIGHT_CURVES_ERROR: {
-      return action.message;
+      return {
+        lightCurves: null,
+        message: action.message,
+        queryInProgress: false,
+      };
     }
     case FETCH_ZTF_LIGHT_CURVES_FAIL: {
-      return "uncaught error";
+      return {
+        lightCurves: null,
+        message: "uncaught error",
+        queryInProgress: false,
+      };
     }
     default:
       return state;

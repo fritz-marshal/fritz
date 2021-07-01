@@ -176,7 +176,6 @@ const Archive = () => {
   const dispatch = useDispatch();
   const classes = useStyles();
 
-  const [loading, setLoading] = React.useState(false);
   const [catalogNamesLoadError, setCatalogNamesLoadError] = React.useState("");
 
   const theme = useTheme();
@@ -236,9 +235,9 @@ const Archive = () => {
     if (!catalogNames) fetchCatalogNames();
   }, [catalogNames, dispatch, catalogNamesLoadError]);
 
-  const ZTFLightCurveCatalogNames = catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1)
+  const ZTFLightCurveCatalogNames = catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1);
 
-  const ztf_light_curves = useSelector((state) => state.ztf_light_curves);
+  const { lightCurves: ztf_light_curves, queryInProgress } = useSelector((state) => state.ztf_light_curves);
 
   const makeRow = (light_curve) => ({
     // eslint-disable-next-line no-underscore-dangle
@@ -421,20 +420,18 @@ const Archive = () => {
     ZTFLightCurveCatalogNames?.length ? ZTFLightCurveCatalogNames[0] : null
   );
 
-  const submitSearch = async (data) => {
-    setLoading(true);
+  const submitSearch = (data) => {
     const {catalog, ra, dec, radius} = data;
     setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
-      await dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
+      dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
       // also fetch nearest saved sources within 5 arcsec from requested position
-      await dispatch(archiveActions.fetchNearestSources({ra, dec}));
+      dispatch(archiveActions.fetchNearestSources({ra, dec}));
     }
     else {
       dispatch(showNotification(`Positional parameters must be all set`));
     }
-    setLoading(false);
   };
 
   // save light curve data
@@ -519,12 +516,14 @@ const Archive = () => {
               <div className={classes.maindiv}>
                 <div className={classes.accordionDetails}>
                   <MuiThemeProvider theme={getMuiTheme(theme)}>
-                    <MUIDataTable
-                      title="ZTF Light Curves"
-                      data={rows}
-                      columns={columns}
-                      options={options}
-                    />
+                    {queryInProgress ? <CircularProgress /> : (
+                      <MUIDataTable
+                        title="ZTF Light Curves"
+                        data={rows}
+                        columns={columns}
+                        options={options}
+                      />
+                    )}
                   </MuiThemeProvider>
                 </div>
               </div>
@@ -586,11 +585,11 @@ const Archive = () => {
                         type="submit"
                         variant="contained"
                         color="primary"
-                        disabled={loading}
+                        disabled={queryInProgress}
                       >
                         Search
                       </Button>
-                      {loading && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
+                      {queryInProgress && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
                       <IconButton
                         aria-label="help"
                         size="small"
