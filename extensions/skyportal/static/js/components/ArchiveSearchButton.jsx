@@ -43,7 +43,7 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
 
   return (
     <Link to="/archive" onClick={handleClick}>
-      <Button variant="contained" size="small">View ZTF Light Curve Archive</Button>
+      <Button variant="contained" size="small">Search ZTF Light Curve Archive</Button>
     </Link>
   );
 };

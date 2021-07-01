@@ -210,6 +210,22 @@ const SourceDesktop = ({ source }) => {
             </div>
           </div>
           <div className={classes.infoLine}>
+            <div className={classes.sourceInfo}>
+              <AlertsSearchButton ra={source.ra} dec={source.dec} />
+            </div>
+          </div>
+          <div className={classes.infoLine}>
+            <div className={classes.sourceInfo}>
+              <ArchiveSearchButton ra={source.ra} dec={source.dec} />
+            </div>
+          </div>
+          <div className={classes.infoLine}>
+            <div className={classes.sourceInfo}>
+              <b>TNS:&nbsp;</b>
+              <TNSInfo objID={source.id} />
+            </div>
+          </div>
+          <div className={classes.infoLine}>
             <div className={classes.redshiftInfo}>
               <b>Redshift: &nbsp;</b>
               {source.redshift && source.redshift.toFixed(z_round)}
@@ -238,22 +254,6 @@ const SourceDesktop = ({ source }) => {
                   &nbsp; Mpc
                 </div>
               )}
-            </div>
-          </div>
-          <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
-              <b>TNS:&nbsp;</b>
-              <TNSInfo objID={source.id} />
-            </div>
-          </div>
-          <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
-              <AlertsSearchButton ra={source.ra} dec={source.dec} />
-            </div>
-          </div>
-          <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
-              <ArchiveSearchButton ra={source.ra} dec={source.dec} />
             </div>
           </div>
           <div className={`${classes.infoLine} ${classes.findingChart}`}>

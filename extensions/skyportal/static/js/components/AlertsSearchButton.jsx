@@ -15,7 +15,7 @@ const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
   return (
     <Link to="/alerts" onClick={handleClick}>
       <Button variant="contained" size="small">
-        Search Nearby Alerts
+        Search ZTF Alert Archive
       </Button>
     </Link>
   );
