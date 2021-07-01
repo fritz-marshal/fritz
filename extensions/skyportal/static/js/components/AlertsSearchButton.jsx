@@ -14,7 +14,7 @@ const AlertsSearchButton = ({ objID, ra, dec, radius = 3 }) => {
 
   return (
     <Link to="/alerts" onClick={handleClick}>
-      <Button variant="contained">
+      <Button variant="contained" size="small">
         Search Nearby Alerts
       </Button>
     </Link>
