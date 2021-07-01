@@ -248,7 +248,7 @@ const SourceDesktop = ({ source }) => {
           </div>
           <div className={classes.infoLine}>
             <div className={classes.sourceInfo}>
-              <AlertsSearchButton objID={source.id} ra={source.ra} dec={source.dec} />
+              <AlertsSearchButton ra={source.ra} dec={source.dec} />
             </div>
           </div>
           <div className={classes.infoLine}>

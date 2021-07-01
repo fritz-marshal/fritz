@@ -6,10 +6,10 @@ import Button from "@material-ui/core/Button";
 
 import * as alertsActions from "../ducks/alerts";
 
-const AlertsSearchButton = ({ objID, ra, dec, radius = 3 }) => {
+const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
   const dispatch = useDispatch();
   const handleClick = () => {
-    dispatch(alertsActions.fetchAlerts({ object_id: objID, ra, dec, radius }));
+    dispatch(alertsActions.fetchAlerts({ object_id: null, ra, dec, radius }));
   };
 
   return (
@@ -22,7 +22,6 @@ const AlertsSearchButton = ({ objID, ra, dec, radius = 3 }) => {
 };
 
 AlertsSearchButton.propTypes = {
-  objID: PropTypes.string.isRequired,
   ra: PropTypes.number.isRequired,
   dec: PropTypes.number.isRequired,
   radius: PropTypes.number,
