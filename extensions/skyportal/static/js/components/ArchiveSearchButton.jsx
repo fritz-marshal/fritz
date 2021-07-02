@@ -18,7 +18,7 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
     if (!catalogNames) {
       fetchCatalogNames();
     }
-  }, [catalogNames, dispatch, catalogNamesLoadError]);
+  }, [catalogNames, dispatch]);
 
   const ZTFLightCurveCatalogNames = catalogNames?.filter(
     (name) => name.indexOf("ZTF_sources") !== -1
