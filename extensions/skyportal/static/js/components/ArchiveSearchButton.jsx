@@ -23,7 +23,9 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
   const ZTFLightCurveCatalogNames = catalogNames?.filter(
     (name) => name.indexOf("ZTF_sources") !== -1
   );
-  const catalog = ZTFLightCurveCatalogNames[0];
+  const catalog = ZTFLightCurveCatalogNames
+    ? ZTFLightCurveCatalogNames[0]
+    : null;
 
   const handleClick = () => {
     if (catalog) {
@@ -43,7 +45,9 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
 
   return (
     <Link to="/archive" onClick={handleClick}>
-      <Button variant="contained" size="small">Search ZTF Light Curve Archive</Button>
+      <Button variant="contained" size="small">
+        Search ZTF Light Curve Archive
+      </Button>
     </Link>
   );
 };
