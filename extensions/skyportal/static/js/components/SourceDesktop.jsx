@@ -1,6 +1,6 @@
-import React, { useState, Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import PropTypes from "prop-types";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -39,6 +39,8 @@ import FavoritesButton from "./FavoritesButton";
 import TNSInfo from "./TNSInfo";
 import AlertsSearchButton from "./AlertsSearchButton";
 import ArchiveSearchButton from "./ArchiveSearchButton";
+
+import * as spectraActions from "../ducks/spectra";
 
 const VegaHR = React.lazy(() => import("./VegaHR"));
 
@@ -80,7 +82,9 @@ export const useSourceStyles = makeStyles((theme) => ({
     width: "350px",
     overflow: "auto",
   },
-  comments: {},
+  comments: {
+    width: "100%",
+  },
   classifications: {
     display: "flex",
     flexDirection: "column",
@@ -142,6 +146,7 @@ export const useSourceStyles = makeStyles((theme) => ({
 }));
 
 const SourceDesktop = ({ source }) => {
+  const dispatch = useDispatch();
   const classes = useSourceStyles();
   const [showStarList, setShowStarList] = useState(false);
   const [showPhotometry, setShowPhotometry] = useState(false);
@@ -154,9 +159,14 @@ const SourceDesktop = ({ source }) => {
 
   const { observingRunList } = useSelector((state) => state.observingRuns);
   const { taxonomyList } = useSelector((state) => state.taxonomies);
+
   const groups = (useSelector((state) => state.groups.all) || []).filter(
     (g) => !g.single_user_group
   );
+
+  useEffect(() => {
+    dispatch(spectraActions.fetchSourceSpectra(source.id));
+  }, [source.id, dispatch]);
 
   const z_round = source.redshift_error
     ? ceil(abs(log10(source.redshift_error)))
@@ -209,6 +219,21 @@ const SourceDesktop = ({ source }) => {
               </div>
             </div>
           </div>
+          {source.duplicates && (
+            <div className={classes.infoLine}>
+              <div className={classes.sourceInfo}>
+                <b>
+                  <font color="red">Possible duplicate of:</font>
+                </b>
+                &nbsp;
+                {source.duplicates.map((dupID) => (
+                  <Link to={`/source/${dupID}`} role="link" key={dupID}>
+                    <Button size="small">{dupID}</Button>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
           <div className={classes.infoLine}>
             <div className={classes.sourceInfo}>
               <AlertsSearchButton ra={source.ra} dec={source.dec} />
@@ -479,7 +504,11 @@ const SourceDesktop = ({ source }) => {
           </Accordion>
         </div>
         <div className={classes.columnItem}>
-          <Accordion defaultExpanded className={classes.comments}>
+          <Accordion
+            defaultExpanded
+            className={classes.comments}
+            data-testid="comments-accordion"
+          >
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
               aria-controls="comments-content"
@@ -632,6 +661,7 @@ SourceDesktop.propTypes = {
         origin: PropTypes.string,
       })
     ),
+    duplicates: PropTypes.arrayOf(PropTypes.string),
     alias: PropTypes.arrayOf(PropTypes.string),
   }).isRequired,
 };
