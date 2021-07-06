@@ -166,7 +166,7 @@ const Alerts = () => {
 
   // This is just passed to MUI datatables options -- not meant to be instantiated directly.
   const renderPullOutRow = (rowData, rowMeta) => {
-    const colSpan = rowData.length + 1;
+    const colSpan = rowData?.length + 1;
     const alertData = alerts[rowMeta.dataIndex];
     const thumbnails = [
       {
@@ -387,7 +387,7 @@ const Alerts = () => {
   const submitSearch = (data) => {
     const {object_id, ra, dec, radius} = data;
     // check that if positional query is requested then all required data are supplied
-    if ((ra.length || dec.length || radius.length) && !(ra.length && dec.length && radius.length)) {
+    if ((ra?.length || dec?.length || radius?.length) && !(ra?.length && dec?.length && radius?.length)) {
       dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
     }
     else {
