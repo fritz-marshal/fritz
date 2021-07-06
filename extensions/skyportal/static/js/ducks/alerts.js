@@ -8,17 +8,17 @@ const FETCH_ALERTS_FAIL = "skyportal/FETCH_ALERTS_FAIL";
 
 // eslint-disable-next-line import/prefer-default-export
 export const fetchAlerts = ({ object_id, ra, dec, radius }) => {
-  if (object_id.length && ra.length && dec.length && radius.length) {
+  if (object_id?.length && ra?.length && dec?.length && radius?.length) {
     return API.GET(
       `/api/alerts?objectId=${object_id}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
       FETCH_ALERTS
     )
-  } if (object_id.length) {
+  } if (object_id?.length) {
     return API.GET(
       `/api/alerts?objectId=${object_id}`,
       FETCH_ALERTS
     )
-  } if (ra.length && dec.length && radius.length) {
+  } if (ra?.length && dec?.length && radius?.length) {
     return API.GET(
       `/api/alerts?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
       FETCH_ALERTS
