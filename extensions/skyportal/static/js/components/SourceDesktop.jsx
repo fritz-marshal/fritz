@@ -235,12 +235,10 @@ const SourceDesktop = ({ source }) => {
             </div>
           )}
           <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
+            <div className={classes.infoButton}>
               <AlertsSearchButton ra={source.ra} dec={source.dec} />
             </div>
-          </div>
-          <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
+            <div className={classes.infoButton}>
               <ArchiveSearchButton ra={source.ra} dec={source.dec} />
             </div>
           </div>
