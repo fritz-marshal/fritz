@@ -134,12 +134,10 @@ const Alerts = () => {
   const dispatch = useDispatch();
   const classes = useStyles();
 
-  const [loading, setLoading] = React.useState(false);
-
   const theme = useTheme();
   const darkTheme = theme.palette.type === "dark";
 
-  const alerts = useSelector((state) => state.alerts);
+  const { alerts, queryInProgress } = useSelector((state) => state.alerts);
 
   const makeRow = (alert) => ({
       objectId: alert?.objectId,
@@ -168,7 +166,7 @@ const Alerts = () => {
 
   // This is just passed to MUI datatables options -- not meant to be instantiated directly.
   const renderPullOutRow = (rowData, rowMeta) => {
-    const colSpan = rowData.length + 1;
+    const colSpan = rowData?.length + 1;
     const alertData = alerts[rowMeta.dataIndex];
     const thumbnails = [
       {
@@ -386,17 +384,15 @@ const Alerts = () => {
 
   const { register: registerForm, handleSubmit: handleSubmitForm, control: controlForm } = useForm();
 
-  const submitSearch = async (data) => {
-    setLoading(true);
+  const submitSearch = (data) => {
     const {object_id, ra, dec, radius} = data;
     // check that if positional query is requested then all required data are supplied
-    if ((ra.length || dec.length || radius.length) && !(ra.length && dec.length && radius.length)) {
+    if ((ra?.length || dec?.length || radius?.length) && !(ra?.length && dec?.length && radius?.length)) {
       dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
     }
     else {
-      await dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
+      dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
     }
-    setLoading(false);
   };
 
   return (
@@ -414,12 +410,14 @@ const Alerts = () => {
               <div className={classes.maindiv}>
                 <div className={classes.accordionDetails}>
                   <MuiThemeProvider theme={getMuiTheme(theme)}>
-                    <MUIDataTable
-                      title="Alerts"
-                      data={rows}
-                      columns={columns}
-                      options={options}
-                    />
+                    {queryInProgress ? <CircularProgress /> : (
+                      <MUIDataTable
+                        title="Alerts"
+                        data={rows}
+                        columns={columns}
+                        options={options}
+                      />
+                    )}
                   </MuiThemeProvider>
                 </div>
               </div>
@@ -483,11 +481,11 @@ const Alerts = () => {
                         type="submit"
                         variant="contained"
                         color="primary"
-                        disabled={loading}
+                        disabled={queryInProgress}
                       >
                         Search
                       </Button>
-                      {loading && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
+                      {queryInProgress && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
                     </div>
                   </div>
                 </CardActions>
