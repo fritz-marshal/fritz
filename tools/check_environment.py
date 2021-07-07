@@ -141,8 +141,8 @@ def dependencies_ok(check_python_requirements: bool = True):
 
     if unsatisfied_python_requirements:
         attempt_resolving = input(
-            "Would you like to attempt resolving unsatisfied "
-            "python package requirements in your current environment? [y/N] "
+            "Would you like to attempt to resolve unsatisfied "
+            "Python package requirements in your current environment? [y/N] "
         ).lower()
         if attempt_resolving in ("y", "yes", "yup", "yea", "yeah"):
             p = subprocess.run(
