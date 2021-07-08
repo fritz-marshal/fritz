@@ -59,10 +59,13 @@ def test_get_alert_cutout(view_only_token):
     candid = 1105522281015015000
     for cutout in ("science", "template", "difference"):
         for file_format in ("png", "fits"):
+            print(oid, candid, cutout, file_format)
             response = api(
                 "GET",
                 f"alerts_cutouts/{oid}"
                 f"?candid={candid}&cutout={cutout}&file_format={file_format}",
                 raw_response=True,
             )
+            print(response)
+            print(response.text)
             assert response.status_code == 200
