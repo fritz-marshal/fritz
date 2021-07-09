@@ -783,7 +783,7 @@ kowalski:
   tns:
     bot_id: 31415926
     bot_name: Null
-    url: https://www.wis-tns.org
+    url: https://wis-tns.org
 
   misc:
     broker: True

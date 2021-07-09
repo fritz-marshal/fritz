@@ -1,6 +1,6 @@
-import React, { useState, Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import PropTypes from "prop-types";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
@@ -46,6 +46,10 @@ import SourceSaveHistory from "./SourceSaveHistory";
 import PhotometryTable from "./PhotometryTable";
 import FavoritesButton from "./FavoritesButton";
 import TNSInfo from "./TNSInfo";
+import AlertsSearchButton from "./AlertsSearchButton";
+import ArchiveSearchButton from "./ArchiveSearchButton";
+
+import * as spectraActions from "../ducks/spectra";
 
 const VegaHR = React.lazy(() => import("./VegaHR"));
 
@@ -118,6 +122,7 @@ export const useSourceStyles = makeStyles((theme) => ({
   comments: {
     marginLeft: "1rem",
     padding: "1rem",
+    width: "100%",
   },
   classifications: {
     display: "flex",
@@ -195,11 +200,16 @@ const SourceMobile = WidthProvider(
     const { instrumentList, instrumentFormParams } = useSelector(
       (state) => state.instruments
     );
+    const dispatch = useDispatch();
     const { observingRunList } = useSelector((state) => state.observingRuns);
     const { taxonomyList } = useSelector((state) => state.taxonomies);
     const groups = (useSelector((state) => state.groups.all) || []).filter(
       (g) => !g.single_user_group
     );
+
+    useEffect(() => {
+      dispatch(spectraActions.fetchSourceSpectra(source.id));
+    }, [source.id, dispatch]);
 
     const z_round = source.redshift_error
       ? ceil(abs(log10(source.redshift_error)))
@@ -264,6 +274,34 @@ const SourceMobile = WidthProvider(
                       </div>
                     </div>
                   </div>
+                  {source.duplicates && (
+                    <div className={classes.infoLine}>
+                      <div className={classes.sourceInfo}>
+                        Possible duplicate of:&nbsp;
+                        {source.duplicates.map((dupID) => (
+                          <Link to={`/source/${dupID}`} role="link" key={dupID}>
+                            <Button size="small">{dupID}</Button>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className={classes.infoLine}>
+                    <div className={classes.sourceInfo}>
+                      <AlertsSearchButton objID={source.id} ra={source.ra} dec={source.dec} />
+                    </div>
+                  </div>
+                  <div className={classes.infoLine}>
+                    <div className={classes.sourceInfo}>
+                      <ArchiveSearchButton ra={source.ra} dec={source.dec} />
+                    </div>
+                  </div>
+                  <div className={classes.infoLine}>
+                    <div className={classes.sourceInfo}>
+                      <b>TNS:&nbsp;</b>
+                      <TNSInfo objID={source.id} />
+                    </div>
+                  </div>
                   <div className={classes.infoLine}>
                     <div className={classes.redshiftInfo}>
                       <b>Redshift: &nbsp;</b>
@@ -294,12 +332,6 @@ const SourceMobile = WidthProvider(
                           &nbsp; Mpc
                         </div>
                       )}
-                    </div>
-                  </div>
-                  <div className={classes.infoLine}>
-                    <div className={classes.sourceInfo}>
-                      <b>TNS:&nbsp;</b>
-                      <TNSInfo objID={source.id} />
                     </div>
                   </div>
                   <div
@@ -671,6 +703,7 @@ SourceMobile.propTypes = {
     followup_requests: PropTypes.arrayOf(PropTypes.any),
     assignments: PropTypes.arrayOf(PropTypes.any),
     redshift_history: PropTypes.arrayOf(PropTypes.any),
+    duplicates: PropTypes.arrayOf(PropTypes.string),
     color_magnitude: PropTypes.arrayOf(
       PropTypes.shape({
         abs_mag: PropTypes.number,
