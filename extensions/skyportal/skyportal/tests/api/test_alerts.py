@@ -63,6 +63,7 @@ def test_get_alert_cutout(view_only_token):
                 "GET",
                 f"alerts_cutouts/{oid}"
                 f"?candid={candid}&cutout={cutout}&file_format={file_format}",
+                token=view_only_token,
                 raw_response=True,
             )
             assert response.status_code == 200
