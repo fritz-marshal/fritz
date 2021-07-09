@@ -53,7 +53,6 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
 };
 
 ArchiveSearchButton.propTypes = {
-  objID: PropTypes.string.isRequired,
   ra: PropTypes.number.isRequired,
   dec: PropTypes.number.isRequired,
   radius: PropTypes.number,
