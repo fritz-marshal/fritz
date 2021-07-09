@@ -781,6 +781,8 @@ kowalski:
     lifetime_restart: true
 
   tns:
+    bot_id:
+    bot_name:
     url: https://wis-tns.org
 
   misc:
