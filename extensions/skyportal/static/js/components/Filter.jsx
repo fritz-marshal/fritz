@@ -38,6 +38,7 @@ import { showNotification } from "baselayer/components/Notifications";
 import * as groupActions from "../ducks/group";
 import * as filterActions from "../ducks/filter";
 import * as filterVersionActions from "../ducks/kowalski_filter";
+import * as streamActions from "../ducks/stream";
 
 const useStyles = makeStyles((theme) => ({
   pre: {

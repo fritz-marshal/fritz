@@ -361,9 +361,10 @@ class CrossMatchHandler(BaseHandler):
                     catalog: query_coords["query_coords"]
                     for catalog, query_coords in response.get("data").items()
                 }
-                # normalize positional data
+                # stringify _id's and normalize positional data
                 for catalog, sources in data.items():
                     for source in sources:
+                        source["_id"] = str(source["_id"])
                         source["ra"] = (
                             source["coordinates"]["radec_geojson"]["coordinates"][0]
                             + 180
