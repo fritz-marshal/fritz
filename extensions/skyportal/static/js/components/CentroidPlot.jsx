@@ -506,7 +506,7 @@ const CentroidPlot = ({ sourceId, size }) => {
               }
             }}
           />
-          {plotData.nearestSourceFromCatalog.length && <div className={classes.infoLine}>
+          {plotData.nearestSourceFromCatalog.length > 0 && <div className={classes.infoLine}>
             Offsets from nearest sources in reference catalogs:
             {plotData.nearestSourceFromCatalog.map((source) => (
                 <div key={source.catalog} className={classes.offsetLine}>
