@@ -10,9 +10,26 @@ import * as archiveActions from "../ducks/archive";
 
 const useStyles = makeStyles(() => ({
   centroidPlotDiv: (props) => ({
+    flexBasis: "100%",
+    display: "flex",
+    flexFlow: "row wrap",
     width: props.width,
     height: props.height,
   }),
+  infoLine: {
+    // Get it's own line
+    flexBasis: "100%",
+    display: "flex",
+    flexFlow: "row wrap",
+    padding: "0.5rem 0",
+  },
+  offsetLine: {
+    // Get it's own line
+    flexBasis: "100%",
+    display: "flex",
+    flexFlow: "row wrap",
+    padding: "0.25rem 0 0 0.75rem",
+  },
 }));
 
 // Helper functions for computing plot points (taken from GROWTH marshall)
@@ -324,8 +341,9 @@ const surveyColors = {
   "ztfi": "#f3dc11",
   "AllWISE": "#2f5492",
   "Gaia_EDR3": "#ff7f0e",
-  "PS1_DR1": "#893bd5",
-  "TNS": "#34d2cd"
+  "PS1_DR1": "#3bbed5",
+  "GALEX": "#6607c2",
+  "TNS": "#ed6cf6"
 };
 
 const getColor = (key) => {
@@ -393,13 +411,25 @@ const processData = (photometry, crossMatches) => {
   ).flat().map(
     (source) => {
       const { delRA, delDec } = relativeCoord(source.ra, source.dec, refRA, refDec);
+      const offsetFromReference = gcirc(source.ra, source.dec, refRA, refDec) * 3600;
       return {
         ...source,
         delRA,
         delDec,
+        offsetFromReference
       };
     }
   );
+  const nearestSourceFromCatalog = Object.keys(crossMatches).map(
+    (catalog) => {
+      const distances = crossMatchesAsArray.filter(
+        (source) => source.catalog === catalog
+      ).map((source) => source.offsetFromReference);
+      // console.log(distances);
+      return distances.length ? {catalog, minDistance: Math.min(...distances)} : null
+    }
+  ).filter((match) => match);
+
   const delRaCrossMatches = crossMatchesAsArray.map((point) => point.delRA);
   const delDecCrossMatches = crossMatchesAsArray.map((point) => point.delDec);
 
@@ -421,6 +451,7 @@ const processData = (photometry, crossMatches) => {
   return {
     photometryData: photometryAsArray,
     crossMatchData: crossMatchesAsArray,
+    nearestSourceFromCatalog,
     domain,
     colorScale,
     circlePoints,
@@ -463,17 +494,28 @@ const CentroidPlot = ({ sourceId, size }) => {
   if (plotData) {
     if (plotData.photometryData.length > 0) {
       return (
-        <div
-          className={classes.centroidPlotDiv}
-          data-testid="centroid-plot-div"
-          ref={(node) => {
-            if (node) {
-              embed(node, spec(plotData), {
-                actions: false,
-              });
-            }
-          }}
-        />
+        <div>
+          <div
+            className={classes.centroidPlotDiv}
+            data-testid="centroid-plot-div"
+            ref={(node) => {
+              if (node) {
+                embed(node, spec(plotData), {
+                  actions: false,
+                });
+              }
+            }}
+          />
+          {plotData.nearestSourceFromCatalog.length && <div className={classes.infoLine}>
+            Offsets from nearest sources in reference catalogs:
+            {plotData.nearestSourceFromCatalog.map((source) => (
+                <div key={source.catalog} className={classes.offsetLine}>
+                  <b>{source.catalog}</b>: {source.minDistance.toFixed(2)}&#8243;
+                </div>
+            )
+            )}
+          </div>}
+        </div>
       );
     }
 
