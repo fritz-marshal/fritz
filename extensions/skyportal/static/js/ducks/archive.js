@@ -18,8 +18,13 @@ const FETCH_NEAREST_SOURCES_FAIL = "skyportal/FETCH_NEAREST_SOURCES_FAIL";
 
 const SAVE_LIGHT_CURVES = "skyportal/SAVE_LIGHT_CURVES";
 
+const FETCH_CROSS_MATCHES = "skyportal/FETCH_CROSS_MATCHES";
+const FETCH_CROSS_MATCHES_OK = "skyportal/FETCH_CROSS_MATCHES_OK";
+const FETCH_CROSS_MATCHES_ERROR = "skyportal/FETCH_CROSS_MATCHES_ERROR";
+const FETCH_CROSS_MATCHES_FAIL = "skyportal/FETCH_CROSS_MATCHES_FAIL";
+
 export const fetchCatalogNames = () => API.GET(
-  `/api/archive_catalogs`,
+  `/api/archive/catalogs`,
   FETCH_CATALOG_NAMES
 )
 
@@ -32,6 +37,27 @@ const reducerCatalogNames = (state = null, action) => {
       return action.message;
     }
     case FETCH_CATALOG_NAMES_FAIL: {
+      return "uncaught error";
+    }
+    default:
+      return state;
+  }
+};
+
+export const fetchCrossMatches = ({ ra, dec, radius }) => API.GET(
+  `/api/archive/cross_match?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
+  FETCH_CROSS_MATCHES
+)
+
+const reducerCrossMatches = (state = null, action) => {
+  switch (action.type) {
+    case FETCH_CROSS_MATCHES_OK: {
+      return action.data;
+    }
+    case FETCH_CROSS_MATCHES_ERROR: {
+      return action.message;
+    }
+    case FETCH_CROSS_MATCHES_FAIL: {
       return "uncaught error";
     }
     default:
@@ -104,5 +130,6 @@ const reducerNearestSources = (state = null, action) => {
 };
 
 store.injectReducer("catalog_names", reducerCatalogNames);
+store.injectReducer("cross_matches", reducerCrossMatches);
 store.injectReducer("ztf_light_curves", reducer);
 store.injectReducer("nearest_sources", reducerNearestSources);
