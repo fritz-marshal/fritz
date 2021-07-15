@@ -1,6 +1,6 @@
 import subprocess
 
-from launcher.commands.stop import stop
+from launcher.commands import stop
 
 
 def prune(yes: bool = False):
