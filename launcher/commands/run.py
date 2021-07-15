@@ -1,4 +1,5 @@
 import os
+import pathlib
 import subprocess
 
 from launcher.commands.build import build
@@ -51,6 +52,17 @@ def run(
         raise RuntimeError("Failed to start SkyPortal")
 
     # start up kowalski
+    if yes and not pathlib.Path("kowalski/docker-compose.yaml").exists():
+        # use default docker-compose config file
+        subprocess.run(
+            [
+                "cp",
+                "docker-compose.fritz.defaults.yaml",
+                "docker-compose.yaml",
+            ],
+            check=True,
+            cwd="kowalski",
+        )
     c = ["python", "kowalski.py", "up"]
     p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:

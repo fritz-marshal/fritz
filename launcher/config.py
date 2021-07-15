@@ -1,8 +1,11 @@
-__all__ = ["check_config"]
+__all__ = [
+    "check_config_exists",
+    "check_config",
+]
 
 
-import subprocess
 from pathlib import Path
+import subprocess
 
 import yaml
 
