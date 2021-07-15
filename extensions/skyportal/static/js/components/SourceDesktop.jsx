@@ -223,7 +223,7 @@ const SourceDesktop = ({ source }) => {
             <div className={classes.infoLine}>
               <div className={classes.sourceInfo}>
                 <b>
-                  <font color="red">Possible duplicate of:</font>
+                  <font color="#457b9d">Possible duplicate of:</font>
                 </b>
                 &nbsp;
                 {source.duplicates.map((dupID) => (
@@ -235,12 +235,10 @@ const SourceDesktop = ({ source }) => {
             </div>
           )}
           <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
+            <div className={classes.infoButton}>
               <AlertsSearchButton ra={source.ra} dec={source.dec} />
             </div>
-          </div>
-          <div className={classes.infoLine}>
-            <div className={classes.sourceInfo}>
+            <div className={classes.infoButton}>
               <ArchiveSearchButton ra={source.ra} dec={source.dec} />
             </div>
           </div>
@@ -591,7 +589,7 @@ const SourceDesktop = ({ source }) => {
                 <CentroidPlot
                   className={classes.smallPlot}
                   sourceId={source.id}
-                  size="21.875rem"
+                  size="30rem"
                 />
               </Suspense>
             </AccordionDetails>

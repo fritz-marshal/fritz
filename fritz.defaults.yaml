@@ -581,7 +581,7 @@ kowalski:
                                         "$subtract":
                                           ["$candidate.jd", "$$item.jd"],
                                       },
-                                      100,
+                                      3650,
                                     ],
                                 },
                               ],
@@ -781,6 +781,8 @@ kowalski:
     lifetime_restart: true
 
   tns:
+    bot_id: 31415926
+    bot_name: Null
     url: https://wis-tns.org
 
   misc:

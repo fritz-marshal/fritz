@@ -164,6 +164,21 @@ class StatsHandler(BaseHandler):
                 "catalog": "ZTF_alerts",
                 "filter": {
                     "candidate.jd": {
+                        "$gt": jd_start - 1,
+                        "$lt": jd_start,
+                    }
+                },
+            },
+        }
+        response = kowalski.query(query=query_ztf_alerts_count)
+        data["Number of ZTF alerts ingested yesterday (UTC)"] = response.get("data")
+
+        query_ztf_alerts_count = {
+            "query_type": "count_documents",
+            "query": {
+                "catalog": "ZTF_alerts",
+                "filter": {
+                    "candidate.jd": {
                         "$gt": jd_start,
                     }
                 },

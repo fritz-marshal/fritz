@@ -223,6 +223,160 @@ class ArchiveCatalogsHandler(BaseHandler):
         return self.success(data=catalog_names)
 
 
+class CrossMatchHandler(BaseHandler):
+    @auth_or_token
+    def get(self):
+        """
+        ---
+        summary: Retrieve data from available catalogs on Kowalski/Gloria by position
+        tags:
+          - archive
+          - kowalski
+        parameters:
+          - in: query
+            name: ra
+            required: true
+            schema:
+              type: float
+            description: RA in degrees
+          - in: query
+            name: dec
+            required: true
+            schema:
+              type: float
+            description: Dec. in degrees
+          - in: query
+            name: radius
+            required: true
+            schema:
+              type: float
+            description: Maximum distance in `radius_units` from specified (RA, Dec) (capped at 1 deg)
+          - in: query
+            name: radius_units
+            required: true
+            schema:
+              type: string
+              enum: [deg, arcmin, arcsec]
+            description: Distance units (either "deg", "arcmin", or "arcsec")
+        responses:
+          200:
+            description: retrieved source data
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          description: "cross matched sources per catalog"
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        available_catalog_names = gloria.query(query=query).get("data")
+        # expose all but the ZTF/PTF-related catalogs
+        catalogs = [
+            catalog
+            for catalog in available_catalog_names
+            if not catalog.startswith("ZTF") and not catalog.startswith("PTF")
+        ]
+        if len(catalogs) == 0:
+            return self.error("No catalogs available to run cross-match against.")
+
+        # executing a cone search
+        ra = self.get_query_argument("ra", None)
+        dec = self.get_query_argument("dec", None)
+        radius = self.get_query_argument("radius", None)
+        radius_units = self.get_query_argument("radius_units", None)
+
+        position_tuple = (ra, dec, radius, radius_units)
+
+        if not all(position_tuple) and any(position_tuple):
+            # incomplete positional arguments? throw errors, since
+            # either all or none should be provided
+            if ra is None:
+                return self.error("Missing required parameter: ra")
+            if dec is None:
+                return self.error("Missing required parameter: dec")
+            if radius is None:
+                return self.error("Missing required parameter: radius")
+            if radius_units is None:
+                return self.error("Missing required parameter: radius_units")
+        if all(position_tuple):
+            # complete positional arguments? run "near" query
+            if radius_units not in ["deg", "arcmin", "arcsec"]:
+                return self.error(
+                    "Invalid radius_units value. Must be one of either "
+                    "'deg', 'arcmin', or 'arcsec'."
+                )
+            try:
+                ra = float(ra)
+                dec = float(dec)
+                radius = float(radius)
+            except ValueError:
+                return self.error("Invalid (non-float) value provided.")
+            if not (0 <= ra < 360):
+                return self.error(
+                    "Invalid R.A. value provided: must be 0 <= R.A. [deg] < 360"
+                )
+            if not (-90 <= dec <= 90):
+                return self.error(
+                    "Invalid Decl. value provided: must be -90 <= Decl. [deg] <= 90"
+                )
+            if (
+                (radius_units == "deg" and radius > 1)
+                or (radius_units == "arcmin" and radius > 60)
+                or (radius_units == "arcsec" and radius > 3600)
+            ):
+                return self.error("Radius must be <= 1.0 deg")
+
+            query = {
+                "query_type": "near",
+                "query": {
+                    "max_distance": radius,
+                    "distance_units": radius_units,
+                    "radec": {"query_coords": [ra, dec]},
+                    "catalogs": {
+                        catalog: {
+                            "filter": {},
+                            "projection": {},
+                        }
+                        for catalog in catalogs
+                    },
+                },
+                "kwargs": {
+                    "max_time_ms": 10000,
+                    "limit": 1000,
+                },
+            }
+
+            response = gloria.query(query=query)
+            if response.get("status", "error") == "success":
+                # unpack the result
+                data = {
+                    catalog: query_coords["query_coords"]
+                    for catalog, query_coords in response.get("data").items()
+                }
+                # stringify _id's and normalize positional data
+                for catalog, sources in data.items():
+                    for source in sources:
+                        source["_id"] = str(source["_id"])
+                        source["ra"] = (
+                            source["coordinates"]["radec_geojson"]["coordinates"][0]
+                            + 180
+                        )
+                        source["dec"] = source["coordinates"]["radec_geojson"][
+                            "coordinates"
+                        ][1]
+                return self.success(data=data)
+
+            return self.error(response.get("message"))
+
+
 class ArchiveHandler(BaseHandler):
     @auth_or_token
     def get(self):
@@ -283,11 +437,10 @@ class ArchiveHandler(BaseHandler):
                 schema: Error
         """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        available_catalog_names = gloria.query(query=query).get("data")
         # expose only the ZTF light curves for now
         available_catalogs = [
-            catalog
-            for catalog in gloria.query(query=query).get("data")
-            if "ZTF_sources" in catalog
+            catalog for catalog in available_catalog_names if "ZTF_sources" in catalog
         ]
 
         # allow access to public data only by default
