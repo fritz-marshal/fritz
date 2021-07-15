@@ -190,7 +190,7 @@ export const useSourceStyles = makeStyles((theme) => ({
 const SourceMobile = WidthProvider(
   withOrientationChange(({ source, isLandscape, width }) => {
     const matches = useMediaQuery("(min-width: 475px)");
-    const centroidPlotSize = matches ? "21.875rem" : "17rem";
+    const centroidPlotSize = matches ? "26rem" : "17rem";
 
     const classes = useSourceStyles();
 
