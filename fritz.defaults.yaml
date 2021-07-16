@@ -279,6 +279,10 @@ skyportal:
 
     ssl: True
     processes: 4
+    # In addition to localhost, specify any IP addresses that are to be
+    # exempt from API rate limiting
+    whitelisted_ips:
+      -
 
     auth:
       debug_login: True
