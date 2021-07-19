@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
+import useMediaQuery from "@material-ui/core/useMediaQuery";
 import Grid from "@material-ui/core/Grid";
 import Button from "@material-ui/core/Button";
 import Chip from "@material-ui/core/Chip";
@@ -146,6 +147,9 @@ export const useSourceStyles = makeStyles((theme) => ({
 }));
 
 const SourceDesktop = ({ source }) => {
+  const matches = useMediaQuery("(min-width: 1450px)");
+  const centroidPlotSize = matches ? "30rem" : "28rem";
+
   const dispatch = useDispatch();
   const classes = useSourceStyles();
   const [showStarList, setShowStarList] = useState(false);
@@ -589,7 +593,7 @@ const SourceDesktop = ({ source }) => {
                 <CentroidPlot
                   className={classes.smallPlot}
                   sourceId={source.id}
-                  size="30rem"
+                  size={centroidPlotSize}
                 />
               </Suspense>
             </AccordionDetails>
