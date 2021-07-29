@@ -51,6 +51,10 @@ const CentroidPlot = React.lazy(() =>
   import(/* webpackChunkName: "CentroidPlot" */ "./CentroidPlot")
 );
 
+const AcaiPlot = React.lazy(() =>
+  import(/* webpackChunkName: "AcaiPlot" */ "./AcaiPlot")
+);
+
 // Export to allow Candidate.jsx to use styles
 export const useSourceStyles = makeStyles((theme) => ({
   chip: {
@@ -594,6 +598,28 @@ const SourceDesktop = ({ source }) => {
                   className={classes.smallPlot}
                   sourceId={source.id}
                   size={centroidPlotSize}
+                />
+              </Suspense>
+            </AccordionDetails>
+          </Accordion>
+        </div>
+        <div className={classes.columnItem}>
+          <Accordion defaultExpanded>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="acaiplot-content"
+              id="acaiplot-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                Latest ACAI Values
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Suspense fallback={<div>Loading ACAI plot...</div>}>
+                <AcaiPlot
+                  className={classes.smallPlot}
+                  width="22.5rem"
+                  height="15rem"
                 />
               </Suspense>
             </AccordionDetails>

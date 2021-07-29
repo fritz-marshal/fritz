@@ -59,6 +59,10 @@ const CentroidPlot = React.lazy(() =>
   import(/* webpackChunkName: "CentroidPlot" */ "./CentroidPlot")
 );
 
+const AcaiPlot = React.lazy(() =>
+  import(/* webpackChunkName: "AcaiPlot" */ "./AcaiPlot")
+);
+
 export const useSourceStyles = makeStyles((theme) => ({
   chip: {
     margin: theme.spacing(0.5),
@@ -191,6 +195,7 @@ const SourceMobile = WidthProvider(
   withOrientationChange(({ source, isLandscape, width }) => {
     const matches = useMediaQuery("(min-width: 475px)");
     const centroidPlotSize = matches ? "26rem" : "17rem";
+    const acaiPlotSize = matches ? "21rem" : "14rem";
 
     const classes = useSourceStyles();
 
@@ -288,7 +293,11 @@ const SourceMobile = WidthProvider(
                   )}
                   <div className={classes.infoLine}>
                     <div className={classes.sourceInfo}>
-                      <AlertsSearchButton objID={source.id} ra={source.ra} dec={source.dec} />
+                      <AlertsSearchButton
+                        objID={source.id}
+                        ra={source.ra}
+                        dec={source.dec}
+                      />
                     </div>
                   </div>
                   <div className={classes.infoLine}>
@@ -643,6 +652,26 @@ const SourceMobile = WidthProvider(
                   />
                 </Suspense>
               </div>
+            </AccordionDetails>
+          </Accordion>
+          <Accordion defaultExpanded>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="acaiplot-content"
+              id="acaiplot-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                Latest ACAI Values
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Suspense fallback={<div>Loading ACAI plot...</div>}>
+                <AcaiPlot
+                  className={classes.smallPlot}
+                  width={acaiPlotSize}
+                  height={`calc(${acaiPlotSize} / 2)`}
+                />
+              </Suspense>
             </AccordionDetails>
           </Accordion>
           <Accordion defaultExpanded>
