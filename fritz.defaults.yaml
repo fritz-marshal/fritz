@@ -286,14 +286,33 @@ skyportal:
     rate_limit: 5
     # Rate limit burst size (https://www.nginx.com/blog/rate-limiting-nginx/#bursts)
     burst: 10
-    # In addition to localhost, specify any IP addresses that are to be
+
+    # In addition to the local network, specify any IP addresses that are to be
     # exempt from API rate limiting
     whitelisted_ips:
-      - 131.215.198.229/32
-      - 131.215.198.228/32
+      # Class A private network
       - 10.0.0.0/8
+      # Class B private network
       - 172.16.0.0/12
+      # Class C private network
       - 192.168.0.0/16
+      # skipper.caltech.edu
+      - 131.215.198.228
+      # kowalski.caltech.edu
+      - 131.215.198.229
+
+    # Specify IPs or address ranges (e.g., 130.211.0.0/22) that are associated
+    # with upstream load balancing.
+    # These trusted addresses are used to uncover the originating IP.
+    loadbalancer_ips:
+      # Google Load Balancer IPs
+      # See https://cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
+      - 130.22.0.0/22
+      - 35.191.0.0/16
+      # preview.fritz.science
+      - 34.120.0.80
+      # fritz.science
+      - 35.244.192.22
 
     auth:
       debug_login: True
@@ -796,6 +815,7 @@ kowalski:
     lifetime_restart: true
 
   tns:
+    api_key:
     bot_id: 31415926
     bot_name: Null
     url: https://wis-tns.org
