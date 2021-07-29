@@ -42,7 +42,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Setup gcloud cli
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        uses: google-github-actions/setup-gcloud@master
         with:
           version: "286.0.0"
           service_account_email: ${{ secrets.GKE_SA_EMAIL }}
