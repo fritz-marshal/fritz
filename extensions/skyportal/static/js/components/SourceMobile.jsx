@@ -195,6 +195,7 @@ const SourceMobile = WidthProvider(
   withOrientationChange(({ source, isLandscape, width }) => {
     const matches = useMediaQuery("(min-width: 475px)");
     const centroidPlotSize = matches ? "26rem" : "17rem";
+    const hrDiagramSize = matches ? 300 : 200;
     const acaiPlotSize = matches ? "21rem" : "14rem";
 
     const classes = useSourceStyles();
@@ -552,8 +553,8 @@ const SourceMobile = WidthProvider(
                     <Suspense fallback={<div>Loading HR diagram...</div>}>
                       <VegaHR
                         data={source.color_magnitude}
-                        width={300}
-                        height={300}
+                        width={hrDiagramSize}
+                        height={hrDiagramSize}
                         data-testid={`hr_diagram_${source.id}`}
                       />
                     </Suspense>
