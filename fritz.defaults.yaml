@@ -307,7 +307,6 @@ skyportal:
     loadbalancer_ips:
       # Google Load Balancer IPs
       # See https://cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
-      - 130.22.0.0/22
       - 130.211.0.0/22
       - 35.191.0.0/16
       # preview.fritz.science
