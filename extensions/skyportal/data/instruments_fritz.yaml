@@ -540,7 +540,7 @@
 - =id: PGIR
   band: NIR
   filters:
-  - 2massj
+  - cspjs
   name: PGIR
   telescope_id: =PGIR
   type: imager
