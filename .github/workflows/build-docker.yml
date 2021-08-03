@@ -42,7 +42,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Setup gcloud cli
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        uses: google-github-actions/setup-gcloud@master
         with:
           version: "286.0.0"
           service_account_email: ${{ secrets.GKE_SA_EMAIL }}
@@ -57,7 +57,8 @@ jobs:
           gcloud --quiet auth configure-docker
 
       # Get the GKE credentials so we can deploy to the cluster
-      - run: |-
+      - name: Get Google Kubernetes Engine credentials
+        run: |-
           gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE"
 
       # # Will use this, once the official Docker action introduces caching
@@ -86,19 +87,6 @@ jobs:
           repository: "fritz-marshal/fritz-deploy"
           path: "fritz-deploy"
           ssh-key: ${{ secrets.CI_FRITZ_DEPLOY_DEPLOY_KEY }}
-
-      - name: Setup gcloud cli
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
-        with:
-          version: "286.0.0"
-          service_account_email: ${{ secrets.GKE_SA_EMAIL }}
-          service_account_key: ${{ secrets.GKE_SA_KEY }}
-          project_id: ${{ secrets.GKE_PROJECT }}
-          export_default_credentials: true
-
-      - name: Set up cluster credentials
-        run: |-
-          gcloud container clusters get-credentials "$GKE_CLUSTER" --zone "$GKE_ZONE"
 
       - name: Set up SOPS
         run: |-
