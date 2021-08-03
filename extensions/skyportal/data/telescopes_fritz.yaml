@@ -491,3 +491,13 @@
   name: CNEOST
   skycam_link: null
   =id: CNEOST
+- diameter: 0.3
+  elevation: 1870.0
+  lat: 33.3633675
+  lon: -116.8361345
+  nickname: Palomar Gattini-IR
+  name: PGIR
+  skycam_link: http://bianca.palomar.caltech.edu/images/allsky/AllSkyCurrentImage.JPG
+  weather_link: https://www.cleardarksky.com/c/PalomarObkey.html
+  =id: PGIR
+  robotic: true

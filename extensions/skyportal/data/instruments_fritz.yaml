@@ -537,3 +537,10 @@
   telescope_id: =Keck2
   type: spectrograph
   band: NIR
+- =id: PGIR
+  band: NIR
+  filters:
+  - 2massj
+  name: PGIR
+  telescope_id: =PGIR
+  type: imager
