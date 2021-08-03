@@ -429,10 +429,10 @@ kowalski:
   path:
     app: "/app"
     docs: "/app/docs"
-    ml_models: "/app/models/"
+    ml_models_ztf: "/app/models/"
+    ml_models_pgir: "/app/models_pgir/"
     logs: "/data/logs/"
     data: "/data"
-    alerts: "/data/alerts"
     queries: "/data/queries"
     tess: "/data/tess"
     tmp: "/_tmp"
@@ -470,10 +470,11 @@ kowalski:
       queries: "queries"
       alerts_ztf: "ZTF_alerts"
       alerts_ztf_aux: "ZTF_alerts_aux"
-      alerts_ztf_filter: "ZTF_alerts_filter"
       alerts_zuds: "ZUDS_alerts"
       alerts_zuds_aux: "ZUDS_alerts_aux"
       tns: "TNS"
+      alerts_pgir: "PGIR_alerts"
+      alerts_pgir_aux: "PGIR_alerts_aux"
 
     indexes:
       ZTF_alerts:
@@ -569,6 +570,59 @@ kowalski:
             - ["discovery_date", -1]
           unique: false
 
+      PGIR_alerts:
+        - name: radec_candid
+          fields:
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: radec_objectId
+          fields:
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "objectId", -1 ]
+          unique: false
+        - name: jd_radec_candid
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: jd_radec_objectId
+          fields:
+            - [ "candidate.jd", 1 ]
+            - [ "coordinates.radec_geojson", "2dsphere" ]
+            - [ "objectId", -1 ]
+          unique: false
+        - name: objectId
+          fields:
+            - [ "objectId", -1 ]
+          unique: false
+        - name: candid
+          fields:
+            - [ "candid", -1 ]
+          unique: true
+        - name: jd_drb_candid
+          fields:
+            - [ "candidate.jd", -1 ]
+            - [ "candidate.drb", -1 ]
+            - [ "candid", -1 ]
+          unique: false
+        - name: jd_drb_ndethist_dmag2mass_isstar_distnearbrstar
+          fields:
+            - [ "candidate.jd", -1 ]
+            - [ "candidate.drb", -1 ]
+            - [ "candidate.ndethist", 1 ]
+            - [ "candidate.dmag2mass", -1 ]
+            - [ "candidate.isstar", -1 ]
+            - [ "candidate.distnearbrstar", 1 ]
+          unique: false
+        - name: jd_scorr_dmag2mass
+          fields:
+            - [ "candidate.jd", -1 ]
+            - [ "candidate.scorr", -1 ]
+            - [ "candidate.dmag2mass", -1 ]
+          unique: false
+
     filters:
       ZTF_alerts:
         # default upstream aggregation pipeline stages for filtering ZTF alerts:
@@ -632,12 +686,70 @@ kowalski:
               },
           }
 
+      PGIR_alerts:
+        # default upstream aggregation pipeline stages for filtering PGIR alerts:
+        - {
+          "$match":
+            {
+              "candid": null
+            },
+        }
+        - {
+          "$project":
+            {
+              "cutoutScience": 0,
+              "cutoutTemplate": 0,
+              "cutoutDifference": 0,
+            },
+        }
+        - {
+          "$lookup":
+            {
+              "from": "PGIR_alerts_aux",
+              "localField": "objectId",
+              "foreignField": "_id",
+              "as": "aux",
+            },
+        }
+        - {
+          "$project":
+            {
+              "cross_matches": { "$arrayElemAt": [ "$aux.cross_matches", 0 ] },
+              "prv_candidates":
+                {
+                  "$filter":
+                    {
+                      "input": { "$arrayElemAt": [ "$aux.prv_candidates", 0 ] },
+                      "as": "item",
+                      "cond":
+                        {
+                          "$lt":
+                            [
+                              {
+                                "$subtract":
+                                  [ "$candidate.jd", "$$item.jd" ],
+                              },
+                                1000,
+                            ],
+                        },
+                    },
+                },
+              "schemavsn": 1,
+              "publisher": 1,
+              "objectId": 1,
+              "candid": 1,
+              "candidate": 1,
+              "classifications": 1,
+              "coordinates": 1,
+            },
+        }
+
     xmatch:
-      cone_search_radius: 2
-      cone_search_unit: "arcsec"
-      catalogs:
+      ZTF:
         2MASS_PSC:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -646,7 +758,9 @@ kowalski:
             k_m: 1
 
         AllWISE:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -661,7 +775,9 @@ kowalski:
             ph_qual: 1
 
         Gaia_DR2:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -672,7 +788,9 @@ kowalski:
             phot_rp_mean_mag: 1
 
         Gaia_EDR3:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -683,7 +801,9 @@ kowalski:
             phot_rp_mean_mag: 1
 
         Gaia_DR2_WD:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -694,8 +814,25 @@ kowalski:
             Teff: 1
             eTeff: 1
 
+        PS1_STRM:
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            objID: 1
+            coordinates.radec_str: 1
+            class: 1
+            prob_Galaxy: 1
+            prob_Star: 1
+            prob_QSO: 1
+            z_phot: 1
+            z_phot_err: 1
+
         galaxy_redshifts_20200522:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -704,7 +841,9 @@ kowalski:
             b: 1
 
         GALEX:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 0
             name: 1
@@ -715,7 +854,9 @@ kowalski:
             e_NUVmag: 1
 
         IGAPS_DR2:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 0
             name: 1
@@ -730,7 +871,9 @@ kowalski:
             UErr: 1
 
         LAMOST_DR5_v3:
-          filter: {}
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -744,8 +887,83 @@ kowalski:
             class: 1
             subclass: 1
 
+        PS1_DR1:
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            gMeanPSFMag: 1
+            gMeanPSFMagErr: 1
+            rMeanPSFMag: 1
+            rMeanPSFMagErr: 1
+            iMeanPSFMag: 1
+            iMeanPSFMagErr: 1
+            zMeanPSFMag: 1
+            zMeanPSFMagErr: 1
+            yMeanPSFMag: 1
+            yMeanPSFMagErr: 1
+
+      PGIR:
+        2MASS_PSC:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            j_m: 1
+            h_m: 1
+            k_m: 1
+
+        AllWISE:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            w1mpro: 1
+            w1sigmpro: 1
+            w2mpro: 1
+            w2sigmpro: 1
+            w3mpro: 1
+            w3sigmpro: 1
+            w4mpro: 1
+            w4sigmpro: 1
+            ph_qual: 1
+
+        Gaia_DR2:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            parallax: 1
+            parallax_error: 1
+            phot_g_mean_mag: 1
+            phot_bp_mean_mag: 1
+            phot_rp_mean_mag: 1
+
+        Gaia_EDR3:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            parallax: 1
+            parallax_error: 1
+            phot_g_mean_mag: 1
+            phot_bp_mean_mag: 1
+            phot_rp_mean_mag: 1
+
         PS1_STRM:
-          filter: {}
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             objID: 1
@@ -757,8 +975,68 @@ kowalski:
             z_phot: 1
             z_phot_err: 1
 
+        galaxy_redshifts_20200522:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            z: 1
+            l: 1
+            b: 1
+
+        GALEX:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 0
+            name: 1
+            coordinates.radec_str: 1
+            FUVmag: 1
+            e_FUVmag: 1
+            NUVmag: 1
+            e_NUVmag: 1
+
+        IGAPS_DR2:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 0
+            name: 1
+            coordinates.radec_str: 1
+            r: 1
+            rErr: 1
+            i: 1
+            iErr: 1
+            ha: 1
+            haErr: 1
+            U_RGO: 1
+            UErr: 1
+
+        LAMOST_DR5_v3:
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            mjd: 1
+            snru: 1
+            snrg: 1
+            snrr: 1
+            snri: 1
+            snrz: 1
+            objtype: 1
+            class: 1
+            subclass: 1
+
         PS1_DR1:
-          filter: {}
+          cone_search_radius: 8
+          cone_search_unit: "arcsec"
+          filter: { }
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -774,18 +1052,19 @@ kowalski:
             yMeanPSFMagErr: 1
 
   ml_models:
-    braai:
-      version: "d6_m9"
-    acai_h:
-      version: "d1_dnn_20201130"
-    acai_v:
-      version: "d1_dnn_20201130"
-    acai_o:
-      version: "d1_dnn_20201130"
-    acai_n:
-      version: "d1_dnn_20201130"
-    acai_b:
-      version: "d1_dnn_20201130"
+    ZTF:
+      braai:
+        version: "d6_m9"
+      acai_h:
+        version: "d1_dnn_20201130"
+      acai_v:
+        version: "d1_dnn_20201130"
+      acai_o:
+        version: "d1_dnn_20201130"
+      acai_n:
+        version: "d1_dnn_20201130"
+      acai_b:
+        version: "d1_dnn_20201130"
 
   skyportal:
     protocol: "http"
@@ -808,6 +1087,17 @@ kowalski:
   dask:
     host: 127.0.0.1
     scheduler_port: 8786
+    dashboard_address: :8787
+    n_workers: 4
+    threads_per_worker: 1
+    lifetime: 24 hours
+    lifetime_stagger: 1 hours
+    lifetime_restart: true
+
+  dask_pgir:
+    host: 127.0.0.1
+    scheduler_port: 8788
+    dashboard_address: :8789
     n_workers: 4
     threads_per_worker: 1
     lifetime: 24 hours
@@ -909,6 +1199,17 @@ kowalski:
         redirect_stderr: True
         environment: "PRODUCTION=1"
 
+      "program:dask-cluster-pgir":
+        command: /usr/local/bin/python dask_cluster_pgir.py
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/dask_cluster_pgir.log
+        stdout_logfile_maxbytes: 50MB
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
       "program:alert-broker-ztf":
         command: /usr/local/bin/python alert_broker_ztf.py
         directory: /app
@@ -916,6 +1217,17 @@ kowalski:
         autostart: true
         autorestart: true
         stdout_logfile: /data/logs/alert_broker_ztf.log
+        stdout_logfile_maxbytes: 30MB
+        redirect_stderr: True
+        environment: "PRODUCTION=1"
+
+      "program:alert-broker-pgir":
+        command: /usr/local/bin/python alert_broker_pgir.py
+        directory: /app
+        user: root
+        autostart: true
+        autorestart: true
+        stdout_logfile: /data/logs/alert_broker_pgir.log
         stdout_logfile_maxbytes: 30MB
         redirect_stderr: True
         environment: "PRODUCTION=1"
@@ -938,17 +1250,6 @@ kowalski:
         autostart: true
         autorestart: true
         stdout_logfile: /data/logs/tns_watcher.log
-        stdout_logfile_maxbytes: 30MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:tns-watcher-weekly":
-        command: /usr/local/bin/python tns_watcher.py --graball
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/tns_watcher_weekly.log
         stdout_logfile_maxbytes: 30MB
         redirect_stderr: True
         environment: "PRODUCTION=1"
