@@ -96,37 +96,43 @@ def test():
             time.sleep(10)
             continue
 
-    print("Testing ZTF alert stream consumption and digestion")
+    alert_stream_tests = (
+        ("ZTF", "test_ingester", "dask_cluster"),
+        ("PGIR", "test_ingester_pgir", "dask_cluster_pgir"),
+    )
+    for instrument, test_name, log_name in alert_stream_tests:
+        pass
+        print(f"Testing {instrument} alert stream consumption and digestion")
 
-    command = [
-        "docker",
-        "exec",
-        "-i",
-        "kowalski_ingester_1",
-        "python",
-        "-m",
-        "pytest",
-        "-s",
-        "test_ingester.py",
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError:
-        sys.exit(1)
+        command = [
+            "docker",
+            "exec",
+            "-i",
+            "kowalski_ingester_1",
+            "python",
+            "-m",
+            "pytest",
+            "-s",
+            f"{test_name}.py",
+        ]
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError:
+            sys.exit(1)
 
-    # show processing log from dask cluster
-    command = [
-        "docker",
-        "exec",
-        "-i",
-        "kowalski_ingester_1",
-        "cat",
-        "/data/logs/dask_cluster.log",
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError:
-        sys.exit(1)
+        # show processing log from dask cluster
+        command = [
+            "docker",
+            "exec",
+            "-i",
+            "kowalski_ingester_1",
+            "cat",
+            f"/data/logs/{log_name}.log",
+        ]
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError:
+            sys.exit(1)
 
     print("Testing auxiliary catalog ingestion")
 
