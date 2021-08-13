@@ -156,35 +156,42 @@ class StatsHandler(BaseHandler):
             "Latest object from TNS collection discovery date (UTC)"
         ] = latest_tns_object_discovery_date
 
-        utc_now = datetime.datetime.utcnow()
-        jd_start = Time(datetime.datetime(utc_now.year, utc_now.month, utc_now.day)).jd
-        query_ztf_alerts_count = {
-            "query_type": "count_documents",
-            "query": {
-                "catalog": "ZTF_alerts",
-                "filter": {
-                    "candidate.jd": {
-                        "$gt": jd_start - 1,
-                        "$lt": jd_start,
-                    }
+        for survey in ("PGIR", "ZTF"):
+            utc_now = datetime.datetime.utcnow()
+            jd_start = Time(
+                datetime.datetime(utc_now.year, utc_now.month, utc_now.day)
+            ).jd
+            query_alerts_count = {
+                "query_type": "count_documents",
+                "query": {
+                    "catalog": f"{survey}_alerts",
+                    "filter": {
+                        "candidate.jd": {
+                            "$gt": jd_start - 1,
+                            "$lt": jd_start,
+                        }
+                    },
                 },
-            },
-        }
-        response = kowalski.query(query=query_ztf_alerts_count)
-        data["Number of ZTF alerts ingested yesterday (UTC)"] = response.get("data")
+            }
+            response = kowalski.query(query=query_alerts_count)
+            data[f"Number of {survey} alerts ingested yesterday (UTC)"] = response.get(
+                "data"
+            )
 
-        query_ztf_alerts_count = {
-            "query_type": "count_documents",
-            "query": {
-                "catalog": "ZTF_alerts",
-                "filter": {
-                    "candidate.jd": {
-                        "$gt": jd_start,
-                    }
+            query_alerts_count = {
+                "query_type": "count_documents",
+                "query": {
+                    "catalog": f"{survey}_alerts",
+                    "filter": {
+                        "candidate.jd": {
+                            "$gt": jd_start,
+                        }
+                    },
                 },
-            },
-        }
-        response = kowalski.query(query=query_ztf_alerts_count)
-        data["Number of ZTF alerts ingested since 0h UTC today"] = response.get("data")
+            }
+            response = kowalski.query(query=query_alerts_count)
+            data[
+                f"Number of {survey} alerts ingested since 0h UTC today"
+            ] = response.get("data")
 
         return self.success(data=data)
