@@ -144,6 +144,9 @@ export const useSourceStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "row",
   },
+  duplicateButton: {
+    textTransform: "none",
+  },
 }));
 
 const SourceDesktop = ({ source }) => {
@@ -232,7 +235,7 @@ const SourceDesktop = ({ source }) => {
                 &nbsp;
                 {source.duplicates.map((dupID) => (
                   <Link to={`/source/${dupID}`} role="link" key={dupID}>
-                    <Button size="small">{dupID}</Button>
+                    <Button size="small" className={classes.duplicateButton}>{dupID}</Button>
                   </Link>
                 ))}
               </div>
