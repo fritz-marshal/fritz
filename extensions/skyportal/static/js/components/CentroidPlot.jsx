@@ -105,7 +105,7 @@ const getMessages = (delRaGroup, delDecGroup) => {
 };
 
 // The Vega-Lite specifications for the centroid plot
-const spec = (inputData) => ({
+const spec = (inputData, textColor) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v4.json",
   width: "container",
   height: "container",
@@ -194,10 +194,13 @@ const spec = (inputData) => ({
             title: "\u0394RA (arcsec)",
             titleFontSize: 14,
             titlePadding: 8,
+            labelColor: textColor,
+            tickColor: textColor,
+            titleColor: textColor,
           },
           scale: {
             domain: inputData.domain,
-          }
+          },
         },
         y: {
           field: "delDec",
@@ -206,10 +209,13 @@ const spec = (inputData) => ({
             title: "\u0394Dec (arcsec)",
             titleFontSize: 14,
             titlePadding: 8,
+            labelColor: textColor,
+            tickColor: textColor,
+            titleColor: textColor,
           },
           scale: {
             domain: inputData.domain,
-          }
+          },
         },
         tooltip: [
           { field: "id", type: "quantitative" },
@@ -230,6 +236,8 @@ const spec = (inputData) => ({
             lableLimit: 400,
             rowPadding: 4,
             orient: "bottom",
+            labelColor: textColor,
+            titleColor: textColor,
           },
         },
         // shape: {
@@ -260,10 +268,13 @@ const spec = (inputData) => ({
             title: "\u0394RA (arcsec)",
             titleFontSize: 14,
             titlePadding: 8,
+            labelColor: textColor,
+            tickColor: textColor,
+            titleColor: textColor,
           },
           scale: {
             domain: inputData.domain,
-          }
+          },
         },
         y: {
           field: "delDec",
@@ -272,10 +283,13 @@ const spec = (inputData) => ({
             title: "\u0394Dec (arcsec)",
             titleFontSize: 14,
             titlePadding: 8,
+            labelColor: textColor,
+            tickColor: textColor,
+            titleColor: textColor,
           },
           scale: {
             domain: inputData.domain,
-          }
+          },
         },
         tooltip: [
           { field: "_id", type: "nominal", title: "id" },
@@ -296,6 +310,8 @@ const spec = (inputData) => ({
             lableLimit: 400,
             rowPadding: 4,
             orient: "bottom",
+            labelColor: textColor,
+            titleColor: textColor,
           },
         },
         // shape: {
@@ -336,23 +352,23 @@ const spec = (inputData) => ({
 });
 
 const surveyColors = {
-  "ztfg": "#28a745",
-  "ztfr": "#dc3545",
-  "ztfi": "#f3dc11",
-  "AllWISE": "#2f5492",
-  "Gaia_EDR3": "#ff7f0e",
-  "PS1_DR1": "#3bbed5",
-  "GALEX": "#6607c2",
-  "TNS": "#ed6cf6"
+  ztfg: "#28a745",
+  ztfr: "#dc3545",
+  ztfi: "#f3dc11",
+  AllWISE: "#2f5492",
+  Gaia_EDR3: "#ff7f0e",
+  PS1_DR1: "#3bbed5",
+  GALEX: "#6607c2",
+  TNS: "#ed6cf6",
 };
 
 const getColor = (key) => {
   if (key in surveyColors) {
-    return surveyColors[key]
+    return surveyColors[key];
   }
   // if not known, generate a random color
   return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
-}
+};
 
 const processData = (photometry, crossMatches) => {
   // Only take points with a non-null RA and Dec
@@ -392,53 +408,65 @@ const processData = (photometry, crossMatches) => {
 
   const filters = [
     ...new Set(Object.values(filteredPhotometry).map((point) => point.filter)),
-    ...Object.keys(crossMatches).filter((catalog) => crossMatches[catalog].length > 0)
+    ...Object.keys(crossMatches).filter(
+      (catalog) => crossMatches[catalog].length > 0
+    ),
   ];
   const colorScale = {
     domain: filters,
     range: filters.map((filter) => getColor(filter)),
-  }
+  };
 
   // Cross-matches as a flattened array.
   // for each source, store catalog name and position deltas
-  const crossMatchesAsArray = Object.keys(crossMatches).map(
-    (catalog) => crossMatches[catalog].map(
-      (source) => ({
+  const crossMatchesAsArray = Object.keys(crossMatches)
+    .map((catalog) =>
+      crossMatches[catalog].map((source) => ({
         ...source,
-        catalog
-      })
+        catalog,
+      }))
     )
-  ).flat().map(
-    (source) => {
-      const { delRA, delDec } = relativeCoord(source.ra, source.dec, refRA, refDec);
-      const offsetFromReference = gcirc(source.ra, source.dec, refRA, refDec) * 3600;
+    .flat()
+    .map((source) => {
+      const { delRA, delDec } = relativeCoord(
+        source.ra,
+        source.dec,
+        refRA,
+        refDec
+      );
+      const offsetFromReference =
+        gcirc(source.ra, source.dec, refRA, refDec) * 3600;
       return {
         ...source,
         delRA,
         delDec,
-        offsetFromReference
+        offsetFromReference,
       };
-    }
-  );
-  const nearestSourceFromCatalog = Object.keys(crossMatches).map(
-    (catalog) => {
-      const distances = crossMatchesAsArray.filter(
-        (source) => source.catalog === catalog
-      ).map((source) => source.offsetFromReference);
+    });
+  const nearestSourceFromCatalog = Object.keys(crossMatches)
+    .map((catalog) => {
+      const distances = crossMatchesAsArray
+        .filter((source) => source.catalog === catalog)
+        .map((source) => source.offsetFromReference);
       // console.log(distances);
-      return distances.length ? {catalog, minDistance: Math.min(...distances)} : null
-    }
-  ).filter((match) => match);
+      return distances.length
+        ? { catalog, minDistance: Math.min(...distances) }
+        : null;
+    })
+    .filter((match) => match);
 
   const delRaCrossMatches = crossMatchesAsArray.map((point) => point.delRA);
   const delDecCrossMatches = crossMatchesAsArray.map((point) => point.delDec);
 
   // Delta range to set x and y axis domains to keep scale ratio at 1:1
-  const minDeltaRa = Math.min(...[...delRaGroup, ...delRaCrossMatches])
-  const maxDeltaRa = Math.max(...[...delRaGroup, ...delRaCrossMatches])
-  const minDeltaDec = Math.min(...[...delDecGroup, ...delDecCrossMatches])
-  const maxDeltaDec = Math.max(...[...delDecGroup, ...delDecCrossMatches])
-  const domain = [Math.min(minDeltaRa, minDeltaDec), Math.max(maxDeltaRa, maxDeltaDec)]
+  const minDeltaRa = Math.min(...[...delRaGroup, ...delRaCrossMatches]);
+  const maxDeltaRa = Math.max(...[...delRaGroup, ...delRaCrossMatches]);
+  const minDeltaDec = Math.min(...[...delDecGroup, ...delDecCrossMatches]);
+  const maxDeltaDec = Math.max(...[...delDecGroup, ...delDecCrossMatches]);
+  const domain = [
+    Math.min(minDeltaRa, minDeltaDec),
+    Math.max(maxDeltaRa, maxDeltaDec),
+  ];
 
   // Sigma circle
   const circlePoints = getCirclePoints(delRaGroup, delDecGroup);
@@ -484,12 +512,13 @@ const CentroidPlot = ({ sourceId, size }) => {
 
   useEffect(() => {
     if (loadedSourceId !== sourceId && ra && dec) {
-      dispatch(archiveActions.fetchCrossMatches({ra, dec, radius}));
-      setloadedSourceId(sourceId)
+      dispatch(archiveActions.fetchCrossMatches({ ra, dec, radius }));
+      setloadedSourceId(sourceId);
     }
   }, [loadedSourceId, sourceId, ra, dec, radius, dispatch]);
 
-  const plotData = photometry && crossMatches ? processData(photometry, crossMatches) : null;
+  const plotData =
+    photometry && crossMatches ? processData(photometry, crossMatches) : null;
 
   if (plotData) {
     if (plotData.photometryData.length > 0) {
@@ -500,21 +529,23 @@ const CentroidPlot = ({ sourceId, size }) => {
             data-testid="centroid-plot-div"
             ref={(node) => {
               if (node) {
-                embed(node, spec(plotData), {
+                embed(node, spec(plotData, theme.palette.text.primary), {
                   actions: false,
                 });
               }
             }}
           />
-          {plotData.nearestSourceFromCatalog.length > 0 && <div className={classes.infoLine}>
-            Offsets from nearest sources in reference catalogs:
-            {plotData.nearestSourceFromCatalog.map((source) => (
+          {plotData.nearestSourceFromCatalog.length > 0 && (
+            <div className={classes.infoLine}>
+              Offsets from nearest sources in reference catalogs:
+              {plotData.nearestSourceFromCatalog.map((source) => (
                 <div key={source.catalog} className={classes.offsetLine}>
-                  <b>{source.catalog}</b>: {source.minDistance.toFixed(2)}&#8243;
+                  <b>{source.catalog}</b>: {source.minDistance.toFixed(2)}
+                  &#8243;
                 </div>
-            )
-            )}
-          </div>}
+              ))}
+            </div>
+          )}
         </div>
       );
     }
