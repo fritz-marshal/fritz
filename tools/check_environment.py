@@ -3,6 +3,7 @@ from distutils.version import LooseVersion as Version
 import subprocess
 import pathlib
 import pkg_resources
+import re
 
 from .status import status
 
@@ -35,7 +36,7 @@ system_dependencies = {
         # Command to get version
         ["docker-compose", "--version"],
         # Extract *only* the version number
-        lambda v: v.split()[2][:-1],
+        lambda v: re.search(r"\s*([\d.]+)", v).group(0).strip(),
         # It must be >= 1.22.0
         "1.22.0",
     ),
