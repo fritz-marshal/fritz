@@ -109,7 +109,7 @@ def build(
             raise RuntimeError("Failed to start SkyPortal")
 
         # init skyportal and load seed data
-        mi, max_retires = 1, 3
+        mi, max_retires = 1, 5
         while mi <= max_retires:
             p = subprocess.run(
                 [
@@ -129,7 +129,7 @@ def build(
             else:
                 print("Failed to load seed data into SkyPortal, waiting to retry...")
                 mi += 1
-                time.sleep(15)
+                time.sleep(30)
         if mi == max_retires + 1:
             raise RuntimeError("Failed to init SkyPortal and load seed data")
 
@@ -153,6 +153,7 @@ def build(
         # Build kowalski's images
         c = ["python", "kowalski.py", "build"]
         if init and yes and not Path("kowalski/docker-compose.yaml").exists():
+            print("Using default config for Kowalski")
             subprocess.run(
                 [
                     "cp",
