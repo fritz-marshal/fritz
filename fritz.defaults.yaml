@@ -279,7 +279,8 @@ skyportal:
     host: <host>
     port:
 
-    ssl: True
+    # It is recommended to use TLS in production
+    ssl: False
     processes: 4
 
     # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)

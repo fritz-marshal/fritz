@@ -52,7 +52,7 @@ def test():
 
         if not all(containers_up):
             print("Fritz's containers are not up, waiting...")
-            time.sleep(3)
+            time.sleep(5)
             continue
 
         break
@@ -67,7 +67,7 @@ def test():
 
         if "app.py" not in process_list:
             print("SkyPortal is not up, waiting...")
-            time.sleep(10)
+            time.sleep(30)
             continue
 
         break
@@ -87,13 +87,13 @@ def test():
 
             if response.status_code != 200:
                 print("SkyPortal is not responding, waiting...")
-                time.sleep(10)
+                time.sleep(30)
             else:
                 break
 
         except requests.exceptions.ConnectionError:
             print("SkyPortal is not responding, waiting...")
-            time.sleep(10)
+            time.sleep(30)
             continue
 
     alert_stream_tests = (
