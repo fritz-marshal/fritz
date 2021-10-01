@@ -152,8 +152,15 @@ def build(
     if not no_kowalski:
         # Build kowalski's images
         c = ["python", "kowalski.py", "build"]
-        if yes:
-            c.append("--yes")
+        if init and yes and not Path("kowalski/docker-compose.yaml").exists():
+            subprocess.run(
+                [
+                    "cp",
+                    "kowalski/docker-compose.fritz.defaults.yaml",
+                    "kowalski/docker-compose.yaml",
+                ],
+                check=True,
+            )
         p = subprocess.run(c, cwd="kowalski")
         if p.returncode != 0:
             raise RuntimeError("Failed to build Kowalski's docker images")
