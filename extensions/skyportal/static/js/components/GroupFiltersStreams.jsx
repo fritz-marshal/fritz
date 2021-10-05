@@ -153,6 +153,34 @@ const GroupFiltersStreams = ({
                                 edge="end"
                                 aria-label="delete"
                                 onClick={async () => {
+                                  // not using API/kowalski_filter duck here as that would
+                                  // throw an error if filter does not exist on K
+                                  const fetchInit = {
+                                    credentials: "same-origin",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    method: "GET",
+                                  };
+                                  const response = await fetch(`/api/filters/${filter.id}/v`, fetchInit);
+                                  let json = "";
+                                  try {
+                                    json = await response.json();
+                                  } catch (error) {
+                                    throw new Error(`JSON decoding error: ${error}`);
+                                  }
+                                  // exists on Kowalski? deactivate then!
+                                  if (json.status === "success") {
+                                    const result = await dispatch(
+                                      filterVersionActions.editActiveFilterVersion({
+                                        filter_id: filter.id,
+                                        active: false,
+                                      })
+                                    );
+                                    if (result.status === "success") {
+                                      dispatch(showNotification(`Deactivated filter on Kowalski`));
+                                    }
+                                  }
                                   const result = await dispatch(
                                     filterActions.deleteGroupFilter({
                                       filter_id: filter.id,
