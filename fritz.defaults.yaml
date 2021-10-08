@@ -397,6 +397,13 @@ skyportal:
     microservice_port: 64100
     expected_url_preamble: "https://hooks.slack.com/"
 
+  spectrum_types:
+    types:
+      - source
+      - host
+      - host_center
+    default: source
+
   smtp:
     from_email:
     password:
