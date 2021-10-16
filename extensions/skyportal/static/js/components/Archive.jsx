@@ -9,6 +9,7 @@ import Card from "@material-ui/core/Card";
 import CardActions from "@material-ui/core/CardActions";
 import CardContent from "@material-ui/core/CardContent";
 import Checkbox from "@material-ui/core/Checkbox";
+import Chip from "@material-ui/core/Chip";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Dialog from "@material-ui/core/Dialog";
 import DialogActions from "@material-ui/core/DialogActions";
@@ -23,6 +24,7 @@ import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
 import IconButton from "@material-ui/core/IconButton";
 import InputLabel from "@material-ui/core/InputLabel";
 import MenuItem from "@material-ui/core/MenuItem";
+import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 import Paper from "@material-ui/core/Paper";
 import Popover from "@material-ui/core/Popover";
 import Radio from '@material-ui/core/Radio';
@@ -667,7 +669,15 @@ const Archive = () => {
                             key={source.id}
                             value={source.id}
                             control={<Radio />}
-                            label={`${source.id} (found within 5" from search position)`}
+                            label={
+                              <Chip
+                                size="small"
+                                label={`${source.id} (found within 5" from search position)`}
+                                onDelete={() => window.open(`/source/${source.id}`, "_blank")}
+                                deleteIcon={<OpenInNewIcon />}
+                                color="primary"
+                              />
+                            }
                           />
                         ))
                       }
