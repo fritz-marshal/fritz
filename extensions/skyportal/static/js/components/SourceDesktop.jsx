@@ -33,7 +33,7 @@ import SourceNotification from "./SourceNotification";
 import EditSourceGroups from "./EditSourceGroups";
 import UpdateSourceRedshift from "./UpdateSourceRedshift";
 import SourceRedshiftHistory from "./SourceRedshiftHistory";
-import ObjPageAnnotations from "./ObjPageAnnotations";
+import AnnotationsTable from "./AnnotationsTable";
 import SourceSaveHistory from "./SourceSaveHistory";
 import PhotometryTable from "./PhotometryTable";
 import FavoritesButton from "./FavoritesButton";
@@ -504,7 +504,7 @@ const SourceDesktop = ({ source }) => {
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <ObjPageAnnotations annotations={source.annotations} />
+              <AnnotationsTable annotations={source.annotations} />
             </AccordionDetails>
           </Accordion>
         </div>
