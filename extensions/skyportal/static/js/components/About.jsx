@@ -296,6 +296,34 @@ const About = () => {
           </a>
           .
         </BibLink>
+        If you found Fritz's ACAI machine learning classifiers useful, please cite the following paper:
+        <BibLink
+          bibtex={`@ARTICLE{2021arXiv211112142D,
+       author = {{Duev}, Dmitry A. and {van der Walt}, St{\\'e}fan J.},
+        title = "{Phenomenological classification of the Zwicky Transient Facility astronomical event alerts}",
+      journal = {arXiv e-prints},
+     keywords = {Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2021,
+        month = nov,
+          eid = {arXiv:2111.12142},
+        pages = {arXiv:2111.12142},
+archivePrefix = {arXiv},
+       eprint = {2111.12142},
+ primaryClass = {astro-ph.IM},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2021arXiv211112142D},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}`}
+        >
+          Dmitry A. Duev & Stéfan J. van der Walt,{" "}
+          <em>
+            Phenomenological classification of the
+            Zwicky Transient Facility astronomical event alerts.
+          </em>
+          <a href="https://arxiv.org/abs/2111.12142">
+            arXiv:2111.12142
+          </a>
+          .
+        </BibLink>
       </div>
       <Typography variant="body1">
         Fritz development is funded by the Moore Foundation, Heising Simons
