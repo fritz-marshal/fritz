@@ -66,10 +66,9 @@ def make_thumbnail(a, ttype, ztftype):
 
     cutout_data = a[f"cutout{ztftype}"]["stampData"]
     with gzip.open(io.BytesIO(cutout_data), "rb") as f:
-        with fits.open(io.BytesIO(f.read())) as hdu:
+        with fits.open(io.BytesIO(f.read()), ignore_missing_simple=True) as hdu:
             # header = hdu[0].header
             data_flipped_y = np.flipud(hdu[0].data)
-    # fixme: png, switch to fits eventually
     buff = io.BytesIO()
     plt.close("all")
     fig = plt.figure()
@@ -1225,7 +1224,7 @@ class AlertCutoutHandler(BaseHandler):
 
             # unzip and flip about y axis on the server side
             with gzip.open(io.BytesIO(cutout_data), "rb") as f:
-                with fits.open(io.BytesIO(f.read())) as hdu:
+                with fits.open(io.BytesIO(f.read()), ignore_missing_simple=True) as hdu:
                     header = hdu[0].header
                     data_flipped_y = np.flipud(hdu[0].data)
 
