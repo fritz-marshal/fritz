@@ -319,7 +319,7 @@ archivePrefix = {arXiv},
           Dmitry A. Duev & Stéfan J. van der Walt,{" "}
           <em>
             Phenomenological classification of the
-            Zwicky Transient Facility astronomical event alerts.
+            Zwicky Transient Facility astronomical event alerts.{" "}
           </em>
           <a href="https://arxiv.org/abs/2111.12142">
             arXiv:2111.12142
