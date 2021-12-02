@@ -297,6 +297,8 @@ const About = () => {
           .
         </BibLink>
         If you found Fritz's ACAI machine learning classifiers useful, please cite the following paper:
+      </div>
+      <div>
         <BibLink
           bibtex={`@ARTICLE{2021arXiv211112142D,
        author = {{Duev}, Dmitry A. and {van der Walt}, St{\\'e}fan J.},
