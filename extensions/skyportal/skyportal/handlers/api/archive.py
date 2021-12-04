@@ -219,6 +219,8 @@ class ArchiveCatalogsHandler(BaseHandler):
                 schema: Error
         """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if gloria is None:
+            return self.error("Gloria connection unavailable.")
         catalog_names = gloria.query(query=query).get("data")
         return self.success(data=catalog_names)
 
@@ -277,6 +279,8 @@ class CrossMatchHandler(BaseHandler):
                 schema: Error
         """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if gloria is None:
+            return self.error("Gloria connection unavailable.")
         available_catalog_names = gloria.query(query=query).get("data")
         # expose all but the ZTF/PTF-related catalogs
         catalogs = [
@@ -439,6 +443,8 @@ class ArchiveHandler(BaseHandler):
                 schema: Error
         """
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if gloria is None:
+            return self.error("Gloria connection unavailable.")
         available_catalog_names = gloria.query(query=query).get("data")
         # expose only the ZTF light curves for now
         available_catalogs = [
@@ -625,6 +631,9 @@ class ArchiveHandler(BaseHandler):
                 schema: Error
         """
         data = self.get_json()
+
+        if gloria is None:
+            return self.error("Gloria connection unavailable.")
 
         obj_id = data.pop("obj_id", None)
         catalog = data.pop("catalog", None)
