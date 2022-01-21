@@ -161,7 +161,7 @@ def test():
         "-i",
         "skyportal_web_1",
         "cp",
-        "config.yaml",
+        "docker.yaml",
         "test_config.yaml",
     ]
     try:

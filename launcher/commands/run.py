@@ -1,4 +1,3 @@
-import os
 import pathlib
 import subprocess
 
@@ -17,9 +16,6 @@ def run(
     yes: bool = False,
 ):
     """🚀 Launch Fritz"""
-    env = os.environ.copy()
-    env.update({"FLAGS": "--config=../fritz.yaml"})
-
     if init:
         build(
             init=init,

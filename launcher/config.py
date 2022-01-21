@@ -58,7 +58,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False):
     config["skyportal"]["database"]["host"] = "db"
     config["skyportal"]["server"]["url"] = "http://localhost:5000"
     config_skyportal = config["skyportal"]  # don't need the K stuff
-    with open("skyportal/config.yaml", "w") as skyportal_config_yaml:
+    with open("skyportal/docker.yaml", "w") as skyportal_config_yaml:
         yaml.dump(config_skyportal, skyportal_config_yaml)
 
     # update fritz.yaml:
