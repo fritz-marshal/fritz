@@ -17,7 +17,7 @@ def doc(yes: bool = False, upload: bool = False):
         subprocess.run(
             [
                 "cp",
-                "config.yaml",
+                "docker.yaml",
                 destination,
             ],
             check=True,
