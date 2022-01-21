@@ -108,8 +108,3 @@ def patch():
         for line in ext_req:
             if line not in skyportal_req:
                 f.write(line)
-
-    # The skyportal .dockerignore includes config.yaml, but we would like
-    # to add that file; we therefore overwrite the .dockerignore
-    with open("skyportal/.dockerignore", "w") as f:
-        f.write(".*\n")
