@@ -54,6 +54,8 @@ skyportal:
         component: ObservingRunPage
       - path: "/run/:id"
         component: RunSummary
+      - path: "/allocations"
+        component: AllocationPage
       - path: "/group_sources/:id"
         component: GroupSources
       - path: "/user_management"
@@ -76,6 +78,10 @@ skyportal:
         component: DBStats
       - path: "/gcn_events"
         component: GcnEvents
+      - path: "/telescopes"
+        component: TelescopePage
+      - path: "/instruments"
+        component: InstrumentPage
 
     kowalski:
       protocol: http
@@ -124,9 +130,26 @@ skyportal:
         icon: LocalCafe
         url: /runs
 
+      - name: GCN Events
+        icon: SettingsInputAntenna
+        url: /gcn_events
+
+      - name: Telescopes
+        icon: MyLocation
+        url: /telescopes
+
+      - name: Instruments
+        icon: Wifi
+        url: /instruments
+
+      - name: Allocations
+        icon: HourglassEmptyOutlined
+        url: /allocations
+
       - name: About
         icon: Info
         url: /about
+
 
     security:
       strict: true
@@ -370,6 +393,15 @@ skyportal:
     sms_account_sid:
     sms_auth_token:
 
+  smtp:
+    from_email:
+    password:
+    host:
+    port:
+
+  # This value needs to be either "sendgrid" or "smtp" (without quotes)
+  email_service: sendgrid
+
   invitations:
     enabled: False # If debug_login=True above, invite tokens won't be used during auth
     days_until_expiry: 3
@@ -404,13 +436,25 @@ skyportal:
       - host_center
     default: source
 
-  smtp:
-    from_email:
-    password:
-    host:
-    port:
-  # This value needs to be either "sendgrid" or "smtp" (without quotes)
-  email_service: sendgrid
+  # define the additional passbands that are not in SNCosmo
+  # (https://sncosmo.readthedocs.io/en/stable/bandpass-list.html)
+  # the names must be unique. The wavelength array should
+  # describe the full extent of the bandpass in Angstrom
+  # and the transmission should be a vector of the same
+  # length that defines the full Quantum Efficiency at each wavelength.
+  # must have at least two elements in the arrays
+  # `wavelength` and `transmission`.
+  additional_bandpasses:
+    - name: 'atlasc'
+      filterset: 'atlas'
+      wavelength: [4150, 4157, 6556, 6560]
+      transmission: [0, 1, 1, 0]
+      description: "basic ATLAS C filter - tophat transmission"
+    - name: 'atlaso'
+      filterset: 'atlas'
+      wavelength: [5580, 5582, 8249, 8250]
+      transmission: [0, 1, 1, 0]
+      description: "basic ATLAS O filter - tophat transmission"
 
 kowalski:
   server:
