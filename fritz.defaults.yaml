@@ -20,6 +20,35 @@ skyportal:
     # this endpoint does not actually do anything -- it is just for testing
     sedm_endpoint: http://pharos.caltech.edu/add_fritz
 
+    lt_host: 161.72.57.3
+    lt_port: 8080
+
+    lco_protocol: https
+    lco_host: observe.lco.global
+    lco_port: 443
+
+    ztf:
+      protocol: https
+      host: kowalski.caltech.edu
+      port: 443
+
+    swift:
+      protocol: https
+      host: www.swift.psu.edu
+      port: 443
+
+    ps1_endpoint: https://catalogs.mast.stsci.edu/
+
+    atlas:
+      protocol: https
+      host: fallingstar-data.com
+
+    kait:
+      protocol: http
+      host: herculesii.astro.berkeley.edu
+
+    treasuremap_endpoint: http://treasuremap.space
+
     # See https://stackoverflow.com/a/35604855 for syntax
     # These are Javascript component routes
     routes:
@@ -82,6 +111,13 @@ skyportal:
         component: TelescopePage
       - path: "/instruments"
         component: InstrumentPage
+      - path: "/shifts"
+        component: ShiftPage
+      - path: "/observations"
+        component: ObservationPage
+      - path: "/followup_requests"
+        component: FollowupRequestPage
+
 
     kowalski:
       protocol: http
@@ -145,6 +181,18 @@ skyportal:
       - name: Allocations
         icon: HourglassEmptyOutlined
         url: /allocations
+
+      - name: Observations
+        icon: ZoomInOutlined
+        url: /observations
+
+      - name: Followup Requests
+        icon: WorkOutlined
+        url: /followup_requests
+
+      - name: Shifts
+        icon: SubwayRounded
+        url: /shifts
 
       - name: About
         icon: Info
