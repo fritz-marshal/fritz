@@ -32,6 +32,8 @@ skyportal:
       host: kowalski.caltech.edu
       port: 443
 
+    ztf_forced_endpoint: https://ztfweb.ipac.caltech.edu
+
     swift:
       protocol: https
       host: www.swift.psu.edu
