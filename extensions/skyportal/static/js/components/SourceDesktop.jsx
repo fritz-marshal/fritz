@@ -16,6 +16,7 @@ import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 import { log10, abs, ceil } from "mathjs";
 
+import CircularProgress from "@material-ui/core/CircularProgress";
 import CommentList from "./CommentList";
 import ClassificationList from "./ClassificationList";
 import ClassificationForm from "./ClassificationForm";
@@ -32,6 +33,7 @@ import AssignmentList from "./AssignmentList";
 import SourceNotification from "./SourceNotification";
 import EditSourceGroups from "./EditSourceGroups";
 import UpdateSourceRedshift from "./UpdateSourceRedshift";
+import SourceAnnotationButtons from "./SourceAnnotationButtons";
 import SourceRedshiftHistory from "./SourceRedshiftHistory";
 import AnnotationsTable from "./AnnotationsTable";
 import SourceSaveHistory from "./SourceSaveHistory";
@@ -75,7 +77,10 @@ export const useSourceStyles = makeStyles((theme) => ({
   name: {
     fontSize: "200%",
     fontWeight: "900",
-    color: theme.palette.primary.main,
+    color:
+      theme.palette.type === "dark"
+        ? theme.palette.secondary.main
+        : theme.palette.primary.main,
     paddingBottom: "0.25em",
     display: "inline-block",
   },
@@ -143,9 +148,6 @@ export const useSourceStyles = makeStyles((theme) => ({
     padding: theme.spacing(2),
     display: "flex",
     flexDirection: "row",
-  },
-  duplicateButton: {
-    textTransform: "none",
   },
 }));
 
@@ -248,7 +250,7 @@ const SourceDesktop = ({ source }) => {
                 &nbsp;
                 {source.duplicates.map((dupID) => (
                   <Link to={`/source/${dupID}`} role="link" key={dupID}>
-                    <Button size="small" className={classes.duplicateButton}>{dupID}</Button>
+                    <Button size="small">{dupID}</Button>
                   </Link>
                 ))}
               </div>
@@ -530,6 +532,9 @@ const SourceDesktop = ({ source }) => {
                 spectrumAnnotations={spectrumAnnotations}
               />
             </AccordionDetails>
+            <AccordionDetails>
+              <SourceAnnotationButtons source={source} />
+            </AccordionDetails>
           </Accordion>
         </div>
         <div className={classes.columnItem}>
@@ -680,9 +685,9 @@ SourceDesktop.propTypes = {
         created_at: PropTypes.string,
       })
     ),
-    followup_requests: PropTypes.arrayOf(PropTypes.any),
-    assignments: PropTypes.arrayOf(PropTypes.any),
-    redshift_history: PropTypes.arrayOf(PropTypes.any),
+    followup_requests: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
+    assignments: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
+    redshift_history: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
     color_magnitude: PropTypes.arrayOf(
       PropTypes.shape({
         abs_mag: PropTypes.number,

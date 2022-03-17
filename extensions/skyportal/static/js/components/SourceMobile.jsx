@@ -14,6 +14,7 @@ import AccordionDetails from "@material-ui/core/AccordionDetails";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import Typography from "@material-ui/core/Typography";
 import Paper from "@material-ui/core/Paper";
+import CircularProgress from "@material-ui/core/CircularProgress";
 
 import {
   isBrowser,
@@ -45,6 +46,7 @@ import AnnotationsTable from "./AnnotationsTable";
 import SourceSaveHistory from "./SourceSaveHistory";
 import PhotometryTable from "./PhotometryTable";
 import FavoritesButton from "./FavoritesButton";
+import SourceAnnotationButtons from "./SourceAnnotationButtons";
 import TNSInfo from "./TNSInfo";
 import AlertsSearchButton from "./AlertsSearchButton";
 import ArchiveSearchButton from "./ArchiveSearchButton";
@@ -98,7 +100,10 @@ export const useSourceStyles = makeStyles((theme) => ({
   name: {
     fontSize: "200%",
     fontWeight: "900",
-    color: theme.palette.primary.main,
+    color:
+      theme.palette.type === "dark"
+        ? theme.palette.secondary.main
+        : theme.palette.primary.main,
     paddingBottom: "0.25em",
     display: "inline-block",
   },
@@ -190,7 +195,7 @@ export const useSourceStyles = makeStyles((theme) => ({
 const SourceMobile = WidthProvider(
   withOrientationChange(({ source, isLandscape, width }) => {
     const matches = useMediaQuery("(min-width: 475px)");
-    const centroidPlotSize = matches ? "26rem" : "17rem";
+    const centroidPlotSize = matches ? "21.875rem" : "17rem";
     const hrDiagramSize = matches ? 300 : 200;
 
     const classes = useSourceStyles();
@@ -463,6 +468,9 @@ const SourceMobile = WidthProvider(
                   spectrumAnnotations={spectrumAnnotations}
                 />
               </AccordionDetails>
+              <AccordionDetails>
+                <SourceAnnotationButtons source={source} />
+              </AccordionDetails>
             </Accordion>
           </div>
           <div>
@@ -716,9 +724,9 @@ SourceMobile.propTypes = {
         created_at: PropTypes.string,
       })
     ),
-    followup_requests: PropTypes.arrayOf(PropTypes.any),
-    assignments: PropTypes.arrayOf(PropTypes.any),
-    redshift_history: PropTypes.arrayOf(PropTypes.any),
+    followup_requests: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
+    assignments: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
+    redshift_history: PropTypes.arrayOf(PropTypes.any), // eslint-disable-line react/forbid-prop-types
     duplicates: PropTypes.arrayOf(PropTypes.string),
     color_magnitude: PropTypes.arrayOf(
       PropTypes.shape({
