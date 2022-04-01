@@ -67,7 +67,9 @@ export const useSourceStyles = makeStyles((theme) => ({
     overflowX: "scroll",
     flexDirection: "column",
     padding: "0.5rem",
-    "& div button": {
+  },
+  buttonContainer: {
+    "& button": {
       margin: "0.5rem",
     },
   },
@@ -398,13 +400,21 @@ const SourceDesktop = ({ source }) => {
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <div className={classes.photometryContainer}>
-                <Suspense fallback={<div>Loading photometry plot...</div>}>
-                  <Plot
-                    url={`/api/internal/plot/photometry/${source.id}?width=800&height=500`}
-                  />
-                </Suspense>
-                <div>
+              <Grid container>
+                <div className={classes.photometryContainer}>
+                  <Suspense
+                    fallback={
+                      <div>
+                        <CircularProgress color="secondary" />
+                      </div>
+                    }
+                  >
+                    <Plot
+                      url={`/api/internal/plot/photometry/${source.id}?width=800&height=500`}
+                    />
+                  </Suspense>
+                </div>
+                <div className={classes.buttonContainer}>
                   <Link to={`/upload_photometry/${source.id}`} role="link">
                     <Button variant="contained">
                       Upload additional photometry
@@ -428,7 +438,7 @@ const SourceDesktop = ({ source }) => {
                     </Link>
                   )}
                 </div>
-              </div>
+              </Grid>
             </AccordionDetails>
           </Accordion>
         </div>
@@ -458,7 +468,7 @@ const SourceDesktop = ({ source }) => {
                     />
                   </Suspense>
                 </div>
-                <div>
+                <div className={classes.buttonContainer}>
                   <Link to={`/upload_spectrum/${source.id}`} role="link">
                     <Button variant="contained">
                       Upload additional spectroscopy
