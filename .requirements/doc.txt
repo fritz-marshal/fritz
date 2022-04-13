@@ -1,3 +1,4 @@
 sphinx<3
 sphinx_press_theme
 myst-parser
+jinja2<3.1.0
