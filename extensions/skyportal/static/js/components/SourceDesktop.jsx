@@ -35,6 +35,7 @@ import AssignmentList from "./AssignmentList";
 import SourceNotification from "./SourceNotification";
 import EditSourceGroups from "./EditSourceGroups";
 import UpdateSourceRedshift from "./UpdateSourceRedshift";
+import SourceAnnotationButtons from "./SourceAnnotationButtons";
 import SourceRedshiftHistory from "./SourceRedshiftHistory";
 import AnnotationsTable from "./AnnotationsTable";
 import SourceSaveHistory from "./SourceSaveHistory";
