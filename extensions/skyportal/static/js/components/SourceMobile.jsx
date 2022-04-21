@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import useMediaQuery from "@material-ui/core/useMediaQuery";
+import Grid from "@material-ui/core/Grid";
 import Button from "@material-ui/core/Button";
 import Chip from "@material-ui/core/Chip";
 import Tooltip from "@material-ui/core/Tooltip";
@@ -50,6 +51,7 @@ import SourceAnnotationButtons from "./SourceAnnotationButtons";
 import TNSInfo from "./TNSInfo";
 import AlertsSearchButton from "./AlertsSearchButton";
 import ArchiveSearchButton from "./ArchiveSearchButton";
+import TNSATForm from "./TNSATForm";
 
 import * as spectraActions from "../ducks/spectra";
 
@@ -116,13 +118,13 @@ export const useSourceStyles = makeStyles((theme) => ({
     flexDirection: "column",
     paddingBottom: "0.5rem",
     overflowX: "scroll",
-    "& div button": {
-      margin: "0.5rem",
-    },
   },
   plotButtons: {
     display: "flex",
     flexFlow: "row wrap",
+    "& button": {
+      margin: "0.5rem",
+    },
   },
   comments: {
     marginLeft: "1rem",
@@ -130,6 +132,12 @@ export const useSourceStyles = makeStyles((theme) => ({
     width: "100%",
   },
   classifications: {
+    display: "flex",
+    flexDirection: "column",
+    margin: "auto",
+    width: "100%",
+  },
+  tns: {
     display: "flex",
     flexDirection: "column",
     margin: "auto",
@@ -228,7 +236,6 @@ const SourceMobile = WidthProvider(
     useEffect(() => {
       dispatch(spectraActions.fetchSourceSpectra(source.id));
     }, [source.id, dispatch]);
-
     const z_round = source.redshift_error
       ? ceil(abs(log10(source.redshift_error)))
       : 4;
@@ -292,18 +299,6 @@ const SourceMobile = WidthProvider(
                       </div>
                     </div>
                   </div>
-                  {source.duplicates && (
-                    <div className={classes.infoLine}>
-                      <div className={classes.sourceInfo}>
-                        Possible duplicate of:&nbsp;
-                        {source.duplicates.map((dupID) => (
-                          <Link to={`/source/${dupID}`} role="link" key={dupID}>
-                            <Button size="small">{dupID}</Button>
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <div className={classes.infoLine}>
                     <div className={classes.sourceInfo}>
                       <AlertsSearchButton objID={source.id} ra={source.ra} dec={source.dec} />
@@ -352,6 +347,18 @@ const SourceMobile = WidthProvider(
                       )}
                     </div>
                   </div>
+                  {source.duplicates && (
+                    <div className={classes.infoLine}>
+                      <div className={classes.sourceInfo}>
+                        Possible duplicate of:&nbsp;
+                        {source.duplicates.map((dupID) => (
+                          <Link to={`/source/${dupID}`} role="link" key={dupID}>
+                            <Button size="small">{dupID}</Button>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div
                     className={`${classes.infoLine} ${classes.findingChart}`}
                   >
@@ -389,7 +396,7 @@ const SourceMobile = WidthProvider(
                 </div>
                 <br />
                 {showStarList && <StarList sourceId={source.id} />}
-                {source.groups.map((group) => (
+                {source.groups?.map((group) => (
                   <Tooltip
                     title={`Saved at ${group.saved_at} by ${group.saved_by?.username}`}
                     key={group.id}
@@ -408,7 +415,7 @@ const SourceMobile = WidthProvider(
                 <EditSourceGroups
                   source={{
                     id: source.id,
-                    currentGroupIds: source.groups.map((g) => g.id),
+                    currentGroupIds: source.groups?.map((g) => g.id),
                   }}
                   groups={groups}
                   icon
@@ -485,12 +492,24 @@ const SourceMobile = WidthProvider(
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <div className={classes.photometryContainer}>
-                  <Suspense fallback={<div>Loading photometry plot...</div>}>
-                    <Plot
-                      url={`/api/internal/plot/photometry/${source.id}?width=${plotWidth}&device=${device}`}
-                    />
-                  </Suspense>
+                <Grid container>
+                  <div className={classes.photometryContainer}>
+                    {!source.photometry_exists ? (
+                      <div> No photometry exists </div>
+                    ) : (
+                      <Suspense
+                        fallback={
+                          <div>
+                            <CircularProgress color="secondary" />
+                          </div>
+                        }
+                      >
+                        <Plot
+                          url={`/api/internal/plot/photometry/${source.id}?width=${plotWidth}&device=${device}`}
+                        />
+                      </Suspense>
+                    )}
+                  </div>
                   <div className={classes.plotButtons}>
                     {isBrowser && (
                       <Link to={`/upload_photometry/${source.id}`} role="link">
@@ -511,7 +530,7 @@ const SourceMobile = WidthProvider(
                       Show Photometry Table
                     </Button>
                   </div>
-                </div>
+                </Grid>
               </AccordionDetails>
             </Accordion>
           </div>
@@ -527,12 +546,24 @@ const SourceMobile = WidthProvider(
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <div className={classes.photometryContainer}>
-                  <Suspense fallback={<div>Loading spectroscopy plot...</div>}>
-                    <Plot
-                      url={`/api/internal/plot/spectroscopy/${source.id}?width=${plotWidth}&device=${device}`}
-                    />
-                  </Suspense>
+                <Grid container>
+                  <div className={classes.photometryContainer}>
+                    {!source.spectrum_exists ? (
+                      <div> No spectra exist </div>
+                    ) : (
+                      <Suspense
+                        fallback={
+                          <div>
+                            <CircularProgress color="secondary" />
+                          </div>
+                        }
+                      >
+                        <Plot
+                          url={`/api/internal/plot/spectroscopy/${source.id}?width=${plotWidth}&device=${device}&cacheID=${specIDs}`}
+                        />
+                      </Suspense>
+                    )}
+                  </div>
                   <div className={classes.plotButtons}>
                     {isBrowser && (
                       <Link to={`/upload_spectrum/${source.id}`} role="link">
@@ -545,7 +576,7 @@ const SourceMobile = WidthProvider(
                       <Button variant="contained">Manage data</Button>
                     </Link>
                   </div>
-                </div>
+                </Grid>
               </AccordionDetails>
             </Accordion>
           </div>
@@ -564,7 +595,13 @@ const SourceMobile = WidthProvider(
                 </AccordionSummary>
                 <AccordionDetails>
                   <div className={classes.HRDiagramContainer}>
-                    <Suspense fallback={<div>Loading HR diagram...</div>}>
+                    <Suspense
+                      fallback={
+                        <div>
+                          <CircularProgress color="secondary" />
+                        </div>
+                      }
+                    >
                       <VegaHR
                         data={source.color_magnitude}
                         width={hrDiagramSize}
@@ -647,6 +684,24 @@ const SourceMobile = WidthProvider(
               </div>
             </AccordionDetails>
           </Accordion>
+          <Accordion
+            defaultExpanded
+            className={classes.tns}
+            data-testid="tns-accordion"
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="tns-content"
+              id="tns-header"
+            >
+              <Typography className={classes.accordionHeading}>
+                TNS Form
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TNSATForm obj_id={source.id} />
+            </AccordionDetails>
+          </Accordion>
           <Accordion defaultExpanded>
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
@@ -659,7 +714,13 @@ const SourceMobile = WidthProvider(
             </AccordionSummary>
             <AccordionDetails>
               <div className={classes.centroidPlot}>
-                <Suspense fallback={<div>Loading centroid plot...</div>}>
+                <Suspense
+                  fallback={
+                    <div>
+                      <CircularProgress color="secondary" />
+                    </div>
+                  }
+                >
                   <CentroidPlot
                     className={classes.smallPlot}
                     sourceId={source.id}
@@ -736,6 +797,8 @@ SourceMobile.propTypes = {
       })
     ),
     alias: PropTypes.arrayOf(PropTypes.string),
+    photometry_exists: PropTypes.bool,
+    spectrum_exists: PropTypes.bool,
   }).isRequired,
 };
 
