@@ -437,7 +437,7 @@ skyportal:
     refresh_time: 3600.0
     openweather_api_key:
 
-  cron:
+  cron: []
 #    - interval: 60
 #      script: jobs/count_unsaved_candidates.py
     # - interval: 1440
