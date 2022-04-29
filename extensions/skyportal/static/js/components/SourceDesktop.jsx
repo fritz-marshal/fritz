@@ -221,7 +221,7 @@ const SourceDesktop = ({ source }) => {
             </div>
           </div>
           {!rightPaneVisible && (
-            <Button onClick={() => setRightPaneVisible(true)}>
+            <Button onClick={() => setRightPaneVisible(true)} data-testid="show-right-pane-button">
               Show right pane
             </Button>
           )}
@@ -555,7 +555,7 @@ const SourceDesktop = ({ source }) => {
       </Grid>
       <Grid item xs={5}>
         {rightPaneVisible && (
-          <Button onClick={() => setRightPaneVisible(false)}>
+          <Button onClick={() => setRightPaneVisible(false)} data-testid="hide-right-pane-button">
             Hide right pane
           </Button>
         )}
