@@ -172,7 +172,7 @@ const SourceDesktop = ({ source }) => {
   const [showStarList, setShowStarList] = useState(false);
   const [showPhotometry, setShowPhotometry] = useState(false);
   const [rightPaneVisible, setRightPaneVisible] = useState(true);
-  const [plotWidth, setPlotWidth] = useState(0);
+  const plotWidth = rightPaneVisible ? 800 : 1200;
 
   const { instrumentList, instrumentFormParams } = useSelector(
     (state) => state.instruments
@@ -202,14 +202,6 @@ const SourceDesktop = ({ source }) => {
   useEffect(() => {
     dispatch(spectraActions.fetchSourceSpectra(source.id));
   }, [source.id, dispatch]);
-
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver((event) => {
-      setPlotWidth(parseInt(event[0].contentBoxSize[0].inlineSize, 10));
-    });
-
-    resizeObserver.observe(document.getElementById("photometry-container"));
-  });
 
   const z_round = source.redshift_error
     ? ceil(abs(log10(source.redshift_error)))
