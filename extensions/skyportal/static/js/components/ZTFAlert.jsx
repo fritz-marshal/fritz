@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import Button from "@material-ui/core/Button";
 import PropTypes from "prop-types";
@@ -133,7 +133,7 @@ const getMuiTheme = (theme) =>
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
-  const history = useHistory();
+  const history = useNavigate();
 
   // figure out if this objectId has been saved as Source.
   const [savedSource, setsavedSource] = useState(false);
