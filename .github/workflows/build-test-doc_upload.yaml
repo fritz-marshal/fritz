@@ -3,7 +3,7 @@ name: Build, test, and upload docs
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 jobs:
   build-test-doc:
@@ -43,17 +43,17 @@ jobs:
         ./fritz doc --yes
 
     - name: Install SSH Client 🔑
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       uses: webfactory/ssh-agent@v0.4.1
       with:
         ssh-private-key: ${{ secrets.CI_DEPLOY_KEY }}
 
     - name: Deploy docs
-      if: github.ref == 'refs/heads/master'
+      if: github.ref == 'refs/heads/main'
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
         FOLDER: doc/_build/html
         REPOSITORY_NAME: fritz-marshal/doc
-        BRANCH: master
+        BRANCH: main
         SINGLE_COMMIT: true
         SSH: true

@@ -3,7 +3,7 @@ name: Build Docker image, push to gcr.io, deploy to staging
 on:
   push:
     branches:
-      - master
+      - main
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
