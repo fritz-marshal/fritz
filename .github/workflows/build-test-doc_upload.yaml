@@ -53,7 +53,7 @@ jobs:
       uses: JamesIves/github-pages-deploy-action@v4.3.3
       with:
         folder: doc/_build/html
-        repository_name: fritz-marshal/doc
+        repository-name: fritz-marshal/doc
         branch: main
         single_commit: true
         ssh: true
