@@ -109,6 +109,8 @@ skyportal:
         component: DBStats
       - path: "/gcn_events"
         component: GcnEvents
+      - path: "/gcn_events/:dateobs"
+        component: GcnEventPage
       - path: "/telescopes"
         component: TelescopePage
       - path: "/instruments"
