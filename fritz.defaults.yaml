@@ -101,8 +101,8 @@ skyportal:
         component: UploadSpectrum
       - path: "/source/:id/finder"
         component: FindingChart
-      - path: "/observability/:id"
-        component: Observability
+#      - path: "/observability/:id"
+#        component: Observability
       - path: "/source/:id/periodogram"
         component: Periodogram
       - path: "/db_stats"
