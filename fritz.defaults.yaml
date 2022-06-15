@@ -18,7 +18,7 @@ skyportal:
     factory: skyportal.app_server_fritz.make_app_fritz
 
     # this endpoint does not actually do anything -- it is just for testing
-    sedm_endpoint: http://pharos.caltech.edu/add_fritz
+    sedm_endpoint: http://minar.caltech.edu/add_fritz
 
     lt_host: 161.72.57.3
     lt_port: 8080
