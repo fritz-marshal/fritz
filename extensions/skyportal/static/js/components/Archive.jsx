@@ -3,39 +3,46 @@ import { useForm, Controller } from "react-hook-form";
 import {useDispatch, useSelector} from "react-redux";
 import MUIDataTable from "mui-datatables";
 
-import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
-import Button from "@material-ui/core/Button";
-import Card from "@material-ui/core/Card";
-import CardActions from "@material-ui/core/CardActions";
-import CardContent from "@material-ui/core/CardContent";
-import Checkbox from "@material-ui/core/Checkbox";
-import Chip from "@material-ui/core/Chip";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Dialog from "@material-ui/core/Dialog";
-import DialogActions from "@material-ui/core/DialogActions";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogContentText from "@material-ui/core/DialogContentText";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import FormControl from "@material-ui/core/FormControl";
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import FormHelperText from "@material-ui/core/FormHelperText";
-import Grid from "@material-ui/core/Grid";
-import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
-import IconButton from "@material-ui/core/IconButton";
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import Paper from "@material-ui/core/Paper";
-import Popover from "@material-ui/core/Popover";
-import Radio from '@material-ui/core/Radio';
-import RadioGroup from '@material-ui/core/RadioGroup';
-import SaveIcon from "@material-ui/icons/Save";
-import Select from "@material-ui/core/Select";
-import TableCell from "@material-ui/core/TableCell";
-import TableRow from "@material-ui/core/TableRow";
-import TextField from "@material-ui/core/TextField";
-import Typography from "@material-ui/core/Typography";
-import useMediaQuery from "@material-ui/core/useMediaQuery";
+import {
+  createTheme,
+  ThemeProvider,
+  StyledEngineProvider,
+  useTheme,
+  adaptV4Theme,
+} from "@mui/material/styles";
+import makeStyles from '@mui/styles/makeStyles';
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
+import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from "@mui/material/FormHelperText";
+import Grid from "@mui/material/Grid";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import IconButton from "@mui/material/IconButton";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import Paper from "@mui/material/Paper";
+import Popover from "@mui/material/Popover";
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import SaveIcon from "@mui/icons-material/Save";
+import Select from "@mui/material/Select";
+import TableCell from "@mui/material/TableCell";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { showNotification } from "baselayer/components/Notifications";
 import FormValidationError from "./FormValidationError";
@@ -47,21 +54,21 @@ function isString(x) {
 }
 
 const getMuiTheme = (theme) =>
-  createMuiTheme({
+  createTheme(adaptV4Theme({
     palette: theme.palette,
     overrides: {
       MUIDataTableBodyCell: {
         root: {
-          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
+          padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
             0.25
-          )}px ${theme.spacing(1)}px`,
+          )} ${theme.spacing(1)}`,
         },
       },
     },
-  });
+  }));
 
 const getMuiPopoverTheme = () =>
-  createMuiTheme({
+  createTheme(adaptV4Theme({
     overrides: {
       MuiPopover: {
         paper: {
@@ -69,7 +76,7 @@ const getMuiPopoverTheme = () =>
         },
       },
     },
-  });
+  }));
 
 const VegaPlotZTFArchive = React.lazy(() => import("./VegaPlotZTFArchive"));
 
@@ -284,7 +291,7 @@ const Archive = () => {
             container
             direction="row"
             spacing={2}
-            justify="center"
+            justifyContent="center"
             alignItems="center"
           >
             <Grid item>
@@ -312,7 +319,7 @@ const Archive = () => {
         onClick={() => {
           handleSaveDialogOpen(selectedRows);
         }}
-      >
+        size="large">
         <SaveIcon />
       </IconButton>
      ),
@@ -503,13 +510,13 @@ const Archive = () => {
     );
   }
 
-  return (ZTFLightCurveCatalogNames.length &&
+  return ZTFLightCurveCatalogNames.length &&
     <>
       <div>
         <Grid
           container
           direction="row"
-          justify="flex-start"
+          justifyContent="flex-start"
           alignItems="flex-start"
           spacing={1}
         >
@@ -517,16 +524,18 @@ const Archive = () => {
             <Paper elevation={1}>
               <div className={classes.maindiv}>
                 <div className={classes.accordionDetails}>
-                  <MuiThemeProvider theme={getMuiTheme(theme)}>
-                    {queryInProgress ? <CircularProgress /> : (
-                      <MUIDataTable
-                        title="ZTF Light Curves"
-                        data={rows}
-                        columns={columns}
-                        options={options}
-                      />
-                    )}
-                  </MuiThemeProvider>
+                  <StyledEngineProvider injectFirst>
+                    <ThemeProvider theme={getMuiTheme(theme)}>
+                      {queryInProgress ? <CircularProgress /> : (
+                        <MUIDataTable
+                          title="ZTF Light Curves"
+                          data={rows}
+                          columns={columns}
+                          options={options}
+                        />
+                      )}
+                    </ThemeProvider>
+                  </StyledEngineProvider>
                 </div>
               </div>
             </Paper>
@@ -600,27 +609,29 @@ const Archive = () => {
                       >
                         <HelpOutlineIcon />
                       </IconButton>
-                      <MuiThemeProvider theme={getMuiPopoverTheme(theme)}>
-                        <Popover
-                          id={searchHelpId}
-                          open={searchHelpOpen}
-                          anchorEl={searchHeaderAnchor}
-                          onClose={handleCloseSearchHelp}
-                          anchorOrigin={{
-                            vertical: "top",
-                            horizontal: "right",
-                          }}
-                          transformOrigin={{
-                            vertical: "top",
-                            horizontal: "left",
-                          }}
-                        >
-                          <Typography className={classes.typography}>
-                            Maximum search radius is 2 degrees.<br />
-                            At most 1,000 nearest sources (to the requested position) will be returned.
-                          </Typography>
-                        </Popover>
-                      </MuiThemeProvider>
+                      <StyledEngineProvider injectFirst>
+                        <ThemeProvider theme={getMuiPopoverTheme(theme)}>
+                          <Popover
+                            id={searchHelpId}
+                            open={searchHelpOpen}
+                            anchorEl={searchHeaderAnchor}
+                            onClose={handleCloseSearchHelp}
+                            anchorOrigin={{
+                              vertical: "top",
+                              horizontal: "right",
+                            }}
+                            transformOrigin={{
+                              vertical: "top",
+                              horizontal: "left",
+                            }}
+                          >
+                            <Typography className={classes.typography}>
+                              Maximum search radius is 2 degrees.<br />
+                              At most 1,000 nearest sources (to the requested position) will be returned.
+                            </Typography>
+                          </Popover>
+                        </ThemeProvider>
+                      </StyledEngineProvider>
                     </div>
                   </div>
                 </CardActions>
@@ -742,8 +753,7 @@ const Archive = () => {
           </form>
         </Dialog>
       </div>
-    </>
-  );
+    </>;
 };
 
 export default Archive;

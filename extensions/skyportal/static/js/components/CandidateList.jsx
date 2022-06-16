@@ -2,27 +2,29 @@ import React, { useEffect, Suspense, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import PropTypes from "prop-types";
 
-import Paper from "@material-ui/core/Paper";
-import Typography from "@material-ui/core/Typography";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
 import {
-  makeStyles,
-  createMuiTheme,
-  MuiThemeProvider,
+  createTheme,
+  ThemeProvider,
+  StyledEngineProvider,
   useTheme,
-} from "@material-ui/core/styles";
-import useMediaQuery from "@material-ui/core/useMediaQuery";
-import Button from "@material-ui/core/Button";
-import IconButton from "@material-ui/core/IconButton";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import ArrowUpward from "@material-ui/icons/ArrowUpward";
-import ArrowDownward from "@material-ui/icons/ArrowDownward";
-import SortIcon from "@material-ui/icons/Sort";
-import Chip from "@material-ui/core/Chip";
-import Box from "@material-ui/core/Box";
-import Tooltip from "@material-ui/core/Tooltip";
-import Popover from "@material-ui/core/Popover";
-import HelpOutlineIcon from "@material-ui/icons/HelpOutline";
+  adaptV4Theme,
+} from "@mui/material/styles";
+import makeStyles from '@mui/styles/makeStyles';
+import useMediaQuery from "@mui/material/useMediaQuery";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import CircularProgress from "@mui/material/CircularProgress";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
+import SortIcon from "@mui/icons-material/Sort";
+import Chip from "@mui/material/Chip";
+import Box from "@mui/material/Box";
+import Tooltip from "@mui/material/Tooltip";
+import Popover from "@mui/material/Popover";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import Form from "@rjsf/material-ui";
 import MUIDataTable from "mui-datatables";
 
@@ -132,14 +134,14 @@ const useStyles = makeStyles((theme) => ({
 
 // Tweak responsive column widths
 const getMuiTheme = (theme) =>
-  createMuiTheme({
+  createTheme(adaptV4Theme({
     palette: theme.palette,
     overrides: {
       MUIDataTableBodyCell: {
         root: {
-          padding: `${theme.spacing(1)}px ${theme.spacing(
+          padding: `${theme.spacing(1)} ${theme.spacing(
             0.5
-          )}px ${theme.spacing(1)}px ${theme.spacing(1)}px`,
+          )} ${theme.spacing(1)} ${theme.spacing(1)}`,
         },
         stackedHeader: {
           verticalAlign: "top",
@@ -217,7 +219,7 @@ const getMuiTheme = (theme) =>
         },
       },
     },
-  });
+  }));
 
 const getMostRecentClassification = (classifications) => {
   // Display the most recent non-zero probability class
@@ -232,7 +234,7 @@ const getMostRecentClassification = (classifications) => {
 };
 
 const getMuiPopoverTheme = () =>
-  createMuiTheme({
+  createTheme(adaptV4Theme({
     overrides: {
       MuiPopover: {
         paper: {
@@ -240,7 +242,7 @@ const getMuiPopoverTheme = () =>
         },
       },
     },
-  });
+  }));
 
 const defaultNumPerPage = 25;
 
@@ -297,7 +299,7 @@ const CustomSortToolbar = ({
           disabled={selectedAnnotationSortOptions === null}
           className={classes.sortButtton}
           data-testid="sortOnAnnotationButton"
-        >
+          size="large">
           <span>
             <SortIcon />
             {sortOrder !== null && sortOrder === "asc" && <ArrowUpward />}
@@ -790,45 +792,47 @@ const CandidateList = () => {
       >
         <HelpOutlineIcon />
       </IconButton>
-      <MuiThemeProvider theme={getMuiPopoverTheme(theme)}>
-        <Popover
-          id={annotationsHelpId}
-          open={annotationsHelpOpen}
-          anchorEl={annotationsHeaderAnchor}
-          onClose={handleCloseAnnotationsHelp}
-          className={classes.helpPopover}
-          anchorOrigin={{
-            vertical: "top",
-            horizontal: "right",
-          }}
-          transformOrigin={{
-            vertical: "top",
-            horizontal: "left",
-          }}
-        >
-          <Typography className={classes.typography}>
-            Annotation fields are uniquely identified by the combination of
-            origin and key. That is, two annotation values belonging to a key
-            with the same name will be considered different if they come from
-            different origins. <br />
-            <b>Sorting: </b> Clicking on an annotation field will display it, if
-            available, in the Info column. You can then click on the sort tool
-            button at the top of the table to sort on that annotation field. You
-            can also set the initial sorting parameters when submitting a new
-            candidates search via the form at the top of the page.
-            <br />
-            <b>Filtering: </b> Filtering on annotations is available through the
-            filtering tool at the top right of the table. <br />
-            <i>
-              Warning: applying multiple filters on annotations from different
-              origins is not supported currently and will return zero results.
-              For example, you cannot filter for a specific annotation value in
-              annotations from both &quot;origin_a&quot; and
-              &quot;origin_b&quot; at the same time.
-            </i>
-          </Typography>
-        </Popover>
-      </MuiThemeProvider>
+      <StyledEngineProvider injectFirst>
+        <ThemeProvider theme={getMuiPopoverTheme(theme)}>
+          <Popover
+            id={annotationsHelpId}
+            open={annotationsHelpOpen}
+            anchorEl={annotationsHeaderAnchor}
+            onClose={handleCloseAnnotationsHelp}
+            className={classes.helpPopover}
+            anchorOrigin={{
+              vertical: "top",
+              horizontal: "right",
+            }}
+            transformOrigin={{
+              vertical: "top",
+              horizontal: "left",
+            }}
+          >
+            <Typography className={classes.typography}>
+              Annotation fields are uniquely identified by the combination of
+              origin and key. That is, two annotation values belonging to a key
+              with the same name will be considered different if they come from
+              different origins. <br />
+              <b>Sorting: </b> Clicking on an annotation field will display it, if
+              available, in the Info column. You can then click on the sort tool
+              button at the top of the table to sort on that annotation field. You
+              can also set the initial sorting parameters when submitting a new
+              candidates search via the form at the top of the page.
+              <br />
+              <b>Filtering: </b> Filtering on annotations is available through the
+              filtering tool at the top right of the table. <br />
+              <i>
+                Warning: applying multiple filters on annotations from different
+                origins is not supported currently and will return zero results.
+                For example, you cannot filter for a specific annotation value in
+                annotations from both &quot;origin_a&quot; and
+                &quot;origin_b&quot; at the same time.
+              </i>
+            </Typography>
+          </Popover>
+        </ThemeProvider>
+      </StyledEngineProvider>
     </div>
   );
 
@@ -1107,17 +1111,19 @@ const CandidateList = () => {
           <CircularProgress />
         </Box>
         <Box display={queryInProgress ? "none" : "block"}>
-          <MuiThemeProvider theme={getMuiTheme(theme)}>
-            <MUIDataTable
-              // Reset key to reset page number
-              // https://github.com/gregnb/mui-datatables/issues/1166
-              key={`table_${pageNumber}`}
-              columns={columns}
-              data={candidates !== null ? candidates : []}
-              className={classes.table}
-              options={options}
-            />
-          </MuiThemeProvider>
+          <StyledEngineProvider injectFirst>
+            <ThemeProvider theme={getMuiTheme(theme)}>
+              <MUIDataTable
+                // Reset key to reset page number
+                // https://github.com/gregnb/mui-datatables/issues/1166
+                key={`table_${pageNumber}`}
+                columns={columns}
+                data={candidates !== null ? candidates : []}
+                className={classes.table}
+                options={options}
+              />
+            </ThemeProvider>
+          </StyledEngineProvider>
         </Box>
       </div>
       <div className={classes.pages}>

@@ -1,34 +1,35 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useParams } from "react-router-dom";
-import Paper from "@material-ui/core/Paper";
-import { makeStyles, useTheme } from "@material-ui/core/styles";
-import FormControlLabel from "@material-ui/core/FormControlLabel";
-import Switch from "@material-ui/core/Switch";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Select from "@material-ui/core/Select";
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import Grid from "@material-ui/core/Grid";
-import Accordion from "@material-ui/core/Accordion";
-import AccordionSummary from "@material-ui/core/AccordionSummary";
-import AccordionDetails from "@material-ui/core/AccordionDetails";
-import Typography from "@material-ui/core/Typography";
-import TextareaAutosize from "@material-ui/core/TextareaAutosize";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import IconButton from '@material-ui/core/IconButton';
-import CloseIcon from '@material-ui/icons/Close';
-import FileCopyIcon from '@material-ui/icons/FileCopy';
+import Paper from "@mui/material/Paper";
+import { useTheme } from "@mui/material/styles";
+import makeStyles from '@mui/styles/makeStyles';
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
+import FormHelperText from "@mui/material/FormHelperText";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Grid from "@mui/material/Grid";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import Typography from "@mui/material/Typography";
+import TextareaAutosize from "@mui/material/TextareaAutosize";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import FileCopyIcon from '@mui/icons-material/FileCopy';
 import {CopyToClipboard} from 'react-copy-to-clipboard';
 
 import ReactDiffViewer from "react-diff-viewer";
@@ -113,7 +114,7 @@ const Filter = () => {
   const [streamLoadError, setStreamLoadError] = useState("");
 
   const theme = useTheme();
-  const darkTheme = theme.palette.type === "dark";
+  const darkTheme = theme.palette.mode === "dark";
 
   const { fid } = useParams();
   const loadedId = useSelector((state) => state.filter.id);
@@ -378,8 +379,8 @@ const Filter = () => {
                         <a href="https://docs.fritz.science/user_guide.html#alert-filters-in-fritz" target="_blank" rel="noreferrer">docs</a>
                       </DialogContentText>
                       <TextareaAutosize
-                        rowsMax={30}
-                        rowsMin={6}
+                        maxRows={30}
+                        minRows={6}
                         placeholder=""
                         name="pipeline"
                         style={{ width: "100%" }}
@@ -420,7 +421,12 @@ const Filter = () => {
                     <Dialog fullScreen open={openDiff} onClose={handleCloseDiff}>
                       <AppBar className={classes.appBar}>
                         <Toolbar>
-                          <IconButton edge="start" color="inherit" onClick={handleCloseDiff} aria-label="close">
+                          <IconButton
+                            edge="start"
+                            color="inherit"
+                            onClick={handleCloseDiff}
+                            aria-label="close"
+                            size="large">
                             <CloseIcon />
                           </IconButton>
                           <Typography variant="h6" className={classes.marginLeft}>
@@ -460,7 +466,11 @@ const Filter = () => {
                                 )
                               }
                               >
-                                <IconButton color="primary" aria-label="Copy def to clipboard" className={classes.marginTop}>
+                                <IconButton
+                                  color="primary"
+                                  aria-label="Copy def to clipboard"
+                                  className={classes.marginTop}
+                                  size="large">
                                   <FileCopyIcon />
                                 </IconButton>
                               </CopyToClipboard>
@@ -492,7 +502,7 @@ const Filter = () => {
                                 2
                               )}
                               >
-                                <IconButton color="primary" aria-label="Copy def to clipboard">
+                                <IconButton color="primary" aria-label="Copy def to clipboard" size="large">
                                   <FileCopyIcon />
                                 </IconButton>
                               </CopyToClipboard>
