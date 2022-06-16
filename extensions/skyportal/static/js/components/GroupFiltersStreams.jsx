@@ -3,33 +3,33 @@ import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller } from "react-hook-form";
-import DeleteIcon from "@material-ui/icons/Delete";
-import List from "@material-ui/core/List";
-import ListItem from "@material-ui/core/ListItem";
-import ListItemSecondaryAction from "@material-ui/core/ListItemSecondaryAction";
-import ListItemText from "@material-ui/core/ListItemText";
-import IconButton from "@material-ui/core/IconButton";
-import TextField from "@material-ui/core/TextField";
-import OpenInNewIcon from "@material-ui/icons/OpenInNew";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
-import Accordion from "@material-ui/core/Accordion";
-import AccordionSummary from "@material-ui/core/AccordionSummary";
-import AccordionDetails from "@material-ui/core/AccordionDetails";
-import Typography from "@material-ui/core/Typography";
-import Button from "@material-ui/core/Button";
-import useMediaQuery from "@material-ui/core/useMediaQuery";
+import DeleteIcon from "@mui/icons-material/Delete";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemSecondaryAction from "@mui/material/ListItemSecondaryAction";
+import ListItemText from "@mui/material/ListItemText";
+import IconButton from "@mui/material/IconButton";
+import TextField from "@mui/material/TextField";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
-import Dialog from "@material-ui/core/Dialog";
-import DialogActions from "@material-ui/core/DialogActions";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogContentText from "@material-ui/core/DialogContentText";
-import DialogTitle from "@material-ui/core/DialogTitle";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Select from "@material-ui/core/Select";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import FormHelperText from "@mui/material/FormHelperText";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
 import { showNotification } from "baselayer/components/Notifications";
 
 import * as filterActions from "../ducks/filter";
@@ -109,264 +109,262 @@ const GroupFiltersStreams = ({
   const isStreamIdInStreams = (sid) =>
     streams?.map((stream) => stream.id).includes(sid);
 
-  return (
-    <>
-      {streams?.length > 0 && (
-        <Accordion
-          expanded={panelStreamsExpanded === "panel-streams"}
-          onChange={handlePanelStreamsChange("panel-streams")}
+  return <>
+    {streams?.length > 0 && (
+      <Accordion
+        expanded={panelStreamsExpanded === "panel-streams"}
+        onChange={handlePanelStreamsChange("panel-streams")}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls="panel-streams-content"
+          id="panel-streams-header"
+          style={{ borderBottom: "1px solid rgba(0, 0, 0, .125)" }}
         >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            aria-controls="panel-streams-content"
-            id="panel-streams-header"
-            style={{ borderBottom: "1px solid rgba(0, 0, 0, .125)" }}
-          >
-            <Typography className={classes.heading}>
-              Alert streams and filters
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails className={classes.accordion_details}>
-            <List component="nav" className={classes.padding_bottom}>
-              {group.streams?.map((stream) => (
-                <div key={stream.name}>
-                  <ListItem key={stream.name}>
-                    <ListItemText primary={stream.name} />
-                  </ListItem>
-                  <List component="nav" disablePadding>
-                    {group.filters?.map((filter) =>
-                      filter.stream_id === stream.id ? (
-                        <ListItem button key={filter.id}>
-                          <Link
-                            to={`/filter/${filter.id}`}
-                            className={classes.filterLink}
-                          >
-                            <ListItemText
-                              key={filter.id}
-                              className={classes.nested}
-                              primary={filter.name}
-                            />
-                          </Link>
-                          {isAdmin(currentUser) && (
-                            <ListItemSecondaryAction>
-                              <IconButton
-                                edge="end"
-                                aria-label="delete"
-                                onClick={async () => {
-                                  // not using API/kowalski_filter duck here as that would
-                                  // throw an error if filter does not exist on K
-                                  const fetchInit = {
-                                    credentials: "same-origin",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    method: "GET",
-                                  };
-                                  const response = await fetch(`/api/filters/${filter.id}/v`, fetchInit);
-                                  let json = "";
-                                  try {
-                                    json = await response.json();
-                                  } catch (error) {
-                                    throw new Error(`JSON decoding error: ${error}`);
-                                  }
-                                  // exists on Kowalski? deactivate then!
-                                  if (json.status === "success") {
-                                    const result = await dispatch(
-                                      filterVersionActions.editActiveFilterVersion({
-                                        filter_id: filter.id,
-                                        active: false,
-                                      })
-                                    );
-                                    if (result.status === "success") {
-                                      dispatch(showNotification(`Deactivated filter on Kowalski`));
-                                    }
-                                  }
+          <Typography className={classes.heading}>
+            Alert streams and filters
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails className={classes.accordion_details}>
+          <List component="nav" className={classes.padding_bottom}>
+            {group.streams?.map((stream) => (
+              <div key={stream.name}>
+                <ListItem key={stream.name}>
+                  <ListItemText primary={stream.name} />
+                </ListItem>
+                <List component="nav" disablePadding>
+                  {group.filters?.map((filter) =>
+                    filter.stream_id === stream.id ? (
+                      <ListItem button key={filter.id}>
+                        <Link
+                          to={`/filter/${filter.id}`}
+                          className={classes.filterLink}
+                        >
+                          <ListItemText
+                            key={filter.id}
+                            className={classes.nested}
+                            primary={filter.name}
+                          />
+                        </Link>
+                        {isAdmin(currentUser) && (
+                          <ListItemSecondaryAction>
+                            <IconButton
+                              edge="end"
+                              aria-label="delete"
+                              onClick={async () => {
+                                // not using API/kowalski_filter duck here as that would
+                                // throw an error if filter does not exist on K
+                                const fetchInit = {
+                                  credentials: "same-origin",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  method: "GET",
+                                };
+                                const response = await fetch(`/api/filters/${filter.id}/v`, fetchInit);
+                                let json = "";
+                                try {
+                                  json = await response.json();
+                                } catch (error) {
+                                  throw new Error(`JSON decoding error: ${error}`);
+                                }
+                                // exists on Kowalski? deactivate then!
+                                if (json.status === "success") {
                                   const result = await dispatch(
-                                    filterActions.deleteGroupFilter({
+                                    filterVersionActions.editActiveFilterVersion({
                                       filter_id: filter.id,
+                                      active: false,
                                     })
                                   );
                                   if (result.status === "success") {
-                                    dispatch(
-                                      showNotification(
-                                        "Deleted filter from group"
-                                      )
-                                    );
+                                    dispatch(showNotification(`Deactivated filter on Kowalski`));
                                   }
-                                  dispatch(groupActions.fetchGroup(group.id));
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </ListItemSecondaryAction>
-                          )}
-                        </ListItem>
-                      ) : (
-                        ""
-                      )
-                    )}
-                  </List>
-                </div>
-              ))}
-            </List>
+                                }
+                                const result = await dispatch(
+                                  filterActions.deleteGroupFilter({
+                                    filter_id: filter.id,
+                                  })
+                                );
+                                if (result.status === "success") {
+                                  dispatch(
+                                    showNotification(
+                                      "Deleted filter from group"
+                                    )
+                                  );
+                                }
+                                dispatch(groupActions.fetchGroup(group.id));
+                              }}
+                              size="large">
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItemSecondaryAction>
+                        )}
+                      </ListItem>
+                    ) : (
+                      ""
+                    )
+                  )}
+                </List>
+              </div>
+            ))}
+          </List>
 
-            <div>
-              {/* only Super admins can add streams to groups */}
-              {currentUser.permissions.includes("System admin") &&
-                streams?.length > 0 &&
-                group?.streams?.length < streams?.length && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    className={classes.button_add}
-                    onClick={handleAddStreamOpen}
-                    style={{ marginRight: 10 }}
-                  >
-                    Add stream
-                  </Button>
-                )}
-
-              {isAdmin(currentUser) && group?.streams?.length > 0 && (
+          <div>
+            {/* only Super admins can add streams to groups */}
+            {currentUser.permissions.includes("System admin") &&
+              streams?.length > 0 &&
+              group?.streams?.length < streams?.length && (
                 <Button
                   variant="contained"
                   color="primary"
                   className={classes.button_add}
-                  onClick={handleAddFilterDialogOpen}
+                  onClick={handleAddStreamOpen}
+                  style={{ marginRight: 10 }}
                 >
-                  Add filter
+                  Add stream
                 </Button>
               )}
-            </div>
-          </AccordionDetails>
-        </Accordion>
-      )}
-      <Dialog
-        fullScreen={fullScreen}
-        open={addStreamOpen}
-        onClose={handleAddStreamClose}
-        aria-labelledby="responsive-dialog-title"
-      >
-        <form onSubmit={handleSubmit(onSubmitAddStream)}>
-          <DialogTitle id="responsive-dialog-title">
-            Add alert stream to group
-          </DialogTitle>
-          <DialogContent dividers>
-            <FormControl required className={classes.selectEmpty}>
-              <InputLabel name="alert-stream-select-required-label">
-                Alert stream
-              </InputLabel>
-              <Controller
-                labelId="alert-stream-select-required-label"
-                name="stream_id"
-                as={Select}
-                defaultValue={0}
-                control={control}
-                rules={{ validate: isStreamIdInStreams }}
+
+            {isAdmin(currentUser) && group?.streams?.length > 0 && (
+              <Button
+                variant="contained"
+                color="primary"
+                className={classes.button_add}
+                onClick={handleAddFilterDialogOpen}
               >
-                {streams?.map(
-                  (stream) =>
-                    // display only streams that are not yet added
-                    !groupStreamIds?.includes(stream.id) && (
-                      <MenuItem value={stream.id} key={stream.id}>
-                        {stream.name}
-                      </MenuItem>
-                    )
-                )}
-              </Controller>
-              <FormHelperText>Required</FormHelperText>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              className={classes.button_add}
-              data-testid="add-stream-dialog-submit"
+                Add filter
+              </Button>
+            )}
+          </div>
+        </AccordionDetails>
+      </Accordion>
+    )}
+    <Dialog
+      fullScreen={fullScreen}
+      open={addStreamOpen}
+      onClose={handleAddStreamClose}
+      aria-labelledby="responsive-dialog-title"
+    >
+      <form onSubmit={handleSubmit(onSubmitAddStream)}>
+        <DialogTitle id="responsive-dialog-title">
+          Add alert stream to group
+        </DialogTitle>
+        <DialogContent dividers>
+          <FormControl required className={classes.selectEmpty}>
+            <InputLabel name="alert-stream-select-required-label">
+              Alert stream
+            </InputLabel>
+            <Controller
+              labelId="alert-stream-select-required-label"
+              name="stream_id"
+              as={Select}
+              defaultValue={0}
+              control={control}
+              rules={{ validate: isStreamIdInStreams }}
             >
-              Add
-            </Button>
-            <Button autoFocus onClick={handleAddStreamClose} color="primary">
-              Dismiss
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-      <Dialog
-        fullScreen={fullScreen}
-        open={addFilterDialogOpen}
-        onClose={handleAddFilterDialogClose}
-        aria-labelledby="responsive-dialog-title"
-      >
-        <form onSubmit={handleSubmit(onSubmitAddFilter)}>
-          <DialogTitle id="responsive-dialog-title">
-            Create a new alert stream filter
-          </DialogTitle>
-          <DialogContent dividers>
-            <DialogContentText>
-              Please refer to the &nbsp;
-              <a
-                href="https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"
-                target="_blank"
-                rel="noreferrer"
-              >
-                docs <OpenInNewIcon style={{ fontSize: "small" }} />
-              </a>
-              &nbsp; for an extensive guide on Alert filters in Fritz.
-            </DialogContentText>
-            <TextField
-              autoFocus
-              required
-              margin="dense"
-              name="filter_name"
-              label="Filter Name"
-              type="text"
-              fullWidth
-              inputRef={register({ required: true, minLength: 3 })}
-            />
-            <FormControl required className={classes.selectEmpty}>
-              <InputLabel name="alert-stream-select-required-label">
-                Alert stream
-              </InputLabel>
-              <Controller
-                labelId="alert-stream-select-required-label"
-                name="filter_stream_id"
-                as={Select}
-                defaultValue={0}
-                control={control}
-                rules={{ validate: isStreamIdInStreams }}
-              >
-                {group.streams?.map((stream) => (
-                  <MenuItem key={stream.id} value={stream.id}>
-                    {stream.name}
-                  </MenuItem>
-                ))}
-              </Controller>
-              <FormHelperText>Required</FormHelperText>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="contained"
-              color="primary"
-              className={classes.button_add}
-              type="submit"
-              data-testid="add-filter-dialog-submit"
+              {streams?.map(
+                (stream) =>
+                  // display only streams that are not yet added
+                  !groupStreamIds?.includes(stream.id) && (
+                    <MenuItem value={stream.id} key={stream.id}>
+                      {stream.name}
+                    </MenuItem>
+                  )
+              )}
+            </Controller>
+            <FormHelperText>Required</FormHelperText>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            className={classes.button_add}
+            data-testid="add-stream-dialog-submit"
+          >
+            Add
+          </Button>
+          <Button autoFocus onClick={handleAddStreamClose} color="primary">
+            Dismiss
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+    <Dialog
+      fullScreen={fullScreen}
+      open={addFilterDialogOpen}
+      onClose={handleAddFilterDialogClose}
+      aria-labelledby="responsive-dialog-title"
+    >
+      <form onSubmit={handleSubmit(onSubmitAddFilter)}>
+        <DialogTitle id="responsive-dialog-title">
+          Create a new alert stream filter
+        </DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText>
+            Please refer to the &nbsp;
+            <a
+              href="https://fritz-marshal.org/doc/user_guide.html#alert-filters-in-fritz"
+              target="_blank"
+              rel="noreferrer"
             >
-              Add
-            </Button>
-            <Button
-              autoFocus
-              onClick={handleAddFilterDialogClose}
-              color="primary"
+              docs <OpenInNewIcon style={{ fontSize: "small" }} />
+            </a>
+            &nbsp; for an extensive guide on Alert filters in Fritz.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            required
+            margin="dense"
+            name="filter_name"
+            label="Filter Name"
+            type="text"
+            fullWidth
+            inputRef={register({ required: true, minLength: 3 })}
+          />
+          <FormControl required className={classes.selectEmpty}>
+            <InputLabel name="alert-stream-select-required-label">
+              Alert stream
+            </InputLabel>
+            <Controller
+              labelId="alert-stream-select-required-label"
+              name="filter_stream_id"
+              as={Select}
+              defaultValue={0}
+              control={control}
+              rules={{ validate: isStreamIdInStreams }}
             >
-              Dismiss
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </>
-  );
+              {group.streams?.map((stream) => (
+                <MenuItem key={stream.id} value={stream.id}>
+                  {stream.name}
+                </MenuItem>
+              ))}
+            </Controller>
+            <FormHelperText>Required</FormHelperText>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            color="primary"
+            className={classes.button_add}
+            type="submit"
+            data-testid="add-filter-dialog-submit"
+          >
+            Add
+          </Button>
+          <Button
+            autoFocus
+            onClick={handleAddFilterDialogClose}
+            color="primary"
+          >
+            Dismiss
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  </>;
 };
 
 GroupFiltersStreams.propTypes = {

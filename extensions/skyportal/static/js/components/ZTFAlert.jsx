@@ -2,24 +2,26 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import Button from "@material-ui/core/Button";
+import Button from "@mui/material/Button";
 import PropTypes from "prop-types";
 import {
-  makeStyles,
   useTheme,
-  createMuiTheme,
-  MuiThemeProvider,
-} from "@material-ui/core/styles";
-import Paper from "@material-ui/core/Paper";
-import Grid from "@material-ui/core/Grid";
-import Accordion from "@material-ui/core/Accordion";
-import AccordionSummary from "@material-ui/core/AccordionSummary";
-import AccordionDetails from "@material-ui/core/AccordionDetails";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
-import Typography from "@material-ui/core/Typography";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Chip from "@material-ui/core/Chip";
-import OpenInNewIcon from "@material-ui/icons/OpenInNew";
+  createTheme,
+  ThemeProvider,
+  StyledEngineProvider,
+  adaptV4Theme,
+} from "@mui/material/styles";
+import makeStyles from '@mui/styles/makeStyles';
+import Paper from "@mui/material/Paper";
+import Grid from "@mui/material/Grid";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Typography from "@mui/material/Typography";
+import CircularProgress from "@mui/material/CircularProgress";
+import Chip from "@mui/material/Chip";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import MUIDataTable from "mui-datatables";
 import ReactJson from "react-json-view";
@@ -118,17 +120,17 @@ function isString(x) {
 }
 
 const getMuiTheme = (theme) =>
-  createMuiTheme({
+  createTheme(adaptV4Theme({
     overrides: {
       MUIDataTableBodyCell: {
         root: {
-          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
+          padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
             0.25
-          )}px ${theme.spacing(1)}px`,
+          )} ${theme.spacing(1)}`,
         },
       },
     },
-  });
+  }));
 
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
@@ -181,7 +183,7 @@ const ZTFAlert = ({ route }) => {
   );
 
   const theme = useTheme();
-  const darkTheme = theme.palette.type === "dark";
+  const darkTheme = theme.palette.mode === "dark";
 
   const [
     panelPhotometryThumbnailsExpanded,
@@ -599,13 +601,15 @@ const ZTFAlert = ({ route }) => {
             </AccordionSummary>
             <AccordionDetails className={classes.accordionDetails}>
               <div className={classes.accordionDetails}>
-                <MuiThemeProvider theme={getMuiTheme(theme)}>
-                  <MUIDataTable
-                    data={rows}
-                    columns={columns}
-                    options={options}
-                  />
-                </MuiThemeProvider>
+                <StyledEngineProvider injectFirst>
+                  <ThemeProvider theme={getMuiTheme(theme)}>
+                    <MUIDataTable
+                      data={rows}
+                      columns={columns}
+                      options={options}
+                    />
+                  </ThemeProvider>
+                </StyledEngineProvider>
               </div>
             </AccordionDetails>
           </Accordion>

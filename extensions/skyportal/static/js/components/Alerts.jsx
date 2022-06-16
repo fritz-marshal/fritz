@@ -1,29 +1,36 @@
 import React from "react";
 
-import Card from "@material-ui/core/Card";
-import CardActions from "@material-ui/core/CardActions";
-import CardContent from "@material-ui/core/CardContent";
+import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
+import CardContent from "@mui/material/CardContent";
 
-import TextField from "@material-ui/core/TextField";
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormControl from "@material-ui/core/FormControl";
-import Select from "@material-ui/core/Select";
+import TextField from "@mui/material/TextField";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import FormHelperText from "@mui/material/FormHelperText";
+import FormControl from "@mui/material/FormControl";
+import Select from "@mui/material/Select";
 
-import Grid from "@material-ui/core/Grid";
+import Grid from "@mui/material/Grid";
 
-import Button from "@material-ui/core/Button";
-import {createMuiTheme, makeStyles, MuiThemeProvider, useTheme} from "@material-ui/core/styles";
+import Button from "@mui/material/Button";
+import {
+  createTheme,
+  ThemeProvider,
+  StyledEngineProvider,
+  useTheme,
+  adaptV4Theme,
+} from "@mui/material/styles";
+import makeStyles from '@mui/styles/makeStyles';
 import { useForm, Controller } from "react-hook-form";
-import Paper from "@material-ui/core/Paper";
+import Paper from "@mui/material/Paper";
 import MUIDataTable from "mui-datatables";
-import CircularProgress from "@material-ui/core/CircularProgress";
+import CircularProgress from "@mui/material/CircularProgress";
 
 import {useDispatch, useSelector} from "react-redux";
 
-import TableRow from "@material-ui/core/TableRow";
-import TableCell from "@material-ui/core/TableCell";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
 import ThumbnailList from "./ThumbnailList";
 import {dec_to_dms, ra_to_hours} from "../units";
 import { showNotification } from "baselayer/components/Notifications";
@@ -35,18 +42,18 @@ function isString(x) {
 }
 
 const getMuiTheme = (theme) =>
-  createMuiTheme({
+  createTheme(adaptV4Theme({
     palette: theme.palette,
     overrides: {
       MUIDataTableBodyCell: {
         root: {
-          padding: `${theme.spacing(0.25)}px 0px ${theme.spacing(
+          padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
             0.25
-          )}px ${theme.spacing(1)}px`,
+          )} ${theme.spacing(1)}`,
         },
       },
     },
-  });
+  }));
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -135,7 +142,7 @@ const Alerts = () => {
   const classes = useStyles();
 
   const theme = useTheme();
-  const darkTheme = theme.palette.type === "dark";
+  const darkTheme = theme.palette.mode === "dark";
 
   const { alerts, queryInProgress } = useSelector((state) => state.alerts);
 
@@ -196,7 +203,7 @@ const Alerts = () => {
             container
             direction="row"
             spacing={3}
-            justify="center"
+            justifyContent="center"
             alignItems="center"
           >
             <Grid item>
@@ -395,21 +402,21 @@ const Alerts = () => {
     }
   };
 
-  return (
-    <>
-      <div>
-        <Grid
-          container
-          direction="row"
-          justify="flex-start"
-          alignItems="flex-start"
-          spacing={1}
-        >
-          <Grid item xs={12} lg={10} className={classes.grid_item_table}>
-            <Paper elevation={1}>
-              <div className={classes.maindiv}>
-                <div className={classes.accordionDetails}>
-                  <MuiThemeProvider theme={getMuiTheme(theme)}>
+  return <>
+    <div>
+      <Grid
+        container
+        direction="row"
+        justifyContent="flex-start"
+        alignItems="flex-start"
+        spacing={1}
+      >
+        <Grid item xs={12} lg={10} className={classes.grid_item_table}>
+          <Paper elevation={1}>
+            <div className={classes.maindiv}>
+              <div className={classes.accordionDetails}>
+                <StyledEngineProvider injectFirst>
+                  <ThemeProvider theme={getMuiTheme(theme)}>
                     {queryInProgress ? <CircularProgress /> : (
                       <MUIDataTable
                         title="Alerts"
@@ -418,84 +425,84 @@ const Alerts = () => {
                         options={options}
                       />
                     )}
-                  </MuiThemeProvider>
-                </div>
+                  </ThemeProvider>
+                </StyledEngineProvider>
               </div>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} lg={2} className={classes.grid_item_search_box}>
-            <Card className={classes.root}>
-              <form onSubmit={handleSubmitForm(submitSearch)}>
-                <CardContent>
-                  <FormControl required className={classes.selectEmpty}>
-                    <InputLabel name="alert-stream-select-required-label">
-                      Instrument
-                    </InputLabel>
-                    <Controller
-                      labelId="alert-stream-select-required-label"
-                      name="instrument"
-                      as={Select}
-                      defaultValue="ztf"
-                      control={controlForm}
-                      rules={{ required: true }}
-                    >
-                      <MenuItem value="ztf">ZTF</MenuItem>
-                    </Controller>
-                    <FormHelperText>Required</FormHelperText>
-                  </FormControl>
-                  <TextField
-                    autoFocus
-                    margin="dense"
-                    name="object_id"
-                    label="objectId"
-                    type="text"
-                    fullWidth
-                    inputRef={registerForm({ minLength: 3, required: false })}
-                  />
-                  <TextField
-                    margin="dense"
-                    name="ra"
-                    label="R.A. (deg)"
-                    fullWidth
-                    inputRef={registerForm({ required: false })}
-                  />
-                  <TextField
-                    margin="dense"
-                    name="dec"
-                    label="Decl. (deg)"
-                    fullWidth
-                    inputRef={registerForm({ required: false })}
-                  />
-                  <TextField
-                    margin="dense"
-                    name="radius"
-                    label="Radius (arcsec)"
-                    fullWidth
-                    inputRef={registerForm({ required: false })}
-                  />
-                </CardContent>
-                <CardActions>
-                  <div className={classes.wrapperRoot}>
-                    <div className={classes.wrapper}>
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        color="primary"
-                        disabled={queryInProgress}
-                      >
-                        Search
-                      </Button>
-                      {queryInProgress && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
-                    </div>
-                  </div>
-                </CardActions>
-              </form>
-            </Card>
-          </Grid>
+            </div>
+          </Paper>
         </Grid>
-      </div>
-    </>
-  );
+        <Grid item xs={12} lg={2} className={classes.grid_item_search_box}>
+          <Card className={classes.root}>
+            <form onSubmit={handleSubmitForm(submitSearch)}>
+              <CardContent>
+                <FormControl required className={classes.selectEmpty}>
+                  <InputLabel name="alert-stream-select-required-label">
+                    Instrument
+                  </InputLabel>
+                  <Controller
+                    labelId="alert-stream-select-required-label"
+                    name="instrument"
+                    as={Select}
+                    defaultValue="ztf"
+                    control={controlForm}
+                    rules={{ required: true }}
+                  >
+                    <MenuItem value="ztf">ZTF</MenuItem>
+                  </Controller>
+                  <FormHelperText>Required</FormHelperText>
+                </FormControl>
+                <TextField
+                  autoFocus
+                  margin="dense"
+                  name="object_id"
+                  label="objectId"
+                  type="text"
+                  fullWidth
+                  inputRef={registerForm({ minLength: 3, required: false })}
+                />
+                <TextField
+                  margin="dense"
+                  name="ra"
+                  label="R.A. (deg)"
+                  fullWidth
+                  inputRef={registerForm({ required: false })}
+                />
+                <TextField
+                  margin="dense"
+                  name="dec"
+                  label="Decl. (deg)"
+                  fullWidth
+                  inputRef={registerForm({ required: false })}
+                />
+                <TextField
+                  margin="dense"
+                  name="radius"
+                  label="Radius (arcsec)"
+                  fullWidth
+                  inputRef={registerForm({ required: false })}
+                />
+              </CardContent>
+              <CardActions>
+                <div className={classes.wrapperRoot}>
+                  <div className={classes.wrapper}>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      color="primary"
+                      disabled={queryInProgress}
+                    >
+                      Search
+                    </Button>
+                    {queryInProgress && <CircularProgress size={24} color="secondary" className={classes.buttonProgress} />}
+                  </div>
+                </div>
+              </CardActions>
+            </form>
+          </Card>
+        </Grid>
+      </Grid>
+    </div>
+  </>;
 };
 
 export default Alerts;
