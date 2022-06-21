@@ -133,6 +133,7 @@ const getMuiTheme = (theme) =>
   }));
 
 const ZTFAlert = ({ route }) => {
+  console.log('route', route);
   const objectId = route.id;
   const dispatch = useDispatch();
   const history = useNavigate();
