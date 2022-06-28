@@ -31,6 +31,7 @@ import ThumbnailList from "./ThumbnailList";
 
 import { ra_to_hours, dec_to_dms } from "../units";
 import SharePage from "./SharePage";
+import withRouter from "./withRouter";
 
 import * as Actions from "../ducks/alert";
 
@@ -133,7 +134,6 @@ const getMuiTheme = (theme) =>
   }));
 
 const ZTFAlert = ({ route }) => {
-  console.log('route', route);
   const objectId = route.id;
   const dispatch = useDispatch();
   const history = useNavigate();
@@ -649,4 +649,4 @@ ZTFAlert.propTypes = {
   }).isRequired,
 };
 
-export default ZTFAlert;
+export default withRouter(ZTFAlert);

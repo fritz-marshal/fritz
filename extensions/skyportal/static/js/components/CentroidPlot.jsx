@@ -422,7 +422,7 @@ const processData = (photometry, crossMatches) => {
   // for each source, store catalog name and position deltas
   const crossMatchesAsArray = Object.keys(crossMatches)
     .map((catalog) =>
-      crossMatches[catalog].map((source) => ({
+      Array.isArray(crossMatches[catalog]) ? crossMatches[catalog].map((source) => ({
         ...source,
         catalog,
       }))
