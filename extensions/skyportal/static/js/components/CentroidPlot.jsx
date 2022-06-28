@@ -425,7 +425,7 @@ const processData = (photometry, crossMatches) => {
       Array.isArray(crossMatches[catalog]) ? crossMatches[catalog].map((source) => ({
         ...source,
         catalog,
-      }))
+      })) : []
     )
     .flat()
     .map((source) => {
