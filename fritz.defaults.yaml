@@ -17,9 +17,6 @@ skyportal:
     secret_key: abc01234
     factory: skyportal.app_server_fritz.make_app_fritz
 
-    observation_plan:
-      default_filters: [ 'ztfg', 'ztfr', 'ztfi' ]
-
     # this endpoint does not actually do anything -- it is just for testing
     sedm_endpoint: http://minar.caltech.edu/add_fritz
 
@@ -432,10 +429,6 @@ skyportal:
     # the user-supplied cosmology parameter set constructs the site-wide cosmology.
     cosmology: Planck18
     #cosmology: {H0: "65.0", Om0: 0.3, Ode0: 0.7, name: 'skyportal_user_cosmo'}
-
-    # The minimum signal-to-noise ratio/ n-sigma for lim mag cacluations to
-    # consider a photometry point as a detection
-    photometry_detection_threshold_nsigma: 3.0
 
   external_logging:
     papertrail:
