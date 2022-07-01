@@ -221,9 +221,13 @@ class AlertHandler(BaseHandler):
         # allow access to public data only by default
         program_id_selector = {1}
 
-        for stream in self.associated_user_object.streams:
-            if "ztf" in stream.name.lower():
-                program_id_selector.update(set(stream.altdata.get("selector", [])))
+        # using self.Session() should attach the
+        # associated_user_object to the current session
+        # so it can lazy load things like streams
+        with self.Session():
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    program_id_selector.update(set(stream.altdata.get("selector", [])))
 
         program_id_selector = list(program_id_selector)
 
