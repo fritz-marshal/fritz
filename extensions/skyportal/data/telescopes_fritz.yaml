@@ -50,7 +50,7 @@
 - diameter: 4.1999998
   elevation: 2332.0
   lat: 28.76064
-  lon: 17.883
+  lon: -17.883
   nickname: WHT 4.2m
   name: WHT
   skycam_link: null
@@ -75,7 +75,7 @@
 - diameter: 2.5
   elevation: 2336.0
   lat: 28.762
-  lon: 17.883
+  lon: -17.883
   nickname: INT
   name: INT
   skycam_link: null
@@ -83,7 +83,7 @@
 - diameter: 2.0
   elevation: 2363.0
   lat: 28.7624
-  lon: 17.883
+  lon: -17.883
   nickname: Liverpool Telescope
   name: LT
   skycam_link: null
