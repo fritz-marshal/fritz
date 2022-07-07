@@ -858,10 +858,10 @@ class AlertAuxHandler(BaseHandler):
 
         # allow access to public data only by default
         selector = {1}
-
-        for stream in self.associated_user_object.streams:
-            if "ztf" in stream.name.lower():
-                selector.update(set(stream.altdata.get("selector", [])))
+        with self.Session():
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    selector.update(set(stream.altdata.get("selector", [])))
 
         selector = list(selector)
 
