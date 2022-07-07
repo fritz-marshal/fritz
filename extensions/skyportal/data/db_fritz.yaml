@@ -160,10 +160,10 @@ filters:
     stream_id: =ztf_partnership
 
 telescope:
-  file: telescopes_fritz.yaml
+  file: ../../../skyportal/data/telescopes.yaml
 
 instrument:
-  file: instruments_fritz.yaml
+  file: ../../../skyportal/data/instruments.yaml
 
 taxonomy:
   file: taxonomy_fritz.yaml
