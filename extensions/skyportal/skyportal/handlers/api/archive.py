@@ -454,9 +454,10 @@ class ArchiveHandler(BaseHandler):
         # allow access to public data only by default
         program_id_selector = {1}
 
-        for stream in self.associated_user_object.streams:
-            if "ztf" in stream.name.lower():
-                program_id_selector.update(set(stream.altdata.get("selector", [])))
+        with self.Session():
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    program_id_selector.update(set(stream.altdata.get("selector", [])))
 
         program_id_selector = list(program_id_selector)
 
@@ -649,9 +650,10 @@ class ArchiveHandler(BaseHandler):
 
         # allow access to public data only by default
         program_id_selector = {1}
-        for stream in self.associated_user_object.streams:
-            if "ztf" in stream.name.lower():
-                program_id_selector.update(set(stream.altdata.get("selector", [])))
+        with self.Session():
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    program_id_selector.update(set(stream.altdata.get("selector", [])))
         program_id_selector = list(program_id_selector)
 
         # get data from Kowalski/Gloria
