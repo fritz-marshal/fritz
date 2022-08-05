@@ -126,6 +126,9 @@ skyportal:
       - path: "/followup_requests"
         component: FollowupRequestPage
 
+    observation_plan:
+      default_filters: ['ztfg', 'ztfr', 'ztfi']
+
     gcn:
       server: gcn.nasa.gov
       # you can obtain a client_id and client_secret at https://gcn.nasa.gov/quickstart
