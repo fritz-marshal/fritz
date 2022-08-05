@@ -261,9 +261,6 @@ observing_run:
   - pi: Kishore Patra
     instrument_id: =KAST
     calendar_date: "2020-09-10"
-  - pi: Suvi Gezari
-    instrument_id: =Deveny+LMI
-    calendar_date: "2020-09-12"
   - pi: Mansi Kasliwal
     instrument_id: =LRIS
     calendar_date: "2020-09-14"
