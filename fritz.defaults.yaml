@@ -126,6 +126,24 @@ skyportal:
       - path: "/followup_requests"
         component: FollowupRequestPage
 
+    gcn:
+      server: gcn.nasa.gov
+      # you can obtain a client_id and client_secret at https://gcn.nasa.gov/quickstart
+      client_id:
+      client_secret:
+      notice_types:
+        - FERMI_GBM_FLT_POS
+        - FERMI_GBM_GND_POS
+        - FERMI_GBM_FIN_POS
+        - FERMI_GBM_SUBTHRESH
+        # - LVC_PRELIMINARY
+        # - LVC_INITIAL
+        # - LVC_UPDATE
+        # - LVC_RETRACTION
+        # - AMON_ICECUBE_COINC
+        # - AMON_ICECUBE_HESE
+        - ICECUBE_ASTROTRACK_GOLD
+        - ICECUBE_ASTROTRACK_BRONZE
 
     kowalski:
       protocol: http
