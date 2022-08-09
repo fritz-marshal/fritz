@@ -2,3 +2,4 @@ penquins>=2.1.0
 pymongo>=3.10.1
 bilby==1.1.5
 nmma==0.0.3
+python-ligo-lw==1.7.1
