@@ -491,6 +491,13 @@ skyportal:
       - ICECUBE_ASTROTRACK_GOLD
       - ICECUBE_ASTROTRACK_BRONZE
 
+  analysis_services:
+    analysis_folder: analysis_data
+    sn_analysis_service:
+      port: 6801
+    nmma_analysis_service:
+      port: 6901
+
   twilio:
     # Twilio Sendgrid API configs
     # This needs to be set to a valid, Sendgrid-registered address in config.yaml
