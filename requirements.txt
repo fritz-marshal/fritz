@@ -1,3 +1,4 @@
+-r .requirements/services.txt
 -r .requirements/dev.txt
 -r .requirements/doc.txt
 -r .requirements/ext.txt

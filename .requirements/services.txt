@@ -1,0 +1,3 @@
+python-ligo-lw==1.7.1
+bilby==1.1.5
+nmma==0.0.3
