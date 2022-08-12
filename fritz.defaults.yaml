@@ -127,6 +127,10 @@ skyportal:
         component: ObservationPage
       - path: "/followup_requests"
         component: FollowupRequestPage
+      - path: "/source/:obj_id/analysis/:analysis_id"
+        component: SourceAnalysisPage
+      - path: "/services"
+        component: AnalysisServicePage
 
     observation_plan:
       default_filters: ['ztfg', 'ztfr', 'ztfi']
