@@ -31,6 +31,11 @@ streams:
       collection: PGIR_alerts
       selector: [ 0, 1 ]
     =id: pgir
+  - name: WNTR
+    altdata:
+      collection: WNTR_alerts
+      selector: [ 0, 1 ]
+    =id: wntr
 
 groups:
   - name: ZTF Science Validation
@@ -76,6 +81,10 @@ streams/=pgir/users:
   - user_id: =fritz
   - user_id: =kowalski
 
+streams/=wntr/users:
+  - user_id: =fritz
+  - user_id: =kowalski
+
 groups/=ztf_science_validation/streams:
   - stream_id: =ztf_public
   - stream_id: =ztf_partnership
@@ -86,6 +95,7 @@ groups/=rcf/streams:
 groups/=clu/streams:
   - stream_id: =ztf_caltech
   - stream_id: =pgir
+  - stream_id: =wntr
 
 groups/=young_sne_ia/streams:
   - stream_id: =ztf_partnership

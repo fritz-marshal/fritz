@@ -156,7 +156,7 @@ class StatsHandler(BaseHandler):
             "Latest object from TNS collection discovery date (UTC)"
         ] = latest_tns_object_discovery_date
 
-        for survey in ("PGIR", "ZTF"):
+        for survey in ("WNTR", "PGIR", "ZTF"):
             utc_now = datetime.datetime.utcnow()
             jd_start = Time(
                 datetime.datetime(utc_now.year, utc_now.month, utc_now.day)

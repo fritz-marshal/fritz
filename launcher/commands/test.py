@@ -99,7 +99,8 @@ def test():
     alert_stream_tests = (
         ("ZTF", "test_ingester", "dask_cluster"),
         ("PGIR", "test_ingester_pgir", "dask_cluster_pgir"),
-    )
+        ("WINTER", "test_ingester_wntr", "dask_cluster_wntr")
+        )
     for instrument, test_name, log_name in alert_stream_tests:
         pass
         print(f"Testing {instrument} alert stream consumption and digestion")
