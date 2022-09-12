@@ -109,9 +109,9 @@ def make_thumbnail(a, ttype, ztftype):
     return thumb
 
 
-def post_alert(objectId, candid, group_ids, program_id_selector, user_id, session):
+def post_alert(object_id, candid, group_ids, program_id_selector, user_id, session):
     """Post alert to database.
-    objectId : string
+    object_id : string
         Object ID
     candid : int
         Alert candid to use to pull thumbnails. Defaults to latest alert
@@ -127,7 +127,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
     """
 
     user = session.scalar(sa.select(User).where(User.id == user_id))
-    obj = session.scalars(Obj.select(user).where(Obj.id == objectId)).first()
+    obj = session.scalars(Obj.select(user).where(Obj.id == object_id)).first()
     if obj is None:
         obj_already_exists = False
     else:
@@ -141,7 +141,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
         "query": {
             "catalog": "ZTF_alerts_aux",
             "pipeline": [
-                {"$match": {"_id": objectId}},
+                {"$match": {"_id": object_id}},
                 {
                     "$project": {
                         "_id": 1,
@@ -185,9 +185,9 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
         if len(alert_data) > 0:
             alert_data = alert_data[0]
         else:
-            raise ValueError(f"{objectId} not found on Kowalski")
+            raise ValueError(f"{object_id} not found on Kowalski")
     else:
-        raise ValueError(f"Failed to fetch data for {objectId} from Kowalski")
+        raise ValueError(f"Failed to fetch data for {object_id} from Kowalski")
 
     # grab and append most recent candid as it may not be in prv_candidates
     query = {
@@ -197,7 +197,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
             "pipeline": [
                 {
                     "$match": {
-                        "objectId": objectId,
+                        "objectId": object_id,
                         "candidate.programid": {"$in": program_id_selector},
                     }
                 },
@@ -230,7 +230,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
         if len(latest_alert_data) > 0:
             latest_alert_data = latest_alert_data[0]
     else:
-        raise ValueError(f"Failed to fetch data for {objectId} from Kowalski")
+        raise ValueError(f"Failed to fetch data for {object_id} from Kowalski")
 
     if len(latest_alert_data) > 0:
         candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
@@ -251,7 +251,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
     rb = alert.get("rb")
     score = drb if drb is not None and not np.isnan(drb) else rb
     alert_thin = {
-        "id": objectId,
+        "id": object_id,
         "ra": alert.get("ra"),
         "dec": alert.get("dec"),
         "score": score,
@@ -316,7 +316,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
 
     for group in groups:
         source = session.scalars(
-            Source.select(user).where(Obj.id == objectId, Group.id == group.id)
+            Source.select(user).where(Obj.id == object_id, Group.id == group.id)
         ).first()
         if not source:
             session.add(
@@ -388,7 +388,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
             pid_mask = df.programid == int(pid)
 
             photometry = {
-                "obj_id": objectId,
+                "obj_id": object_id,
                 "group_ids": group_ids,
                 "instrument_id": instrument.id,
                 "mjd": df.loc[pid_mask, "mjd"].tolist(),
@@ -406,7 +406,7 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
                     add_external_photometry(photometry, user)
                 except Exception:
                     log(
-                        f"Failed to post photometry of {objectId} to group_ids {group_ids}"
+                        f"Failed to post photometry of {object_id} to group_ids {group_ids}"
                     )
 
     # post cutouts
@@ -441,10 +441,10 @@ def post_alert(objectId, candid, group_ids, program_id_selector, user_id, sessio
         try:
             post_thumbnail(thumb, user_id, session)
         except Exception as e:
-            log(f"Failed to post thumbnails of {objectId} | {candid}")
+            log(f"Failed to post thumbnails of {object_id} | {candid}")
             log(str(e))
 
-    return objectId
+    return object_id
 
 
 class AlertHandler(BaseHandler):
