@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pathlib
 from penquins import Kowalski
-import tornado.escape
+import sqlalchemy as sa
 import traceback
 
 from baselayer.app.access import auth_or_token, permissions
@@ -27,15 +27,16 @@ from baselayer.app.env import load_env
 from baselayer.log import make_log
 from ..base import BaseHandler
 from ...models import (
-    DBSession,
     Group,
     GroupStream,
+    Instrument,
     Obj,
     Stream,
     Source,
+    User,
 )
-from .photometry import PhotometryHandler
-from .thumbnail import ThumbnailHandler
+from .photometry import add_external_photometry
+from .thumbnail import post_thumbnail
 
 
 env, cfg = load_env()
@@ -69,7 +70,6 @@ def make_thumbnail(a, ttype, ztftype):
         with fits.open(io.BytesIO(f.read()), ignore_missing_simple=True) as hdu:
             # header = hdu[0].header
             data_flipped_y = np.flipud(hdu[0].data)
-    buff = io.BytesIO()
     plt.close("all")
     fig = plt.figure()
     fig.set_size_inches(4, 4, forward=False)
@@ -94,10 +94,11 @@ def make_thumbnail(a, ttype, ztftype):
     normalizer = AsymmetricPercentileInterval(lower_percentile=1, upper_percentile=100)
     vmin, vmax = normalizer.get_limits(img_norm)
     ax.imshow(img_norm, cmap="bone", origin="lower", vmin=vmin, vmax=vmax)
-    plt.savefig(buff, dpi=42)
-
+    plt.savefig("temp.png")
+    buff = io.BytesIO()
+    plt.savefig(buff, format="png", dpi=42)
+    plt.close(fig)
     buff.seek(0)
-    plt.close("all")
 
     thumb = {
         "obj_id": a["objectId"],
@@ -106,6 +107,344 @@ def make_thumbnail(a, ttype, ztftype):
     }
 
     return thumb
+
+
+def post_alert(objectId, candid, group_ids, program_id_selector, user_id, session):
+    """Post alert to database.
+    objectId : string
+        Object ID
+    candid : int
+        Alert candid to use to pull thumbnails. Defaults to latest alert
+    group_ids : array
+        Group IDs to save source to. Can alternatively be the string
+        'all' to save to all of requesting user's groups.
+    program_id_selector : array
+        Program IDs to include
+    user_id : int
+        SkyPortal ID of User posting the alert
+    session: sqlalchemy.Session
+        Database session for this transaction
+    """
+
+    user = session.scalar(sa.select(User).where(User.id == user_id))
+    obj = session.scalars(Obj.select(user).where(Obj.id == objectId)).first()
+    if obj is None:
+        obj_already_exists = False
+    else:
+        obj_already_exists = True
+    instrument = session.scalars(
+        Instrument.select(user).where(Instrument.name == "ZTF")
+    ).first()
+
+    query = {
+        "query_type": "aggregate",
+        "query": {
+            "catalog": "ZTF_alerts_aux",
+            "pipeline": [
+                {"$match": {"_id": objectId}},
+                {
+                    "$project": {
+                        "_id": 1,
+                        "cross_matches": 1,
+                        "prv_candidates": {
+                            "$filter": {
+                                "input": "$prv_candidates",
+                                "as": "item",
+                                "cond": {
+                                    "$in": [
+                                        "$$item.programid",
+                                        program_id_selector,
+                                    ]
+                                },
+                            }
+                        },
+                    }
+                },
+                {
+                    "$project": {
+                        "_id": 1,
+                        "prv_candidates.magpsf": 1,
+                        "prv_candidates.sigmapsf": 1,
+                        "prv_candidates.diffmaglim": 1,
+                        "prv_candidates.programid": 1,
+                        "prv_candidates.fid": 1,
+                        "prv_candidates.rb": 1,
+                        "prv_candidates.ra": 1,
+                        "prv_candidates.dec": 1,
+                        "prv_candidates.candid": 1,
+                        "prv_candidates.jd": 1,
+                    }
+                },
+            ],
+        },
+    }
+
+    response = kowalski.query(query=query)
+    if response.get("status", "error") == "success":
+        alert_data = response.get("data")
+        if len(alert_data) > 0:
+            alert_data = alert_data[0]
+        else:
+            raise ValueError(f"{objectId} not found on Kowalski")
+    else:
+        raise ValueError(f"Failed to fetch data for {objectId} from Kowalski")
+
+    # grab and append most recent candid as it may not be in prv_candidates
+    query = {
+        "query_type": "aggregate",
+        "query": {
+            "catalog": "ZTF_alerts",
+            "pipeline": [
+                {
+                    "$match": {
+                        "objectId": objectId,
+                        "candidate.programid": {"$in": program_id_selector},
+                    }
+                },
+                {
+                    "$project": {
+                        # grab only what's going to be rendered
+                        "_id": 0,
+                        "candidate.candid": {"$toString": "$candidate.candid"},
+                        "candidate.programid": 1,
+                        "candidate.jd": 1,
+                        "candidate.fid": 1,
+                        "candidate.rb": 1,
+                        "candidate.drb": 1,
+                        "candidate.ra": 1,
+                        "candidate.dec": 1,
+                        "candidate.magpsf": 1,
+                        "candidate.sigmapsf": 1,
+                        "candidate.diffmaglim": 1,
+                    }
+                },
+                {"$sort": {"candidate.jd": -1}},
+                {"$limit": 1},
+            ],
+        },
+    }
+
+    response = kowalski.query(query=query)
+    if response.get("status", "error") == "success":
+        latest_alert_data = response.get("data")
+        if len(latest_alert_data) > 0:
+            latest_alert_data = latest_alert_data[0]
+    else:
+        raise ValueError(f"Failed to fetch data for {objectId} from Kowalski")
+
+    if len(latest_alert_data) > 0:
+        candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
+        if latest_alert_data["candidate"]["candid"] not in candids:
+            alert_data["prv_candidates"].append(latest_alert_data["candidate"])
+
+    df = pd.DataFrame.from_records(alert_data["prv_candidates"])
+    mask_candid = df["candid"] == str(candid)
+
+    if candid is None or sum(mask_candid) == 0:
+        candid = int(latest_alert_data["candidate"]["candid"])
+        alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
+    else:
+        alert = df.loc[mask_candid].to_dict(orient="records")[0]
+
+    # post source
+    drb = alert.get("drb")
+    rb = alert.get("rb")
+    score = drb if drb is not None and not np.isnan(drb) else rb
+    alert_thin = {
+        "id": objectId,
+        "ra": alert.get("ra"),
+        "dec": alert.get("dec"),
+        "score": score,
+        "altdata": {
+            "passing_alert_id": candid,
+        },
+    }
+
+    schema = Obj.__schema__()
+
+    user_group_ids = [g.id for g in user.groups]
+    user_accessible_group_ids = [g.id for g in user.accessible_groups]
+    if not user_group_ids:
+        raise AttributeError(
+            "You must belong to one or more groups before you can add sources."
+        )
+
+    if group_ids == "all":
+        group_ids = user_group_ids
+    else:
+        group_ids = [
+            int(id) for id in group_ids if int(id) in user_accessible_group_ids
+        ]
+    if not group_ids:
+        raise AttributeError(
+            "Invalid group_ids field. Please specify at least "
+            "one valid group ID that you belong to."
+        )
+    if len(group_ids) == 0:
+        raise AttributeError(
+            "Invalid group_ids field. Please specify at least "
+            "one valid group ID that you belong to."
+        )
+    try:
+        group_ids = [int(_id) for _id in group_ids]
+    except ValueError:
+        raise ValueError("Invalid group_ids parameter: all elements must be integers.")
+    forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
+
+    if len(forbidden_groups) > 0:
+        raise AttributeError(
+            "Insufficient group access permissions. Not a member of "
+            f"group IDs: {forbidden_groups}."
+        )
+
+    if not obj_already_exists:
+        try:
+            obj = schema.load(alert_thin)
+        except ValidationError as e:
+            raise AttributeError(
+                f"Invalid/missing parameters: {e.normalized_messages()}"
+            )
+
+    groups = session.scalars(Group.select(user).where(Group.id.in_(group_ids))).all()
+    if not groups:
+        raise AttributeError(
+            "Invalid group_ids field. Please specify at least "
+            "one valid group ID that you belong to."
+        )
+
+    session.add(obj)
+
+    for group in groups:
+        source = session.scalars(
+            Source.select(user).where(Obj.id == objectId, Group.id == group.id)
+        ).first()
+        if not source:
+            session.add(
+                Source(
+                    obj=obj,
+                    group=group,
+                    saved_by_id=user.id,
+                )
+            )
+    session.commit()
+    if not obj_already_exists:
+        obj.add_linked_thumbnails(session=session)
+
+    # post photometry
+    ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
+    df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
+    df["magsys"] = "ab"
+    df["mjd"] = df["jd"] - 2400000.5
+
+    df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
+    df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
+    df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
+
+    # deduplicate
+    df = (
+        df.drop_duplicates(subset=["mjd", "magpsf"])
+        .reset_index(drop=True)
+        .sort_values(by=["mjd"])
+    )
+
+    # filter out bad data:
+    mask_good_diffmaglim = df["diffmaglim"] > 0
+    df = df.loc[mask_good_diffmaglim]
+
+    # get group stream access and map it to ZTF alert program ids
+    group_stream_access = []
+    for group in groups:
+        group_stream_subquery = (
+            GroupStream.select(user).where(GroupStream.group_id == group.id).subquery()
+        )
+        group_streams = session.scalars(
+            Stream.select(user).join(
+                group_stream_subquery,
+                Stream.id == group_stream_subquery.c.stream_id,
+            )
+        ).all()
+        if group_streams is None:
+            group_streams = []
+
+        group_stream_selector = {1}
+
+        for stream in group_streams:
+            if "ztf" in stream.name.lower():
+                group_stream_selector.update(set(stream.altdata.get("selector", [])))
+
+        group_stream_access.append(
+            {"group_id": group.id, "permissions": list(group_stream_selector)}
+        )
+
+    # post data from different program_id's
+    for pid in set(df.programid.unique()):
+        group_ids = [
+            gsa.get("group_id")
+            for gsa in group_stream_access
+            if pid in gsa.get("permissions", [1])
+        ]
+
+        if len(group_ids) > 0:
+            pid_mask = df.programid == int(pid)
+
+            photometry = {
+                "obj_id": objectId,
+                "group_ids": group_ids,
+                "instrument_id": instrument.id,
+                "mjd": df.loc[pid_mask, "mjd"].tolist(),
+                "mag": df.loc[pid_mask, "magpsf"].tolist(),
+                "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
+                "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
+                "magsys": df.loc[pid_mask, "magsys"].tolist(),
+                "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
+                "ra": df.loc[pid_mask, "ra"].tolist(),
+                "dec": df.loc[pid_mask, "dec"].tolist(),
+            }
+
+            if len(photometry.get("mag", ())) > 0:
+                try:
+                    add_external_photometry(photometry, user)
+                except Exception:
+                    log(
+                        f"Failed to post photometry of {objectId} to group_ids {group_ids}"
+                    )
+
+    # post cutouts
+    for ttype, ztftype in [
+        ("new", "Science"),
+        ("ref", "Template"),
+        ("sub", "Difference"),
+    ]:
+        query = {
+            "query_type": "find",
+            "query": {
+                "catalog": "ZTF_alerts",
+                "filter": {
+                    "candid": candid,
+                    "candidate.programid": {"$in": program_id_selector},
+                },
+                "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
+            },
+            "kwargs": {
+                "limit": 1,
+            },
+        }
+
+        response = kowalski.query(query=query)
+        if response.get("status", "error") == "success":
+            cutout = response.get("data", list(dict()))[0]
+        else:
+            cutout = dict()
+
+        thumb = make_thumbnail(cutout, ttype, ztftype)
+
+        try:
+            post_thumbnail(thumb, user_id, session)
+        except Exception as e:
+            log(f"Failed to post thumbnails of {objectId} | {candid}")
+            log(str(e))
+
+    return objectId
 
 
 class AlertHandler(BaseHandler):
@@ -453,19 +792,6 @@ class AlertHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        obj_already_exists = (
-            Obj.get_if_accessible_by(objectId, self.current_user) is not None
-        )
-
-        # allow access to public data only by default
-        program_id_selector = {1}
-
-        with self.Session():
-            for stream in self.associated_user_object.streams:
-                if "ztf" in stream.name.lower():
-                    program_id_selector.update(set(stream.altdata.get("selector", [])))
-
-        program_id_selector = list(program_id_selector)
 
         data = self.get_json()
         candid = data.get("candid", None)
@@ -473,336 +799,30 @@ class AlertHandler(BaseHandler):
         if group_ids is None:
             return self.error("Missing required `group_ids` parameter.")
 
-        try:
-            query = {
-                "query_type": "aggregate",
-                "query": {
-                    "catalog": "ZTF_alerts_aux",
-                    "pipeline": [
-                        {"$match": {"_id": objectId}},
-                        {
-                            "$project": {
-                                "_id": 1,
-                                "cross_matches": 1,
-                                "prv_candidates": {
-                                    "$filter": {
-                                        "input": "$prv_candidates",
-                                        "as": "item",
-                                        "cond": {
-                                            "$in": [
-                                                "$$item.programid",
-                                                program_id_selector,
-                                            ]
-                                        },
-                                    }
-                                },
-                            }
-                        },
-                        {
-                            "$project": {
-                                "_id": 1,
-                                "prv_candidates.magpsf": 1,
-                                "prv_candidates.sigmapsf": 1,
-                                "prv_candidates.diffmaglim": 1,
-                                "prv_candidates.programid": 1,
-                                "prv_candidates.fid": 1,
-                                "prv_candidates.rb": 1,
-                                "prv_candidates.ra": 1,
-                                "prv_candidates.dec": 1,
-                                "prv_candidates.candid": 1,
-                                "prv_candidates.jd": 1,
-                            }
-                        },
-                    ],
-                },
-            }
+        with self.Session() as session:
 
-            response = kowalski.query(query=query)
-            if response.get("status", "error") == "success":
-                alert_data = response.get("data")
-                if len(alert_data) > 0:
-                    alert_data = alert_data[0]
-                else:
-                    return self.error(f"{objectId} not found on Kowalski")
-            else:
-                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+            # allow access to public data only by default
+            program_id_selector = {1}
 
-            # grab and append most recent candid as it may not be in prv_candidates
-            query = {
-                "query_type": "aggregate",
-                "query": {
-                    "catalog": "ZTF_alerts",
-                    "pipeline": [
-                        {
-                            "$match": {
-                                "objectId": objectId,
-                                "candidate.programid": {"$in": program_id_selector},
-                            }
-                        },
-                        {
-                            "$project": {
-                                # grab only what's going to be rendered
-                                "_id": 0,
-                                "candidate.candid": {"$toString": "$candidate.candid"},
-                                "candidate.programid": 1,
-                                "candidate.jd": 1,
-                                "candidate.fid": 1,
-                                "candidate.rb": 1,
-                                "candidate.drb": 1,
-                                "candidate.ra": 1,
-                                "candidate.dec": 1,
-                                "candidate.magpsf": 1,
-                                "candidate.sigmapsf": 1,
-                                "candidate.diffmaglim": 1,
-                            }
-                        },
-                        {"$sort": {"candidate.jd": -1}},
-                        {"$limit": 1},
-                    ],
-                },
-            }
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    program_id_selector.update(set(stream.altdata.get("selector", [])))
 
-            response = kowalski.query(query=query)
-            if response.get("status", "error") == "success":
-                latest_alert_data = response.get("data")
-                if len(latest_alert_data) > 0:
-                    latest_alert_data = latest_alert_data[0]
-            else:
-                return self.error(f"Failed to fetch data for {objectId} from Kowalski")
+            program_id_selector = list(program_id_selector)
 
-            if len(latest_alert_data) > 0:
-                candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
-                if latest_alert_data["candidate"]["candid"] not in candids:
-                    alert_data["prv_candidates"].append(latest_alert_data["candidate"])
-
-            df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-            mask_candid = df["candid"] == str(candid)
-
-            if candid is None or sum(mask_candid) == 0:
-                candid = int(latest_alert_data["candidate"]["candid"])
-                alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
-            else:
-                alert = df.loc[mask_candid].to_dict(orient="records")[0]
-
-            # post source
-            drb = alert.get("drb")
-            rb = alert.get("rb")
-            score = drb if drb is not None and not np.isnan(drb) else rb
-            alert_thin = {
-                "id": objectId,
-                "ra": alert.get("ra"),
-                "dec": alert.get("dec"),
-                "score": score,
-                "altdata": {
-                    "passing_alert_id": candid,
-                },
-            }
-
-            schema = Obj.__schema__()
-            # print(self.associated_user_object.groups)
-            user_group_ids = [
-                g.id
-                for g in self.associated_user_object.groups
-                if not g.single_user_group
-            ]
-            user_accessible_group_ids = [
-                g.id for g in self.associated_user_object.accessible_groups
-            ]
-            if not user_group_ids:
-                return self.error(
-                    "You must belong to one or more groups before you can add sources."
-                )
-            if not isinstance(group_ids, list) and group_ids != "all":
-                return self.error(
-                    "Invalid parameter value: group_ids must be a list of integers or the string 'all'"
-                )
-            if group_ids == "all":
-                group_ids = user_group_ids
-            if len(group_ids) == 0:
-                return self.error(
-                    "Invalid group_ids field. Please specify at least "
-                    "one valid group ID that you belong to."
-                )
-            try:
-                group_ids = [int(_id) for _id in group_ids]
-            except ValueError:
-                return self.error(
-                    "Invalid group_ids parameter: all elements must be integers."
-                )
-            forbidden_groups = list(set(group_ids) - set(user_accessible_group_ids))
-            if len(forbidden_groups) > 0:
-                return self.error(
-                    "Insufficient group access permissions. Not a member of "
-                    f"group IDs: {forbidden_groups}."
-                )
-            try:
-                obj = schema.load(alert_thin)
-            except ValidationError as e:
-                return self.error(
-                    f"Invalid/missing parameters: {e.normalized_messages()}"
-                )
-            groups = Group.get_if_accessible_by(group_ids, self.current_user)
-            if not groups:
-                return self.error(
-                    "Invalid group_ids field. Please specify at least "
-                    "one valid group ID that you belong to."
-                )
-
-            DBSession().add(obj)
-            DBSession().add_all(
-                [
-                    Source(
-                        obj=obj,
-                        group=group,
-                        saved_by_id=self.associated_user_object.id,
-                    )
-                    for group in groups
-                ]
+            objectId = post_alert(
+                objectId,
+                candid,
+                group_ids,
+                program_id_selector,
+                self.associated_user_object.id,
+                session,
             )
-            self.verify_and_commit()
-            if not obj_already_exists:
-                obj.add_linked_thumbnails()
-
-            # post photometry
-            ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
-            df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
-            df["magsys"] = "ab"
-            df["mjd"] = df["jd"] - 2400000.5
-
-            df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
-            df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
-            df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
-
-            # deduplicate
-            df = (
-                df.drop_duplicates(subset=["mjd", "magpsf"])
-                .reset_index(drop=True)
-                .sort_values(by=["mjd"])
-            )
-
-            # filter out bad data:
-            mask_good_diffmaglim = df["diffmaglim"] > 0
-            df = df.loc[mask_good_diffmaglim]
-
-            # get group stream access and map it to ZTF alert program ids
-            group_stream_access = []
-            for group in groups:
-                group_stream_subquery = (
-                    GroupStream.query_records_accessible_by(self.current_user)
-                    .filter(GroupStream.group_id == group.id)
-                    .subquery()
-                )
-                group_streams = (
-                    Stream.query_records_accessible_by(self.current_user)
-                    .join(
-                        group_stream_subquery,
-                        Stream.id == group_stream_subquery.c.stream_id,
-                    )
-                    .all()
-                )
-                if group_streams is None:
-                    group_streams = []
-
-                group_stream_selector = {1}
-
-                for stream in group_streams:
-                    if "ztf" in stream.name.lower():
-                        group_stream_selector.update(
-                            set(stream.altdata.get("selector", []))
-                        )
-
-                group_stream_access.append(
-                    {"group_id": group.id, "permissions": list(group_stream_selector)}
-                )
-
-            # post data from different program_id's
-            for pid in set(df.programid.unique()):
-                group_ids = [
-                    gsa.get("group_id")
-                    for gsa in group_stream_access
-                    if pid in gsa.get("permissions", [1])
-                ]
-
-                if len(group_ids) > 0:
-                    pid_mask = df.programid == int(pid)
-
-                    photometry = {
-                        "obj_id": objectId,
-                        "group_ids": group_ids,
-                        "instrument_id": 1,  # placeholder
-                        "mjd": df.loc[pid_mask, "mjd"].tolist(),
-                        "mag": df.loc[pid_mask, "magpsf"].tolist(),
-                        "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
-                        "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
-                        "magsys": df.loc[pid_mask, "magsys"].tolist(),
-                        "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
-                        "ra": df.loc[pid_mask, "ra"].tolist(),
-                        "dec": df.loc[pid_mask, "dec"].tolist(),
-                    }
-
-                    if len(photometry.get("mag", ())) > 0:
-                        photometry_handler = PhotometryHandler(
-                            request=self.request, application=self.application
-                        )
-                        photometry_handler.request.body = tornado.escape.json_encode(
-                            photometry
-                        )
-                        try:
-                            photometry_handler.put()
-                        except Exception:
-                            log(
-                                f"Failed to post photometry of {objectId} to group_ids {group_ids}"
-                            )
-                        # do not return anything yet
-                        self.clear()
-
-            # post cutouts
-            for ttype, ztftype in [
-                ("new", "Science"),
-                ("ref", "Template"),
-                ("sub", "Difference"),
-            ]:
-                query = {
-                    "query_type": "find",
-                    "query": {
-                        "catalog": "ZTF_alerts",
-                        "filter": {
-                            "candid": candid,
-                            "candidate.programid": {"$in": program_id_selector},
-                        },
-                        "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
-                    },
-                    "kwargs": {
-                        "limit": 1,
-                    },
-                }
-
-                response = kowalski.query(query=query)
-                if response.get("status", "error") == "success":
-                    cutout = response.get("data", list(dict()))[0]
-                else:
-                    cutout = dict()
-
-                thumb = make_thumbnail(cutout, ttype, ztftype)
-
-                try:
-                    thumbnail_handler = ThumbnailHandler(
-                        request=self.request, application=self.application
-                    )
-                    thumbnail_handler.request.body = tornado.escape.json_encode(thumb)
-                    thumbnail_handler.post()
-                except Exception as e:
-                    log(f"Failed to post thumbnails of {objectId} | {candid}")
-                    log(str(e))
-                self.clear()
 
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
-            return self.success(data={"id": objectId})
 
-        except Exception:
-            _err = traceback.format_exc()
-            return self.error(f"failure: {_err}")
+            return self.success(data={"id": objectId})
 
 
 class AlertAuxHandler(BaseHandler):
