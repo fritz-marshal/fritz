@@ -17,6 +17,8 @@ skyportal:
     secret_key: abc01234
     factory: skyportal.app_server_fritz.make_app_fritz
 
+    heasarc_endpoint: https://heasarc.gsfc.nasa.gov
+
     # this endpoint does not actually do anything -- it is just for testing
     sedm_endpoint: http://minar.caltech.edu/add_fritz
 
