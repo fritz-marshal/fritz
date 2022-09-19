@@ -19,7 +19,7 @@ const useStyles = makeStyles(() => ({
     padding: "0.5rem 0",
   },
   offsetLine: {
-    // Get it's own line
+    // Get its own line
     flexBasis: "100%",
     display: "flex",
     flexFlow: "row wrap",
