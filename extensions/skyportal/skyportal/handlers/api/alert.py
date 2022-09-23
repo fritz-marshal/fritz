@@ -1347,17 +1347,16 @@ class AlertTripletsHandler(BaseHandler):
             default: false
         responses:
           '200':
-            description: retrieved cutout
+            description: retrieved aux data
             content:
-              image/fits:
+              application/json:
                 schema:
-                  type: string
-                  format: binary
-              image/png:
-                schema:
-                  type: string
-                  format: binary
-
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
           '400':
             description: retrieval failed
             content:
