@@ -452,8 +452,6 @@ def post_alert(
             cutout = dict()
 
         thumb = make_thumbnail(cutout, ttype, ztftype)
-        post_thumbnail(thumb, user_id, session)
-
         try:
             post_thumbnail(thumb, user_id, session)
         except Exception as e:
@@ -1314,6 +1312,146 @@ class AlertCutoutHandler(BaseHandler):
                 self.set_header("Content-Type", "image/png")
                 self.write(buff.getvalue())
 
+        except Exception:
+            _err = traceback.format_exc()
+            return self.error(f"failure: {_err}")
+
+
+class AlertTripletsHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, object_id: str = None):
+        """
+        ---
+        summary: Serve alert cutouts as a triplet
+        tags:
+          - alerts
+          - kowalski
+
+        parameters:
+          - in: query
+            name: instrument
+            required: false
+            schema:
+              type: str
+          - in: query
+            name: candid
+            description: "ZTF alert candid"
+            required: true
+            schema:
+              type: integer
+          - in: query
+            name: normalizeImage
+            required: false
+            schema:
+              type: boolean
+            default: false
+        responses:
+          '200':
+            description: retrieved cutout
+            content:
+              image/fits:
+                schema:
+                  type: string
+                  format: binary
+              image/png:
+                schema:
+                  type: string
+                  format: binary
+
+          '400':
+            description: retrieval failed
+            content:
+              application/json:
+                schema: Error
+        """
+        instrument = self.get_query_argument("instrument", "ZTF").upper()
+        if instrument not in INSTRUMENTS:
+            raise ValueError("Instrument name not recognised")
+
+        # allow access to public data only by default
+        selector = {1}
+        with self.Session():
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
+
+        candid = int(self.get_query_argument("candid"))
+        normalize_image = self.get_query_argument("normalizeImage", False) in [
+            "True",
+            "t",
+            "true",
+            "1",
+            True,
+            1,
+        ]
+
+        try:
+            query = {
+                "query_type": "find",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "filter": {
+                        "candid": candid,
+                        "candidate.programid": {"$in": selector},
+                    },
+                    "projection": {
+                        "_id": 0,
+                        "cutoutScience": 1,
+                        "cutoutTemplate": 1,
+                        "cutoutDifference": 1,
+                    },
+                },
+                "kwargs": {"limit": 1, "max_time_ms": 5000},
+            }
+
+            response = kowalski.query(query=query)
+
+            if response.get("status", "error") == "success":
+                alert = response.get("data", [dict()])[0]
+            else:
+                return self.error("No cutout found.")
+
+            cutout_dict = dict()
+            image_corrupt = False
+
+            for cutout in ("science", "template", "difference"):
+                cutout_data = bj.loads(
+                    bj.dumps([alert[f"cutout{cutout.capitalize()}"]["stampData"]])
+                )[0]
+
+                with gzip.open(io.BytesIO(cutout_data), "rb") as f:
+                    with fits.open(io.BytesIO(f.read())) as hdu:
+                        data = hdu[0].data
+                        medfill = np.nanmedian(data.flatten())
+                        if medfill == np.nan or medfill == -np.inf or medfill == np.inf:
+                            image_corrupt = True
+
+                        cutout_dict[cutout] = np.nan_to_num(data, nan=medfill)
+                        # normalize
+                        if normalize_image and not image_corrupt:
+                            cutout_dict[cutout] /= np.linalg.norm(cutout_dict[cutout])
+
+                        if np.all(cutout_dict[cutout].flatten() == 0):
+                            image_corrupt = True
+
+                # pad to 63x63 if smaller
+                shape = cutout_dict[cutout].shape
+                if shape != (63, 63):
+                    cutout_dict[cutout] = np.pad(
+                        cutout_dict[cutout],
+                        [(0, 63 - shape[0]), (0, 63 - shape[1])],
+                        mode="constant",
+                        constant_values=medfill,
+                    )
+            triplet = np.zeros((63, 63, 3))
+            triplet[:, :, 0] = cutout_dict["science"]
+            triplet[:, :, 1] = cutout_dict["template"]
+            triplet[:, :, 2] = cutout_dict["difference"]
+
+            data = {"triplet": triplet, "image_corrupt": image_corrupt}
+            return self.success(data=data)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
