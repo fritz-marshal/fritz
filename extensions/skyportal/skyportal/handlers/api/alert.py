@@ -109,7 +109,15 @@ def make_thumbnail(a, ttype, ztftype):
     return thumb
 
 
-def post_alert(object_id, candid, group_ids, program_id_selector, user_id, session):
+def post_alert(
+    object_id,
+    candid,
+    group_ids,
+    program_id_selector,
+    user_id,
+    session,
+    thumbnails_only=False,
+):
     """Post alert to database.
     object_id : string
         Object ID
@@ -124,6 +132,8 @@ def post_alert(object_id, candid, group_ids, program_id_selector, user_id, sessi
         SkyPortal ID of User posting the alert
     session: sqlalchemy.Session
         Database session for this transaction
+    thumbnails_only : bool
+        Only post thumbnails (no photometry)
     """
 
     user = session.scalar(sa.select(User).where(User.id == user_id))
@@ -314,100 +324,105 @@ def post_alert(object_id, candid, group_ids, program_id_selector, user_id, sessi
 
     session.add(obj)
 
-    for group in groups:
-        source = session.scalars(
-            Source.select(user).where(Obj.id == object_id, Group.id == group.id)
-        ).first()
-        if not source:
-            session.add(
-                Source(
-                    obj=obj,
-                    group=group,
-                    saved_by_id=user.id,
-                )
-            )
-    session.commit()
-    if not obj_already_exists:
-        obj.add_linked_thumbnails(session=session)
-
-    # post photometry
-    ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
-    df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
-    df["magsys"] = "ab"
-    df["mjd"] = df["jd"] - 2400000.5
-
-    df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
-    df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
-    df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
-
-    # deduplicate
-    df = (
-        df.drop_duplicates(subset=["mjd", "magpsf"])
-        .reset_index(drop=True)
-        .sort_values(by=["mjd"])
-    )
-
-    # filter out bad data:
-    mask_good_diffmaglim = df["diffmaglim"] > 0
-    df = df.loc[mask_good_diffmaglim]
-
-    # get group stream access and map it to ZTF alert program ids
-    group_stream_access = []
-    for group in groups:
-        group_stream_subquery = (
-            GroupStream.select(user).where(GroupStream.group_id == group.id).subquery()
-        )
-        group_streams = session.scalars(
-            Stream.select(user).join(
-                group_stream_subquery,
-                Stream.id == group_stream_subquery.c.stream_id,
-            )
-        ).all()
-        if group_streams is None:
-            group_streams = []
-
-        group_stream_selector = {1}
-
-        for stream in group_streams:
-            if "ztf" in stream.name.lower():
-                group_stream_selector.update(set(stream.altdata.get("selector", [])))
-
-        group_stream_access.append(
-            {"group_id": group.id, "permissions": list(group_stream_selector)}
-        )
-
-    # post data from different program_id's
-    for pid in set(df.programid.unique()):
-        group_ids = [
-            gsa.get("group_id")
-            for gsa in group_stream_access
-            if pid in gsa.get("permissions", [1])
-        ]
-
-        if len(group_ids) > 0:
-            pid_mask = df.programid == int(pid)
-
-            photometry = {
-                "obj_id": object_id,
-                "group_ids": group_ids,
-                "instrument_id": instrument.id,
-                "mjd": df.loc[pid_mask, "mjd"].tolist(),
-                "mag": df.loc[pid_mask, "magpsf"].tolist(),
-                "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
-                "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
-                "magsys": df.loc[pid_mask, "magsys"].tolist(),
-                "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
-                "ra": df.loc[pid_mask, "ra"].tolist(),
-                "dec": df.loc[pid_mask, "dec"].tolist(),
-            }
-
-            if len(photometry.get("mag", ())) > 0:
-                try:
-                    add_external_photometry(photometry, user)
-                except Exception:
-                    log(
-                        f"Failed to post photometry of {object_id} to group_ids {group_ids}"
+    if not thumbnails_only:
+        for group in groups:
+            source = session.scalars(
+                Source.select(user).where(Obj.id == object_id, Group.id == group.id)
+            ).first()
+            if not source:
+                session.add(
+                    Source(
+                        obj=obj,
+                        group=group,
+                        saved_by_id=user.id,
                     )
+                )
+        session.commit()
+        if not obj_already_exists:
+            obj.add_linked_thumbnails(session=session)
+
+        # post photometry
+        ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
+        df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
+        df["magsys"] = "ab"
+        df["mjd"] = df["jd"] - 2400000.5
+
+        df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
+        df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
+        df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
+
+        # deduplicate
+        df = (
+            df.drop_duplicates(subset=["mjd", "magpsf"])
+            .reset_index(drop=True)
+            .sort_values(by=["mjd"])
+        )
+
+        # filter out bad data:
+        mask_good_diffmaglim = df["diffmaglim"] > 0
+        df = df.loc[mask_good_diffmaglim]
+
+        # get group stream access and map it to ZTF alert program ids
+        group_stream_access = []
+        for group in groups:
+            group_stream_subquery = (
+                GroupStream.select(user)
+                .where(GroupStream.group_id == group.id)
+                .subquery()
+            )
+            group_streams = session.scalars(
+                Stream.select(user).join(
+                    group_stream_subquery,
+                    Stream.id == group_stream_subquery.c.stream_id,
+                )
+            ).all()
+            if group_streams is None:
+                group_streams = []
+
+            group_stream_selector = {1}
+
+            for stream in group_streams:
+                if "ztf" in stream.name.lower():
+                    group_stream_selector.update(
+                        set(stream.altdata.get("selector", []))
+                    )
+
+            group_stream_access.append(
+                {"group_id": group.id, "permissions": list(group_stream_selector)}
+            )
+
+        # post data from different program_id's
+        for pid in set(df.programid.unique()):
+            group_ids = [
+                gsa.get("group_id")
+                for gsa in group_stream_access
+                if pid in gsa.get("permissions", [1])
+            ]
+
+            if len(group_ids) > 0:
+                pid_mask = df.programid == int(pid)
+
+                photometry = {
+                    "obj_id": object_id,
+                    "group_ids": group_ids,
+                    "instrument_id": instrument.id,
+                    "mjd": df.loc[pid_mask, "mjd"].tolist(),
+                    "mag": df.loc[pid_mask, "magpsf"].tolist(),
+                    "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
+                    "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
+                    "magsys": df.loc[pid_mask, "magsys"].tolist(),
+                    "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
+                    "ra": df.loc[pid_mask, "ra"].tolist(),
+                    "dec": df.loc[pid_mask, "dec"].tolist(),
+                }
+
+                if len(photometry.get("mag", ())) > 0:
+                    try:
+                        add_external_photometry(photometry, user)
+                    except Exception:
+                        log(
+                            f"Failed to post photometry of {object_id} to group_ids {group_ids}"
+                        )
 
     # post cutouts
     for ttype, ztftype in [
@@ -437,7 +452,6 @@ def post_alert(object_id, candid, group_ids, program_id_selector, user_id, sessi
             cutout = dict()
 
         thumb = make_thumbnail(cutout, ttype, ztftype)
-
         try:
             post_thumbnail(thumb, user_id, session)
         except Exception as e:
@@ -772,6 +786,10 @@ class AlertHandler(BaseHandler):
                     type: integer
                     description: Alert candid to use to pull thumbnails. Defaults to latest alert
                     minimum: 1
+                  thumbnailsOnly:
+                    type: bool
+                    description: Only post thumbnails (no photometry)
+                    default: False
                   group_ids:
                     type: array
                     items:
@@ -796,7 +814,8 @@ class AlertHandler(BaseHandler):
         data = self.get_json()
         candid = data.get("candid", None)
         group_ids = data.pop("group_ids", None)
-        if group_ids is None:
+        thumbnails_only = data.pop("thumbnailsOnly", False)
+        if group_ids is None and not thumbnails_only:
             return self.error("Missing required `group_ids` parameter.")
 
         with self.Session() as session:
@@ -817,6 +836,7 @@ class AlertHandler(BaseHandler):
                 program_id_selector,
                 self.associated_user_object.id,
                 session,
+                thumbnails_only=thumbnails_only,
             )
 
             self.push_all(action="skyportal/FETCH_SOURCES")
@@ -1268,7 +1288,6 @@ class AlertCutoutHandler(BaseHandler):
 
             if file_format == "png":
                 buff = io.BytesIO()
-                plt.close("all")
 
                 fig, ax = plt.subplots(figsize=(4, 4))
                 fig.subplots_adjust(0, 0, 1, 1)
@@ -1287,12 +1306,151 @@ class AlertCutoutHandler(BaseHandler):
                 img_norm = norm(img)
                 vmin, vmax = normalizer.get_limits(img_norm)
                 ax.imshow(img_norm, cmap=cmap, origin="lower", vmin=vmin, vmax=vmax)
-                plt.savefig(buff, dpi=42)
+                plt.savefig(buff, dpi=42, format="png")
+                plt.close(fig)
                 buff.seek(0)
-                plt.close("all")
                 self.set_header("Content-Type", "image/png")
                 self.write(buff.getvalue())
 
+        except Exception:
+            _err = traceback.format_exc()
+            return self.error(f"failure: {_err}")
+
+
+class AlertTripletsHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, object_id: str = None):
+        """
+        ---
+        summary: Serve alert cutouts as a triplet
+        tags:
+          - alerts
+          - kowalski
+
+        parameters:
+          - in: query
+            name: instrument
+            required: false
+            schema:
+              type: str
+          - in: query
+            name: candid
+            description: "ZTF alert candid"
+            required: true
+            schema:
+              type: integer
+          - in: query
+            name: normalizeImage
+            required: false
+            schema:
+              type: boolean
+            default: false
+        responses:
+          '200':
+            description: retrieved aux data
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+          '400':
+            description: retrieval failed
+            content:
+              application/json:
+                schema: Error
+        """
+        instrument = self.get_query_argument("instrument", "ZTF").upper()
+        if instrument not in INSTRUMENTS:
+            raise ValueError("Instrument name not recognised")
+
+        # allow access to public data only by default
+        selector = {1}
+        with self.Session():
+            for stream in self.associated_user_object.streams:
+                if "ztf" in stream.name.lower():
+                    selector.update(set(stream.altdata.get("selector", [])))
+
+        selector = list(selector)
+
+        candid = int(self.get_query_argument("candid"))
+        normalize_image = self.get_query_argument("normalizeImage", False) in [
+            "True",
+            "t",
+            "true",
+            "1",
+            True,
+            1,
+        ]
+
+        try:
+            query = {
+                "query_type": "find",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "filter": {
+                        "candid": candid,
+                        "candidate.programid": {"$in": selector},
+                    },
+                    "projection": {
+                        "_id": 0,
+                        "cutoutScience": 1,
+                        "cutoutTemplate": 1,
+                        "cutoutDifference": 1,
+                    },
+                },
+                "kwargs": {"limit": 1, "max_time_ms": 5000},
+            }
+
+            response = kowalski.query(query=query)
+
+            if response.get("status", "error") == "success":
+                alert = response.get("data", [dict()])[0]
+            else:
+                return self.error("No cutout found.")
+
+            cutout_dict = dict()
+            image_corrupt = False
+
+            for cutout in ("science", "template", "difference"):
+                cutout_data = bj.loads(
+                    bj.dumps([alert[f"cutout{cutout.capitalize()}"]["stampData"]])
+                )[0]
+
+                with gzip.open(io.BytesIO(cutout_data), "rb") as f:
+                    with fits.open(io.BytesIO(f.read())) as hdu:
+                        data = hdu[0].data
+                        medfill = np.nanmedian(data.flatten())
+                        if medfill == np.nan or medfill == -np.inf or medfill == np.inf:
+                            image_corrupt = True
+
+                        cutout_dict[cutout] = np.nan_to_num(data, nan=medfill)
+                        # normalize
+                        if normalize_image and not image_corrupt:
+                            cutout_dict[cutout] /= np.linalg.norm(cutout_dict[cutout])
+
+                        if np.all(cutout_dict[cutout].flatten() == 0):
+                            image_corrupt = True
+
+                # pad to 63x63 if smaller
+                shape = cutout_dict[cutout].shape
+                if shape != (63, 63):
+                    cutout_dict[cutout] = np.pad(
+                        cutout_dict[cutout],
+                        [(0, 63 - shape[0]), (0, 63 - shape[1])],
+                        mode="constant",
+                        constant_values=medfill,
+                    )
+            triplet = np.zeros((63, 63, 3))
+            triplet[:, :, 0] = cutout_dict["science"]
+            triplet[:, :, 1] = cutout_dict["template"]
+            triplet[:, :, 2] = cutout_dict["difference"]
+
+            data = {"triplet": triplet, "image_corrupt": image_corrupt}
+            return self.success(data=data)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
