@@ -109,7 +109,15 @@ def make_thumbnail(a, ttype, ztftype):
     return thumb
 
 
-def post_alert(object_id, candid, group_ids, program_id_selector, user_id, session):
+def post_alert(
+    object_id,
+    candid,
+    group_ids,
+    program_id_selector,
+    user_id,
+    session,
+    thumbnails_only=False,
+):
     """Post alert to database.
     object_id : string
         Object ID
@@ -124,6 +132,8 @@ def post_alert(object_id, candid, group_ids, program_id_selector, user_id, sessi
         SkyPortal ID of User posting the alert
     session: sqlalchemy.Session
         Database session for this transaction
+    thumbnails_only : bool
+        Only post thumbnails (no photometry)
     """
 
     user = session.scalar(sa.select(User).where(User.id == user_id))
@@ -314,100 +324,105 @@ def post_alert(object_id, candid, group_ids, program_id_selector, user_id, sessi
 
     session.add(obj)
 
-    for group in groups:
-        source = session.scalars(
-            Source.select(user).where(Obj.id == object_id, Group.id == group.id)
-        ).first()
-        if not source:
-            session.add(
-                Source(
-                    obj=obj,
-                    group=group,
-                    saved_by_id=user.id,
-                )
-            )
-    session.commit()
-    if not obj_already_exists:
-        obj.add_linked_thumbnails(session=session)
-
-    # post photometry
-    ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
-    df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
-    df["magsys"] = "ab"
-    df["mjd"] = df["jd"] - 2400000.5
-
-    df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
-    df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
-    df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
-
-    # deduplicate
-    df = (
-        df.drop_duplicates(subset=["mjd", "magpsf"])
-        .reset_index(drop=True)
-        .sort_values(by=["mjd"])
-    )
-
-    # filter out bad data:
-    mask_good_diffmaglim = df["diffmaglim"] > 0
-    df = df.loc[mask_good_diffmaglim]
-
-    # get group stream access and map it to ZTF alert program ids
-    group_stream_access = []
-    for group in groups:
-        group_stream_subquery = (
-            GroupStream.select(user).where(GroupStream.group_id == group.id).subquery()
-        )
-        group_streams = session.scalars(
-            Stream.select(user).join(
-                group_stream_subquery,
-                Stream.id == group_stream_subquery.c.stream_id,
-            )
-        ).all()
-        if group_streams is None:
-            group_streams = []
-
-        group_stream_selector = {1}
-
-        for stream in group_streams:
-            if "ztf" in stream.name.lower():
-                group_stream_selector.update(set(stream.altdata.get("selector", [])))
-
-        group_stream_access.append(
-            {"group_id": group.id, "permissions": list(group_stream_selector)}
-        )
-
-    # post data from different program_id's
-    for pid in set(df.programid.unique()):
-        group_ids = [
-            gsa.get("group_id")
-            for gsa in group_stream_access
-            if pid in gsa.get("permissions", [1])
-        ]
-
-        if len(group_ids) > 0:
-            pid_mask = df.programid == int(pid)
-
-            photometry = {
-                "obj_id": object_id,
-                "group_ids": group_ids,
-                "instrument_id": instrument.id,
-                "mjd": df.loc[pid_mask, "mjd"].tolist(),
-                "mag": df.loc[pid_mask, "magpsf"].tolist(),
-                "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
-                "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
-                "magsys": df.loc[pid_mask, "magsys"].tolist(),
-                "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
-                "ra": df.loc[pid_mask, "ra"].tolist(),
-                "dec": df.loc[pid_mask, "dec"].tolist(),
-            }
-
-            if len(photometry.get("mag", ())) > 0:
-                try:
-                    add_external_photometry(photometry, user)
-                except Exception:
-                    log(
-                        f"Failed to post photometry of {object_id} to group_ids {group_ids}"
+    if not thumbnails_only:
+        for group in groups:
+            source = session.scalars(
+                Source.select(user).where(Obj.id == object_id, Group.id == group.id)
+            ).first()
+            if not source:
+                session.add(
+                    Source(
+                        obj=obj,
+                        group=group,
+                        saved_by_id=user.id,
                     )
+                )
+        session.commit()
+        if not obj_already_exists:
+            obj.add_linked_thumbnails(session=session)
+
+        # post photometry
+        ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
+        df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
+        df["magsys"] = "ab"
+        df["mjd"] = df["jd"] - 2400000.5
+
+        df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
+        df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
+        df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
+
+        # deduplicate
+        df = (
+            df.drop_duplicates(subset=["mjd", "magpsf"])
+            .reset_index(drop=True)
+            .sort_values(by=["mjd"])
+        )
+
+        # filter out bad data:
+        mask_good_diffmaglim = df["diffmaglim"] > 0
+        df = df.loc[mask_good_diffmaglim]
+
+        # get group stream access and map it to ZTF alert program ids
+        group_stream_access = []
+        for group in groups:
+            group_stream_subquery = (
+                GroupStream.select(user)
+                .where(GroupStream.group_id == group.id)
+                .subquery()
+            )
+            group_streams = session.scalars(
+                Stream.select(user).join(
+                    group_stream_subquery,
+                    Stream.id == group_stream_subquery.c.stream_id,
+                )
+            ).all()
+            if group_streams is None:
+                group_streams = []
+
+            group_stream_selector = {1}
+
+            for stream in group_streams:
+                if "ztf" in stream.name.lower():
+                    group_stream_selector.update(
+                        set(stream.altdata.get("selector", []))
+                    )
+
+            group_stream_access.append(
+                {"group_id": group.id, "permissions": list(group_stream_selector)}
+            )
+
+        # post data from different program_id's
+        for pid in set(df.programid.unique()):
+            group_ids = [
+                gsa.get("group_id")
+                for gsa in group_stream_access
+                if pid in gsa.get("permissions", [1])
+            ]
+
+            if len(group_ids) > 0:
+                pid_mask = df.programid == int(pid)
+
+                photometry = {
+                    "obj_id": object_id,
+                    "group_ids": group_ids,
+                    "instrument_id": instrument.id,
+                    "mjd": df.loc[pid_mask, "mjd"].tolist(),
+                    "mag": df.loc[pid_mask, "magpsf"].tolist(),
+                    "magerr": df.loc[pid_mask, "sigmapsf"].tolist(),
+                    "limiting_mag": df.loc[pid_mask, "diffmaglim"].tolist(),
+                    "magsys": df.loc[pid_mask, "magsys"].tolist(),
+                    "filter": df.loc[pid_mask, "ztf_filter"].tolist(),
+                    "ra": df.loc[pid_mask, "ra"].tolist(),
+                    "dec": df.loc[pid_mask, "dec"].tolist(),
+                }
+
+                if len(photometry.get("mag", ())) > 0:
+                    try:
+                        add_external_photometry(photometry, user)
+                    except Exception:
+                        log(
+                            f"Failed to post photometry of {object_id} to group_ids {group_ids}"
+                        )
 
     # post cutouts
     for ttype, ztftype in [
@@ -437,6 +452,7 @@ def post_alert(object_id, candid, group_ids, program_id_selector, user_id, sessi
             cutout = dict()
 
         thumb = make_thumbnail(cutout, ttype, ztftype)
+        post_thumbnail(thumb, user_id, session)
 
         try:
             post_thumbnail(thumb, user_id, session)
@@ -772,6 +788,10 @@ class AlertHandler(BaseHandler):
                     type: integer
                     description: Alert candid to use to pull thumbnails. Defaults to latest alert
                     minimum: 1
+                  thumbnailsOnly:
+                    type: bool
+                    description: Only post thumbnails (no photometry)
+                    default: False
                   group_ids:
                     type: array
                     items:
@@ -796,7 +816,8 @@ class AlertHandler(BaseHandler):
         data = self.get_json()
         candid = data.get("candid", None)
         group_ids = data.pop("group_ids", None)
-        if group_ids is None:
+        thumbnails_only = data.pop("thumbnailsOnly", False)
+        if group_ids is None and not thumbnails_only:
             return self.error("Missing required `group_ids` parameter.")
 
         with self.Session() as session:
@@ -817,6 +838,7 @@ class AlertHandler(BaseHandler):
                 program_id_selector,
                 self.associated_user_object.id,
                 session,
+                thumbnails_only=thumbnails_only,
             )
 
             self.push_all(action="skyportal/FETCH_SOURCES")
@@ -1268,7 +1290,6 @@ class AlertCutoutHandler(BaseHandler):
 
             if file_format == "png":
                 buff = io.BytesIO()
-                plt.close("all")
 
                 fig, ax = plt.subplots(figsize=(4, 4))
                 fig.subplots_adjust(0, 0, 1, 1)
@@ -1287,9 +1308,9 @@ class AlertCutoutHandler(BaseHandler):
                 img_norm = norm(img)
                 vmin, vmax = normalizer.get_limits(img_norm)
                 ax.imshow(img_norm, cmap=cmap, origin="lower", vmin=vmin, vmax=vmax)
-                plt.savefig(buff, dpi=42)
+                plt.savefig(buff, dpi=42, format="png")
+                plt.close(fig)
                 buff.seek(0)
-                plt.close("all")
                 self.set_header("Content-Type", "image/png")
                 self.write(buff.getvalue())
 

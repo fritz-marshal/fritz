@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState} from "react";
 
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -13,7 +13,6 @@ import Select from "@mui/material/Select";
 
 import Grid from "@mui/material/Grid";
 
-import Button from "@mui/material/Button";
 import {
   createTheme,
   ThemeProvider,
@@ -31,11 +30,14 @@ import {useDispatch, useSelector} from "react-redux";
 
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
+
+import Button from "./Button";
 import ThumbnailList from "./ThumbnailList";
 import {dec_to_dms, ra_to_hours} from "../units";
 import { showNotification } from "baselayer/components/Notifications";
 
-import * as Actions from "../ducks/alerts";
+import * as alertActions from "../ducks/alert";
+import * as alertsActions from "../ducks/alerts";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -145,6 +147,7 @@ const Alerts = () => {
   const darkTheme = theme.palette.mode === "dark";
 
   const { alerts, queryInProgress } = useSelector((state) => state.alerts);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const makeRow = (alert) => ({
       objectId: alert?.objectId,
@@ -170,6 +173,13 @@ const Alerts = () => {
   if (alerts !== null && !isString(alerts) && Array.isArray(alerts)) {
     rows = alerts.map((a) => makeRow(a));
   }
+
+  const handleRetrieveThumbnails = async (objID) => {
+    setIsSubmitting(true);
+    const payload = {"thumbnailsOnly" : true, "group_ids" : "all"};
+    await dispatch(alertActions.saveAlertAsSource({'id': objID, payload}));
+    setIsSubmitting(false);
+  };
 
   // This is just passed to MUI datatables options -- not meant to be instantiated directly.
   const renderPullOutRow = (rowData, rowMeta) => {
@@ -215,6 +225,12 @@ const Alerts = () => {
               />
             </Grid>
           </Grid>
+          <Button
+            onClick={(event) => handleRetrieveThumbnails(alertData.objectId)}
+            disabled={isSubmitting}
+          >
+            Retrieve Thumbnails
+          </Button>
         </TableCell>
       </TableRow>
     );
@@ -398,7 +414,7 @@ const Alerts = () => {
       dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
     }
     else {
-      dispatch(Actions.fetchAlerts({ object_id, ra, dec, radius }));
+      dispatch(alertsActions.fetchAlerts({ object_id, ra, dec, radius }));
     }
   };
 
