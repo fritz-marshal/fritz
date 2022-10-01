@@ -177,7 +177,7 @@ skyportal:
             icon: Explore
             url: /alerts
 
-          - name: Archive
+          - name: Persistent Sources
             icon: CloudCircle
             url: /archive
 
