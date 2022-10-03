@@ -170,7 +170,7 @@ class StatsHandler(BaseHandler):
                 cand.created_at if cand is not None else None
             )
             data["Latest cron job run times & statuses"] = []
-            cron_job_scripts = session.execute(
+            cron_job_scripts = session.scalars(
                 sa.select(CronJobRun.script).distinct()
             ).all()
             for script in cron_job_scripts:
