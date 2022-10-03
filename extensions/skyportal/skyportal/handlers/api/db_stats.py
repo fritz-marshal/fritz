@@ -174,13 +174,11 @@ class StatsHandler(BaseHandler):
                 sa.select(CronJobRun.script).distinct()
             ).all()
             for script in cron_job_scripts:
-                cron_job_run = session.execute(
+                cron_job_run = session.scalars(
                     sa.select(CronJobRun)
                     .where(CronJobRun.script == script)
                     .order_by(CronJobRun.created_at.desc())
                 ).first()
-                if cron_job_run is not None:
-                    (cron_job_run,) = cron_job_run
                 data["Latest cron job run times & statuses"].append(
                     {
                         "summary": f"{script} ran at {cron_job_run.created_at} with exit status {cron_job_run.exit_status}",
