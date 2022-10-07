@@ -5,6 +5,8 @@ import sqlalchemy as sa
 
 from baselayer.app.access import permissions
 from baselayer.app.env import load_env
+from baselayer.log import make_log
+
 from ..base import BaseHandler
 from ...models import (
     DBSession,
@@ -34,6 +36,8 @@ kowalski = Kowalski(
     host=cfg["app.kowalski.host"],
     port=int(cfg["app.kowalski.port"]),
 )
+
+log = make_log("api/db_stats")
 
 
 class StatsHandler(BaseHandler):
@@ -149,26 +153,6 @@ class StatsHandler(BaseHandler):
             data["Number of GCN events"] = session.scalar(
                 sa.select(sa.func.count()).select_from(GcnEvent)
             )
-            cand = session.scalars(
-                sa.select(Candidate).order_by(Candidate.created_at)
-            ).first()
-            data["Oldest candidate creation datetime"] = (
-                cand.created_at if cand is not None else None
-            )
-            cand = session.scalars(
-                sa.select(Candidate).order_by(Candidate.created_at.desc())
-            ).first()
-            data["Newest candidate creation datetime"] = (
-                cand.created_at if cand is not None else None
-            )
-            cand = session.scalars(
-                sa.select(Candidate)
-                .where(Candidate.obj_id.notin_(sa.select(Source.obj_id).subquery()))
-                .order_by(Candidate.created_at)
-            ).first()
-            data["Oldest unsaved candidate creation datetime"] = (
-                cand.created_at if cand is not None else None
-            )
             data["Latest cron job run times & statuses"] = []
             cron_job_scripts = session.scalars(
                 sa.select(CronJobRun.script).distinct()
@@ -182,75 +166,79 @@ class StatsHandler(BaseHandler):
                 data["Latest cron job run times & statuses"].append(
                     {
                         "summary": f"{script} ran at {cron_job_run.created_at} with exit status {cron_job_run.exit_status}",
-                        "output": cron_job_run.output,
+                        "output": cron_job_run.output[-100:],
                     }
                 )
-            query_tns_count = {
-                "query_type": "count_documents",
-                "query": {
-                    "catalog": "TNS",
-                    "filter": {},
-                },
-            }
-            response = kowalski.query(query=query_tns_count)
-            data["Number of objects in TNS collection"] = response.get("data")
 
-            query_tns_latest_object = {
-                "query_type": "find",
-                "query": {
-                    "catalog": "TNS",
-                    "filter": {},
-                    "projection": {"_id": 0, "discovery_date_(ut)": 1},
-                },
-                "kwargs": {"sort": [("discovery_date", -1)], "limit": 1},
-            }
-            response = kowalski.query(query=query_tns_latest_object)
-            response_data = response.get("data", [])
-            latest_tns_object_discovery_date = (
-                response_data[0]["discovery_date_(ut)"]
-                if len(response_data) > 0
-                else None
-            )
-            data[
-                "Latest object from TNS collection discovery date (UTC)"
-            ] = latest_tns_object_discovery_date
-
-            for survey in ("PGIR", "ZTF"):
-                utc_now = datetime.datetime.utcnow()
-                jd_start = Time(
-                    datetime.datetime(utc_now.year, utc_now.month, utc_now.day)
-                ).jd
-                query_alerts_count = {
+            try:
+                query_tns_count = {
                     "query_type": "count_documents",
                     "query": {
-                        "catalog": f"{survey}_alerts",
-                        "filter": {
-                            "candidate.jd": {
-                                "$gt": jd_start - 1,
-                                "$lt": jd_start,
-                            }
-                        },
+                        "catalog": "TNS",
+                        "filter": {},
                     },
                 }
-                response = kowalski.query(query=query_alerts_count)
-                data[
-                    f"Number of {survey} alerts ingested yesterday (UTC)"
-                ] = response.get("data")
+                response = kowalski.query(query=query_tns_count)
+                data["Number of objects in TNS collection"] = response.get("data")
 
-                query_alerts_count = {
-                    "query_type": "count_documents",
+                query_tns_latest_object = {
+                    "query_type": "find",
                     "query": {
-                        "catalog": f"{survey}_alerts",
-                        "filter": {
-                            "candidate.jd": {
-                                "$gt": jd_start,
-                            }
-                        },
+                        "catalog": "TNS",
+                        "filter": {},
+                        "projection": {"_id": 0, "discovery_date_(ut)": 1},
                     },
+                    "kwargs": {"sort": [("discovery_date", -1)], "limit": 1},
                 }
-                response = kowalski.query(query=query_alerts_count)
+                response = kowalski.query(query=query_tns_latest_object)
+                response_data = response.get("data", [])
+                latest_tns_object_discovery_date = (
+                    response_data[0]["discovery_date_(ut)"]
+                    if len(response_data) > 0
+                    else None
+                )
                 data[
-                    f"Number of {survey} alerts ingested since 0h UTC today"
-                ] = response.get("data")
+                    "Latest object from TNS collection discovery date (UTC)"
+                ] = latest_tns_object_discovery_date
+
+                for survey in ("PGIR", "ZTF"):
+                    utc_now = datetime.datetime.utcnow()
+                    jd_start = Time(
+                        datetime.datetime(utc_now.year, utc_now.month, utc_now.day)
+                    ).jd
+                    query_alerts_count = {
+                        "query_type": "count_documents",
+                        "query": {
+                            "catalog": f"{survey}_alerts",
+                            "filter": {
+                                "candidate.jd": {
+                                    "$gt": jd_start - 1,
+                                    "$lt": jd_start,
+                                }
+                            },
+                        },
+                    }
+                    response = kowalski.query(query=query_alerts_count)
+                    data[
+                        f"Number of {survey} alerts ingested yesterday (UTC)"
+                    ] = response.get("data")
+
+                    query_alerts_count = {
+                        "query_type": "count_documents",
+                        "query": {
+                            "catalog": f"{survey}_alerts",
+                            "filter": {
+                                "candidate.jd": {
+                                    "$gt": jd_start,
+                                }
+                            },
+                        },
+                    }
+                    response = kowalski.query(query=query_alerts_count)
+                    data[
+                        f"Number of {survey} alerts ingested since 0h UTC today"
+                    ] = response.get("data")
+            except Exception as e:
+                log(f"kowalski stats query failed: {str(e)}")
 
         return self.success(data=data)
