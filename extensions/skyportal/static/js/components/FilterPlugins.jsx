@@ -107,6 +107,9 @@ const FilterPlugins = () => {
   const dispatch = useDispatch();
   const { register, handleSubmit } = useForm();
 
+  const theme = useTheme();
+  const darkTheme = theme.palette.mode === "dark";
+
   const filter = useSelector((state) => state.filter);
   const filter_v = useSelector((state) => state.filter_v);
   const { fid } = useParams();
