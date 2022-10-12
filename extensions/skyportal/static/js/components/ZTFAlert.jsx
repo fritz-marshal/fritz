@@ -136,7 +136,7 @@ const getMuiTheme = (theme) =>
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
   const dispatch = useDispatch();
-  const history = useNavigate();
+  const navigate = useNavigate();
 
   // figure out if this objectId has been saved as Source.
   const [savedSource, setsavedSource] = useState(false);
@@ -446,17 +446,33 @@ const ZTFAlert = ({ route }) => {
             <div className={classes.name}>{objectId}</div>
             <br />
             {savedSource || loadedSourceId === objectId ? (
+             <div>
               <div className={classes.itemPaddingBottom}>
                 <Chip
                   size="small"
                   label="Previously Saved"
                   clickable
-                  onClick={() => history.push(`/source/${objectId}`)}
+                  onClick={() => navigate(`/source/${objectId}`)}
                   onDelete={() => window.open(`/source/${objectId}`, "_blank")}
                   deleteIcon={<OpenInNewIcon />}
                   color="primary"
                 />
               </div>
+              <div className={classes.itemPaddingBottom}>
+                <Chip size="small" label="Update Photometry" />
+                <br />
+                <div className={classes.saveAlertButton}>
+                  <SaveAlertButton
+                    alert={{
+                      id: objectId,
+                      candid: parseInt(candid),
+                      group_ids: userAccessibleGroupIds,
+                    }}
+                    userGroups={userAccessibleGroups}
+                  />
+                </div>
+              </div>
+             </div>
             ) : (
               <div className={classes.itemPaddingBottom}>
                 <Chip size="small" label="NOT SAVED" />

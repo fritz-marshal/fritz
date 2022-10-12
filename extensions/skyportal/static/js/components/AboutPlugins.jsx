@@ -1,37 +1,22 @@
 import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import PropTypes from "prop-types";
-
-import makeStyles from '@mui/styles/makeStyles';
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActions from "@mui/material/CardActions";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
+import makeStyles from "@mui/styles/makeStyles";
 import Paper from "@mui/material/Paper";
-import Avatar from "@mui/material/Avatar";
-import Grid from "@mui/material/Grid";
+import PropTypes from "prop-types";
+import Typography from "@mui/material/Typography";
 
+import Button from "./Button";
 import clsx from "clsx";
 import dayjs from "dayjs";
 
 const useStyles = makeStyles((theme) => ({
-  root: {
-    padding: "1rem 2rem 2rem 2rem",
-    fontSize: "1rem",
-    "& .MuiTypography-h5": {
-      margin: "1rem 0 0.83rem 0",
-      fontWeight: 600,
-      wordBreak: "break-all",
-    },
-    "& .MuiTypography-body1": {
-      margin: "1rem 0",
-    },
-  },
   bibcard: {
-    marginTop: "1rem",
+    marginTop: "5rem",
     "& .MuiTypography-body1": {
       margin: 0,
     },
@@ -39,7 +24,7 @@ const useStyles = makeStyles((theme) => ({
   bibtex: {
     marginTop: "2rem",
     marginBottom: 0,
-    color: theme.palette.info.dark,
+    color: theme.palette.secondary.dark,
   },
   hidden: {
     display: "none",
@@ -59,24 +44,6 @@ const useStyles = makeStyles((theme) => ({
   },
   gitlogPR: {
     color: theme.palette.secondary.dark,
-  },
-  dev: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  devIcon: {
-    width: "5rem",
-    height: "5rem",
-  },
-  documentation: {
-    float: "right",
-    maxWidth: "20rem",
-    padding: "0 1rem",
-    margin: "1rem",
-  },
-  header: {
-    display: "inline-block",
   },
 }));
 
@@ -109,68 +76,22 @@ BibLink.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-const About = () => {
-  const classes = useStyles();
-  const version = useSelector((state) => state.sysInfo.version);
-  const cosmology = useSelector((state) => state.sysInfo.cosmology);
-  const cosmoref = useSelector((state) => state.sysInfo.cosmoref);
-  const gitlog = useSelector((state) => state.sysInfo.gitlog);
 
-  const developers = [
-    {
-      name: "Joshua Bloom",
-      src: "/static/images/developers/bloom.jpeg",
-    },
-    {
-      name: "Michael Coughlin",
-      src: "/static/images/developers/coughlin.jpg",
-    },
-    {
-      name: "Arien Crellin-Quick",
-      src: "/static/images/developers/crellinquick.jpg",
-    },
-    {
-      name: "Dmitry Duev",
-      src: "/static/images/developers/duev.jpg",
-    },
-    {
-      name: "Daniel Goldstein",
-      src: "/static/images/developers/goldstein.jpg",
-    },
-    {
-      name: "Matthew Graham",
-      src: "/static/images/developers/graham.jpg",
-    },
-    {
-      name: "Mansi Kasliwal",
-      src: "/static/images/developers/kasliwal.jpg",
-    },
-    {
-      name: "Don Neill",
-      src: "/static/images/developers/neill.jpg",
-    },
-    {
-      name: "Guy Nir",
-      src: "/static/images/developers/nir.jpg",
-    },
-    {
-      name: "Kyung Min Shin",
-      src: "/static/images/developers/shin.jpg",
-    },
-    {
-      name: "Leo Singer",
-      src: "/static/images/developers/singer.jpg",
-    },
-    {
-      name: "Stéfan van der Walt",
-      src: "/static/images/developers/vanderwalt.jpg",
-    },
-  ];
-  return (
-    <Paper className={classes.root}>
+const AboutPlugins = () => {
+    const classes = useStyles();
+    const version = useSelector((state) => state.sysInfo.version);
+    const gitlog = useSelector((state) => state.sysInfo.gitlog);
+
+    return (
+     <div>
       <Typography className={classes.header} variant="h5">
         This is Fritz&nbsp;
         <code>v{version}</code>.
+      </Typography>
+      <Typography variant="body1">
+        Fritz is an open source codebase that serves as a dynamic collaborative
+        platform for time-domain astronomy. It is being jointly developed at
+        Caltech, UC Berkeley, the University of Minnesota, and the Observatoire de la Côte d'Azur.
       </Typography>
       <Paper variant="outlined" className={classes.documentation}>
         <Typography variant="body1">
@@ -179,30 +100,8 @@ const About = () => {
         </Typography>
       </Paper>
       <Typography variant="body1">
-        Fritz is an open source codebase that serves as a dynamic collaborative
-        platform for time-domain astronomy. It is being jointly developed at
-        Caltech and UC Berkeley.
-      </Typography>
-      <Typography variant="body1">Meet the core dev team:</Typography>
-      <div>
-        <Grid container spacing={2}>
-          {developers.map((dev) => (
-            <Grid item md={3} xs={4} key={dev.name}>
-              <div className={classes.dev}>
-                <Avatar
-                  alt={dev.name}
-                  src={dev.src}
-                  className={classes.devIcon}
-                />
-                <Typography variant="body1">{dev.name}</Typography>
-              </div>
-            </Grid>
-          ))}
-        </Grid>
-      </div>
-      <Typography variant="body1">
         Fritz integrates and extends two projects,&nbsp;
-        <a href="https://github.com/dmitryduev/kowalski">Kowalski</a>
+        <a href="https://github.com/skyportal/kowalski">Kowalski</a>
         &nbsp;&&nbsp;
         <a href="https://skyportal.io">SkyPortal</a>, and has the functionality
         of an alert broker, a multi-survey data sink/archive, a marshal, and a
@@ -271,17 +170,17 @@ const About = () => {
         </BibLink>
         <BibLink
           bibtex={`@article{Kasliwal_2019,
-	doi = {10.1088/1538-3873/aafbc2},
-	url = {https://doi.org/10.1088%2F1538-3873%2Faafbc2},
-	year = 2019,
-	month = {feb},
-	publisher = {{IOP} Publishing},
-	volume = {131},
-	number = {997},
-	pages = {038003},
-	author = {M. M. Kasliwal and C. Cannella and A. Bagdasaryan and T. Hung and U. Feindt and L. P. Singer and M. Coughlin and C. Fremling and R. Walters and D. Duev and R. Itoh and R. M. Quimby},
-	title = {The {GROWTH} Marshal: A Dynamic Science Portal for Time-domain Astronomy},
-	journal = {Publications of the Astronomical Society of the Pacific},
+    doi = {10.1088/1538-3873/aafbc2},
+    url = {https://doi.org/10.1088%2F1538-3873%2Faafbc2},
+    year = 2019,
+    month = {feb},
+    publisher = {{IOP} Publishing},
+    volume = {131},
+    number = {997},
+    pages = {038003},
+    author = {M. M. Kasliwal and C. Cannella and A. Bagdasaryan and T. Hung and U. Feindt and L. P. Singer and M. Coughlin and C. Fremling and R. Walters and D. Duev and R. Itoh and R. M. Quimby},
+    title = {The {GROWTH} Marshal: A Dynamic Science Portal for Time-domain Astronomy},
+    journal = {Publications of the Astronomical Society of the Pacific},
 }`}
         >
           Kasliwal, M., et al.,{" "}
@@ -345,7 +244,7 @@ archivePrefix = {arXiv},
                 <a href="https://github.com/skyportal/skyportal/pulls">
                   SkyPortal
                 </a>, and{" "}
-                <a href="https://github.com/dmitryduev/kowalski/pulls">
+                <a href="https://github.com/skyportal/kowalski/pulls">
                   Kowalski
                 </a>
               </div>
@@ -383,25 +282,9 @@ archivePrefix = {arXiv},
           </Paper>
         </>
       )}
-      <Typography variant="h5">Cosmology</Typography>
-      <span>
-        The cosmology currently used here is an instance of{" "}
-        <code>astropy.cosmology</code> with the parameters (see{" "}
-        <a href="https://github.com/astropy/astropy/blob/master/astropy/cosmology/parameters.py">
-          this link for parameters definitions): <br />
-        </a>
-        {cosmology && (
-          <>
-            <blockquote>{cosmology}</blockquote>
-            <b>Reference</b>: {cosmoref}
-            <br />
-            If you&apos;d like to change the cosmology, please do so in the{" "}
-            <code>config.yaml</code> under <code>misc.cosmology</code>.
-          </>
-        )}
-      </span>
-    </Paper>
-  );
+     </div>
+    )
+
 };
 
-export default About;
+export default AboutPlugins;

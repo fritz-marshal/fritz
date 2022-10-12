@@ -7,6 +7,7 @@ from skyportal.handlers.api.alert import (
     AlertHandler,
     AlertAuxHandler,
     AlertCutoutHandler,
+    AlertTripletsHandler,
 )
 from skyportal.handlers.api.archive import (
     ArchiveCatalogsHandler,
@@ -23,6 +24,7 @@ fritz_handlers = [
     (r"/api/alerts(/.+)?", AlertHandler),
     (r"/api/alerts_aux(/.+)?", AlertAuxHandler),
     (r"/api/alerts_cutouts(/.+)?", AlertCutoutHandler),
+    (r"/api/alerts_triplets(/.+)?", AlertTripletsHandler),
     # Archive
     (r"/api/archive", ArchiveHandler),
     (r"/api/archive/catalogs", ArchiveCatalogsHandler),
