@@ -32,14 +32,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import FileCopyIcon from '@mui/icons-material/FileCopy';
 import {CopyToClipboard} from 'react-copy-to-clipboard';
 
+
 import ReactDiffViewer from "react-diff-viewer";
 import { useForm } from "react-hook-form";
 import { showNotification } from "baselayer/components/Notifications";
 
-import * as groupActions from "../ducks/group";
-import * as filterActions from "../ducks/filter";
 import * as filterVersionActions from "../ducks/kowalski_filter";
-import * as streamActions from "../ducks/stream";
 
 const useStyles = makeStyles((theme) => ({
   pre: {
@@ -104,96 +102,18 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const Filter = () => {
+const FilterPlugins = () => {
   const classes = useStyles();
   const dispatch = useDispatch();
   const { register, handleSubmit } = useForm();
 
-  const [filterLoadError, setFilterLoadError] = useState("");
-  const [groupLoadError, setGroupLoadError] = useState("");
-  const [streamLoadError, setStreamLoadError] = useState("");
-
   const theme = useTheme();
   const darkTheme = theme.palette.mode === "dark";
 
-  const { fid } = useParams();
-  const loadedId = useSelector((state) => state.filter.id);
-
-  useEffect(() => {
-    const fetchFilter = async () => {
-      const data = await dispatch(filterActions.fetchFilter(fid));
-      if (data.status === "error") {
-        setFilterLoadError(data.message);
-      }
-    };
-    if (loadedId !== fid) {
-      fetchFilter();
-    }
-  }, [fid, loadedId, dispatch]);
-
-  useEffect(() => {
-    // not using API/kowalski_filter duck here as that would throw an error if filter does not exist on K
-    const fetchInit = {
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "GET",
-    };
-
-    const fetchFilterVersion = async () => {
-      const response = await fetch(`/api/filters/${fid}/v`, fetchInit);
-
-      let json = "";
-      try {
-        json = await response.json();
-      } catch (error) {
-        throw new Error(`JSON decoding error: ${error}`);
-      }
-      // exists on Kowalski?
-      if (json.status === "success") {
-        await dispatch(filterVersionActions.fetchFilterVersion(fid));
-      }
-    };
-
-    if (loadedId !== fid) {
-      fetchFilterVersion();
-    }
-  }, [fid, loadedId, dispatch]);
-
-  const group_id = useSelector((state) => state.filter.group_id);
-  const stream_id = useSelector((state) => state.filter.stream_id);
-
-  useEffect(() => {
-    const fetchGroup = async () => {
-      const data = await dispatch(groupActions.fetchGroup(group_id));
-      if (data.status === "error") {
-        setGroupLoadError(data.message);
-        if (groupLoadError.length > 1) {
-          dispatch(showNotification(groupLoadError, "error"));
-        }
-      }
-    };
-    if (group_id) fetchGroup();
-  }, [group_id, dispatch, groupLoadError]);
-
-  useEffect(() => {
-    const fetchStream = async () => {
-      const data = await dispatch(streamActions.fetchStream(stream_id));
-      if (data.status === "error") {
-        setStreamLoadError(data.message);
-        if (streamLoadError.length > 1) {
-          dispatch(showNotification(streamLoadError, "error"));
-        }
-      }
-    };
-    if (stream_id) fetchStream();
-  }, [stream_id, dispatch, streamLoadError]);
-
   const filter = useSelector((state) => state.filter);
   const filter_v = useSelector((state) => state.filter_v);
-  const group = useSelector((state) => state.group);
-  const stream = useSelector((state) => state.stream);
+  const { fid } = useParams();
+  const loadedId = useSelector((state) => state.filter.id);
 
   const [otherVersion, setOtherVersion] = React.useState("");
 
@@ -299,12 +219,8 @@ const Filter = () => {
     setOpenDiff(false);
   };
 
-  if (filterLoadError) {
-    return <div>{filterLoadError}</div>;
-  }
-
   // renders
-  if (!filter || !filter_v) {
+  if (!filter_v) {
     return (
       <div>
         <CircularProgress color="secondary" />
@@ -320,25 +236,38 @@ const Filter = () => {
       }}
     />
   );
+  useEffect(() => {
+    // not using API/kowalski_filter duck here as that would throw an error if filter does not exist on K
+    const fetchInit = {
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "GET",
+    };
+
+    const fetchFilterVersion = async () => {
+      const response = await fetch(`/api/filters/${fid}/v`, fetchInit);
+
+      let json = "";
+      try {
+        json = await response.json();
+      } catch (error) {
+        throw new Error(`JSON decoding error: ${error}`);
+      }
+      // exists on Kowalski?
+      if (json.status === "success") {
+        await dispatch(filterVersionActions.fetchFilterVersion(fid));
+      }
+    };
+
+    if (loadedId !== fid) {
+      fetchFilterVersion();
+    }
+  }, [fid, loadedId, dispatch]);
 
   return (
-    <Paper elevation={1}>
-      <div className={classes.paperDiv}>
-        <Typography variant="h6" display="inline">
-          Filter: {filter.name}
-        </Typography>
-        <br />
-        {group && stream && (
-          <Typography
-            className={classes.filter_details}
-            color="textSecondary"
-            gutterBottom
-          >
-            Group: <Link to={`/group/${group.id}`}>{group.name}</Link>
-            <br />
-            Stream: {stream.name}
-          </Typography>
-        )}
+    <div>
         {filter && (
           <Accordion
             expanded={panelKowalskiExpanded}
@@ -628,9 +557,8 @@ const Filter = () => {
             </AccordionDetails>
           </Accordion>
         )}
-      </div>
-    </Paper>
+    </div>
   );
 };
 
-export default Filter;
+export default FilterPlugins;

@@ -1,23 +1,16 @@
 - group_ids:
     - =public_group_id
     - =rcf
-    - =red
+    - =red_transients
     - =clu
-    - =fast
-    - =slsn
-    - =emgw
-    - =nu
-    - =grb
-    - =infant
-    - =fast2
-    - =clu2
-    - =young
-    - =slsn2
-    - =sesn
-    - =cos
-    - =teg
-    - =tde
-    - =nuc
+    - =fast_transients
+    - =superluminous_sne
+    - =em_gw
+    - =short_grb
+    - =infant_sne
+    - =young_sne_ia
+    - =xray_counterparts
+    - =outbursting_stars
   hierarchy:
     class: Time-domain Source
     subclasses:
@@ -793,23 +786,16 @@
 - group_ids:
     - =public_group_id
     - =rcf
-    - =red
+    - =red_transients
     - =clu
-    - =fast
-    - =slsn
-    - =emgw
-    - =nu
-    - =grb
-    - =infant
-    - =fast2
-    - =clu2
-    - =young
-    - =slsn2
-    - =sesn
-    - =cos
-    - =teg
-    - =tde
-    - =nuc
+    - =fast_transients
+    - =superluminous_sne
+    - =em_gw
+    - =short_grb
+    - =infant_sne
+    - =young_sne_ia
+    - =xray_counterparts
+    - =outbursting_stars
   name: Basic Taxonomy
   hierarchy:
     class: Time-domain Source
