@@ -967,7 +967,6 @@ kowalski:
         }
 
       WNTR_alerts:
-        # TODO verify! copied from PGIR - 1 Aug 2022
         # default upstream aggregation pipeline stages for filtering WNTR alerts:
         - {
             "$match":
@@ -1532,7 +1531,6 @@ kowalski:
     lifetime_restart: true
 
   dask_wntr:
-    # TODO verify! can't used PGIR's
     host: 127.0.0.1
     scheduler_port: 8784
     dashboard_address: :8785
