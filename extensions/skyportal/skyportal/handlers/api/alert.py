@@ -39,6 +39,8 @@ from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
 
 
+alert_available = True
+
 env, cfg = load_env()
 log = make_log("alert")
 
