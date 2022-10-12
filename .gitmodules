@@ -4,4 +4,4 @@
 	branch = master
 [submodule "kowalski"]
 	path = kowalski
-	url = git@github.com:virajkaram/kowalski.git
+	url = git@github.com:skyportal/kowalski.git
