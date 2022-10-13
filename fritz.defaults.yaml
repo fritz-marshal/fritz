@@ -1692,7 +1692,7 @@ kowalski:
         stdout_logfile_maxbytes: 30MB
         redirect_stderr: True
         environment: "PRODUCTION=1"
-        
+
       "program:ops-watcher-ztf":
         command: /usr/local/bin/python ops_watcher_ztf.py
         directory: /app
