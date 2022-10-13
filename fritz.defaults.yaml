@@ -1349,7 +1349,7 @@ kowalski:
 
       WNTR:
         2MASS_PSC:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1360,7 +1360,7 @@ kowalski:
             k_m: 1
 
         AllWISE:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1376,21 +1376,8 @@ kowalski:
             w4sigmpro: 1
             ph_qual: 1
 
-        Gaia_DR2:
-          cone_search_radius: 8
-          cone_search_unit: "arcsec"
-          filter: {}
-          projection:
-            _id: 1
-            coordinates.radec_str: 1
-            parallax: 1
-            parallax_error: 1
-            phot_g_mean_mag: 1
-            phot_bp_mean_mag: 1
-            phot_rp_mean_mag: 1
-
         Gaia_EDR3:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1403,7 +1390,7 @@ kowalski:
             phot_rp_mean_mag: 1
 
         PS1_STRM:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1418,7 +1405,7 @@ kowalski:
             z_phot_err: 1
 
         galaxy_redshifts_20200522:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1429,7 +1416,7 @@ kowalski:
             b: 1
 
         GALEX:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1442,7 +1429,7 @@ kowalski:
             e_NUVmag: 1
 
         IGAPS_DR2:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1459,7 +1446,7 @@ kowalski:
             UErr: 1
 
         LAMOST_DR5_v3:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
@@ -1476,7 +1463,7 @@ kowalski:
             subclass: 1
 
         PS1_DR1:
-          cone_search_radius: 8
+          cone_search_radius: 2
           cone_search_unit: "arcsec"
           filter: {}
           projection:
