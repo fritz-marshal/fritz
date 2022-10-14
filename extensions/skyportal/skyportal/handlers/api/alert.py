@@ -250,7 +250,8 @@ def post_alert(
             alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
     df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-    mask_candid = df["candid"] == str(candid)
+    mask_candid = df["candid"] == str(candid) if 'candid' in df.columns else []
+
 
     if candid is None or sum(mask_candid) == 0:
         candid = int(latest_alert_data["candidate"]["candid"])
