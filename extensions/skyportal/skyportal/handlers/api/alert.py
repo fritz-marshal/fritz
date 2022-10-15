@@ -262,7 +262,6 @@ def post_alert(
             alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
     df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-    candid = None
     if candid is None:
         candid = int(latest_alert_data["candidate"]["candid"])
 
