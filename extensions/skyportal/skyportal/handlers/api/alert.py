@@ -257,21 +257,26 @@ def post_alert(
         raise ValueError(f"Failed to fetch data for {object_id} from Kowalski")
 
     if len(latest_alert_data) > 0:
+        latest_alert_data["candidate"]["candid"] = int(
+            latest_alert_data["candidate"]["candid"]
+        )
         candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
         if latest_alert_data["candidate"]["candid"] not in candids:
             alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
-    df = pd.DataFrame.from_records(alert_data["prv_candidates"])
     if candid is None:
         candid = int(latest_alert_data["candidate"]["candid"])
 
-    mask_candid = df["candid"] == str(candid)
-    alerts = df.loc[mask_candid].to_dict(orient="records")
-    if not alerts:
+    alert = None
+    for cand in alert_data["prv_candidates"]:
+        if "candid" in cand and str(candid) == str(cand["candid"]):
+            alert = cand
+            break
+    if alert is None:
         raise ValueError(
-            f"Need at least one detection to post alert from {object_id} from Kowalski"
+            f"Could not find {candid} to post alert from {object_id} from Kowalski"
         )
-    alert = alerts[0]
+    df = pd.DataFrame.from_records(alert_data["prv_candidates"])
 
     # post source
     drb = alert.get("drb")
@@ -441,6 +446,7 @@ def post_alert(
                             f"Failed to post photometry of {object_id} to group_ids {group_ids}"
                         )
 
+    print(candid)
     # post cutouts
     for ttype, ztftype in [
         ("new", "Science"),
@@ -464,12 +470,14 @@ def post_alert(
 
         response = kowalski.query(query=query)
         if response.get("status", "error") == "success":
-            cutout = response.get("data", list(dict()))[0]
+            cutout = response.get("data", list(dict()))
+            if len(cutout) > 0:
+                cutout = cutout[0]
         else:
             cutout = dict()
 
-        thumb = make_thumbnail(cutout, ttype, ztftype)
         try:
+            thumb = make_thumbnail(cutout, ttype, ztftype)
             post_thumbnail(thumb, user_id, session)
         except Exception as e:
             log(f"Failed to post thumbnails of {object_id} | {candid}")
@@ -657,11 +665,13 @@ class AlertHandler(BaseHandler):
             candid = self.get_query_argument("candid", None)
             if candid is not None:
                 query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
+            print(candid)
 
             response = kowalski.query(query=query)
 
             if response.get("status", "error") == "success":
                 alert_data = response.get("data")
+                print(alert_data)
                 return self.success(data=alert_data)
             else:
                 return self.error(f"Failed to fetch data for {object_id} from Kowalski")
@@ -846,10 +856,8 @@ class AlertHandler(BaseHandler):
 
             program_id_selector = list(program_id_selector)
 
-            print(candid)
-            print(program_id_selector)
-
-            try:
+            # try:
+            if True:
                 objectId = post_alert(
                     objectId,
                     group_ids,
@@ -859,8 +867,8 @@ class AlertHandler(BaseHandler):
                     candid=candid,
                     thumbnails_only=thumbnails_only,
                 )
-            except Exception as e:
-                return self.error(f"Alert failed to post: {str(e)}")
+            # except Exception as e:
+            #    return self.error(f'Alert failed to post: {str(e)}')
 
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
