@@ -446,7 +446,6 @@ def post_alert(
                             f"Failed to post photometry of {object_id} to group_ids {group_ids}"
                         )
 
-    print(candid)
     # post cutouts
     for ttype, ztftype in [
         ("new", "Science"),
@@ -665,7 +664,6 @@ class AlertHandler(BaseHandler):
             candid = self.get_query_argument("candid", None)
             if candid is not None:
                 query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
-            print(candid)
 
             response = kowalski.query(query=query)
 
@@ -856,8 +854,7 @@ class AlertHandler(BaseHandler):
 
             program_id_selector = list(program_id_selector)
 
-            # try:
-            if True:
+            try:
                 objectId = post_alert(
                     objectId,
                     group_ids,
@@ -867,8 +864,8 @@ class AlertHandler(BaseHandler):
                     candid=candid,
                     thumbnails_only=thumbnails_only,
                 )
-            # except Exception as e:
-            #    return self.error(f'Alert failed to post: {str(e)}')
+            except Exception as e:
+                return self.error(f"Alert failed to post: {str(e)}")
 
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
