@@ -265,6 +265,8 @@ def post_alert(
             alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
     if candid is None:
+        if len(latest_alert_data) == 0:
+            raise ValueError("Latest alert data must be present if candid is None")
         candid = int(latest_alert_data["candidate"]["candid"])
 
     alert = None
@@ -589,7 +591,7 @@ class AlertHandler(BaseHandler):
                           data:
                             type: array
                             items:
-                               type: object
+                              type: object
             400:
               content:
                 application/json:
@@ -669,7 +671,6 @@ class AlertHandler(BaseHandler):
 
             if response.get("status", "error") == "success":
                 alert_data = response.get("data")
-                print(alert_data)
                 return self.success(data=alert_data)
             else:
                 return self.error(f"Failed to fetch data for {object_id} from Kowalski")
