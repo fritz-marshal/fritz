@@ -435,6 +435,7 @@ const ZTFAlert = ({ route }) => {
       </div>
     );
   }
+
   if (alert_data.length > 0) {
     return (
       <Paper elevation={1} className={classes.source}>
@@ -465,7 +466,7 @@ const ZTFAlert = ({ route }) => {
                   <SaveAlertButton
                     alert={{
                       id: objectId,
-                      candid: parseInt(candid),
+                      candid: candid,
                       group_ids: userAccessibleGroupIds,
                     }}
                     userGroups={userAccessibleGroups}
@@ -481,7 +482,7 @@ const ZTFAlert = ({ route }) => {
                   <SaveAlertButton
                     alert={{
                       id: objectId,
-                      candid: parseInt(candid),
+                      candid: candid,
                       group_ids: userAccessibleGroupIds,
                     }}
                     userGroups={userAccessibleGroups}
