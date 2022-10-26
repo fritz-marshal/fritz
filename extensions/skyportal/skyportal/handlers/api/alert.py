@@ -39,6 +39,8 @@ from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
 
 
+alert_available = True
+
 env, cfg = load_env()
 log = make_log("alert")
 
@@ -111,32 +113,44 @@ def make_thumbnail(a, ttype, ztftype):
 
 def post_alert(
     object_id,
-    candid,
     group_ids,
-    program_id_selector,
     user_id,
     session,
+    program_id_selector=None,
+    candid=None,
     thumbnails_only=False,
 ):
     """Post alert to database.
     object_id : string
         Object ID
-    candid : int
-        Alert candid to use to pull thumbnails. Defaults to latest alert
     group_ids : array
         Group IDs to save source to. Can alternatively be the string
         'all' to save to all of requesting user's groups.
-    program_id_selector : array
-        Program IDs to include
     user_id : int
         SkyPortal ID of User posting the alert
     session: sqlalchemy.Session
         Database session for this transaction
+    program_id_selector : array
+        Program IDs to include. Defaults to those accessible to user.
+    candid : int
+        Alert candid to use to pull thumbnails. Defaults to latest alert.
     thumbnails_only : bool
         Only post thumbnails (no photometry)
     """
 
     user = session.scalar(sa.select(User).where(User.id == user_id))
+
+    if program_id_selector is None:
+        # allow access to public data only by default
+        program_id_selector = {1}
+
+        # using self.Session() should attach the
+        # associated_user_object to the current session
+        # so it can lazy load things like streams
+        for stream in user.streams:
+            if "ztf" in stream.name.lower():
+                program_id_selector.update(set(stream.altdata.get("selector", [])))
+
     obj = session.scalars(Obj.select(user).where(Obj.id == object_id)).first()
     if obj is None:
         obj_already_exists = False
@@ -243,18 +257,28 @@ def post_alert(
         raise ValueError(f"Failed to fetch data for {object_id} from Kowalski")
 
     if len(latest_alert_data) > 0:
+        latest_alert_data["candidate"]["candid"] = int(
+            latest_alert_data["candidate"]["candid"]
+        )
         candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
         if latest_alert_data["candidate"]["candid"] not in candids:
             alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
-    df = pd.DataFrame.from_records(alert_data["prv_candidates"])
-    mask_candid = df["candid"] == str(candid)
-
-    if candid is None or sum(mask_candid) == 0:
+    if candid is None:
+        if len(latest_alert_data) == 0:
+            raise ValueError("Latest alert data must be present if candid is None")
         candid = int(latest_alert_data["candidate"]["candid"])
-        alert = df.loc[df["candid"] == str(candid)].to_dict(orient="records")[0]
-    else:
-        alert = df.loc[mask_candid].to_dict(orient="records")[0]
+
+    alert = None
+    for cand in alert_data["prv_candidates"]:
+        if "candid" in cand and str(candid) == str(cand["candid"]):
+            alert = cand
+            break
+    if alert is None:
+        raise ValueError(
+            f"Could not find {candid} to post alert from {object_id} from Kowalski"
+        )
+    df = pd.DataFrame.from_records(alert_data["prv_candidates"])
 
     # post source
     drb = alert.get("drb")
@@ -447,12 +471,14 @@ def post_alert(
 
         response = kowalski.query(query=query)
         if response.get("status", "error") == "success":
-            cutout = response.get("data", list(dict()))[0]
+            cutout = response.get("data", list(dict()))
+            if len(cutout) > 0:
+                cutout = cutout[0]
         else:
             cutout = dict()
 
-        thumb = make_thumbnail(cutout, ttype, ztftype)
         try:
+            thumb = make_thumbnail(cutout, ttype, ztftype)
             post_thumbnail(thumb, user_id, session)
         except Exception as e:
             log(f"Failed to post thumbnails of {object_id} | {candid}")
@@ -829,15 +855,18 @@ class AlertHandler(BaseHandler):
 
             program_id_selector = list(program_id_selector)
 
-            objectId = post_alert(
-                objectId,
-                candid,
-                group_ids,
-                program_id_selector,
-                self.associated_user_object.id,
-                session,
-                thumbnails_only=thumbnails_only,
-            )
+            try:
+                objectId = post_alert(
+                    objectId,
+                    group_ids,
+                    self.associated_user_object.id,
+                    session,
+                    program_id_selector=program_id_selector,
+                    candid=candid,
+                    thumbnails_only=thumbnails_only,
+                )
+            except Exception as e:
+                return self.error(f"Alert failed to post: {str(e)}")
 
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")

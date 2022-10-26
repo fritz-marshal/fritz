@@ -289,6 +289,7 @@ class CrossMatchHandler(BaseHandler):
             if not catalog.startswith("ZTF")
             and not catalog.startswith("PTF")
             and not catalog.startswith("PGIR")
+            and not catalog.startswith("WNTR")
         ]
         if len(catalogs) == 0:
             return self.error("No catalogs available to run cross-match against.")
