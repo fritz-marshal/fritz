@@ -68,7 +68,7 @@ Once you are done with the filtering, you can
 	results_filter = pd.read_csv(name_csv)
 
 	sources = [int(f[-5:]) for f in results_filter['objectId']]
-	print('The number of surces that passed our MMA SGRB filter:',len(results_filter))
+	print('The number of surces that passed our MMA SGRB filter:',len(results_filter)) 
 
 
 
