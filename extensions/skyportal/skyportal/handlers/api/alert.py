@@ -151,6 +151,8 @@ def post_alert(
             if "ztf" in stream.name.lower():
                 program_id_selector.update(set(stream.altdata.get("selector", [])))
 
+        program_id_selector = list(program_id_selector)
+
     obj = session.scalars(Obj.select(user).where(Obj.id == object_id)).first()
     if obj is None:
         obj_already_exists = False
