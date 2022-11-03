@@ -13,7 +13,7 @@ I based most of this work on the tutorial you can find [the alert filters tutori
 
 ### 1. To install MongoDB Compass
  Go to https://www.mongodb.com/products/compass and click in ‘Download now’
- 
+
 ### 2. Connecting to cluster
 Once Mongo DB Compass is installed, launch it, and connect to the cluster by
 
@@ -57,18 +57,18 @@ Once you are done with the filtering, you can
 
 1. ‘Export to language’ (recommended, as MongoDB Compass is not good for saving your filters) - button next to ‘Create new +’.
 2. Save your current filter – Save button next to ‘Create new +’.
-	3. Export your results as a json or csv file – click on the export button next to ‘Run’ and then choose your preferred format. 
+	3. Export your results as a json or csv file – click on the export button next to ‘Run’ and then choose your preferred format.
 
 ### 5. Exploring
  Use your favorite language to explore your json or csv file.
- 
- 	import pandas as pd 
+
+ 	import pandas as pd
 
 	name_csv = 'your_file.csv'
 	results_filter = pd.read_csv(name_csv)
 
 	sources = [int(f[-5:]) for f in results_filter['objectId']]
-	print('The number of surces that passed our MMA SGRB filter:',len(results_filter)) 
+	print('The number of surces that passed our MMA SGRB filter:',len(results_filter))
 
 
 
@@ -76,7 +76,7 @@ Once you are done with the filtering, you can
 ### Future work:
 Add ZTF alerts
 ### Filter example
-	
+
 	[{
 	$project: {
 	  _id: 1,
@@ -119,7 +119,7 @@ Add ZTF alerts
 	  t_start: '$candidate.jdstarthist',
 	  age: {$subtract: ['$candidate.jd','$candidate.jdstarthist']},
 	  psfminap: {$subtract: ['$candidate.magpsf','$candidate.magap']}}
-	}, 
+	},
 	{
 	$project: {
 	  objectId: 1,
@@ -173,7 +173,7 @@ Add ZTF alerts
 			    {$or: [{$lt: ['$sgmag',17]},
 				    {$lt: ['$srmag',17]},
 				    {$lt: ['$simag',17]}]}]
-					}]}}}, 
+					}]}}},
 	{
 	$match: {
 	  brightstar: false,
@@ -184,4 +184,4 @@ Add ZTF alerts
 	  young: true
 	}
 	}]
-	
+
