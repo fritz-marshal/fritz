@@ -192,7 +192,15 @@ const Archive = () => {
   // save data to SP
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
-  const { errors: errorsSaveForm, handleSubmit: handleSubmitSaveForm, control: controlSaveForm, getValues: getValuesSaveForm} = useForm();
+  const {
+    handleSubmit: handleSubmitSaveForm,
+    control: controlSaveForm,
+    getValues: getValuesSaveForm,
+
+    formState: {
+      errors: errorsSaveForm,
+    },
+  } = useForm();
   const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
 
   const [rowsToSave, setRowsToSave] = useState([]);
