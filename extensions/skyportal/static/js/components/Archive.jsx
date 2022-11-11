@@ -559,17 +559,19 @@ const Archive = () => {
                     <Controller
                       labelId="alert-stream-select-required-label"
                       name="catalog"
-                      as={Select}
                       defaultValue={ZTFLightCurveCatalogNames[0]}
                       control={controlForm}
                       rules={{ required: true }}
-                    >
+                      render={() => (
+                        <Select>
                       {ZTFLightCurveCatalogNames?.map((catalogName) => (
                         <MenuItem key={catalogName} value={catalogName}>
                           {catalogName}
                         </MenuItem>
                       ))}
-                    </Controller>
+                        </Select>
+                      )}
+                    />
                     <FormHelperText>Required</FormHelperText>
                   </FormControl>
                   <TextField
@@ -665,13 +667,13 @@ const Archive = () => {
                 <Controller
                   name="obj_id"
                   color="primary"
-                  render={(props) => (
+                  render={({ field: { onChange, value } }) => (
                     <RadioGroup
                       color="primary"
                       /* eslint-disable-next-line react/jsx-props-no-spreading */
-                      {...props}
+                      {...field}
                       onChange={(event) => {
-                        props.onChange(event);
+                        onChange(event);
                         if (event.target.value === createNewSourceText) {
                          setSaveNewSource(true);
                         }
@@ -723,14 +725,14 @@ const Archive = () => {
                       control={controlSaveForm}
                       rules={{ validate: validateGroups }}
                       defaultValue={false}
-                      render={(props) => (
+                      render={({ field: { onChange, value } }) => (
                         <Checkbox
                           color="primary"
                           disabled={!saveNewSource}
                           /* eslint-disable-next-line react/jsx-props-no-spreading */
                           {...props}
-                          checked={props.value}
-                          onChange={(e) => props.onChange(e.target.checked)}
+                          checked={value}
+                          onChange={(e) => onChange(e.target.checked)}
                         />
                       )}
                     />

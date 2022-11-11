@@ -458,13 +458,15 @@ const Alerts = () => {
                   <Controller
                     labelId="alert-stream-select-required-label"
                     name="instrument"
-                    as={Select}
                     defaultValue="ztf"
                     control={controlForm}
                     rules={{ required: true }}
-                  >
-                    <MenuItem value="ztf">ZTF</MenuItem>
-                  </Controller>
+                    render={() => (
+                      <Select>
+                        <MenuItem value="ztf">ZTF</MenuItem>
+                      </Select>
+                   )}
+                  />
                   <FormHelperText>Required</FormHelperText>
                 </FormControl>
                 <TextField

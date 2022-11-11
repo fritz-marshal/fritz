@@ -321,7 +321,7 @@ const GroupFiltersStreams = ({
             label="Filter Name"
             type="text"
             fullWidth
-            inputRef={register({ required: true, minLength: 3 })}
+            inputRef={register("filter_name", { required: true, minLength: 3 })}
           />
           <FormControl required className={classes.selectEmpty}>
             <InputLabel name="alert-stream-select-required-label">
@@ -334,13 +334,16 @@ const GroupFiltersStreams = ({
               defaultValue={0}
               control={control}
               rules={{ validate: isStreamIdInStreams }}
-            >
+              render={() => (
+                <Select>
               {group.streams?.map((stream) => (
                 <MenuItem key={stream.id} value={stream.id}>
                   {stream.name}
                 </MenuItem>
               ))}
-            </Controller>
+                </Select>
+              )}
+            />
             <FormHelperText>Required</FormHelperText>
           </FormControl>
         </DialogContent>
