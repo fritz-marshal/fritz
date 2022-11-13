@@ -192,15 +192,9 @@ const Archive = () => {
   // save data to SP
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
-  const {
-    handleSubmit: handleSubmitSaveForm,
-    control: controlSaveForm,
-    getValues: getValuesSaveForm,
+  const { formState: { errors }, handleSubmit, control, register, getValues} = useForm();
+  const { handleSubmit: handleSubmit2, control: control2, register: register2, getValues: getValues2} = useForm();
 
-    formState: {
-      errors: errorsSaveForm,
-    },
-  } = useForm();
   const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
 
   const [rowsToSave, setRowsToSave] = useState([]);
@@ -437,7 +431,9 @@ const Archive = () => {
     ZTFLightCurveCatalogNames?.length ? ZTFLightCurveCatalogNames[0] : null
   );
 
-  const submitSearch = (data) => {
+  const submitSearch = async () => {
+    const data = getValues();
+    console.log('data', data);
     const {catalog, ra, dec, radius} = data;
     setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
@@ -458,20 +454,22 @@ const Archive = () => {
   const createNewSourceText = "Create new source";
 
   const validateGroups = () => {
-    const formState = getValuesSaveForm({ nest: true });
+    const formState = getValues();
     if (saveNewSource) {
       return formState.group_ids.filter((value) => Boolean(value)).length >= 1;
     }
     return true;
   };
 
-  const onSubmitSave = async (data) => {
+  const onSubmitSave = async () => {
     setIsSubmitting(true);
 
-    const objID = data.obj_id === createNewSourceText ? null : data.obj_id;
+    const data2 = getValues2();
+
+    const objID = data2.obj_id === createNewSourceText ? null : data2.obj_id;
     // IDs of selected groups:
     const groupIDs = userGroupIds.filter(
-      (groupId, index) => data.group_ids[index]
+      (groupId, index) => data2.group_ids[index]
     );
     // IDs of selected light curves
     const lightCurveIDs = rowsToSave.data.map(
@@ -559,45 +557,65 @@ const Archive = () => {
                     <Controller
                       labelId="alert-stream-select-required-label"
                       name="catalog"
-                      defaultValue={ZTFLightCurveCatalogNames[0]}
-                      control={controlForm}
+                      control={control}
                       rules={{ required: true }}
-                      render={() => (
-                        <Select>
-                      {ZTFLightCurveCatalogNames?.map((catalogName) => (
-                        <MenuItem key={catalogName} value={catalogName}>
-                          {catalogName}
-                        </MenuItem>
-                      ))}
-                        </Select>
-                      )}
-                    />
+                      render={({ field: { onChange, value } }) => (
+                       <Select value={value} onChange={onChange} defaultValue={ZTFLightCurveCatalogNames[0]}>
+                        {ZTFLightCurveCatalogNames?.map((catalogName) => (
+                          <MenuItem key={catalogName} value={catalogName}>
+                            {catalogName}
+                          </MenuItem>
+                        ))}
+                       </Select>
+                       )}
+                      />
                     <FormHelperText>Required</FormHelperText>
                   </FormControl>
-                  <TextField
-                    margin="dense"
-                    name="ra"
-                    label="R.A. (deg)"
-                    fullWidth
-                    required
-                    inputRef={registerForm({ required: true })}
-                  />
-                  <TextField
-                    margin="dense"
-                    name="dec"
-                    label="Decl. (deg)"
-                    fullWidth
-                    required
-                    inputRef={registerForm({ required: true })}
-                  />
-                  <TextField
-                    margin="dense"
-                    name="radius"
-                    label="Radius (arcsec)"
-                    fullWidth
-                    required
-                    inputRef={registerForm({ required: true })}
-                  />
+              <Controller
+               render={({ field: { onChange, value } }) => (
+                <TextField
+                  margin="dense"
+                  name="ra"
+                  label="R.A. (deg)"
+                  fullWidth
+                  inputRef={register('ra', { required: false })}
+                  value={value}
+                  onChange={onChange}
+                />
+                )}
+                name="ra"
+                control={control}
+              />
+              <Controller
+               render={({ field: { onChange, value } }) => (
+                <TextField
+                  margin="dense"
+                  name="dec"
+                  label="Decl. (deg)"
+                  fullWidth
+                  inputRef={register('dec', { required: false })}
+                  value={value}
+                  onChange={onChange}
+                />
+                )}
+                name="dec"
+                control={control}
+              />
+              <Controller
+               render={({ field: { onChange, value } }) => (
+                <TextField
+                  margin="dense"
+                  name="radius"
+                  label="Radius (arcsec)"
+                  fullWidth
+                  inputRef={register('radius', { required: false })}
+                  value={value}
+                  onChange={onChange}
+                />
+                )}
+                name="radius"
+                control={control}
+              />
                 </CardContent>
                 <CardActions>
                   <div className={classes.wrapperRoot}>
@@ -655,7 +673,7 @@ const Archive = () => {
           onClose={handleSaveDialogClose}
           aria-labelledby="responsive-dialog-title"
         >
-          <form onSubmit={handleSubmitSaveForm(onSubmitSave)}>
+          <form onSubmit={handleSubmit2(onSubmitSave)}>
             <DialogTitle id="responsive-dialog-title">
               Save selected data to Fritz
             </DialogTitle>
@@ -665,13 +683,12 @@ const Archive = () => {
               </DialogContentText>
               <FormControl required>
                 <Controller
-                  name="obj_id"
+                  name="create_source"
                   color="primary"
                   render={({ field: { onChange, value } }) => (
                     <RadioGroup
                       color="primary"
                       /* eslint-disable-next-line react/jsx-props-no-spreading */
-                      {...field}
                       onChange={(event) => {
                         onChange(event);
                         if (event.target.value === createNewSourceText) {
@@ -706,14 +723,14 @@ const Archive = () => {
                     </RadioGroup>
                   )}
                   defaultValue={createNewSourceText}
-                  control={controlSaveForm}
+                  control={control2}
                   rules={{ required: true }}
                 />
               </FormControl>
               <DialogContentText className={classes.marginTop}>
                 Select groups to save new source to:
               </DialogContentText>
-              {saveNewSource && errorsSaveForm.group_ids && (
+              {saveNewSource && errors.group_ids && (
                 <FormValidationError message="Select at least one group." />
               )}
               {userGroups.map((userGroup, idx) => (
@@ -722,7 +739,7 @@ const Archive = () => {
                   control={
                     <Controller
                       name={`group_ids[${idx}]`}
-                      control={controlSaveForm}
+                      control={control2}
                       rules={{ validate: validateGroups }}
                       defaultValue={false}
                       render={({ field: { onChange, value } }) => (
@@ -730,9 +747,8 @@ const Archive = () => {
                           color="primary"
                           disabled={!saveNewSource}
                           /* eslint-disable-next-line react/jsx-props-no-spreading */
-                          {...props}
                           checked={value}
-                          onChange={(e) => onChange(e.target.checked)}
+                          onChange={onChange}
                         />
                       )}
                     />
@@ -748,6 +764,7 @@ const Archive = () => {
                 className={classes.search_button}
                 type="submit"
                 data-testid="save-dialog-submit"
+                onClick={() => onSubmitSave()}
                 disabled={isSubmitting}
               >
                 Save
