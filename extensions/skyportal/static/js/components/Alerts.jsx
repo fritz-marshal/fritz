@@ -405,9 +405,10 @@ const Alerts = () => {
     },
   ];
 
-  const { register: registerForm, handleSubmit: handleSubmitForm, control: controlForm } = useForm();
+  const { register, handleSubmit, control, getValues } = useForm();
 
-  const submitSearch = (data) => {
+  const formSubmit = async () => {
+    const data = getValues();
     const {object_id, ra, dec, radius} = data;
     // check that if positional query is requested then all required data are supplied
     if ((ra?.length || dec?.length || radius?.length) && !(ra?.length && dec?.length && radius?.length)) {
@@ -449,7 +450,7 @@ const Alerts = () => {
         </Grid>
         <Grid item xs={12} lg={2} className={classes.grid_item_search_box}>
           <Card className={classes.root}>
-            <form onSubmit={handleSubmitForm(submitSearch)}>
+            <form onSubmit={handleSubmit(formSubmit)}>
               <CardContent>
                 <FormControl required className={classes.selectEmpty}>
                   <InputLabel name="alert-stream-select-required-label">
@@ -458,45 +459,78 @@ const Alerts = () => {
                   <Controller
                     labelId="alert-stream-select-required-label"
                     name="instrument"
-                    as={Select}
-                    defaultValue="ztf"
-                    control={controlForm}
+                    control={control}
                     rules={{ required: true }}
-                  >
-                    <MenuItem value="ztf">ZTF</MenuItem>
-                  </Controller>
+                    render={({ field: { onChange, value } }) => (
+                      <Select value={value} onChange={onChange} defaultValue="ztf">
+                        <MenuItem value="ztf">ZTF</MenuItem>
+                      </Select>
+                    )}
+                  />
                   <FormHelperText>Required</FormHelperText>
                 </FormControl>
-                <TextField
+               <Controller
+                render={({ field: { onChange, value } }) => (
+                 <TextField
                   autoFocus
                   margin="dense"
                   name="object_id"
                   label="objectId"
                   type="text"
                   fullWidth
-                  inputRef={registerForm({ minLength: 3, required: false })}
-                />
+                  inputRef={register("object_id", { minLength: 3, required: false })}
+                  value={value}
+                  onChange={onChange}
+                 />
+                )}
+                name="object_id"
+                control={control}
+              />
+              <Controller
+               render={({ field: { onChange, value } }) => (
                 <TextField
                   margin="dense"
                   name="ra"
                   label="R.A. (deg)"
                   fullWidth
-                  inputRef={registerForm({ required: false })}
+                  inputRef={register('ra', { required: false })}
+                  value={value}
+                  onChange={onChange}
                 />
+                )}
+                name="ra"
+                control={control}
+              />
+              <Controller
+               render={({ field: { onChange, value } }) => (
                 <TextField
                   margin="dense"
                   name="dec"
                   label="Decl. (deg)"
                   fullWidth
-                  inputRef={registerForm({ required: false })}
+                  inputRef={register('dec', { required: false })}
+                  value={value}
+                  onChange={onChange}
                 />
+                )}
+                name="dec"
+                control={control}
+              />
+              <Controller
+               render={({ field: { onChange, value } }) => (
                 <TextField
                   margin="dense"
                   name="radius"
                   label="Radius (arcsec)"
                   fullWidth
-                  inputRef={registerForm({ required: false })}
+                  inputRef={register('radius', { required: false })}
+                  value={value}
+                  onChange={onChange}
                 />
+                )}
+                name="radius"
+                control={control}
+              />
               </CardContent>
               <CardActions>
                 <div className={classes.wrapperRoot}>
@@ -505,6 +539,7 @@ const Alerts = () => {
                       type="submit"
                       variant="contained"
                       color="primary"
+                      onClick={() => formSubmit()}
                       disabled={queryInProgress}
                     >
                       Search
