@@ -188,12 +188,19 @@ const SaveAlertButton = ({ alert, userGroups }) => {
                 key={userGroup.id}
                 control={
                   <Controller
-                    as={Checkbox}
                     name={`group_ids[${idx}]`}
                     control={control}
                     rules={{ validate: validateGroups }}
                     defaultValue={false}
-                  />
+                    render={({ field: { onChange, value } }) => (
+                      <Checkbox
+                        color="primary"
+                        type="checkbox"
+                        onChange={(event) => onChange(event.target.checked)}
+                        checked={value}
+                      />
+                    )}
+                    />
                 }
                 label={userGroup.name}
               />
