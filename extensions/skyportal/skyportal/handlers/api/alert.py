@@ -1469,6 +1469,7 @@ class AlertTripletsHandler(BaseHandler):
                 # pad to 63x63 if smaller
                 shape = cutout_dict[cutout].shape
                 if shape != (63, 63):
+                    medfill = np.nanmedian(cutout_dict[cutout].flatten())
                     cutout_dict[cutout] = np.pad(
                         cutout_dict[cutout],
                         [(0, 63 - shape[0]), (0, 63 - shape[1])],
