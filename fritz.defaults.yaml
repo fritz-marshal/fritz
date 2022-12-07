@@ -139,6 +139,8 @@ skyportal:
         component: FollowupRequestPage
       - path: "/source/:obj_id/analysis/:analysis_id"
         component: SourceAnalysisPage
+      - path: "/taxonomies"
+        component: TaxonomyPage
 
     observation_plan:
       default_filters: ['ztfg', 'ztfr', 'ztfi']
@@ -236,6 +238,10 @@ skyportal:
           - name: Analysis Services
             icon: SentimentSatisfied
             url: /services
+
+          - name: Taxonomies
+            icon: WallpaperOutlined
+            url: /taxonomies
 
       - name: Admin
         permissions: ["Manage users", "System admin"]
