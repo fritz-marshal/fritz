@@ -48,6 +48,7 @@ import { showNotification } from "baselayer/components/Notifications";
 import FormValidationError from "./FormValidationError";
 import {dec_to_dms, ra_to_hours} from "../units";
 import * as archiveActions from "../ducks/archive";
+import { checkSource } from "../ducks/source";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -198,16 +199,6 @@ const Archive = () => {
   const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
 
   const [rowsToSave, setRowsToSave] = useState([]);
-
-  const handleSaveDialogClose = () => {
-    setRowsToSave([]);
-    setSaveDialogOpen(false);
-  };
-
-  const handleSaveDialogOpen = (selectedRows) => {
-    setRowsToSave(selectedRows);
-    setSaveDialogOpen(true);
-  };
 
   const nearestSources = useSelector(
     (state) => state.nearest_sources?.sources
@@ -425,6 +416,18 @@ const Archive = () => {
     },
   ];
 
+  const handleSaveDialogClose = () => {
+    setRowsToSave([]);
+    setSaveDialogOpen(false);
+  };
+
+  const handleSaveDialogOpen = async (selectedRows) => {
+    setRowsToSave(selectedRows);
+    const row = rows[selectedRows.data[0].dataIndex];
+    dispatch(archiveActions.fetchNearestSources({'ra': row.ra, 'dec': row.dec}));
+    setSaveDialogOpen(true);
+  };
+
   const { register: registerForm, handleSubmit: handleSubmitForm, control: controlForm } = useForm();
 
   const [selectedCatalog, setSelectedCatalog] = useState(
@@ -433,7 +436,6 @@ const Archive = () => {
 
   const submitSearch = async () => {
     const data = getValues();
-    console.log('data', data);
     const {catalog, ra, dec, radius} = data;
     setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
@@ -449,7 +451,7 @@ const Archive = () => {
 
   // save light curve data
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [saveNewSource, setSaveNewSource] = useState(true);
+  const [saveNewSource, setSaveNewSource] = useState(false);
 
   const createNewSourceText = "Create new source";
 
@@ -466,7 +468,24 @@ const Archive = () => {
 
     const data2 = getValues2();
 
-    const objID = data2.obj_id === createNewSourceText ? null : data2.obj_id;
+    let objID;
+    if (data2.name && (data2.name !== '')) {
+      objID = data2.name;
+    } else {
+      objID = data2.obj_id === createNewSourceText ? null : data2.obj_id;
+    }
+
+    if (saveNewSource) {
+      let data = null;
+      const row = rows[rowsToSave.data[0].dataIndex];
+      data = await dispatch(checkSource(objID, {'ra': row.ra, 'dec': row.dec}));
+      if (data.data !== "A source of that name does not exist.") {
+        dispatch(showNotification(data.data, "error"));
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     // IDs of selected groups:
     const groupIDs = userGroupIds.filter(
       (groupId, index) => data2.group_ids[index]
@@ -483,9 +502,7 @@ const Archive = () => {
       light_curve_ids: lightCurveIDs,
     };
 
-    if (objID == null) {
-      payload.group_ids = groupIDs;
-    }
+    payload.group_ids = groupIDs;
 
     const result = await dispatch(archiveActions.saveLightCurves(payload));
     if (result.status === "success") {
@@ -683,7 +700,7 @@ const Archive = () => {
               </DialogContentText>
               <FormControl required>
                 <Controller
-                  name="create_source"
+                  name="obj_id"
                   color="primary"
                   render={({ field: { onChange, value } }) => (
                     <RadioGroup
@@ -727,6 +744,32 @@ const Archive = () => {
                   rules={{ required: true }}
                 />
               </FormControl>
+         <div>
+         { (saveNewSource) && (
+            <div>
+             <div>
+              <DialogContentText>
+                Source name
+              </DialogContentText>
+             </div>
+             <div>
+          <Controller
+            render={({ field: { onChange, value } }) => (
+              <TextField
+                size="small"
+                label="name"
+                name="name"
+                onChange={onChange}
+                value={value}
+              />
+            )}
+            name="name"
+            control={control2}
+          />
+          </div>
+         </div>
+        ) }
+        </div>
               <DialogContentText className={classes.marginTop}>
                 Select groups to save new source to:
               </DialogContentText>

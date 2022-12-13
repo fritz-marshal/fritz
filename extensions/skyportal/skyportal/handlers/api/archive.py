@@ -1,10 +1,6 @@
 import numpy as np
 import pandas as pd
 from penquins import Kowalski
-import requests
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-from typing import Mapping, Optional
 import uuid
 
 from baselayer.log import make_log
@@ -13,7 +9,8 @@ from baselayer.app.env import load_env
 from ..base import BaseHandler
 from ...models import Instrument, Source, Stream
 from skyportal.model_util import create_token, delete_token
-
+from .photometry import add_external_photometry
+from .source import post_source
 
 env, cfg = load_env()
 log = make_log("archive")
@@ -56,102 +53,6 @@ def radec_to_iau_name(ra: float, dec: float, prefix: str = "ZTFJ"):
     dms = f"{dec_d:+03.0f}{dec_m:02.0f}{dec_s:04.1f}"
 
     return prefix + hms + dms
-
-
-DEFAULT_TIMEOUT = 60  # seconds
-
-
-class TimeoutHTTPAdapter(HTTPAdapter):
-    def __init__(self, *args, **kwargs):
-        self.timeout = DEFAULT_TIMEOUT
-        if "timeout" in kwargs:
-            self.timeout = kwargs["timeout"]
-            del kwargs["timeout"]
-        super().__init__(*args, **kwargs)
-
-    def send(self, request, **kwargs):
-        try:
-            timeout = kwargs.get("timeout")
-            if timeout is None:
-                kwargs["timeout"] = self.timeout
-            return super().send(request, **kwargs)
-        except AttributeError:
-            kwargs["timeout"] = DEFAULT_TIMEOUT
-
-
-session = requests.Session()
-
-retries = Retry(
-    total=3,
-    backoff_factor=2,
-    status_forcelist=[405, 429, 500, 502, 503, 504],
-    method_whitelist=["HEAD", "GET", "PUT", "POST", "PATCH"],
-)
-adapter = TimeoutHTTPAdapter(timeout=20, max_retries=retries)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
-
-
-def api_skyportal(
-    method: str,
-    endpoint: str,
-    token: str,
-    data: Optional[Mapping] = None,
-):
-    """Make API call to SkyPortal instance
-
-    :param method:
-    :param endpoint:
-    :param token:
-    :param data:
-    :return:
-    """
-    method = method.lower()
-    methods = {
-        "head": session.head,
-        "get": session.get,
-        "post": session.post,
-        "put": session.put,
-        "patch": session.patch,
-        "delete": session.delete,
-    }
-
-    if endpoint is None:
-        raise ValueError("Endpoint not specified")
-    if method not in ["head", "get", "post", "put", "patch", "delete"]:
-        raise ValueError(f"Unsupported method: {method}")
-
-    session_headers = {
-        "Authorization": f"token {token}",
-        "User-Agent": "fritz:archive",
-    }
-
-    if cfg.get("server.url") is not None:
-        base_url = cfg["server.url"]
-    else:
-        protocol = "https" if cfg.get("server.ssl") else "http"
-        base_url = (
-            f"{protocol}://{cfg['server.host']}"
-            if cfg["server.host"] != "<host>"
-            else f"{protocol}://localhost"
-        )
-        if cfg.get("server.port") is not None:
-            base_url += f":{cfg['server.port']}"
-
-    if method == "get":
-        response = methods[method](
-            base_url + f"{endpoint}",
-            params=data,
-            headers=session_headers,
-        )
-    else:
-        response = methods[method](
-            base_url + f"{endpoint}",
-            json=data,
-            headers=session_headers,
-        )
-
-    return response
 
 
 def make_photometry(light_curves: list, drop_flagged: bool = False):
@@ -709,9 +610,10 @@ class ArchiveHandler(BaseHandler):
             name=token_name,
         )
 
-        try:
-            if obj_id is None:
-                # generate position-based name if obj_id not set
+        with self.Session() as session:
+            user = self.current_user
+
+            try:
                 ra_mean = float(
                     np.mean(
                         [
@@ -730,87 +632,80 @@ class ArchiveHandler(BaseHandler):
                         ]
                     )
                 )
-                obj_id = radec_to_iau_name(ra_mean, dec_mean, prefix="ZTFJ")
+
+                if obj_id is None:
+                    # generate position-based name if obj_id not set
+                    obj_id = radec_to_iau_name(ra_mean, dec_mean, prefix="ZTFJ")
 
                 # create new source, reset obj_id
-                num_sources = (
-                    Source.query_records_accessible_by(self.current_user)
-                    .filter(Source.obj_id == obj_id)
-                    .count()
-                )
-                self.verify_and_commit()
+                sources = session.scalars(
+                    Source.select(session.user_or_token).where(Source.obj_id == obj_id)
+                ).all()
+                num_sources = len(sources)
                 is_source = num_sources > 0
 
                 if is_source:
-                    return self.error(f"Source {obj_id} exists")
+                    log(f"Source {obj_id} exists... updating photometry.")
+                else:
+                    post_source_data = {
+                        "id": obj_id,
+                        "ra": ra_mean,
+                        "dec": dec_mean,
+                        "group_ids": group_ids,
+                        "origin": "Fritz",
+                    }
+                    post_source(post_source_data, user.id, session)
 
-                post_source_data = {
-                    "id": obj_id,
-                    "ra": ra_mean,
-                    "dec": dec_mean,
-                    "group_ids": group_ids,
-                    "origin": "Fritz",
+                # post photometry to obj_id; drop flagged data
+                df_photometry = make_photometry(light_curves, drop_flagged=True)
+
+                # ZTF instrument id:
+                ztf_instrument = session.scalars(
+                    Instrument.select(session.user_or_token).where(
+                        Instrument.name == "ZTF"
+                    )
+                ).first()
+                if ztf_instrument is None:
+                    return self.error("ZTF instrument not found in the system")
+                instrument_id = ztf_instrument.id
+
+                photometry = {
+                    "obj_id": obj_id,
+                    "instrument_id": instrument_id,
+                    "mjd": df_photometry["mjd"].tolist(),
+                    "mag": df_photometry["mag"].tolist(),
+                    "magerr": df_photometry["magerr"].tolist(),
+                    "limiting_mag": df_photometry["zp"].tolist(),
+                    "magsys": df_photometry["magsys"].tolist(),
+                    "filter": df_photometry["ztf_filter"].tolist(),
+                    "ra": df_photometry["ra"].tolist(),
+                    "dec": df_photometry["dec"].tolist(),
                 }
-                response = api_skyportal(
-                    "POST", "/api/sources", token_id, post_source_data
+
+                # handle data access permissions
+                ztf_program_id_to_stream_id = dict()
+                streams = session.scalars(Stream.select(session.user_or_token)).all()
+                if streams is None:
+                    return self.error("Failed to get programid to stream_id mapping")
+                for stream in streams:
+                    if stream.name == "ZTF Public":
+                        ztf_program_id_to_stream_id[1] = stream.id
+                    if stream.name == "ZTF Public+Partnership":
+                        ztf_program_id_to_stream_id[2] = stream.id
+                    if stream.name == "ZTF Public+Partnership+Caltech":
+                        # programid=0 is engineering data
+                        ztf_program_id_to_stream_id[0] = stream.id
+                        ztf_program_id_to_stream_id[3] = stream.id
+                df_photometry["stream_ids"] = df_photometry["programid"].apply(
+                    lambda x: ztf_program_id_to_stream_id[x]
                 )
-                if response.json()["status"] == "error":
-                    return self.error(f"Failed to save {obj_id} as a Source")
+                photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
 
-            # post photometry to obj_id; drop flagged data
-            df_photometry = make_photometry(light_curves, drop_flagged=True)
+                if len(photometry.get("mag", ())) > 0:
+                    add_external_photometry(photometry, self.current_user)
 
-            # ZTF instrument id:
-            ztf_instrument = (
-                Instrument.query_records_accessible_by(
-                    self.current_user, mode="read"
-                ).filter(Instrument.name == "ZTF")
-            ).first()
-            self.verify_and_commit()
-            if ztf_instrument is None:
-                return self.error("ZTF instrument not found in the system")
-            instrument_id = ztf_instrument.id
+            finally:
+                # always attempt deleting the temporary token
+                delete_token(token_id)
 
-            photometry = {
-                "obj_id": obj_id,
-                "instrument_id": instrument_id,
-                "mjd": df_photometry["mjd"].tolist(),
-                "mag": df_photometry["mag"].tolist(),
-                "magerr": df_photometry["magerr"].tolist(),
-                "limiting_mag": df_photometry["zp"].tolist(),
-                "magsys": df_photometry["magsys"].tolist(),
-                "filter": df_photometry["ztf_filter"].tolist(),
-                "ra": df_photometry["ra"].tolist(),
-                "dec": df_photometry["dec"].tolist(),
-            }
-
-            # handle data access permissions
-            ztf_program_id_to_stream_id = dict()
-            streams = Stream.get_records_accessible_by(self.current_user)
-            self.verify_and_commit()
-            if streams is None:
-                return self.error("Failed to get programid to stream_id mapping")
-            for stream in streams:
-                if stream.name == "ZTF Public":
-                    ztf_program_id_to_stream_id[1] = stream.id
-                if stream.name == "ZTF Public+Partnership":
-                    ztf_program_id_to_stream_id[2] = stream.id
-                if stream.name == "ZTF Public+Partnership+Caltech":
-                    # programid=0 is engineering data
-                    ztf_program_id_to_stream_id[0] = stream.id
-                    ztf_program_id_to_stream_id[3] = stream.id
-            df_photometry["stream_ids"] = df_photometry["programid"].apply(
-                lambda x: ztf_program_id_to_stream_id[x]
-            )
-            photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
-
-            if len(photometry.get("mag", ())) > 0:
-                response = api_skyportal("PUT", "/api/photometry", token_id, photometry)
-                if response.json()["status"] == "error":
-                    return self.error(f"Failed to post {obj_id} photometry")
-
-        finally:
-            # always attempt deleting the temporary token
-            delete_token(token_id)
-
-        return self.success(data={"obj_id": obj_id})
+            return self.success(data={"obj_id": obj_id})
