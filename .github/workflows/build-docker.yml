@@ -54,10 +54,10 @@ jobs:
 
       # Configure Docker to use the gcloud command-line tool as a credential
       # helper for authentication
-#      - name: Set up docker credentials
-#        run: |-
-#          gcloud --quiet auth configure-docker
-#
+      - name: Set up docker credentials
+        run: |-
+          gcloud --quiet auth configure-docker
+
       # Get the GKE credentials so we can deploy to the cluster
 #      - name: Get Google Kubernetes Engine credentials
 #        run: |-
