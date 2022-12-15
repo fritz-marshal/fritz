@@ -47,7 +47,7 @@ jobs:
           credentials_json: ${{ secrets.GKE_SA_KEY }}
 
       - name: Setup gcloud cli
-        uses: google-github-actions/setup-gcloud@v0
+        uses: google-github-actions/setup-gcloud@v1
         with:
           version: "369.0.0"
           project_id: ${{ secrets.GKE_PROJECT }}
