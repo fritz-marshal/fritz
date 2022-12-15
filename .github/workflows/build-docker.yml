@@ -66,8 +66,8 @@ jobs:
       - name: Get Google Kubernetes Engine credentials
         uses: 'google-github-actions/get-gke-credentials@v1'
         with:
-          cluster_name: $GKE_CLUSTER
-          location: $GKE_ZONE
+          cluster_name: fritz-staging
+          location: us-west2-a
 
       # # Will use this, once the official Docker action introduces caching
       # - name: Build and push image
