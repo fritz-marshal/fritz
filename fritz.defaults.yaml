@@ -119,6 +119,8 @@ skyportal:
         component: DBStats
       - path: "/galaxies"
         component: GalaxyPage
+      - path: "/spatial_catalogs"
+        component: SpatialCatalogPage
       - path: "/gcn_events"
         component: GcnEvents
       - path: "/gcn_events/:dateobs"
@@ -234,6 +236,10 @@ skyportal:
           - name: Galaxies
             icon: TornadoOutlined
             url: /galaxies
+
+          - name: Spatial Catalogs
+            icon: PhotoSizeSelectLargeOutlined
+            url: /spatial_catalogs
 
           - name: Analysis Services
             icon: SentimentSatisfied
