@@ -115,6 +115,8 @@ skyportal:
         component: Observability
       - path: "/source/:id/periodogram"
         component: Periodogram
+      - path: "/source/:id/image_analysis"
+        component: ImageAnalysisPage
       - path: "/db_stats"
         component: DBStats
       - path: "/galaxies"
@@ -504,6 +506,8 @@ skyportal:
     #   limit: ["01:00", "02:00"]
 
   comment_folder: persistentdata/comments
+
+  image_analysis:
 
   gcn:
     server: gcn.nasa.gov
