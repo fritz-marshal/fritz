@@ -135,6 +135,8 @@ skyportal:
         component: MMADetectorPage
       - path: "/services"
         component: AnalysisServicePage
+      - path: "/recurring_apis"
+        component: RecurringAPIPage
       - path: "/shifts"
         component: ShiftPage
       - path: "/observations"
@@ -246,6 +248,10 @@ skyportal:
           - name: Analysis Services
             icon: SentimentSatisfied
             url: /services
+
+          - name: Recurring API
+            icon: Restore
+            url: /recurring_apis
 
           - name: Taxonomies
             icon: WallpaperOutlined
