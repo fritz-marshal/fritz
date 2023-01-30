@@ -355,13 +355,11 @@ def post_alert(
 
     if not thumbnails_only:
         for group in groups:
-            print(group)
             source = session.scalars(
                 Source.select(user).where(
                     Source.obj_id == object_id, Source.group_id == group.id
                 )
             ).first()
-            print(source)
             if source is not None:
                 source.active = True
                 source.saved_by = user
