@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -27,6 +27,19 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 
   const dispatch = useDispatch();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const source = useSelector((state) => state.source);
+  const groups = (useSelector((state) => state.groups.all) || []).filter(
+    (g) => !g.single_user_group
+  );
+  const currentUser = useSelector((state) => state.profile);
+
+  const currentGroupIds = source?.groups?.map((g) => g.id);
+  const unsavedGroups = groups?.filter(
+    (g) => !currentGroupIds?.includes(g.id)
+  );
+  const savedGroups = groups?.filter((g) =>
+    currentGroupIds?.includes(g.id)
+  );
 
   const {
     handleSubmit,
@@ -45,6 +58,12 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     });
   }, [reset, userGroups, alert]);
 
+  useEffect(() => {
+    const fetchSource = async () => {
+      await dispatch(sourceActions.fetchSource(alert.id));
+    };
+  }, [dispatch, alert.id]);
+
   const handleClickOpenDialog = () => {
     setDialogOpen(true);
   };
@@ -61,7 +80,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
   const onSubmitGroupSelectSave = async (data) => {
     setIsSubmitting(true);
     data.id = alert.id;
-    const groupIDs = userGroups.map((g) => g.id);
+    const groupIDs = unsavedGroups.map((g) => g.id);
     const selectedGroupIDs = groupIDs.filter((ID, idx) => data.group_ids[idx]);
 
     data.payload = {candid: alert.candid, group_ids: selectedGroupIDs};
@@ -70,6 +89,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     if (result.status === "error") {
       setIsSubmitting(false);
     } else {
+      setIsSubmitting(false);
       setDialogOpen(false);
       reset();
       await dispatch(sourceActions.fetchSource(alert.id));
@@ -183,9 +203,9 @@ const SaveAlertButton = ({ alert, userGroups }) => {
             {errors.group_ids && (
               <FormValidationError message="Select at least one group." />
             )}
-            {userGroups.map((userGroup, idx) => (
+            {unsavedGroups.map((unsavedGroup, idx) => (
               <FormControlLabel
-                key={userGroup.id}
+                key={unsavedGroup.id}
                 control={
                   <Controller
                     name={`group_ids[${idx}]`}
@@ -202,7 +222,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
                     )}
                     />
                 }
-                label={userGroup.name}
+                label={unsavedGroup.name}
               />
             ))}
             <br />

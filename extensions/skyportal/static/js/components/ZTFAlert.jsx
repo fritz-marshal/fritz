@@ -22,6 +22,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import Tooltip from "@mui/material/Tooltip";
 
 import MUIDataTable from "mui-datatables";
 import ReactJson from "react-json-view";
@@ -151,7 +152,14 @@ const ZTFAlert = ({ route }) => {
     method: "GET",
   };
 
+  const source = useSelector((state) => state.source);
   const loadedSourceId = useSelector((state) => state?.source?.id);
+
+  useEffect(() => {
+    const fetchSource = async () => {
+      await dispatch(sourceActions.fetchSource(objectId));
+    };
+  }, [dispatch, objectId]);
 
   useEffect(() => {
     const fetchSource = async () => {
@@ -459,9 +467,24 @@ const ZTFAlert = ({ route }) => {
                   color="primary"
                 />
               </div>
+              {source.groups?.map((group) => (
+          <Tooltip
+            title={`Saved at ${group.saved_at} by ${group.saved_by?.username}`}
+            key={group.id}
+          >
+            <Chip
+              label={
+                group.nickname
+                  ? group.nickname.substring(0, 15)
+                  : group.name.substring(0, 15)
+              }
+              size="small"
+              className={classes.chip}
+              data-testid={`groupChip_${group.id}`}
+            />
+          </Tooltip>
+              ))}
               <div className={classes.itemPaddingBottom}>
-                <Chip size="small" label="Update Photometry" />
-                <br />
                 <div className={classes.saveAlertButton}>
                   <SaveAlertButton
                     alert={{

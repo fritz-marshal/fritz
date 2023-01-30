@@ -67,6 +67,9 @@ INSTRUMENTS = {"ZTF"}
 
 def make_thumbnail(a, ttype, ztftype):
 
+    if "cutout{ztftype}" not in a:
+        return None
+
     cutout_data = a[f"cutout{ztftype}"]["stampData"]
     with gzip.open(io.BytesIO(cutout_data), "rb") as f:
         with fits.open(io.BytesIO(f.read()), ignore_missing_simple=True) as hdu:
@@ -352,10 +355,17 @@ def post_alert(
 
     if not thumbnails_only:
         for group in groups:
+            print(group)
             source = session.scalars(
-                Source.select(user).where(Obj.id == object_id, Group.id == group.id)
+                Source.select(user).where(
+                    Source.obj_id == object_id, Source.group_id == group.id
+                )
             ).first()
-            if not source:
+            print(source)
+            if source is not None:
+                source.active = True
+                source.saved_by = user
+            else:
                 session.add(
                     Source(
                         obj=obj,
@@ -476,12 +486,15 @@ def post_alert(
             cutout = response.get("data", list(dict()))
             if len(cutout) > 0:
                 cutout = cutout[0]
+            else:
+                cutout = dict()
         else:
             cutout = dict()
 
         try:
             thumb = make_thumbnail(cutout, ttype, ztftype)
-            post_thumbnail(thumb, user_id, session)
+            if thumb is not None:
+                post_thumbnail(thumb, user_id, session)
         except Exception as e:
             log(f"Failed to post thumbnails of {object_id} | {candid}")
             log(str(e))
