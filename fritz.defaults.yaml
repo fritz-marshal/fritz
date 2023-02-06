@@ -519,7 +519,7 @@ skyportal:
     #   script: jobs/delete_unsaved_candidates.py
     #   limit: ["01:00", "02:00"]
 
-  comment_folder: persistentdata/comments
+  comments_folder: persistentdata/comments
 
   image_analysis:
 
