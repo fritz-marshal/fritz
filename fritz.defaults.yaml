@@ -535,6 +535,8 @@ skyportal:
       - FERMI_GBM_GND_POS
       - FERMI_GBM_FIN_POS
       - FERMI_GBM_SUBTHRESH
+      - SWIFT_BAT_GRB_POS_ACK
+      - SWIFT_XRT_POSITION
       # - LVC_PRELIMINARY
       # - LVC_INITIAL
       # - LVC_UPDATE
@@ -543,6 +545,7 @@ skyportal:
       # - AMON_ICECUBE_HESE
       - ICECUBE_ASTROTRACK_GOLD
       - ICECUBE_ASTROTRACK_BRONZE
+      - MAXI_UNKNOWN
 
   twilio:
     # Twilio Sendgrid API configs
