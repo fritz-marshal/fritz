@@ -451,8 +451,8 @@ class FeaturesHandler(BaseHandler):
 
                 response = gloria.query(query=query)
                 if response.get("status", "error") == "success":
-                    light_curves = response.get("data")
-                    return self.success(data=light_curves)
+                    features = response.get("data")
+                    return self.success(data=features)
 
             return self.error(response.get("message"))
 
