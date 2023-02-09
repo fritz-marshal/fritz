@@ -350,7 +350,9 @@ class FeaturesHandler(BaseHandler):
         available_catalog_names = gloria.query(query=query).get("data")
         # expose only the ZTF features for now
         available_catalogs = [
-            catalog for catalog in available_catalog_names if "ZTF_source_features" in catalog
+            catalog
+            for catalog in available_catalog_names
+            if "ZTF_source_features" in catalog
         ]
 
         catalog = self.get_query_argument("catalog")
@@ -432,19 +434,19 @@ class FeaturesHandler(BaseHandler):
                     "query": {
                         "catalog": catalog,
                         "filter": filter,
-                        },
-                        "$project": {
-                            "_id": 1,
-                            "ra": 1,
-                            "dec": 1,
-                            "filter": 1,
-                            "meanmag": 1,
-                            "vonneumannratio": 1,
-                            "refchi": 1,
-                            "refmag": 1,
-                            "refmagerr": 1,
-                            "iqr": 1,
-                        },
+                    },
+                    "$project": {
+                        "_id": 1,
+                        "ra": 1,
+                        "dec": 1,
+                        "filter": 1,
+                        "meanmag": 1,
+                        "vonneumannratio": 1,
+                        "refchi": 1,
+                        "refmag": 1,
+                        "refmagerr": 1,
+                        "iqr": 1,
+                    },
                 }
 
                 response = gloria.query(query=query)
@@ -453,6 +455,7 @@ class FeaturesHandler(BaseHandler):
                     return self.success(data=light_curves)
 
             return self.error(response.get("message"))
+
 
 class ArchiveHandler(BaseHandler):
     @auth_or_token

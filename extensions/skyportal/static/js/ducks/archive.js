@@ -82,7 +82,7 @@ export const fetchKowalskiFeatures = (ra, dec, radius = 2, catalog = "ZTF_source
   API.GET(`/api/archive/features?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`, FETCH_KOWALSKI_FEATURES, {
     catalog,
   });
-  
+
 export const postKowalskiFeatures = (sourceID) =>
   API.POST(`/api/sources/${sourceID}/annotations/kowalski`, POST_KOWALSKI_FEATURES);
 

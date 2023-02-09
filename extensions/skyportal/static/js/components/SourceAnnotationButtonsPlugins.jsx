@@ -12,7 +12,7 @@ const [isSubmittingAnnotationKowalski, setIsSubmittingAnnotationKowalski] =
     setIsSubmittingAnnotationKowalski(null);
   };
 
- const SourceAnnotationButtonPlugins = ({source}) => 
+ const SourceAnnotationButtonPlugins = ({source}) =>
 {
      return (
     <>
@@ -36,7 +36,7 @@ const [isSubmittingAnnotationKowalski, setIsSubmittingAnnotationKowalski] =
     </>
     );
     };
-    
+
 
 SourceAnnotationButtonPlugins.propTypes = {
     source: PropTypes.shape({
@@ -47,5 +47,3 @@ SourceAnnotationButtonPlugins.propTypes = {
     };
 
  export default SourceAnnotationButtonPlugins;
-
-
