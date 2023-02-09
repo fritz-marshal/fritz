@@ -285,6 +285,175 @@ class CrossMatchHandler(BaseHandler):
             return self.error(response.get("message"))
 
 
+class FeaturesHandler(BaseHandler):
+    @auth_or_token
+    def get(self):
+        """
+        ---
+        summary: Retrieve archival SCoPe features from Kowalski/Gloria by position
+        tags:
+          - features
+          - kowalski
+        parameters:
+          - in: query
+            name: catalog
+            required: true
+            schema:
+              type: str
+          - in: query
+            name: ra
+            required: true
+            schema:
+              type: float
+            description: RA in degrees
+          - in: query
+            name: dec
+            required: true
+            schema:
+              type: float
+            description: Dec. in degrees
+          - in: query
+            name: radius
+            required: true
+            schema:
+              type: float
+            description: Max distance from specified (RA, Dec) (capped at 1 deg)
+          - in: query
+            name: radius_units
+            required: true
+            schema:
+              type: string
+            description: Distance units (either "deg", "arcmin", or "arcsec")
+        responses:
+          200:
+            description: retrieved feature data
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            type: object
+                          description: "array of features"
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if gloria is None:
+            return self.error("Gloria connection unavailable.")
+        available_catalog_names = gloria.query(query=query).get("data")
+        # expose only the ZTF features for now
+        available_catalogs = [
+            catalog for catalog in available_catalog_names if "ZTF_source_features" in catalog
+        ]
+
+        catalog = self.get_query_argument("catalog")
+        if catalog not in available_catalogs:
+            return self.error(f"Catalog {catalog} not available")
+
+        # executing a cone search
+        ra = self.get_query_argument("ra", None)
+        dec = self.get_query_argument("dec", None)
+        radius = self.get_query_argument("radius", None)
+        radius_units = self.get_query_argument("radius_units", None)
+
+        position_tuple = (ra, dec, radius, radius_units)
+
+        if not all(position_tuple) and any(position_tuple):
+            # incomplete positional arguments? throw errors, since
+            # either all or none should be provided
+            if ra is None:
+                return self.error("Missing required parameter: ra")
+            if dec is None:
+                return self.error("Missing required parameter: dec")
+            if radius is None:
+                return self.error("Missing required parameter: radius")
+            if radius_units is None:
+                return self.error("Missing required parameter: radius_units")
+        if all(position_tuple):
+            # complete positional arguments? run "near" query
+            if radius_units not in ["deg", "arcmin", "arcsec"]:
+                return self.error(
+                    "Invalid radius_units value. Must be one of either "
+                    "'deg', 'arcmin', or 'arcsec'."
+                )
+            try:
+                ra = float(ra)
+                dec = float(dec)
+                radius = float(radius)
+            except ValueError:
+                return self.error("Invalid (non-float) value provided.")
+            if (
+                (radius_units == "deg" and radius > 1)
+                or (radius_units == "arcmin" and radius > 60)
+                or (radius_units == "arcsec" and radius > 3600)
+            ):
+                return self.error("Radius must be <= 1.0 deg")
+
+            # grab id's first
+            query = {
+                "query_type": "near",
+                "query": {
+                    "max_distance": radius,
+                    "distance_units": radius_units,
+                    "radec": {"query_coords": [ra, dec]},
+                    "catalogs": {
+                        catalog: {
+                            "filter": {},
+                            "projection": {"_id": 1},
+                        }
+                    },
+                },
+                "kwargs": {
+                    "max_time_ms": 10000,
+                    "limit": 1000,
+                },
+            }
+
+            response = gloria.query(query=query)
+            if response.get("status", "error") == "success":
+                light_curve_ids = [
+                    item["_id"]
+                    for item in response.get("data")[catalog]["query_coords"]
+                ]
+                if len(light_curve_ids) == 0:
+                    return self.success(data=[])
+
+                # return features for the first ID
+                filter = {"_id": {"$in": [light_curve_ids[0]]}}
+                query = {
+                    "query_type": "find",
+                    "query": {
+                        "catalog": catalog,
+                        "filter": filter,
+                        },
+                        "$project": {
+                            "_id": 1,
+                            "ra": 1,
+                            "dec": 1,
+                            "filter": 1,
+                            "meanmag": 1,
+                            "vonneumannratio": 1,
+                            "refchi": 1,
+                            "refmag": 1,
+                            "refmagerr": 1,
+                            "iqr": 1,
+                        },
+                }
+
+                response = gloria.query(query=query)
+                if response.get("status", "error") == "success":
+                    light_curves = response.get("data")
+                    return self.success(data=light_curves)
+
+            return self.error(response.get("message"))
+
 class ArchiveHandler(BaseHandler):
     @auth_or_token
     def get(self):

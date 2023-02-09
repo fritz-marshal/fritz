@@ -6,6 +6,13 @@ const FETCH_CATALOG_NAMES_OK = "skyportal/FETCH_CATALOG_NAMES_OK";
 const FETCH_CATALOG_NAMES_ERROR = "skyportal/FETCH_CATALOG_NAMES_ERROR";
 const FETCH_CATALOG_NAMES_FAIL = "skyportal/FETCH_CATALOG_NAMES_FAIL";
 
+const FETCH_KOWALSKI_FEATURES = "skyportal/FETCH_KOWALSKI_FEATURES";
+const FETCH_KOWALSKI_FEATURES_OK = "skyportal/FETCH_KOWALSKI_FEATURES_OK";
+const FETCH_KOWALSKI_FEATURES_ERROR = "skyportal/FETCH_KOWALSKI_FEATURES_ERROR";
+const FETCH_KOWALSKI_FEATURES_FAIL = "skyportal/FETCH_KOWALSKI_FEATURES_FAIL";
+
+const POST_KOWALSKI_FEATURES = "skyportal/POST_KOWALSKI_FEATURES";
+
 const FETCH_ZTF_LIGHT_CURVES = "skyportal/FETCH_ZTF_LIGHT_CURVES";
 const FETCH_ZTF_LIGHT_CURVES_OK = "skyportal/FETCH_ZTF_LIGHT_CURVES_OK";
 const FETCH_ZTF_LIGHT_CURVES_ERROR = "skyportal/FETCH_ZTF_LIGHT_CURVES_ERROR";
@@ -70,6 +77,14 @@ export const fetchZTFLightCurves = ({ catalog, ra, dec, radius }) => API.GET(
   `/api/archive?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
   FETCH_ZTF_LIGHT_CURVES
 )
+
+export const fetchKowalskiFeatures = (ra, dec, radius = 2, catalog = "ZTF_source_features_DR5") =>
+  API.GET(`/api/archive/features?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`, FETCH_KOWALSKI_FEATURES, {
+    catalog,
+  });
+  
+export const postKowalskiFeatures = (sourceID) =>
+  API.POST(`/api/sources/${sourceID}/annotations/kowalski`, POST_KOWALSKI_FEATURES);
 
 export function saveLightCurves(payload) {
   return API.POST(`/api/archive`, SAVE_LIGHT_CURVES, payload);
