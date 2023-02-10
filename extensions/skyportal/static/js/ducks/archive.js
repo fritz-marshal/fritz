@@ -11,8 +11,6 @@ const FETCH_KOWALSKI_FEATURES_OK = "skyportal/FETCH_KOWALSKI_FEATURES_OK";
 const FETCH_KOWALSKI_FEATURES_ERROR = "skyportal/FETCH_KOWALSKI_FEATURES_ERROR";
 const FETCH_KOWALSKI_FEATURES_FAIL = "skyportal/FETCH_KOWALSKI_FEATURES_FAIL";
 
-const POST_KOWALSKI_FEATURES = "skyportal/POST_KOWALSKI_FEATURES";
-
 const FETCH_ZTF_LIGHT_CURVES = "skyportal/FETCH_ZTF_LIGHT_CURVES";
 const FETCH_ZTF_LIGHT_CURVES_OK = "skyportal/FETCH_ZTF_LIGHT_CURVES_OK";
 const FETCH_ZTF_LIGHT_CURVES_ERROR = "skyportal/FETCH_ZTF_LIGHT_CURVES_ERROR";
@@ -82,6 +80,22 @@ export const fetchKowalskiFeatures = (params) =>
    API.POST(`/api/archive/features`, FETCH_KOWALSKI_FEATURES, params
    );
 
+const reducerKowalskiFeatures = (state = null, action) => {
+    switch (action.type) {
+      case FETCH_KOWALSKI_FEATURES_OK: {
+        return action.data;
+      }
+      case FETCH_KOWALSKI_FEATURES_ERROR: {
+        return action.message;
+      }
+      case FETCH_KOWALSKI_FEATURES_FAIL: {
+        return "uncaught error";
+      }
+      default:
+        return state;
+    }
+  };
+
 export function saveLightCurves(payload) {
   return API.POST(`/api/archive`, SAVE_LIGHT_CURVES, payload);
 }
@@ -143,4 +157,5 @@ const reducerNearestSources = (state = null, action) => {
 store.injectReducer("catalog_names", reducerCatalogNames);
 store.injectReducer("cross_matches", reducerCrossMatches);
 store.injectReducer("ztf_light_curves", reducer);
+store.injectReducer("kowalski_features", reducerKowalskiFeatures);
 store.injectReducer("nearest_sources", reducerNearestSources);
