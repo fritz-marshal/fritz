@@ -1420,7 +1420,10 @@ class AlertTripletsHandler(BaseHandler):
 
         candid = self.get_query_argument("candid", None)
         if candid:
-            candid = int(candid)
+            try:
+                candid = int(candid)
+            except Exception as e:
+                return self.error(f"Candidate ID must be integer: {str(e)}")
 
         normalize_image = self.get_query_argument("normalizeImage", False) in [
             "True",
