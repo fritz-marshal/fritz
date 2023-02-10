@@ -3,19 +3,19 @@ import PropTypes from "prop-types";
 import * as archiveActions from "../ducks/archive";
 
 
-const [isSubmittingAnnotationKowalski, setIsSubmittingAnnotationKowalski] =
+const [isSubmittingAnnotationScopeFeatures, setIsSubmittingAnnotationScopeFeatures] =
     useState(null);
-  const handleAnnotationKowalski = async (id, ra, dec) => {
-    setIsSubmittingAnnotationKowalski(id);
-    await dispatch(sourceActions.fetchKowalskiFeatures({id, ra, dec}));
-    setIsSubmittingAnnotationKowalski(null);
+  const handleAnnotationScopeFeatures = async (id, ra, dec) => {
+    setIsSubmittingAnnotationScopeFeatures(id);
+    await dispatch(archiveActions.fetchScopeFeatures({id, ra, dec}));
+    setIsSubmittingAnnotationScopeFeatures(null);
   };
 
  const SourceAnnotationButtonPlugins = ({source}) =>
 {
      return (
     <>
-        {isSubmittingAnnotationKowalski === source.id ? (
+        {isSubmittingAnnotationScopeFeatures === source.id ? (
         <div>
         <CircularProgress />
         </div>
@@ -23,13 +23,13 @@ const [isSubmittingAnnotationKowalski, setIsSubmittingAnnotationKowalski] =
         <Button
         secondary
         onClick={() => {
-            handleAnnotationKowalski(source.id, source.ra, source.dec);
+            handleAnnotationScopeFeatures(source.id, source.ra, source.dec);
         }}
         size="small"
         type="submit"
-        data-testid={`kowalskiRequest_${source.id}`}
+        data-testid={`scopeFeaturesRequest_${source.id}`}
         >
-        KOWALSKI
+        SCoPe Features
         </Button>
     )};
     </>

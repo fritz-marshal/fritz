@@ -6,10 +6,10 @@ const FETCH_CATALOG_NAMES_OK = "skyportal/FETCH_CATALOG_NAMES_OK";
 const FETCH_CATALOG_NAMES_ERROR = "skyportal/FETCH_CATALOG_NAMES_ERROR";
 const FETCH_CATALOG_NAMES_FAIL = "skyportal/FETCH_CATALOG_NAMES_FAIL";
 
-const FETCH_KOWALSKI_FEATURES = "skyportal/FETCH_KOWALSKI_FEATURES";
-const FETCH_KOWALSKI_FEATURES_OK = "skyportal/FETCH_KOWALSKI_FEATURES_OK";
-const FETCH_KOWALSKI_FEATURES_ERROR = "skyportal/FETCH_KOWALSKI_FEATURES_ERROR";
-const FETCH_KOWALSKI_FEATURES_FAIL = "skyportal/FETCH_KOWALSKI_FEATURES_FAIL";
+const FETCH_SCOPE_FEATURES = "skyportal/FETCH_SCOPE_FEATURES";
+const FETCH_SCOPE_FEATURES_OK = "skyportal/FETCH_SCOPE_FEATURES_OK";
+const FETCH_SCOPE_FEATURES_ERROR = "skyportal/FETCH_SCOPE_FEATURES_ERROR";
+const FETCH_SCOPE_FEATURES_FAIL = "skyportal/FETCH_SCOPE_FEATURES_FAIL";
 
 const FETCH_ZTF_LIGHT_CURVES = "skyportal/FETCH_ZTF_LIGHT_CURVES";
 const FETCH_ZTF_LIGHT_CURVES_OK = "skyportal/FETCH_ZTF_LIGHT_CURVES_OK";
@@ -76,19 +76,19 @@ export const fetchZTFLightCurves = ({ catalog, ra, dec, radius }) => API.GET(
   FETCH_ZTF_LIGHT_CURVES
 )
 
-export const fetchKowalskiFeatures = (params) =>
-   API.POST(`/api/archive/features`, FETCH_KOWALSKI_FEATURES, params
+export const fetchScopeFeatures = (params) =>
+   API.POST(`/api/archive/features`, FETCH_SCOPE_FEATURES, params
    );
 
-const reducerKowalskiFeatures = (state = null, action) => {
+const reducerScopeFeatures = (state = null, action) => {
     switch (action.type) {
-      case FETCH_KOWALSKI_FEATURES_OK: {
+      case FETCH_SCOPE_FEATURES_OK: {
         return action.data;
       }
-      case FETCH_KOWALSKI_FEATURES_ERROR: {
+      case FETCH_SCOPE_FEATURES_ERROR: {
         return action.message;
       }
-      case FETCH_KOWALSKI_FEATURES_FAIL: {
+      case FETCH_SCOPE_FEATURES_FAIL: {
         return "uncaught error";
       }
       default:
@@ -157,5 +157,5 @@ const reducerNearestSources = (state = null, action) => {
 store.injectReducer("catalog_names", reducerCatalogNames);
 store.injectReducer("cross_matches", reducerCrossMatches);
 store.injectReducer("ztf_light_curves", reducer);
-store.injectReducer("kowalski_features", reducerKowalskiFeatures);
+store.injectReducer("scope_features", reducerScopeFeatures);
 store.injectReducer("nearest_sources", reducerNearestSources);

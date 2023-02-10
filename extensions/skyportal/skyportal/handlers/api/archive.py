@@ -291,7 +291,7 @@ class CrossMatchHandler(BaseHandler):
             return self.error(response.get("message"))
 
 
-class FeaturesHandler(BaseHandler):
+class ScopeFeaturesHandler(BaseHandler):
     @auth_or_token
     def post(self):
         """
