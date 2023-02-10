@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from penquins import Kowalski
 import uuid
+from sqlalchemy.exc import IntegrityError
 
 from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
@@ -11,7 +12,11 @@ from ...models import Instrument, Source, Stream
 from skyportal.model_util import create_token, delete_token
 from .photometry import add_external_photometry
 from .source import post_source
-from ...models import Obj
+from ...models import (
+    Obj,
+    Group,
+    Annotation,
+)
 
 env, cfg = load_env()
 log = make_log("archive")
@@ -345,6 +350,7 @@ class FeaturesHandler(BaseHandler):
               application/json:
                 schema: Error
         """
+
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
         if gloria is None:
             return self.error("Gloria connection unavailable.")
@@ -370,15 +376,6 @@ class FeaturesHandler(BaseHandler):
             return self.error(f"Catalog {catalog} not available")
 
         position_tuple = (ra, dec, radius, radius_units)
-
-        with self.Session() as session:
-            obj = session.scalars(
-                Obj.select(self.current_user).where(Obj.id == obj_id)
-            ).first()
-            if obj is None:
-                return self.error(
-                    f'Cannot find source with id "{obj_id}". ', status=403
-                )
 
         if not all(position_tuple) and any(position_tuple):
             # incomplete positional arguments? throw errors, since
@@ -432,46 +429,92 @@ class FeaturesHandler(BaseHandler):
             }
 
             response = gloria.query(query=query)
-            if response.get("status", "error") == "success":
-                light_curve_ids = [
-                    item["_id"]
-                    for item in response.get("data")[catalog]["query_coords"]
-                ]
-                if len(light_curve_ids) == 0:
-                    return self.success(data=[])
-
-                # return features for the first ID
-                filter = {"_id": {"$in": [light_curve_ids[0]]}}
-                query = {
-                    "query_type": "find",
-                    "query": {
-                        "catalog": catalog,
-                        "filter": filter,
-                        "projection": {
-                            "_id": 1,
-                            "ra": 1,
-                            "dec": 1,
-                            "filter": 1,
-                            "meanmag": 1,
-                            "vonneumannratio": 1,
-                            "refchi": 1,
-                            "refmag": 1,
-                            "refmagerr": 1,
-                            "iqr": 1,
-                        },
-                    },
-                }
-
-                response = gloria.query(query=query)
-                if response.get("status", "error") == "success":
-                    features = response.get("data")
-                    self.push_all(
-                        action="skyportal/REFRESH_SOURCE",
-                        payload={"obj_key": obj.internal_key},
+            with self.Session() as session:
+                obj = session.scalars(
+                    Obj.select(self.current_user).where(Obj.id == obj_id)
+                ).first()
+                if obj is None:
+                    return self.error(
+                        f'Cannot find source with id "{obj_id}". ', status=403
                     )
-                    return self.success(data=features)
 
-            return self.error(response.get("message"))
+                group_ids = [g.id for g in self.current_user.accessible_groups]
+                groups = session.scalars(
+                    Group.select(self.current_user).where(Group.id.in_(group_ids))
+                ).all()
+
+                if {g.id for g in groups} != set(group_ids):
+                    return self.error(
+                        f"Cannot find one or more groups with IDs: {group_ids}.",
+                        status=403,
+                    )
+
+                author = self.associated_user_object
+
+                if response.get("status", "error") == "success":
+                    light_curve_ids = [
+                        item["_id"]
+                        for item in response.get("data")[catalog]["query_coords"]
+                    ]
+                    if len(light_curve_ids) == 0:
+                        return self.success(data=[])
+
+                    # return features for the first ID
+                    filter = {"_id": {"$in": [light_curve_ids[0]]}}
+                    query = {
+                        "query_type": "find",
+                        "query": {
+                            "catalog": catalog,
+                            "filter": filter,
+                            "projection": {
+                                "_id": 1,
+                                "iqr": 1,
+                            },
+                        },
+                    }
+
+                    response = gloria.query(query=query)
+                    if response.get("status", "error") == "success":
+                        features = response.get("data")[0]
+
+                        annotations = []
+                        annotation_data = {}
+                        for key in features.keys():
+                            value = features[key]
+                            if not np.isnan(value):
+                                if key == "_id":
+                                    value = str(int(value))
+                                annotation_data[key] = value
+
+                        if annotation_data:
+                            annotation = Annotation(
+                                data=annotation_data,
+                                obj_id=obj_id,
+                                origin=catalog,
+                                author=author,
+                                groups=groups,
+                            )
+
+                            annotations.append(annotation)
+
+                        if len(annotations) == 0:
+                            return self.error("No SCoPe features available.")
+
+                        session.add_all(annotations)
+
+                        session.commit()
+                        try:
+                            session.commit()
+                        except IntegrityError:
+                            return self.error("Annotation already posted.")
+
+                        self.push_all(
+                            action="skyportal/REFRESH_SOURCE",
+                            payload={"obj_key": obj.internal_key},
+                        )
+                        return self.success()
+
+                return self.error(response.get("message"))
 
 
 class ArchiveHandler(BaseHandler):
