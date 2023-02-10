@@ -321,21 +321,22 @@ class ScopeFeaturesHandler(BaseHandler):
             description: Dec. in degrees
           - in: query
             name: catalog
-            required: true
+            required: false
             schema:
               type: str
+            description: default is ZTF_source_features_DR5
           - in: query
             name: radius
-            required: true
+            required: false
             schema:
               type: float
-            description: Max distance from specified (RA, Dec) (capped at 1 deg)
+            description: Max distance from specified (RA, Dec) (capped at 1 deg). Default is 2
           - in: query
             name: radius_units
-            required: true
+            required: false
             schema:
               type: string
-            description: Distance units (either "deg", "arcmin", or "arcsec")
+            description: Distance units (either "deg", "arcmin", or "arcsec"). Default is arcsec
         responses:
           200:
             content:
