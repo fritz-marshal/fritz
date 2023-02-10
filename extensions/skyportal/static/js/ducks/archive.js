@@ -78,13 +78,12 @@ export const fetchZTFLightCurves = ({ catalog, ra, dec, radius }) => API.GET(
   FETCH_ZTF_LIGHT_CURVES
 )
 
-export const fetchKowalskiFeatures = (ra, dec, radius = 2, catalog = "ZTF_source_features_DR5") =>
-  API.GET(`/api/archive/features?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`, FETCH_KOWALSKI_FEATURES, {
-    catalog,
-  });
+export const fetchKowalskiFeatures = (ra, dec, radius = 2, radius_units='arcsec', catalog = "ZTF_source_features_DR5") =>
+  API.GET(`/api/archive/features?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=${radius_units}`, FETCH_KOWALSKI_FEATURES
+  );
 
-export const postKowalskiFeatures = (sourceID) =>
-  API.POST(`/api/sources/${sourceID}/annotations/kowalski`, POST_KOWALSKI_FEATURES);
+// export const postKowalskiFeatures = (sourceID, payload) =>
+//   API.POST(`/api/sources/${sourceID}/annotations/kowalski`, POST_KOWALSKI_FEATURES, payload);
 
 export function saveLightCurves(payload) {
   return API.POST(`/api/archive`, SAVE_LIGHT_CURVES, payload);
