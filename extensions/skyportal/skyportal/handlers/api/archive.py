@@ -11,6 +11,7 @@ from ...models import Instrument, Source, Stream
 from skyportal.model_util import create_token, delete_token
 from .photometry import add_external_photometry
 from .source import post_source
+from ...models import Obj
 
 env, cfg = load_env()
 log = make_log("archive")
@@ -287,7 +288,7 @@ class CrossMatchHandler(BaseHandler):
 
 class FeaturesHandler(BaseHandler):
     @auth_or_token
-    def get(self):
+    def post(self):
         """
         ---
         summary: Retrieve archival SCoPe features from Kowalski/Gloria by position
@@ -355,17 +356,29 @@ class FeaturesHandler(BaseHandler):
             if "ZTF_source_features" in catalog
         ]
 
-        catalog = self.get_query_argument("catalog")
+        data = self.get_json()
+
+        # executing a cone search
+        obj_id = data.pop("id")
+        ra = data.pop("ra")
+        dec = data.pop("dec")
+        radius = data.pop("radius", 2)
+        radius_units = data.pop("radius_units", "arcsec")
+        catalog = data.pop("catalog", "ZTF_source_features_DR5")
+
         if catalog not in available_catalogs:
             return self.error(f"Catalog {catalog} not available")
 
-        # executing a cone search
-        ra = self.get_query_argument("ra", None)
-        dec = self.get_query_argument("dec", None)
-        radius = self.get_query_argument("radius", None)
-        radius_units = self.get_query_argument("radius_units", None)
-
         position_tuple = (ra, dec, radius, radius_units)
+
+        with self.Session() as session:
+            obj = session.scalars(
+                Obj.select(self.current_user).where(Obj.id == obj_id)
+            ).first()
+            if obj is None:
+                return self.error(
+                    f'Cannot find source with id "{obj_id}". ', status=403
+                )
 
         if not all(position_tuple) and any(position_tuple):
             # incomplete positional arguments? throw errors, since
@@ -452,6 +465,10 @@ class FeaturesHandler(BaseHandler):
                 response = gloria.query(query=query)
                 if response.get("status", "error") == "success":
                     features = response.get("data")
+                    self.push_all(
+                        action="skyportal/REFRESH_SOURCE",
+                        payload={"obj_key": obj.internal_key},
+                    )
                     return self.success(data=features)
 
             return self.error(response.get("message"))

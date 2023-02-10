@@ -7,8 +7,7 @@ const [isSubmittingAnnotationKowalski, setIsSubmittingAnnotationKowalski] =
     useState(null);
   const handleAnnotationKowalski = async (id, ra, dec) => {
     setIsSubmittingAnnotationKowalski(id);
-    await dispatch(archiveActions.fetchKowalskiFeatures(ra, dec));
-    await dispatch(archiveActions.postKowalskiFeatures(id));
+    await dispatch(sourceActions.fetchKowalskiFeatures({id, ra, dec}));
     setIsSubmittingAnnotationKowalski(null);
   };
 
