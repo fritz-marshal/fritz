@@ -1,19 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 import PropTypes from "prop-types";
-import * as archiveActions from "../ducks/archive";
+import { useDispatch } from "react-redux";
 
+import CircularProgress from "@mui/material/CircularProgress";
+import Button from "./Button";
 
-const [isSubmittingAnnotationScopeFeatures, setIsSubmittingAnnotationScopeFeatures] =
-    useState(null);
-  const handleAnnotationScopeFeatures = async (id, ra, dec) => {
-    setIsSubmittingAnnotationScopeFeatures(id);
-    await dispatch(archiveActions.fetchScopeFeatures({id, ra, dec}));
-    setIsSubmittingAnnotationScopeFeatures(null);
-  };
+import * as sourceActions from "../ducks/source";
 
- const SourceAnnotationButtonPlugins = ({source}) =>
+const SourceAnnotationButtonPlugins = ({source}) =>
 {
-     return (
+    const dispatch = useDispatch();
+
+    const [isSubmittingAnnotationScopeFeatures, setIsSubmittingAnnotationScopeFeatures] =
+        useState(null);
+    const handleAnnotationScopeFeatures = async (id, ra, dec) => {
+        setIsSubmittingAnnotationScopeFeatures(id);
+        await dispatch(sourceActions.fetchScopeFeatures({id, ra, dec}));
+        setIsSubmittingAnnotationScopeFeatures(null);
+    };
+
+    return (
     <>
         {isSubmittingAnnotationScopeFeatures === source.id ? (
         <div>
@@ -31,7 +37,7 @@ const [isSubmittingAnnotationScopeFeatures, setIsSubmittingAnnotationScopeFeatur
         >
         SCoPe Features
         </Button>
-    )};
+    )}
     </>
     );
     };
