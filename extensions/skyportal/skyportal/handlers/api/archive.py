@@ -502,7 +502,6 @@ class ScopeFeaturesHandler(BaseHandler):
 
                         session.add_all(annotations)
 
-                        session.commit()
                         try:
                             session.commit()
                         except IntegrityError:
