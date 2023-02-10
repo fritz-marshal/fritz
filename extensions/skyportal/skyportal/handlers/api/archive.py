@@ -434,18 +434,18 @@ class FeaturesHandler(BaseHandler):
                     "query": {
                         "catalog": catalog,
                         "filter": filter,
-                    },
-                    "$project": {
-                        "_id": 1,
-                        "ra": 1,
-                        "dec": 1,
-                        "filter": 1,
-                        "meanmag": 1,
-                        "vonneumannratio": 1,
-                        "refchi": 1,
-                        "refmag": 1,
-                        "refmagerr": 1,
-                        "iqr": 1,
+                        "projection": {
+                            "_id": 1,
+                            "ra": 1,
+                            "dec": 1,
+                            "filter": 1,
+                            "meanmag": 1,
+                            "vonneumannratio": 1,
+                            "refchi": 1,
+                            "refmag": 1,
+                            "refmagerr": 1,
+                            "iqr": 1,
+                        },
                     },
                 }
 
