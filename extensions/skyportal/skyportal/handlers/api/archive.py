@@ -296,16 +296,17 @@ class ScopeFeaturesHandler(BaseHandler):
     def post(self):
         """
         ---
-        summary: Retrieve archival SCoPe features from Kowalski/Gloria by position
+        summary: Retrieve archival SCoPe features from Kowalski/Gloria by position, post as annotation
         tags:
           - features
           - kowalski
         parameters:
           - in: query
-            name: catalog
+            name: id
             required: true
             schema:
               type: str
+            description: object ID
           - in: query
             name: ra
             required: true
@@ -318,6 +319,11 @@ class ScopeFeaturesHandler(BaseHandler):
             schema:
               type: float
             description: Dec. in degrees
+          - in: query
+            name: catalog
+            required: true
+            schema:
+              type: str
           - in: query
             name: radius
             required: true
@@ -332,25 +338,14 @@ class ScopeFeaturesHandler(BaseHandler):
             description: Distance units (either "deg", "arcmin", or "arcsec")
         responses:
           200:
-            description: retrieved feature data
             content:
               application/json:
-                schema:
-                  allOf:
-                    - $ref: '#/components/schemas/Success'
-                    - type: object
-                      properties:
-                        data:
-                          type: array
-                          items:
-                            type: object
-                          description: "array of features"
+                schema: Success
           400:
             content:
               application/json:
                 schema: Error
         """
-
         query = {"query_type": "info", "query": {"command": "catalog_names"}}
         if gloria is None:
             return self.error("Gloria connection unavailable.")
@@ -368,9 +363,9 @@ class ScopeFeaturesHandler(BaseHandler):
         obj_id = data.pop("id")
         ra = data.pop("ra")
         dec = data.pop("dec")
+        catalog = data.pop("catalog", "ZTF_source_features_DR5")
         radius = data.pop("radius", 2)
         radius_units = data.pop("radius_units", "arcsec")
-        catalog = data.pop("catalog", "ZTF_source_features_DR5")
 
         if catalog not in available_catalogs:
             return self.error(f"Catalog {catalog} not available")
@@ -467,8 +462,32 @@ class ScopeFeaturesHandler(BaseHandler):
                             "catalog": catalog,
                             "filter": filter,
                             "projection": {
-                                "_id": 1,
+                                "ad": 1,
+                                "chi2red": 1,
+                                "i60r": 1,
+                                "i70r": 1,
+                                "i80r": 1,
+                                "i90r": 1,
+                                "inv_vonneumannratio": 1,
                                 "iqr": 1,
+                                "median": 1,
+                                "median_abs_dev": 1,
+                                "n": 1,
+                                "norm_excess_var": 1,
+                                "norm_peak_to_peak_amp": 1,
+                                "roms": 1,
+                                "skew": 1,
+                                "smallkurt": 1,
+                                "stetson_j": 1,
+                                "stetson_k": 1,
+                                "sw": 1,
+                                "welch_i": 1,
+                                "wmean": 1,
+                                "wstd": 1,
+                                "_id": 1,
+                                "field": 1,
+                                "ccd": 1,
+                                "quad": 1,
                             },
                         },
                     }
@@ -481,9 +500,9 @@ class ScopeFeaturesHandler(BaseHandler):
                         annotation_data = {}
                         for key in features.keys():
                             value = features[key]
-                            if not np.isnan(value):
-                                if key == "_id":
-                                    value = str(int(value))
+                            if not pd.isnull(value):
+                                if key in ["_id", "field", "ccd", "quad", "n"]:
+                                    value = int(value)
                                 annotation_data[key] = value
 
                         if annotation_data:
