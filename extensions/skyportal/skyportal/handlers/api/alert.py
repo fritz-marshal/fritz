@@ -1418,7 +1418,10 @@ class AlertTripletsHandler(BaseHandler):
 
         selector = list(selector)
 
-        candid = int(self.get_query_argument("candid"))
+        candid = self.get_query_argument("candid", None)
+        if candid:
+            candid = int(candid)
+
         normalize_image = self.get_query_argument("normalizeImage", False) in [
             "True",
             "t",
@@ -1429,19 +1432,22 @@ class AlertTripletsHandler(BaseHandler):
         ]
 
         try:
+            if candid:
+                filt = {"candid": candid, "candidate.programid": {"$in": selector}}
+            else:
+                filt = {"objectId": object_id, "candidate.programid": {"$in": selector}}
+
             query = {
                 "query_type": "find",
                 "query": {
                     "catalog": "ZTF_alerts",
-                    "filter": {
-                        "candid": candid,
-                        "candidate.programid": {"$in": selector},
-                    },
+                    "filter": filt,
                     "projection": {
                         "_id": 0,
                         "cutoutScience": 1,
                         "cutoutTemplate": 1,
                         "cutoutDifference": 1,
+                        "candidate.candid": 1,
                     },
                 },
                 "kwargs": {"limit": 1, "max_time_ms": 5000},
@@ -1450,50 +1456,67 @@ class AlertTripletsHandler(BaseHandler):
             response = kowalski.query(query=query)
 
             if response.get("status", "error") == "success":
-                alert = response.get("data", [dict()])[0]
+                alerts = response.get("data", [dict()])
             else:
                 return self.error("No cutout found.")
 
-            cutout_dict = dict()
-            image_corrupt = False
+            return_data = []
+            for alert in alerts:
 
-            for cutout in ("science", "template", "difference"):
-                cutout_data = bj.loads(
-                    bj.dumps([alert[f"cutout{cutout.capitalize()}"]["stampData"]])
-                )[0]
+                candid = alert["candidate"]
+                cutout_dict = dict()
+                image_corrupt = False
 
-                with gzip.open(io.BytesIO(cutout_data), "rb") as f:
-                    with fits.open(io.BytesIO(f.read())) as hdu:
-                        data = hdu[0].data
-                        medfill = np.nanmedian(data.flatten())
-                        if medfill == np.nan or medfill == -np.inf or medfill == np.inf:
-                            image_corrupt = True
+                for cutout in ("science", "template", "difference"):
+                    cutout_data = bj.loads(
+                        bj.dumps([alert[f"cutout{cutout.capitalize()}"]["stampData"]])
+                    )[0]
 
-                        cutout_dict[cutout] = np.nan_to_num(data, nan=medfill)
-                        # normalize
-                        if normalize_image and not image_corrupt:
-                            cutout_dict[cutout] /= np.linalg.norm(cutout_dict[cutout])
+                    with gzip.open(io.BytesIO(cutout_data), "rb") as f:
+                        with fits.open(io.BytesIO(f.read())) as hdu:
+                            data = hdu[0].data
+                            medfill = np.nanmedian(data.flatten())
+                            if (
+                                medfill == np.nan
+                                or medfill == -np.inf
+                                or medfill == np.inf
+                            ):
+                                image_corrupt = True
 
-                        if np.all(cutout_dict[cutout].flatten() == 0):
-                            image_corrupt = True
+                            cutout_dict[cutout] = np.nan_to_num(data, nan=medfill)
+                            # normalize
+                            if normalize_image and not image_corrupt:
+                                cutout_dict[cutout] /= np.linalg.norm(
+                                    cutout_dict[cutout]
+                                )
 
-                # pad to 63x63 if smaller
-                shape = cutout_dict[cutout].shape
-                if shape != (63, 63):
-                    medfill = np.nanmedian(cutout_dict[cutout].flatten())
-                    cutout_dict[cutout] = np.pad(
-                        cutout_dict[cutout],
-                        [(0, 63 - shape[0]), (0, 63 - shape[1])],
-                        mode="constant",
-                        constant_values=medfill,
-                    )
-            triplet = np.zeros((63, 63, 3))
-            triplet[:, :, 0] = cutout_dict["science"]
-            triplet[:, :, 1] = cutout_dict["template"]
-            triplet[:, :, 2] = cutout_dict["difference"]
+                            if np.all(cutout_dict[cutout].flatten() == 0):
+                                image_corrupt = True
 
-            data = {"triplet": triplet, "image_corrupt": image_corrupt}
-            return self.success(data=data)
+                    # pad to 63x63 if smaller
+                    shape = cutout_dict[cutout].shape
+                    if shape != (63, 63):
+                        medfill = np.nanmedian(cutout_dict[cutout].flatten())
+                        cutout_dict[cutout] = np.pad(
+                            cutout_dict[cutout],
+                            [(0, 63 - shape[0]), (0, 63 - shape[1])],
+                            mode="constant",
+                            constant_values=medfill,
+                        )
+                triplet = np.zeros((63, 63, 3))
+                triplet[:, :, 0] = cutout_dict["science"]
+                triplet[:, :, 1] = cutout_dict["template"]
+                triplet[:, :, 2] = cutout_dict["difference"]
+
+                return_data.append(
+                    {
+                        "candid": candid,
+                        "triplet": triplet,
+                        "image_corrupt": image_corrupt,
+                    }
+                )
+
+            return self.success(data=return_data)
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")
