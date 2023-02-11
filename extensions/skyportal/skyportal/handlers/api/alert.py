@@ -13,6 +13,7 @@ import base64
 import bson.json_util as bj
 import gzip
 import io
+import json
 from marshmallow.exceptions import ValidationError
 import matplotlib.pyplot as plt
 import numpy as np
@@ -645,6 +646,14 @@ class AlertHandler(BaseHandler):
             "coordinates.l": 1,
             "coordinates.b": 1,
         }
+        projection = self.get_query_argument("projection", None)
+        if projection:
+            try:
+                projection = json.loads(projection)
+            except Exception as e:
+                return self.error(f"projection must be a JSON dictionary: {str(e)}")
+        else:
+            projection = default_projection
 
         include_all_fields = self.get_query_argument("includeAllFields", False)
 
@@ -662,7 +671,7 @@ class AlertHandler(BaseHandler):
                             }
                         },
                         {
-                            "$project": default_projection
+                            "$project": projection
                             if not include_all_fields
                             else {
                                 "_id": 0,
