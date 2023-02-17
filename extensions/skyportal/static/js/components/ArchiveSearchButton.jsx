@@ -13,16 +13,15 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
 
   useEffect(() => {
     const fetchCatalogNames = () => {
-      const data = dispatch(archiveActions.fetchCatalogNames());
+      dispatch(archiveActions.fetchCatalogNames());
     };
     if (!catalogNames) {
       fetchCatalogNames();
     }
   }, [catalogNames, dispatch]);
 
-  const ZTFLightCurveCatalogNames = catalogNames?.filter(
-    (name) => name.indexOf("ZTF_sources") !== -1
-  );
+  const ZTFLightCurveCatalogNames = Array.isArray(catalogNames) ? catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1) : null;
+
   const catalog = ZTFLightCurveCatalogNames
     ? ZTFLightCurveCatalogNames[0]
     : null;

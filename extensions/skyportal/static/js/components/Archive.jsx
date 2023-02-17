@@ -237,7 +237,7 @@ const Archive = () => {
     if (!catalogNames) fetchCatalogNames();
   }, [catalogNames, dispatch, catalogNamesLoadError]);
 
-  const ZTFLightCurveCatalogNames = catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1);
+  const ZTFLightCurveCatalogNames = Array.isArray(catalogNames) ? catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1) : null;
 
   const { lightCurves: ztf_light_curves, queryInProgress } = useSelector((state) => state.ztf_light_curves);
 
