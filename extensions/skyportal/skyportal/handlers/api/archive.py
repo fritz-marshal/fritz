@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from penquins import Kowalski
 import uuid
+from sqlalchemy.exc import IntegrityError
 
 from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
@@ -11,6 +12,11 @@ from ...models import Instrument, Source, Stream
 from skyportal.model_util import create_token, delete_token
 from .photometry import add_external_photometry
 from .source import post_source
+from ...models import (
+    Obj,
+    Group,
+    Annotation,
+)
 
 env, cfg = load_env()
 log = make_log("archive")
@@ -283,6 +289,251 @@ class CrossMatchHandler(BaseHandler):
                 return self.success(data=data)
 
             return self.error(response.get("message"))
+
+
+class ScopeFeaturesHandler(BaseHandler):
+    @auth_or_token
+    def post(self):
+        """
+        ---
+        summary: Retrieve archival SCoPe features from Kowalski/Gloria by position, post as annotation
+        tags:
+          - features
+          - kowalski
+        parameters:
+          - in: query
+            name: id
+            required: true
+            schema:
+              type: str
+            description: object ID
+          - in: query
+            name: ra
+            required: true
+            schema:
+              type: float
+            description: RA in degrees
+          - in: query
+            name: dec
+            required: true
+            schema:
+              type: float
+            description: Dec. in degrees
+          - in: query
+            name: catalog
+            required: false
+            schema:
+              type: str
+            description: default is ZTF_source_features_DR5
+          - in: query
+            name: radius
+            required: false
+            schema:
+              type: float
+            description: Max distance from specified (RA, Dec) (capped at 1 deg). Default is 2
+          - in: query
+            name: radius_units
+            required: false
+            schema:
+              type: string
+            description: Distance units (either "deg", "arcmin", or "arcsec"). Default is arcsec
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        query = {"query_type": "info", "query": {"command": "catalog_names"}}
+        if gloria is None:
+            return self.error("Gloria connection unavailable.")
+        available_catalog_names = gloria.query(query=query).get("data")
+        # expose only the ZTF features for now
+        available_catalogs = [
+            catalog
+            for catalog in available_catalog_names
+            if "ZTF_source_features" in catalog
+        ]
+
+        data = self.get_json()
+
+        # executing a cone search
+        obj_id = data.pop("id")
+        ra = data.pop("ra")
+        dec = data.pop("dec")
+        catalog = data.pop("catalog", "ZTF_source_features_DR5")
+        radius = data.pop("radius", 2)
+        radius_units = data.pop("radius_units", "arcsec")
+
+        if catalog not in available_catalogs:
+            return self.error(f"Catalog {catalog} not available")
+
+        position_tuple = (ra, dec, radius, radius_units)
+
+        if not all(position_tuple) and any(position_tuple):
+            # incomplete positional arguments? throw errors, since
+            # either all or none should be provided
+            if ra is None:
+                return self.error("Missing required parameter: ra")
+            if dec is None:
+                return self.error("Missing required parameter: dec")
+            if radius is None:
+                return self.error("Missing required parameter: radius")
+            if radius_units is None:
+                return self.error("Missing required parameter: radius_units")
+        if all(position_tuple):
+            # complete positional arguments? run "near" query
+            if radius_units not in ["deg", "arcmin", "arcsec"]:
+                return self.error(
+                    "Invalid radius_units value. Must be one of either "
+                    "'deg', 'arcmin', or 'arcsec'."
+                )
+            try:
+                ra = float(ra)
+                dec = float(dec)
+                radius = float(radius)
+            except ValueError:
+                return self.error("Invalid (non-float) value provided.")
+            if (
+                (radius_units == "deg" and radius > 1)
+                or (radius_units == "arcmin" and radius > 60)
+                or (radius_units == "arcsec" and radius > 3600)
+            ):
+                return self.error("Radius must be <= 1.0 deg")
+
+            # grab id's first
+            query = {
+                "query_type": "near",
+                "query": {
+                    "max_distance": radius,
+                    "distance_units": radius_units,
+                    "radec": {"query_coords": [ra, dec]},
+                    "catalogs": {
+                        catalog: {
+                            "filter": {},
+                            "projection": {"_id": 1},
+                        }
+                    },
+                },
+                "kwargs": {
+                    "max_time_ms": 10000,
+                    "limit": 1000,
+                },
+            }
+
+            response = gloria.query(query=query)
+            with self.Session() as session:
+                obj = session.scalars(
+                    Obj.select(self.current_user).where(Obj.id == obj_id)
+                ).first()
+                if obj is None:
+                    return self.error(
+                        f'Cannot find source with id "{obj_id}". ', status=403
+                    )
+
+                group_ids = [g.id for g in self.current_user.accessible_groups]
+                groups = session.scalars(
+                    Group.select(self.current_user).where(Group.id.in_(group_ids))
+                ).all()
+
+                if {g.id for g in groups} != set(group_ids):
+                    return self.error(
+                        f"Cannot find one or more groups with IDs: {group_ids}.",
+                        status=403,
+                    )
+
+                author = self.associated_user_object
+
+                if response.get("status", "error") == "success":
+                    light_curve_ids = [
+                        item["_id"]
+                        for item in response.get("data")[catalog]["query_coords"]
+                    ]
+                    if len(light_curve_ids) == 0:
+                        return self.success(data=[])
+
+                    # return features for the first ID
+                    filter = {"_id": {"$in": [light_curve_ids[0]]}}
+                    query = {
+                        "query_type": "find",
+                        "query": {
+                            "catalog": catalog,
+                            "filter": filter,
+                            "projection": {
+                                "ad": 1,
+                                "chi2red": 1,
+                                "i60r": 1,
+                                "i70r": 1,
+                                "i80r": 1,
+                                "i90r": 1,
+                                "inv_vonneumannratio": 1,
+                                "iqr": 1,
+                                "median": 1,
+                                "median_abs_dev": 1,
+                                "n": 1,
+                                "norm_excess_var": 1,
+                                "norm_peak_to_peak_amp": 1,
+                                "roms": 1,
+                                "skew": 1,
+                                "smallkurt": 1,
+                                "stetson_j": 1,
+                                "stetson_k": 1,
+                                "sw": 1,
+                                "welch_i": 1,
+                                "wmean": 1,
+                                "wstd": 1,
+                                "_id": 1,
+                                "field": 1,
+                                "ccd": 1,
+                                "quad": 1,
+                            },
+                        },
+                    }
+
+                    response = gloria.query(query=query)
+                    if response.get("status", "error") == "success":
+                        features = response.get("data")[0]
+
+                        annotations = []
+                        annotation_data = {}
+                        for key in features.keys():
+                            value = features[key]
+                            if not pd.isnull(value):
+                                if key in ["_id", "field", "ccd", "quad", "n"]:
+                                    value = int(value)
+                                annotation_data[key] = value
+
+                        if annotation_data:
+                            annotation = Annotation(
+                                data=annotation_data,
+                                obj_id=obj_id,
+                                origin=catalog,
+                                author=author,
+                                groups=groups,
+                            )
+
+                            annotations.append(annotation)
+
+                        if len(annotations) == 0:
+                            return self.error("No SCoPe features available.")
+
+                        session.add_all(annotations)
+
+                        try:
+                            session.commit()
+                        except IntegrityError:
+                            return self.error("Annotation already posted.")
+
+                        self.push_all(
+                            action="skyportal/REFRESH_SOURCE",
+                            payload={"obj_key": obj.internal_key},
+                        )
+                        return self.success()
+
+                return self.error(response.get("message"))
 
 
 class ArchiveHandler(BaseHandler):
