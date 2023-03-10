@@ -5,7 +5,7 @@ import { useDispatch } from "react-redux";
 import CircularProgress from "@mui/material/CircularProgress";
 import Button from "./Button";
 
-import * as sourceActions from "../ducks/source";
+import * as archiveActions from "../ducks/archive";
 
 const SourceAnnotationButtonPlugins = ({source}) =>
 {
@@ -15,7 +15,7 @@ const SourceAnnotationButtonPlugins = ({source}) =>
         useState(null);
     const handleAnnotationScopeFeatures = async (id, ra, dec) => {
         setIsSubmittingAnnotationScopeFeatures(id);
-        await dispatch(sourceActions.fetchScopeFeatures({id, ra, dec}));
+        await dispatch(archiveActions.fetchScopeFeatures({id, ra, dec}));
         setIsSubmittingAnnotationScopeFeatures(null);
     };
 
