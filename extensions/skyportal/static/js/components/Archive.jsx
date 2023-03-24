@@ -476,14 +476,14 @@ const Archive = () => {
     }
 
     if (saveNewSource) {
-      let data = null;
-      const row = rows[rowsToSave.data[0].dataIndex];
-      data = await dispatch(checkSource(objID, {'ra': row.ra, 'dec': row.dec}));
-      if (data.data !== "A source of that name does not exist.") {
-        dispatch(showNotification(data.data, "error"));
-        setIsSubmitting(false);
-        return;
-      }
+        let data = null;
+        const row = rows[rowsToSave.data[0].dataIndex];
+        data = await dispatch(checkSource(objID, {'ra': row.ra, 'dec': row.dec, 'nameOnly': true}));
+        if (data.data !== "A source of that name does not exist.") {
+          dispatch(showNotification(data.data, "error"));
+          setIsSubmitting(false);
+          return;
+        }
     }
 
     // IDs of selected groups:
