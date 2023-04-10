@@ -408,6 +408,11 @@ skyportal:
     user: skyportal
     password: password
 
+  ports:
+    facility_queue: 64510
+    notification_queue: 64610
+    observation_plan_queue: 64710
+
   server:
     # From https://console.developers.google.com/
     #
