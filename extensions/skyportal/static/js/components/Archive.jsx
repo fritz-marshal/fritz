@@ -575,9 +575,10 @@ const Archive = () => {
                       labelId="alert-stream-select-required-label"
                       name="catalog"
                       control={control}
+                      defaultValue={ZTFLightCurveCatalogNames[0]}
                       rules={{ required: true }}
                       render={({ field: { onChange, value } }) => (
-                       <Select value={value} onChange={onChange} defaultValue={ZTFLightCurveCatalogNames[0]}>
+                       <Select value={value} onChange={onChange}>
                         {ZTFLightCurveCatalogNames?.map((catalogName) => (
                           <MenuItem key={catalogName} value={catalogName}>
                             {catalogName}
