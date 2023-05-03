@@ -150,6 +150,7 @@ skyportal:
 
     observation_plan:
       default_filters: ['ztfg', 'ztfr', 'ztfi']
+      use_skyportal_fields: True
 
     kowalski:
       protocol: http
