@@ -138,7 +138,11 @@ skyportal:
       - path: "/recurring_apis"
         component: RecurringAPIPage
       - path: "/shifts"
-        component: ShiftPage
+        component: ShiftNoId
+      - path: "/shifts/:id"
+        component: ShiftWithId
+      - path: "/summary_search"
+        component: SummarySearch
       - path: "/observations"
         component: ObservationPage
       - path: "/followup_requests"
@@ -211,6 +215,10 @@ skyportal:
           - name: Shifts
             icon: SubwayRounded
             url: /shifts
+
+          - name: Summary Search
+            icon: Troubleshoot
+            url: /summary_search
 
           - name: About
             icon: Info
