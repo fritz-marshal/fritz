@@ -65,6 +65,25 @@ except Exception as e:
 
 INSTRUMENTS = {"ZTF"}
 
+default_projection = {
+    "_id": 0,
+    "objectId": 1,
+    "candid": {"$toString": "$candid"},
+    "candidate.ra": 1,
+    "candidate.dec": 1,
+    "candidate.jd": 1,
+    "candidate.fid": 1,
+    "candidate.magpsf": 1,
+    "candidate.sigmapsf": 1,
+    "candidate.isdiffpos": 1,
+    "candidate.rb": 1,
+    "candidate.drb": 1,
+    "candidate.programid": 1,
+    "classifications": 1,
+    "coordinates.l": 1,
+    "coordinates.b": 1,
+}
+
 
 def make_thumbnail(a, ttype, ztftype):
 
@@ -501,6 +520,202 @@ def post_alert(
     return object_id
 
 
+def get_alerts_by_id(
+    object_id,
+    program_id_selector,
+    projection=None,
+    include_all_fields=False,
+    candid=None,
+):
+    """Get alert from database (by object ID).
+    object_id : string
+        Object ID
+    program_id_selector : List[Int]
+        List of Program IDs to query
+    projection : List[str]
+        List of fields to query from database
+    include_all_fields : bool
+        Include all fields in database. Defaults to False.
+    candid : Int
+        Candidate ID to query
+    """
+
+    # grabbing alerts by single objectId
+    query = {
+        "query_type": "aggregate",
+        "query": {
+            "catalog": "ZTF_alerts",
+            "pipeline": [
+                {
+                    "$match": {
+                        "objectId": object_id,
+                        "candidate.programid": {"$in": program_id_selector},
+                    }
+                },
+                {
+                    "$project": projection
+                    if not include_all_fields
+                    else {
+                        "_id": 0,
+                        "cutoutScience": 0,
+                        "cutoutTemplate": 0,
+                        "cutoutDifference": 0,
+                    }
+                },
+            ],
+        },
+        "kwargs": {"max_time_ms": 10000},
+    }
+
+    if candid is not None:
+        query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
+
+    response = kowalski.query(query=query)
+
+    if response.get("status", "error") == "success":
+        return response.get("data")
+    else:
+        return None
+
+
+def get_alerts_by_ids(
+    object_ids, program_id_selector, projection=None, include_all_fields=False
+):
+    """Get alert from database (by object IDs).
+    object_ids : List[str]
+        Object IDs to query
+    program_id_selector : List[Int]
+        List of Program IDs to query
+    projection : List[str]
+        List of fields to query from database
+    include_all_fields : bool
+        Include all fields in database. Defaults to False.
+    """
+
+    # otherwise, run a find query with the specified filter
+    query = {
+        "query_type": "find",
+        "query": {
+            "catalog": "ZTF_alerts",
+            "filter": {
+                "objectId": {"$in": [oid.strip() for oid in object_ids.split(",")]},
+                "candidate.programid": {"$in": program_id_selector},
+            },
+            "projection": projection
+            if not include_all_fields
+            else {
+                "_id": 0,
+                "cutoutScience": 0,
+                "cutoutTemplate": 0,
+                "cutoutDifference": 0,
+            },
+        },
+        "kwargs": {
+            "max_time_ms": 10000,
+            "limit": 10000,
+        },
+    }
+
+    response = kowalski.query(query=query)
+
+    if response.get("status", "error") == "success":
+        alert_data = response.get("data")
+        return alert_data
+    else:
+        return None
+
+
+def get_alerts_by_position(
+    ra,
+    dec,
+    radius,
+    radius_units,
+    program_id_selector,
+    projection=None,
+    include_all_fields=False,
+    object_ids=None,
+):
+    """Get alert from database (by object ID).
+    ra : float
+        Right Ascension
+    dec : float
+        Declination
+    radius : float
+        Radius to search
+    radius_units : str
+        Units of radius variable. Can be deg, arcmin, or arcsec.
+    program_id_selector : List[Int]
+        List of Program IDs to query
+    projection : List[str]
+        List of fields to query from database
+    include_all_fields : bool
+        Include all fields in database. Defaults to False.
+    object_ids : List[str]
+        Object IDs to query
+    """
+
+    # complete positional arguments? run "near" query
+    if radius_units not in ["deg", "arcmin", "arcsec"]:
+        return ValueError(
+            "Invalid radius_units value. Must be one of either "
+            "'deg', 'arcmin', or 'arcsec'."
+        )
+    try:
+        ra = float(ra)
+        dec = float(dec)
+        radius = float(radius)
+    except ValueError:
+        return ValueError("Invalid (non-float) value provided.")
+    if (
+        (radius_units == "deg" and radius > 1)
+        or (radius_units == "arcmin" and radius > 60)
+        or (radius_units == "arcsec" and radius > 3600)
+    ):
+        return ValueError("Radius must be <= 1.0 deg")
+
+    query = {
+        "query_type": "near",
+        "query": {
+            "max_distance": radius,
+            "distance_units": radius_units,
+            "radec": {"query_coords": [ra, dec]},
+            "catalogs": {
+                "ZTF_alerts": {
+                    "filter": {
+                        "candidate.programid": {"$in": program_id_selector},
+                    },
+                    "projection": projection
+                    if not include_all_fields
+                    else {
+                        "_id": 0,
+                        "cutoutScience": 0,
+                        "cutoutTemplate": 0,
+                        "cutoutDifference": 0,
+                    },
+                }
+            },
+        },
+        "kwargs": {
+            "max_time_ms": 10000,
+            "limit": 10000,
+        },
+    }
+
+    # additional filters?
+    if object_ids is not None:
+        query["query"]["catalogs"]["ZTF_alerts"]["filter"]["objectId"] = {
+            "$in": [oid.strip() for oid in object_ids.split(",")]
+        }
+
+    response = kowalski.query(query=query)
+
+    if response.get("status", "error") == "success":
+        alert_data = response.get("data")
+        return alert_data["ZTF_alerts"]["query_coords"]
+    else:
+        return None
+
+
 class AlertHandler(BaseHandler):
     @auth_or_token
     async def get(self, object_id: str = None):
@@ -628,24 +843,6 @@ class AlertHandler(BaseHandler):
         if instrument not in INSTRUMENTS:
             raise ValueError("Instrument name not recognised")
 
-        default_projection = {
-            "_id": 0,
-            "objectId": 1,
-            "candid": {"$toString": "$candid"},
-            "candidate.ra": 1,
-            "candidate.dec": 1,
-            "candidate.jd": 1,
-            "candidate.fid": 1,
-            "candidate.magpsf": 1,
-            "candidate.sigmapsf": 1,
-            "candidate.isdiffpos": 1,
-            "candidate.rb": 1,
-            "candidate.drb": 1,
-            "candidate.programid": 1,
-            "classifications": 1,
-            "coordinates.l": 1,
-            "coordinates.b": 1,
-        }
         projection = self.get_query_argument("projection", None)
         if projection:
             try:
@@ -656,43 +853,21 @@ class AlertHandler(BaseHandler):
             projection = default_projection
 
         include_all_fields = self.get_query_argument("includeAllFields", False)
+        candid = self.get_query_argument("candid", None)
 
         if object_id is not None:
-            # grabbing alerts by single objectId
-            query = {
-                "query_type": "aggregate",
-                "query": {
-                    "catalog": "ZTF_alerts",
-                    "pipeline": [
-                        {
-                            "$match": {
-                                "objectId": object_id,
-                                "candidate.programid": {"$in": program_id_selector},
-                            }
-                        },
-                        {
-                            "$project": projection
-                            if not include_all_fields
-                            else {
-                                "_id": 0,
-                                "cutoutScience": 0,
-                                "cutoutTemplate": 0,
-                                "cutoutDifference": 0,
-                            }
-                        },
-                    ],
-                },
-                "kwargs": {"max_time_ms": 10000},
-            }
+            try:
+                alert_data = get_alerts_by_id(
+                    object_id,
+                    program_id_selector,
+                    projection,
+                    include_all_fields=include_all_fields,
+                    candid=candid,
+                )
+            except Exception as e:
+                return self.error(f"Query error: {str(e)}")
 
-            candid = self.get_query_argument("candid", None)
-            if candid is not None:
-                query["query"]["pipeline"][0]["$match"]["candid"] = int(candid)
-
-            response = kowalski.query(query=query)
-
-            if response.get("status", "error") == "success":
-                alert_data = response.get("data")
+            if alert_data is not None:
                 return self.success(data=alert_data)
             else:
                 return self.error(f"Failed to fetch data for {object_id} from Kowalski")
@@ -723,98 +898,41 @@ class AlertHandler(BaseHandler):
             if radius_units is None:
                 return self.error("Missing required parameter: radius_units")
         if all(position_tuple):
-            # complete positional arguments? run "near" query
-            if radius_units not in ["deg", "arcmin", "arcsec"]:
-                return self.error(
-                    "Invalid radius_units value. Must be one of either "
-                    "'deg', 'arcmin', or 'arcsec'."
-                )
             try:
-                ra = float(ra)
-                dec = float(dec)
-                radius = float(radius)
-            except ValueError:
-                return self.error("Invalid (non-float) value provided.")
-            if (
-                (radius_units == "deg" and radius > 1)
-                or (radius_units == "arcmin" and radius > 60)
-                or (radius_units == "arcsec" and radius > 3600)
-            ):
-                return self.error("Radius must be <= 1.0 deg")
+                alert_data = get_alerts_by_position(
+                    ra,
+                    dec,
+                    radius,
+                    radius_units,
+                    program_id_selector,
+                    projection=projection,
+                    include_all_fields=include_all_fields,
+                    object_ids=object_ids,
+                )
+            except Exception as e:
+                return self.error(f"Query error: {str(e)}")
 
-            query = {
-                "query_type": "near",
-                "query": {
-                    "max_distance": radius,
-                    "distance_units": radius_units,
-                    "radec": {"query_coords": [ra, dec]},
-                    "catalogs": {
-                        "ZTF_alerts": {
-                            "filter": {
-                                "candidate.programid": {"$in": program_id_selector},
-                            },
-                            "projection": default_projection
-                            if not include_all_fields
-                            else {
-                                "_id": 0,
-                                "cutoutScience": 0,
-                                "cutoutTemplate": 0,
-                                "cutoutDifference": 0,
-                            },
-                        }
-                    },
-                },
-                "kwargs": {
-                    "max_time_ms": 10000,
-                    "limit": 10000,
-                },
-            }
+            if alert_data is not None:
+                return self.success(data=alert_data)
+            else:
+                return self.error(
+                    f"No data for position {str(position_tuple)} from Kowalski"
+                )
 
-            # additional filters?
-            if object_ids is not None:
-                query["query"]["catalogs"]["ZTF_alerts"]["filter"]["objectId"] = {
-                    "$in": [oid.strip() for oid in object_ids.split(",")]
-                }
+        try:
+            alert_data = get_alerts_by_ids(
+                object_ids,
+                program_id_selector,
+                projection=projection,
+                include_all_fields=include_all_fields,
+            )
+        except Exception as e:
+            return self.error(f"Query error: {str(e)}")
 
-            response = kowalski.query(query=query)
-
-            if response.get("status", "error") == "success":
-                alert_data = response.get("data")
-                return self.success(data=alert_data["ZTF_alerts"]["query_coords"])
-
-            return self.error(response.get("message"))
-
-        # otherwise, run a find query with the specified filter
-        query = {
-            "query_type": "find",
-            "query": {
-                "catalog": "ZTF_alerts",
-                "filter": {
-                    "objectId": {"$in": [oid.strip() for oid in object_ids.split(",")]},
-                    "candidate.programid": {"$in": program_id_selector},
-                },
-                "projection": default_projection
-                if not include_all_fields
-                else {
-                    "_id": 0,
-                    "cutoutScience": 0,
-                    "cutoutTemplate": 0,
-                    "cutoutDifference": 0,
-                },
-            },
-            "kwargs": {
-                "max_time_ms": 10000,
-                "limit": 10000,
-            },
-        }
-
-        response = kowalski.query(query=query)
-
-        if response.get("status", "error") == "success":
-            alert_data = response.get("data")
+        if alert_data is not None:
             return self.success(data=alert_data)
-
-        return self.error(response.get("message"))
+        else:
+            return self.error(f"No data for object IDs {str(object_ids)} from Kowalski")
 
     @permissions(["Upload data"])
     def post(self, objectId):

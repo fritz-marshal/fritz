@@ -166,7 +166,6 @@ const Alerts = () => {
       acai_o: alert?.classifications?.acai_o,
       acai_v: alert?.classifications?.acai_v,
       acai_b: alert?.classifications?.acai_b,
-      bts: alert?.classifications?.bts,
     });
 
   let rows = [];
@@ -404,15 +403,6 @@ const Alerts = () => {
         customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
       },
     },
-    {
-      name: "bts",
-      label: "BTS",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
-      },
-    },
   ];
 
   const { register, handleSubmit, control, getValues } = useForm();
@@ -420,12 +410,18 @@ const Alerts = () => {
   const formSubmit = async () => {
     const data = getValues();
     const {object_id, ra, dec, radius} = data;
+
     // check that if positional query is requested then all required data are supplied
     if ((ra?.length || dec?.length || radius?.length) && !(ra?.length && dec?.length && radius?.length)) {
       dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
     }
     else {
-      dispatch(alertsActions.fetchAlerts({ object_id, ra, dec, radius }));
+      if (object_id?.indexOf(',') > -1) {
+        const object_id_split = object_id.split(',');
+        dispatch(alertsActions.fetchAlerts({ object_id : object_id_split, ra, dec, radius }));
+      } else {
+        dispatch(alertsActions.fetchAlerts({ object_id, ra, dec, radius }));
+      }
     }
   };
 
