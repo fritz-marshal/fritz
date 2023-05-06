@@ -773,12 +773,6 @@ class AlertHandler(BaseHandler):
                 type: str
               description: can be a single objectId or a comma-separated list of objectIds
             - in: query
-              name: instrument
-              required: false
-              default: 'ZTF'
-              schema:
-                type: str
-            - in: query
               name: ra
               required: false
               schema:
@@ -838,10 +832,6 @@ class AlertHandler(BaseHandler):
                     program_id_selector.update(set(stream.altdata.get("selector", [])))
 
         program_id_selector = list(program_id_selector)
-
-        instrument = self.get_query_argument("instrument", "ZTF").upper()
-        if instrument not in INSTRUMENTS:
-            raise ValueError("Instrument name not recognised")
 
         projection = self.get_query_argument("projection", None)
         if projection:
@@ -1031,11 +1021,6 @@ class AlertAuxHandler(BaseHandler):
               schema:
                 type: string
             - in: query
-              name: instrument
-              required: false
-              schema:
-                type: str
-            - in: query
               name: includePrvCandidates
               required: false
               schema:
@@ -1062,10 +1047,6 @@ class AlertAuxHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
-        instrument = self.get_query_argument("instrument", "ZTF").upper()
-        if instrument not in INSTRUMENTS:
-            raise ValueError("Instrument name not recognised")
-
         # allow access to public data only by default
         selector = {1}
         with self.Session():
@@ -1280,11 +1261,6 @@ class AlertCutoutHandler(BaseHandler):
 
         parameters:
           - in: query
-            name: instrument
-            required: false
-            schema:
-              type: str
-          - in: query
             name: candid
             description: "ZTF alert candid"
             required: true
@@ -1346,10 +1322,6 @@ class AlertCutoutHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        instrument = self.get_query_argument("instrument", "ZTF").upper()
-        if instrument not in INSTRUMENTS:
-            raise ValueError("Instrument name not recognised")
-
         # allow access to public data only by default
         selector = {1}
         with self.Session():
@@ -1498,11 +1470,6 @@ class AlertTripletsHandler(BaseHandler):
 
         parameters:
           - in: query
-            name: instrument
-            required: false
-            schema:
-              type: str
-          - in: query
             name: candid
             description: "ZTF alert candid"
             required: true
@@ -1532,10 +1499,6 @@ class AlertTripletsHandler(BaseHandler):
               application/json:
                 schema: Error
         """
-        instrument = self.get_query_argument("instrument", "ZTF").upper()
-        if instrument not in INSTRUMENTS:
-            raise ValueError("Instrument name not recognised")
-
         # allow access to public data only by default
         selector = {1}
         with self.Session():
