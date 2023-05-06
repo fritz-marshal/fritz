@@ -446,6 +446,7 @@ def post_alert(
             )
 
         # post data from different program_id's
+        photometry_ids = []
         for pid in set(df.programid.unique()):
             group_ids = [
                 gsa.get("group_id")
@@ -472,13 +473,17 @@ def post_alert(
 
                 if len(photometry.get("mag", ())) > 0:
                     try:
-                        add_external_photometry(photometry, user)
+                        photometry_ids_tmp, _ = add_external_photometry(
+                            photometry, user
+                        )
+                        photometry_ids = photometry_ids + photometry_ids_tmp
                     except Exception:
                         log(
                             f"Failed to post photometry of {object_id} to group_ids {group_ids}"
                         )
 
     # post cutouts
+    thumbnail_ids = []
     for ttype, ztftype in [
         ("new", "Science"),
         ("ref", "Template"),
@@ -512,12 +517,13 @@ def post_alert(
         try:
             thumb = make_thumbnail(cutout, ttype, ztftype)
             if thumb is not None:
-                post_thumbnail(thumb, user_id, session)
+                thumbnail_id = post_thumbnail(thumb, user_id, session)
+                thumbnail_ids.append(thumbnail_id)
         except Exception as e:
             log(f"Failed to post thumbnails of {object_id} | {candid}")
             log(str(e))
 
-    return object_id
+    return photometry_ids, thumbnail_ids
 
 
 def get_alerts_by_id(
@@ -986,7 +992,7 @@ class AlertHandler(BaseHandler):
             program_id_selector = list(program_id_selector)
 
             try:
-                objectId = post_alert(
+                post_alert(
                     objectId,
                     group_ids,
                     self.associated_user_object.id,
