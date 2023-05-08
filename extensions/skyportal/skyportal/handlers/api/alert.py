@@ -541,7 +541,7 @@ def get_alerts_by_id(
     projection : List[str]
         List of fields to query from database
     include_all_fields : bool
-        Include all fields in database. Defaults to False.
+        Include all available fields in database. Defaults to False.
     candid : Int
         Candidate ID to query
     """
@@ -595,7 +595,7 @@ def get_alerts_by_ids(
     projection : List[str]
         List of fields to query from database
     include_all_fields : bool
-        Include all fields in database. Defaults to False.
+        Include all available fields in database. Defaults to False.
     """
 
     # otherwise, run a find query with the specified filter
@@ -647,7 +647,7 @@ def get_alerts_by_position(
     dec : float
         Declination
     radius : float
-        Radius to search
+        Radius to search. Units specified by radius_units.
     radius_units : str
         Units of radius variable. Can be deg, arcmin, or arcsec.
     program_id_selector : List[Int]
@@ -655,7 +655,7 @@ def get_alerts_by_position(
     projection : List[str]
         List of fields to query from database
     include_all_fields : bool
-        Include all fields in database. Defaults to False.
+        Include all available fields in database. Defaults to False.
     object_ids : List[str]
         Object IDs to query
     """
