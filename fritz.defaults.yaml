@@ -416,7 +416,6 @@ skyportal:
     port: 5432
     user: skyportal
     password: password
-    engine_args: {max_overflow: 20, pool_size: 15}
 
   ports:
     facility_queue: 64510
