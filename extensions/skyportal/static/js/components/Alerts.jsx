@@ -166,6 +166,7 @@ const Alerts = () => {
       acai_o: alert?.classifications?.acai_o,
       acai_v: alert?.classifications?.acai_v,
       acai_b: alert?.classifications?.acai_b,
+      bts: alert?.classifications?.bts,
     });
 
   let rows = [];
@@ -397,6 +398,15 @@ const Alerts = () => {
     {
       name: "acai_b",
       label: "acai_b",
+      options: {
+        filter: false,
+        sort: true,
+        customBodyRender: (value, tableMeta, updateValue) => value ? value.toFixed(5) : value,
+      },
+    },
+    {
+      name: "bts",
+      label: "BTS",
       options: {
         filter: false,
         sort: true,
