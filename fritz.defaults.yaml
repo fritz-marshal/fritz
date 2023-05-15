@@ -512,6 +512,8 @@ skyportal:
 
     allow_nonadmins_delete_objs: False
 
+    bokeh_color_palette: Turbo256
+
   external_logging:
     papertrail:
       # get an account at https://papertrailapp.com
