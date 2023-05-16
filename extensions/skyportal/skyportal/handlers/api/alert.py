@@ -640,6 +640,7 @@ def get_alerts_by_position(
     projection=None,
     include_all_fields=False,
     object_ids=None,
+    filter={},
 ):
     """Get alert from database (by object ID).
     ra : float
@@ -688,6 +689,7 @@ def get_alerts_by_position(
             "catalogs": {
                 "ZTF_alerts": {
                     "filter": {
+                        **filter,
                         "candidate.programid": {"$in": program_id_selector},
                     },
                     "projection": projection
