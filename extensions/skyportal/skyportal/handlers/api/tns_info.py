@@ -48,7 +48,7 @@ class TNSInfoHandler(BaseHandler):
             },
             "kwargs": {"filter_first": False},
         }
-        
+
         try:
             response = kowalski.query(query=query)
 
@@ -57,4 +57,4 @@ class TNSInfoHandler(BaseHandler):
             tns_data = response.get("data").get("TNS").get(obj_id)
             return self.success(data={obj_id: tns_data})
         except Exception as e:
-            return self.error("Error querying Kowalksi for TNS name.")
+            return self.error(f"Error querying Kowalksi for TNS name: {str(e)}.")
