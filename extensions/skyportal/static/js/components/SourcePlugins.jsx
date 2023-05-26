@@ -23,12 +23,6 @@ const SourcePlugins = ({source}) => {
                     <ArchiveSearchButton ra={source.ra} dec={source.dec} />
                   </div>
               </div>
-              <div className={classes.infoLine}>
-                  <div className={classes.sourceInfo}>
-                    <b>TNS:&nbsp;</b>
-                    <TNSInfo objID={source.id} />
-                  </div>
-              </div>
             </div>
     </>
   );
