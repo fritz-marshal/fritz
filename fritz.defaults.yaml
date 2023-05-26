@@ -55,7 +55,7 @@ skyportal:
       protocol: http
       host: herculesii.astro.berkeley.edu
 
-    treasuremap_endpoint: http://treasuremap.space
+    treasuremap_endpoint: https://treasuremap.space
 
     tns_endpoint:
 
