@@ -3,7 +3,6 @@ import Chip from "@mui/material/Chip";
 import PropTypes from "prop-types";
 import makeStyles from "@mui/styles/makeStyles";
 
-import TNSInfo from "./TNSInfo";
 import AlertsSearchButton from "./AlertsSearchButton";
 import ArchiveSearchButton from "./ArchiveSearchButton";
 
