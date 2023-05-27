@@ -3,7 +3,6 @@ import Chip from "@mui/material/Chip";
 import PropTypes from "prop-types";
 import makeStyles from "@mui/styles/makeStyles";
 
-import TNSInfo from "./TNSInfo";
 import AlertsSearchButton from "./AlertsSearchButton";
 import ArchiveSearchButton from "./ArchiveSearchButton";
 
@@ -21,12 +20,6 @@ const SourcePlugins = ({source}) => {
                   </div>
                   <div className={classes.infoButton}>
                     <ArchiveSearchButton ra={source.ra} dec={source.dec} />
-                  </div>
-              </div>
-              <div className={classes.infoLine}>
-                  <div className={classes.sourceInfo}>
-                    <b>TNS:&nbsp;</b>
-                    <TNSInfo objID={source.id} />
                   </div>
               </div>
             </div>
