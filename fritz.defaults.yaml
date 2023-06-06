@@ -103,6 +103,8 @@ skyportal:
         component: AllocationPage
       - path: "/allocation/:id"
         component: AllocationSummary
+      - path: "/instrument/:id"
+        component: InstrumentSummary
       - path: "/group_sources/:id"
         component: GroupSources
       - path: "/user_management"
