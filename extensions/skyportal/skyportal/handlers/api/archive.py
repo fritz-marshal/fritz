@@ -55,6 +55,7 @@ except Exception as e:
     log(f"Kowalski connection failed: {str(e)}")
     kowalski = None
 
+
 def flatten_dict_to_list(d):
     """
     Flatten a dictionary of lists to a list of all values
@@ -212,7 +213,9 @@ class CrossMatchHandler(BaseHandler):
         """
         try:
             if kowalski is None:
-                return self.error(f"{list(instances.keys())} connection(s) unavailable.")
+                return self.error(
+                    f"{list(instances.keys())} connection(s) unavailable."
+                )
             catalog_names = kowalski.get_catalogs_all()
             catalog_names = flatten_dict_to_list(catalog_names)
             # expose all but the ZTF/PTF-related catalogs
@@ -304,13 +307,14 @@ class CrossMatchHandler(BaseHandler):
                         if result.get("status", "error") == "success":
                             for catalog, catalog_results in result["data"].items():
                                 if catalog not in data:
-                                    data[catalog] = catalog_results['query_coords']
+                                    data[catalog] = catalog_results["query_coords"]
                                 else:
-                                    data[catalog].extend(catalog_results['query_coords'])
+                                    data[catalog].extend(
+                                        catalog_results["query_coords"]
+                                    )
                         else:
                             failed_results += 1
                         total_results += 1
-                        
 
                 if total_results == failed_results:
                     return self.error("Failed to retrieve sources from any instances.")
@@ -393,9 +397,7 @@ class ScopeFeaturesHandler(BaseHandler):
         catalog_names = flatten_dict_to_list(catalog_names)
         # expose only the ZTF features for now
         available_catalogs = [
-            catalog
-            for catalog in catalog_names
-            if "ZTF_source_features" in catalog
+            catalog for catalog in catalog_names if "ZTF_source_features" in catalog
         ]
 
         data = self.get_json()
@@ -494,22 +496,20 @@ class ScopeFeaturesHandler(BaseHandler):
                 failed_instances = 0
                 for instance, instance_results in response.items():
                     if instance_results.get("status", "error") == "success":
-                        for catalog, catalog_results in instance_results["data"].items():
+                        for catalog, catalog_results in instance_results[
+                            "data"
+                        ].items():
                             if catalog not in data:
-                                data[catalog] = catalog_results['query_coords']
+                                data[catalog] = catalog_results["query_coords"]
                             else:
-                                data[catalog].extend(catalog_results['query_coords'])
+                                data[catalog].extend(catalog_results["query_coords"])
                     else:
                         failed_instances += 1
-                        
 
                 if failed_instances == len(response):
                     return self.error("Failed to retrieve sources from any instances.")
-                
-                light_curve_ids = [
-                    item["_id"]
-                    for item in data[catalog]
-                ]
+
+                light_curve_ids = [item["_id"] for item in data[catalog]]
                 if len(light_curve_ids) == 0:
                     return self.success(data=[])
 
@@ -563,7 +563,7 @@ class ScopeFeaturesHandler(BaseHandler):
                         failed_instances += 1
                 if failed_instances == len(response) or len(list(features.keys())) == 0:
                     return self.error("Could not find features on any instance.")
-                
+
                 annotations = []
                 annotation_data = {}
                 for key in features.keys():
@@ -662,7 +662,9 @@ class ArchiveHandler(BaseHandler):
         """
         try:
             if kowalski is None:
-                return self.error(f"{list(instances.keys())} connection(s) unavailable.")
+                return self.error(
+                    f"{list(instances.keys())} connection(s) unavailable."
+                )
             catalog_names = kowalski.get_catalogs_all()
             catalog_names = flatten_dict_to_list(catalog_names)
             # expose only the ZTF light curves for now
@@ -676,7 +678,9 @@ class ArchiveHandler(BaseHandler):
             with self.Session():
                 for stream in self.associated_user_object.streams:
                     if "ztf" in stream.name.lower():
-                        program_id_selector.update(set(stream.altdata.get("selector", [])))
+                        program_id_selector.update(
+                            set(stream.altdata.get("selector", []))
+                        )
 
             program_id_selector = list(program_id_selector)
 
@@ -748,19 +752,18 @@ class ArchiveHandler(BaseHandler):
                 data = {}
                 for instance, instance_results in response.items():
                     if instance_results.get("status", "error") == "success":
-                        for catalog, catalog_results in instance_results["data"].items():
+                        for catalog, catalog_results in instance_results[
+                            "data"
+                        ].items():
                             if catalog not in data:
-                                data[catalog] = catalog_results['query_coords']
+                                data[catalog] = catalog_results["query_coords"]
                             else:
-                                data[catalog].extend(catalog_results['query_coords'])
+                                data[catalog].extend(catalog_results["query_coords"])
                     else:
                         failed_instances += 1
 
                 if not failed_instances == len(response):
-                    light_curve_ids = list(set([
-                        item["_id"]
-                        for item in data[catalog]
-                    ]))
+                    light_curve_ids = list(set([item["_id"] for item in data[catalog]]))
                     if len(light_curve_ids) == 0:
                         return self.success(data=[])
                     query = {
@@ -809,7 +812,9 @@ class ArchiveHandler(BaseHandler):
                     if not failed_instances == len(response):
                         return self.success(data=data)
                     else:
-                        return self.error("Could not get light curves from any instance")
+                        return self.error(
+                            "Could not get light curves from any instance"
+                        )
 
                 return self.error("Could not get light curves from any instance")
         except Exception as e:
@@ -950,9 +955,11 @@ class ArchiveHandler(BaseHandler):
         light_curves = data.get(catalog, [])
         if len(light_curves) == 0:
             return self.error("No data found for requested light_curve_ids")
-        
+
         if all([len(lc.get("data", [])) == 0 for lc in light_curves]):
-            return self.error(f"No data found for requested light_curve_ids using program_id_selector={program_id_selector}")
+            return self.error(
+                f"No data found for requested light_curve_ids using program_id_selector={program_id_selector}"
+            )
 
         # generate a temporary token
         token_name = str(uuid.uuid4())

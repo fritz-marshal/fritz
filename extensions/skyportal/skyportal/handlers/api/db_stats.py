@@ -181,7 +181,9 @@ class StatsHandler(BaseHandler):
                     },
                 }
                 response = kowalski.query(query=query_tns_count)
-                data["Number of objects in TNS collection"] = response.get("default").get("data")
+                data["Number of objects in TNS collection"] = response.get(
+                    "default"
+                ).get("data")
 
                 query_tns_latest_object = {
                     "query_type": "find",
