@@ -30,14 +30,23 @@ from ...models import (
 
 
 _, cfg = load_env()
-kowalski = Kowalski(
-    token=cfg["app.kowalski.token"],
-    protocol=cfg["app.kowalski.protocol"],
-    host=cfg["app.kowalski.host"],
-    port=int(cfg["app.kowalski.port"]),
-)
-
 log = make_log("api/db_stats")
+
+try:
+    kowalski = Kowalski(
+        token=cfg["app.kowalski.token"],
+        protocol=cfg["app.kowalski.protocol"],
+        host=cfg["app.kowalski.host"],
+        port=int(cfg["app.kowalski.port"]),
+        timeout=10,
+    )
+    connection_ok = kowalski.ping()
+    log(f"Kowalski connection OK: {connection_ok}")
+    if not connection_ok:
+        kowalski = None
+except Exception as e:
+    log(f"Kowalski connection failed: {str(e)}")
+    kowalski = None
 
 
 class StatsHandler(BaseHandler):
@@ -95,6 +104,9 @@ class StatsHandler(BaseHandler):
                                 Datetime string corresponding to created_at column of
                                 the newest row in the candidates table.
         """
+
+        if kowalski is None:
+            return self.error("Couldn't connect to Kowalski")
 
         data = {}
 

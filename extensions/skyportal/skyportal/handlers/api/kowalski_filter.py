@@ -11,13 +11,21 @@ env, cfg = load_env()
 log = make_log("kowalski_filter")
 
 
-kowalski = Kowalski(
-    token=cfg["app.kowalski.token"],
-    protocol=cfg["app.kowalski.protocol"],
-    host=cfg["app.kowalski.host"],
-    port=int(cfg["app.kowalski.port"]),
-)
-log(f"Kowalski connection OK: {kowalski.ping()}")
+try:
+    kowalski = Kowalski(
+        token=cfg["app.kowalski.token"],
+        protocol=cfg["app.kowalski.protocol"],
+        host=cfg["app.kowalski.host"],
+        port=int(cfg["app.kowalski.port"]),
+        timeout=10,
+    )
+    connection_ok = kowalski.ping()
+    log(f"Kowalski connection OK: {connection_ok}")
+    if not connection_ok:
+        kowalski = None
+except Exception as e:
+    log(f"Kowalski connection failed: {str(e)}")
+    kowalski = None
 
 
 class KowalskiFilterHandler(BaseHandler):
@@ -59,6 +67,9 @@ class KowalskiFilterHandler(BaseHandler):
                 application/json:
                   schema: Error
         """
+        if kowalski is None:
+            return self.error("Couldn't connect to Kowalski")
+
         # permission check
         _ = Filter.get_if_accessible_by(
             filter_id, self.current_user, raise_if_none=True
@@ -67,7 +78,7 @@ class KowalskiFilterHandler(BaseHandler):
             method="get",
             endpoint=f"api/filters/{filter_id}",
         )
-        data = response.get("data")
+        data = response.get("default").get("data")
         # drop monogdb's _id's which are not (default) JSON-serializable
         if data is not None:
             data.pop("_id", None)
@@ -111,6 +122,9 @@ class KowalskiFilterHandler(BaseHandler):
                               description: "user-defined aggregation pipeline stages in MQL"
                               minItems: 1
         """
+        if kowalski is None:
+            return self.error("Couldn't connect to Kowalski")
+
         data = self.get_json()
         pipeline = data.get("pipeline", None)
         if pipeline is None:
@@ -198,6 +212,9 @@ class KowalskiFilterHandler(BaseHandler):
               application/json:
                 schema: Error
         """
+        if kowalski is None:
+            return self.error("Couldn't connect to Kowalski")
+
         data = self.get_json()
         active = data.get("active", None)
         active_fid = data.get("active_fid", None)
@@ -258,6 +275,9 @@ class KowalskiFilterHandler(BaseHandler):
               application/json:
                 schema: Success
         """
+        if kowalski is None:
+            return self.error("Couldn't connect to Kowalski")
+
         # permission check
         _ = Filter.get_if_accessible_by(
             filter_id, self.current_user, raise_if_none=True
