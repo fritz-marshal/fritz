@@ -229,8 +229,8 @@ def post_alert(
     }
 
     response = kowalski.query(query=query)
-    if response.get("status", "error") == "success":
-        alert_data = response.get("data")
+    if response.get("default").get("status", "error") == "success":
+        alert_data = response.get("default").get("data")
         if len(alert_data) > 0:
             alert_data = alert_data[0]
         else:
@@ -274,8 +274,8 @@ def post_alert(
     }
 
     response = kowalski.query(query=query)
-    if response.get("status", "error") == "success":
-        latest_alert_data = response.get("data")
+    if response.get("default").get("status", "error") == "success":
+        latest_alert_data = response.get("default").get("data")
         if len(latest_alert_data) > 0:
             latest_alert_data = latest_alert_data[0]
     else:
@@ -505,8 +505,8 @@ def post_alert(
         }
 
         response = kowalski.query(query=query)
-        if response.get("status", "error") == "success":
-            cutout = response.get("data", list(dict()))
+        if response.get("default").get("status", "error") == "success":
+            cutout = response.get("default").get("data", list(dict()))
             if len(cutout) > 0:
                 cutout = cutout[0]
             else:
@@ -578,8 +578,8 @@ def get_alerts_by_id(
 
     response = kowalski.query(query=query)
 
-    if response.get("status", "error") == "success":
-        return response.get("data")
+    if response.get("default").get("status", "error") == "success":
+        return response.get("default").get("data")
     else:
         return None
 
@@ -624,8 +624,8 @@ def get_alerts_by_ids(
 
     response = kowalski.query(query=query)
 
-    if response.get("status", "error") == "success":
-        alert_data = response.get("data")
+    if response.get("default").get("status", "error") == "success":
+        alert_data = response.get("default").get("data")
         return alert_data
     else:
         return None
@@ -717,8 +717,8 @@ def get_alerts_by_position(
 
     response = kowalski.query(query=query)
 
-    if response.get("status", "error") == "success":
-        alert_data = response.get("data")
+    if response.get("default").get("status", "error") == "success":
+        alert_data = response.get("default").get("data")
         return alert_data["ZTF_alerts"]["query_coords"]
     else:
         return None
@@ -1116,8 +1116,8 @@ class AlertAuxHandler(BaseHandler):
 
             response = kowalski.query(query=query)
 
-            if response.get("status", "error") == "success":
-                alert_data = response.get("data")
+            if response.get("default").get("status", "error") == "success":
+                alert_data = response.get("default").get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
@@ -1126,7 +1126,7 @@ class AlertAuxHandler(BaseHandler):
                     self.finish()
                     return
             else:
-                return self.error(response.get("message"))
+                return self.error(response.get("default").get("message"))
 
             # grab and append most recent candid as it should not be in prv_candidates
             query = {
@@ -1172,8 +1172,8 @@ class AlertAuxHandler(BaseHandler):
 
             response = kowalski.query(query=query)
 
-            if response.get("status", "error") == "success":
-                latest_alert_data = response.get("data", list(dict()))
+            if response.get("default").get("status", "error") == "success":
+                latest_alert_data = response.get("default").get("data", list(dict()))
                 if len(latest_alert_data) > 0:
                     latest_alert_data = latest_alert_data[0]
                 else:
@@ -1182,7 +1182,7 @@ class AlertAuxHandler(BaseHandler):
                     self.finish()
                     return
             else:
-                return self.error(response.get("message"))
+                return self.error(response.get("default").get("message"))
 
             candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
             if latest_alert_data["candidate"]["candid"] not in candids:
@@ -1243,8 +1243,8 @@ class AlertAuxHandler(BaseHandler):
 
             response = kowalski.query(query=query)
 
-            if response.get("status", "error") == "success":
-                tns_data = response.get("data").get("TNS").get(object_id)
+            if response.get("default").get("status", "error") == "success":
+                tns_data = response.get("default").get("data").get("TNS").get(object_id)
                 alert_data["cross_matches"]["TNS"] = tns_data
 
             if not include_prv_candidates:
@@ -1404,8 +1404,8 @@ class AlertCutoutHandler(BaseHandler):
 
             response = kowalski.query(query=query)
 
-            if response.get("status", "error") == "success":
-                alert = response.get("data", [dict()])[0]
+            if response.get("default").get("status", "error") == "success":
+                alert = response.get("default").get("data", [dict()])[0]
             else:
                 return self.error("No cutout found.")
 
@@ -1556,8 +1556,8 @@ class AlertTripletsHandler(BaseHandler):
 
             response = kowalski.query(query=query)
 
-            if response.get("status", "error") == "success":
-                alerts = response.get("data", [dict()])
+            if response.get("default").get("status", "error") == "success":
+                alerts = response.get("default").get("data", [dict()])
             else:
                 return self.error("No cutout found.")
 

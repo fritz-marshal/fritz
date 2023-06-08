@@ -1651,7 +1651,7 @@ kowalski:
 
   misc:
     broker: True
-    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2", "2.1.0", "2.1.1"]
+    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2", "2.1.0", "2.1.1", "2.2.1", "2.3.1"]
     query_expiration_interval: 5
     max_time_ms: 300000
     max_retries: 100
