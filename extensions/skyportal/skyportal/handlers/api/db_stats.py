@@ -181,7 +181,7 @@ class StatsHandler(BaseHandler):
                     },
                 }
                 response = kowalski.query(query=query_tns_count)
-                data["Number of objects in TNS collection"] = response.get("data")
+                data["Number of objects in TNS collection"] = response.get("default").get("data")
 
                 query_tns_latest_object = {
                     "query_type": "find",
@@ -193,7 +193,7 @@ class StatsHandler(BaseHandler):
                     "kwargs": {"sort": [("discovery_date", -1)], "limit": 1},
                 }
                 response = kowalski.query(query=query_tns_latest_object)
-                response_data = response.get("data", [])
+                response_data = response.get("default").get("data", [])
                 latest_tns_object_discovery_date = (
                     response_data[0]["discovery_date_(ut)"]
                     if len(response_data) > 0
@@ -223,7 +223,7 @@ class StatsHandler(BaseHandler):
                     response = kowalski.query(query=query_alerts_count)
                     data[
                         f"Number of {survey} alerts ingested yesterday (UTC)"
-                    ] = response.get("data")
+                    ] = response.get("default").get("data")
 
                     query_alerts_count = {
                         "query_type": "count_documents",
@@ -239,7 +239,7 @@ class StatsHandler(BaseHandler):
                     response = kowalski.query(query=query_alerts_count)
                     data[
                         f"Number of {survey} alerts ingested since 0h UTC today"
-                    ] = response.get("data")
+                    ] = response.get("default").get("data")
             except Exception as e:
                 log(f"kowalski stats query failed: {str(e)}")
 
