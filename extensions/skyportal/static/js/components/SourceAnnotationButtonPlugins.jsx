@@ -21,7 +21,7 @@ const PositionedMenu = ({handle, menu_name, menu_items, disabled}) => {
             handle(item);
         }
     };
-  
+
     return (
         <div>
             <Button

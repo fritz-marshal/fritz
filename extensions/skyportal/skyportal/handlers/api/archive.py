@@ -49,7 +49,7 @@ try:
                 failed_instances.append(instance_name)
             else:
                 break
-        except:
+        except Exception:
             failed_instances.append(instance_name)
             continue
     if kowalski is not None:
@@ -74,7 +74,6 @@ except Exception as e:
 if kowalski is not None and len(failed_instances) > 0:
     failed_instances = list(set(failed_instances))
     log(f"Failed to connect to some of the Kowalski instance(s): {failed_instances}")
-
 
 
 def flatten_dict_to_list(d):
