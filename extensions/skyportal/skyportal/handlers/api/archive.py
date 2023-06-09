@@ -52,7 +52,7 @@ try:
         kowalski = None
         raise Exception("No Kowalski instances available")
 except Exception as e:
-    log(f"Kowalski connection failed: {str(e)}")
+    log(f"Kowalski connection(s) failed: {str(e)}")
     kowalski = None
 
 

@@ -20,7 +20,7 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
     }
   }, [catalogNames, dispatch]);
 
-  const ZTFLightCurveCatalogNames = Array.isArray(catalogNames) ? catalogNames?.filter((name) => name.indexOf('ZTF_sources') !== -1) : null;
+  const ZTFLightCurveCatalogNames = Array.isArray(catalogNames) ? catalogNames?.filter((name) => name.indexOf('ZTF_sources_202') !== -1) : null;
 
   const catalog = ZTFLightCurveCatalogNames
     ? ZTFLightCurveCatalogNames[0]
