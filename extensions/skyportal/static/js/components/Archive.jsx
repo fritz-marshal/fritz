@@ -446,7 +446,7 @@ const Archive = () => {
 
   const submitSearch = async () => {
     const data = getValues();
-    let {catalog, ra, dec, radius} = data;
+    let {catalog, ra, dec, radius, radius_unit} = data;
     setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
@@ -465,6 +465,19 @@ const Archive = () => {
         } else {
           dec = parseFloat(dec);
         }
+      }
+      if (Number.isNaN(parseFloat(ra)) || Number.isNaN(parseFloat(dec)) || Number.isNaN(parseFloat(radius))) {
+        dispatch(showNotification(`Invalid positional parameters`));
+        return;
+      }
+      if (radius_unit === 'arcmin') { //convert arcmin to arcsec
+        radius = parseFloat(radius) * 60;
+      } else if (radius_unit === 'deg') { //convert deg to arcsec
+        radius = parseFloat(radius) * 3600;
+      } else if (radius_unit === 'rad') { //convert rad to arcsec
+        radius = parseFloat(radius) * 206264.80624709636;
+      } else {
+        radius = parseFloat(radius);
       }
       dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
       // also fetch nearest saved sources within 5 arcsec from requested position
@@ -645,21 +658,42 @@ const Archive = () => {
                 name="dec"
                 control={control}
               />
-              <Controller
-               render={({ field: { onChange, value } }) => (
-                <TextField
-                  margin="dense"
+              <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', gap: '0.5rem'}}>
+                <Controller
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    margin="dense"
+                    name="radius"
+                    label="Radius"
+                    fullWidth
+                    inputRef={register('radius', { required: false })}
+                    value={value}
+                    onChange={onChange}
+                  />
+                  )}
                   name="radius"
-                  label="Radius (arcsec)"
-                  fullWidth
-                  inputRef={register('radius', { required: false })}
-                  value={value}
-                  onChange={onChange}
+                  control={control}
                 />
-                )}
-                name="radius"
-                control={control}
-              />
+                <Controller
+                  labelId="radius-unit-select-required-label"
+                  name="radius_unit"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field: { onChange, value } }) => (
+                    <Select value={value} onChange={onChange} defaultValue="arcsec"
+                      inputRef={register('radius_unit', { required: true })}
+                      margin="dense"
+                      fullWidth
+                      style={{height: "3.5rem", marginTop: "8px", marginBottom: "4px"}}
+                    >
+                      <MenuItem value="arcsec">arcsec</MenuItem>
+                      <MenuItem value="arcmin">arcmin</MenuItem>
+                      <MenuItem value="deg">deg</MenuItem>
+                      <MenuItem value="rad">rad</MenuItem>
+                    </Select>
+                  )}
+                />
+              </div>
                 </CardContent>
                 <CardActions className={classes.cardActions}>
                   <div className={classes.wrapperRoot}>
