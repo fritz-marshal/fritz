@@ -46,7 +46,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { showNotification } from "baselayer/components/Notifications";
 import FormValidationError from "./FormValidationError";
-import {dec_to_dms, ra_to_hours} from "../units";
+import {dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra} from "../units";
 import * as archiveActions from "../ducks/archive";
 import { checkSource } from "../ducks/source";
 
@@ -83,10 +83,20 @@ const VegaPlotZTFArchive = React.lazy(() => import("./VegaPlotZTFArchive"));
 
 const useStyles = makeStyles((theme) => ({
   root: {
+    margin: 0,
+    padding: 0,
     width: "100%",
     "& > *": {
-      margin: theme.spacing(1),
+      margin: 0,
+      padding: 0,
     },
+  },
+  cardContent: {
+    padding: "0.75rem",
+    paddingBottom: 0,
+  },
+  cardActions: {
+    padding: "0.75rem",
   },
   whitish: {
     color: "#f0f0f0",
@@ -138,7 +148,7 @@ const useStyles = makeStyles((theme) => ({
     alignItems: 'center',
   },
   wrapper: {
-    margin: theme.spacing(1),
+    margin: 0,
     position: 'relative',
   },
   buttonProgress: {
@@ -436,10 +446,26 @@ const Archive = () => {
 
   const submitSearch = async () => {
     const data = getValues();
-    const {catalog, ra, dec, radius} = data;
+    let {catalog, ra, dec, radius} = data;
     setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
     if (ra.length && dec.length && radius.length) {
+      if (ra?.length) {
+        if (ra?.includes(':') || ra?.includes('h') || ra?.includes('m') || ra?.includes('s')) {
+          ra = ra.replace(/h|m/g, ':').replace(/s/g, '');
+          ra = hours_to_ra(ra);
+        } else {
+          ra = parseFloat(ra);
+        }
+      }
+      if (dec?.length) {
+        if (dec?.includes(':') || dec?.includes('d') || dec?.includes('m') || dec?.includes('s')) {
+          dec = dec.replace(/d|m/g, ':').replace(/s/g, '');
+          dec = dms_to_dec(dec);
+        } else {
+          dec = parseFloat(dec);
+        }
+      }
       dispatch(archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }));
       // also fetch nearest saved sources within 5 arcsec from requested position
       dispatch(archiveActions.fetchNearestSources({ra, dec}));
@@ -566,7 +592,7 @@ const Archive = () => {
           <Grid item xs={12} lg={2} className={classes.grid_item_search_box}>
             <Card className={classes.root}>
               <form onSubmit={handleSubmitForm(submitSearch)}>
-                <CardContent>
+                <CardContent className={classes.cardContent}>
                   <FormControl required className={classes.selectEmpty}>
                     <InputLabel name="alert-stream-select-required-label">
                       Catalog
@@ -594,7 +620,7 @@ const Archive = () => {
                 <TextField
                   margin="dense"
                   name="ra"
-                  label="R.A. (deg)"
+                  label="RA [deg, HH:MM:SS, HHhMMmSSs]"
                   fullWidth
                   inputRef={register('ra', { required: false })}
                   value={value}
@@ -609,7 +635,7 @@ const Archive = () => {
                 <TextField
                   margin="dense"
                   name="dec"
-                  label="Decl. (deg)"
+                  label="Dec [deg, DD:MM:SS, DDdMMmSSs]"
                   fullWidth
                   inputRef={register('dec', { required: false })}
                   value={value}
@@ -635,7 +661,7 @@ const Archive = () => {
                 control={control}
               />
                 </CardContent>
-                <CardActions>
+                <CardActions className={classes.cardActions}>
                   <div className={classes.wrapperRoot}>
                     <div className={classes.wrapper}>
                       <Button
