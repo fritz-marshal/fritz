@@ -33,7 +33,7 @@ import TableCell from "@mui/material/TableCell";
 
 import Button from "./Button";
 import ThumbnailList from "./ThumbnailList";
-import {dec_to_dms, ra_to_hours} from "../units";
+import {dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra} from "../units";
 import { showNotification } from "baselayer/components/Notifications";
 
 import * as alertActions from "../ducks/alert";
@@ -59,10 +59,20 @@ const getMuiTheme = (theme) =>
 
 const useStyles = makeStyles((theme) => ({
   root: {
+    margin: 0,
+    padding: 0,
     width: "100%",
     "& > *": {
-      margin: theme.spacing(1),
+      margin: 0,
+      padding: 0,
     },
+  },
+  cardContent: {
+    padding: "0.75rem",
+    paddingBottom: 0,
+  },
+  cardActions: {
+    padding: "0.75rem",
   },
   whitish: {
     color: "#f0f0f0",
@@ -114,7 +124,7 @@ const useStyles = makeStyles((theme) => ({
     alignItems: 'center',
   },
   wrapper: {
-    margin: theme.spacing(1),
+    margin: 0,
     position: 'relative',
   },
   buttonProgress: {
@@ -419,13 +429,29 @@ const Alerts = () => {
 
   const formSubmit = async () => {
     const data = getValues();
-    const {object_id, ra, dec, radius} = data;
+    let {object_id, ra, dec, radius} = data;
 
     // check that if positional query is requested then all required data are supplied
     if ((ra?.length || dec?.length || radius?.length) && !(ra?.length && dec?.length && radius?.length)) {
       dispatch(showNotification(`Positional parameters, if specified, must be all set`, "error"));
     }
     else {
+      if (ra?.length) {
+        if (ra?.includes(':') || ra?.includes('h') || ra?.includes('m') || ra?.includes('s')) {
+          ra = ra.replace(/h|m/g, ':').replace(/s/g, '');
+          ra = hours_to_ra(ra);
+        } else {
+          ra = parseFloat(ra);
+        }
+      }
+      if (dec?.length) {
+        if (dec?.includes(':') || dec?.includes('d') || dec?.includes('m') || dec?.includes('s')) {
+          dec = dec.replace(/d|m/g, ':').replace(/s/g, '');
+          dec = dms_to_dec(dec);
+        } else {
+          dec = parseFloat(dec);
+        }
+      }
       if (object_id?.indexOf(',') > -1) {
         const object_id_split = object_id.split(',');
         dispatch(alertsActions.fetchAlerts({ object_id : object_id_split, ra, dec, radius }));
@@ -467,7 +493,7 @@ const Alerts = () => {
         <Grid item xs={12} lg={2} className={classes.grid_item_search_box}>
           <Card className={classes.root}>
             <form onSubmit={handleSubmit(formSubmit)}>
-              <CardContent>
+              <CardContent className={classes.cardContent}>
                 <FormControl required className={classes.selectEmpty}>
                   <InputLabel name="alert-stream-select-required-label">
                     Instrument
@@ -507,7 +533,7 @@ const Alerts = () => {
                 <TextField
                   margin="dense"
                   name="ra"
-                  label="R.A. (deg)"
+                  label="RA [deg, HH:MM:SS, HHhMMmSSs]"
                   fullWidth
                   inputRef={register('ra', { required: false })}
                   value={value}
@@ -522,7 +548,7 @@ const Alerts = () => {
                 <TextField
                   margin="dense"
                   name="dec"
-                  label="Decl. (deg)"
+                  label="Dec [deg, DD:MM:SS, DDdMMmSSs]"
                   fullWidth
                   inputRef={register('dec', { required: false })}
                   value={value}
@@ -548,7 +574,7 @@ const Alerts = () => {
                 control={control}
               />
               </CardContent>
-              <CardActions>
+              <CardActions className={classes.cardActions}>
                 <div className={classes.wrapperRoot}>
                   <div className={classes.wrapper}>
                     <Button
