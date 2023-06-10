@@ -471,7 +471,12 @@ const Alerts = () => {
         radius = parseFloat(radius);
       }
 
-      if (!object_id && (Number.isNaN(parseFloat(ra)) || Number.isNaN(parseFloat(dec)) || Number.isNaN(parseFloat(radius)))) {
+      if (object_id?.length) {
+        dispatch(showNotification(`Object ID specified, ignored positional parameters`, 'warning'));
+        ra = null;
+        dec = null;
+        radius = null;
+      } else if (Number.isNaN(parseFloat(ra)) || Number.isNaN(parseFloat(dec)) || Number.isNaN(parseFloat(radius))) {
         dispatch(showNotification(`Invalid positional parameters`, 'error'));
         return;
       }
@@ -480,10 +485,6 @@ const Alerts = () => {
         dispatch(alertsActions.fetchAlerts({ object_id : object_id_split, ra, dec, radius }));
       } else {
         dispatch(alertsActions.fetchAlerts({ object_id, ra, dec, radius }));
-      }
-      if (object_id?.length && (!Number.isNaN(parseFloat(ra)) || !Number.isNaN(parseFloat(dec)) || !Number.isNaN(parseFloat(radius)))) {
-        dispatch(showNotification(`Object ID specified, ignored positional parameters`, 'warning'));
-        return;
       }
     }
   };
