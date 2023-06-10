@@ -429,7 +429,16 @@ const Alerts = () => {
 
   const formSubmit = async () => {
     const data = getValues();
-    let {object_id, ra, dec, radius} = data;
+    let {object_id, ra, dec, radius, radius_unit} = data;
+
+    if (!object_id?.length && !ra?.length && !dec?.length && !radius?.length) {
+      dispatch(showNotification(`You must either specify an object ID, a position`, "error"));
+      return;
+    }
+
+    if (object_id?.length) {
+      object_id = object_id.trim();
+    }
 
     // check that if positional query is requested then all required data are supplied
     if ((ra?.length || dec?.length || radius?.length) && !(ra?.length && dec?.length && radius?.length)) {
@@ -452,11 +461,29 @@ const Alerts = () => {
           dec = parseFloat(dec);
         }
       }
+      if (radius_unit === 'arcmin') { //convert arcmin to arcsec
+        radius = parseFloat(radius) * 60;
+      } else if (radius_unit === 'deg') { //convert deg to arcsec
+        radius = parseFloat(radius) * 3600;
+      } else if (radius_unit === 'rad') { //convert rad to arcsec
+        radius = parseFloat(radius) * 206264.80624709636;
+      } else {
+        radius = parseFloat(radius);
+      }
+
+      if (!object_id && (Number.isNaN(parseFloat(ra)) || Number.isNaN(parseFloat(dec)) || Number.isNaN(parseFloat(radius)))) {
+        dispatch(showNotification(`Invalid positional parameters`, 'error'));
+        return;
+      }
       if (object_id?.indexOf(',') > -1) {
         const object_id_split = object_id.split(',');
         dispatch(alertsActions.fetchAlerts({ object_id : object_id_split, ra, dec, radius }));
       } else {
         dispatch(alertsActions.fetchAlerts({ object_id, ra, dec, radius }));
+      }
+      if (object_id?.length && (!Number.isNaN(parseFloat(ra)) || !Number.isNaN(parseFloat(dec)) || !Number.isNaN(parseFloat(radius)))) {
+        dispatch(showNotification(`Object ID specified, ignored positional parameters`, 'warning'));
+        return;
       }
     }
   };
@@ -558,21 +585,42 @@ const Alerts = () => {
                 name="dec"
                 control={control}
               />
-              <Controller
-               render={({ field: { onChange, value } }) => (
-                <TextField
-                  margin="dense"
+              <div style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', gap: '0.5rem'}}>
+                <Controller
+                render={({ field: { onChange, value } }) => (
+                  <TextField
+                    margin="dense"
+                    name="radius"
+                    label="Radius"
+                    fullWidth
+                    inputRef={register('radius', { required: false })}
+                    value={value}
+                    onChange={onChange}
+                  />
+                  )}
                   name="radius"
-                  label="Radius (arcsec)"
-                  fullWidth
-                  inputRef={register('radius', { required: false })}
-                  value={value}
-                  onChange={onChange}
+                  control={control}
                 />
-                )}
-                name="radius"
-                control={control}
-              />
+                <Controller
+                  labelId="radius-unit-select-required-label"
+                  name="radius_unit"
+                  control={control}
+                  rules={{ required: true }}
+                  render={({ field: { onChange, value } }) => (
+                    <Select value={value} onChange={onChange} defaultValue="arcsec"
+                      inputRef={register('radius_unit', { required: true })}
+                      margin="dense"
+                      fullWidth
+                      style={{height: "3.5rem", marginTop: "8px", marginBottom: "4px"}}
+                    >
+                      <MenuItem value="arcsec">arcsec</MenuItem>
+                      <MenuItem value="arcmin">arcmin</MenuItem>
+                      <MenuItem value="deg">deg</MenuItem>
+                      <MenuItem value="rad">rad</MenuItem>
+                    </Select>
+                  )}
+                />
+              </div>
               </CardContent>
               <CardActions className={classes.cardActions}>
                 <div className={classes.wrapperRoot}>
