@@ -24,36 +24,56 @@ log = make_log("archive")
 
 instances = {
     "gloria": {
+        **cfg.get("app.gloria", {}),
         "name": "gloria",
-        "protocol": cfg["app.gloria.protocol"],
-        "host": cfg["app.gloria.host"],
-        "port": cfg["app.gloria.port"],
-        "token": cfg["app.gloria.token"],
         "timeout": 10,
     },
     "melman": {
+        **cfg.get("app.melman", {}),
         "name": "melman",
-        "protocol": cfg["app.melman.protocol"],
-        "host": cfg["app.melman.host"],
-        "port": cfg["app.melman.port"],
-        "token": cfg["app.melman.token"],
         "timeout": 10,
     },
 }
 
+# to make sure that we don't block the access to all instances as soon as one of them is not available,
+# we try adding them to the Kowalski class one by one.
+kowalski = None
+failed_instances = []
 try:
-    kowalski = Kowalski(instances=instances, verbose=False)
-    for instance in kowalski.instances.keys():
-        connection_ok = kowalski.ping(instance)
-        log(f"{instance} connection OK: {connection_ok}")
-        if not connection_ok:
-            kowalski.remove(instance)
-    if len(kowalski.instances) == 0:
-        kowalski = None
-        raise Exception("No Kowalski instances available")
+    for instance_name, instance_data in instances.items():
+        try:
+            kowalski = Kowalski(instances={instance_name: instance_data})
+            connection_ok = kowalski.ping(instance_name)
+            if not connection_ok:
+                kowalski = None
+                failed_instances.append(instance_name)
+            else:
+                break
+        except Exception:
+            failed_instances.append(instance_name)
+            continue
+    if kowalski is not None:
+        for instance_name, instance_data in instances.items():
+            if instance_name not in kowalski.instances.keys():
+                try:
+                    kowalski.add(instance_name, instance_data)
+                    connection_ok = kowalski.ping(instance_name)
+                    if not connection_ok:
+                        try:
+                            kowalski.remove(instance_name)
+                        except ValueError:
+                            pass
+                        failed_instances.append(instance_name)
+                except Exception:
+                    failed_instances.append(instance_name)
+                    continue
 except Exception as e:
-    log(f"Kowalski connection failed: {str(e)}")
+    log(f"Could not connect to any of the Kowalski instances: {str(e)}")
     kowalski = None
+
+if kowalski is not None and len(failed_instances) > 0:
+    failed_instances = list(set(failed_instances))
+    log(f"Failed to connect to some of the Kowalski instance(s): {failed_instances}")
 
 
 def flatten_dict_to_list(d):
@@ -407,7 +427,6 @@ class ScopeFeaturesHandler(BaseHandler):
         ra = data.pop("ra")
         dec = data.pop("dec")
         catalog = data.pop("catalog", "ZTF_source_features_DR5")
-
         radius = data.pop("radius", 2)
         radius_units = data.pop("radius_units", "arcsec")
 
@@ -511,7 +530,7 @@ class ScopeFeaturesHandler(BaseHandler):
 
                 light_curve_ids = [item["_id"] for item in data[catalog]]
                 if len(light_curve_ids) == 0:
-                    return self.success(data=[])
+                    return self.error("No SCoPe features available.")
 
                 # return features for the first ID
                 filter = {"_id": {"$in": [light_curve_ids[0]]}}
@@ -564,7 +583,6 @@ class ScopeFeaturesHandler(BaseHandler):
                 if failed_instances == len(response) or len(list(features.keys())) == 0:
                     return self.error("Could not find features on any instance.")
 
-                annotations = []
                 annotation_data = {}
                 for key in features.keys():
                     value = features[key]
@@ -582,12 +600,10 @@ class ScopeFeaturesHandler(BaseHandler):
                         groups=groups,
                     )
 
-                    annotations.append(annotation)
-
-                if len(annotations) == 0:
+                if len(annotation_data.keys()) == 0:
                     return self.error("No SCoPe features available.")
 
-                session.add_all(annotations)
+                session.add(annotation)
 
                 try:
                     session.commit()
