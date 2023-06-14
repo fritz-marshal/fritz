@@ -36,6 +36,7 @@ from ...models import (
     Source,
     User,
 )
+from ...utils.thumbnail import post_thumbnails
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
 
@@ -393,7 +394,7 @@ def post_alert(
                 )
         session.commit()
         if not obj_already_exists:
-            obj.add_linked_thumbnails(session=session)
+            post_thumbnails([object_id])
 
         # post photometry
         ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
