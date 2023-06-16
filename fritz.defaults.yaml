@@ -59,7 +59,12 @@ skyportal:
 
     treasuremap_endpoint: https://treasuremap.space
 
-    tns_endpoint:
+    tns:
+      endpoint: https://sandbox.wis-tns.org
+      bot_id:
+      bot_name:
+      api_key:
+      look_back_days: 1
 
     gracedb_endpoint: https://gracedb.ligo.org/api/
 
@@ -363,11 +368,11 @@ skyportal:
         resizeable: true
         minW: 2
         layouts:
-          xlg: [0, 10, 4, 1]
-          lg: [0, 10, 4, 1]
-          md: [0, 10, 4, 1]
-          sm: [0, 10, 4, 1]
-          xs: [0, 12, 4, 1]
+          xlg: [0, 10, 5, 2]
+          lg: [0, 10, 4, 2]
+          md: [6, 6, 4, 1]
+          sm: [3, 6, 3, 1]
+          xs: [0, 10, 4, 1]
 
       SourceCounts:
         props:
@@ -411,6 +416,16 @@ skyportal:
           sm: [3, 3, 3, 3]
           xs: [0, 7, 4, 3]
 
+      RecentGcnEvents:
+        resizeable: true
+        minW: 3
+        layouts:
+          xlg: [5, 3, 7, 3]
+          lg: [4, 3, 5, 2]
+          md: [0, 6, 6, 2]
+          sm: [0, 6, 3, 3]
+          xs: [0, 11, 4, 2]
+
       GroupList:
         props:
           title: My Groups
@@ -421,7 +436,17 @@ skyportal:
           lg: [10, 1, 2, 2]
           md: [8, 1, 2, 2]
           sm: [4.5, 1, 1.5, 2]
-          xs: [0, 10, 4, 2]
+          xs: [0, 14, 4, 2]
+
+      NewSource:
+        resizeable: true
+        minW: 3
+        layouts:
+          xlg: [12, 3, 4, 3]
+          lg: [9, 3, 3, 3]
+          md: [6, 7, 4, 3]
+          sm: [3, 7, 3, 3]
+          xs: [0, 16, 4, 3]
 
   database:
     database: skyportal
