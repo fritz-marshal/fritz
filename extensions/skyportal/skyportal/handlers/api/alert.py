@@ -1024,8 +1024,6 @@ class AlertHandler(BaseHandler):
         """
 
         data = self.get_json()
-        print(objectId)
-        print(data)
         candid = data.get("candid", None)
         group_ids = data.pop("group_ids", None)
         thumbnails_only = data.pop("thumbnailsOnly", False)
