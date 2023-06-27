@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate , Link } from "react-router-dom";
 
 import Button from "@mui/material/Button";
 import PropTypes from "prop-types";
@@ -11,9 +11,10 @@ import {
   StyledEngineProvider,
   adaptV4Theme,
 } from "@mui/material/styles";
-import makeStyles from '@mui/styles/makeStyles';
+import makeStyles from "@mui/styles/makeStyles";
 import Paper from "@mui/material/Paper";
 import Grid from "@mui/material/Grid";
+import AddIcon from "@mui/icons-material/Add";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -29,12 +30,15 @@ import ReactJson from "react-json-view";
 
 import SaveAlertButton from "./SaveAlertButton";
 import ThumbnailList from "./ThumbnailList";
+import CopyAlertPhotometryDialog from "./CopyAlertPhotometryDialog";
 
 import { ra_to_hours, dec_to_dms } from "../units";
 import SharePage from "./SharePage";
 import withRouter from "./withRouter";
 
 import * as Actions from "../ducks/alert";
+import { checkSource, fetchSource } from "../ducks/source";
+import { fetchSources } from "../ducks/sources";
 
 const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
 
@@ -122,17 +126,19 @@ function isString(x) {
 }
 
 const getMuiTheme = (theme) =>
-  createTheme(adaptV4Theme({
-    overrides: {
-      MUIDataTableBodyCell: {
-        root: {
-          padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
-            0.25
-          )} ${theme.spacing(1)}`,
+  createTheme(
+    adaptV4Theme({
+      overrides: {
+        MUIDataTableBodyCell: {
+          root: {
+            padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
+              0.25
+            )} ${theme.spacing(1)}`,
+          },
         },
       },
-    },
-  }));
+    })
+  );
 
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
@@ -141,47 +147,35 @@ const ZTFAlert = ({ route }) => {
 
   // figure out if this objectId has been saved as Source.
   const [savedSource, setsavedSource] = useState(false);
-  const [checkedIfSourceSaved, setsCheckedIfSourceSaved] = useState(false);
+  const [fetchedDuplicates, setFetchedDuplicates] = useState(false);
 
-  // not using API/source duck as that would throw an error if source does not exist
-  const fetchInit = {
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "GET",
-  };
-
+  const sources = useSelector((state) => state.sources.latest);
   const source = useSelector((state) => state.source);
   const loadedSourceId = useSelector((state) => state?.source?.id);
 
-  useEffect(() => {
-    const fetchSource = async () => {
-      await dispatch(sourceActions.fetchSource(objectId));
-    };
-  }, [dispatch, objectId]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const openDialog = () => {
+    setDialogOpen(true);
+  };
+  const closeDialog = () => {
+    setDialogOpen(false);
+  };
 
   useEffect(() => {
-    const fetchSource = async () => {
-      const response = await fetch(`/api/sources/${objectId}`, fetchInit);
-
-      let json = "";
-      try {
-        json = await response.json();
-      } catch (error) {
-        throw new Error(`JSON decoding error: ${error}`);
-      }
-
-      if (json.status === "success") {
-        setsavedSource(true);
-      }
-      setsCheckedIfSourceSaved(true);
+    const fetchExistingSource = async () => {
+      dispatch(checkSource(objectId, { nameOnly: true })).then((response) => {
+        if (response?.data !== "A source of that name does not exist.") {
+          setsavedSource(true);
+          dispatch(fetchSource(objectId));
+        } else {
+          setsavedSource(false);
+        }
+      });
     };
-
-    if (!checkedIfSourceSaved) {
-      fetchSource();
+    if (objectId !== loadedSourceId) {
+      fetchExistingSource();
     }
-  }, [objectId, dispatch, fetchInit]);
+  }, [dispatch, objectId]);
 
   const userAccessibleGroups = useSelector(
     (state) => state.groups.userAccessible
@@ -199,12 +193,10 @@ const ZTFAlert = ({ route }) => {
     setPanelPhotometryThumbnailsExpanded,
   ] = useState(true);
 
-  const handlePanelPhotometryThumbnailsChange = (panel) => (
-    event,
-    isExpanded
-  ) => {
-    setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
-  };
+  const handlePanelPhotometryThumbnailsChange =
+    (panel) => (event, isExpanded) => {
+      setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
+    };
 
   const [panelXMatchExpanded, setPanelXMatchExpanded] = useState(true);
 
@@ -222,8 +214,7 @@ const ZTFAlert = ({ route }) => {
 
   const alert_data = useSelector((state) => state.alert_data);
 
-  const makeRow = (alert) => {
-    return {
+  const makeRow = (alert) => ({
       candid: alert?.candid,
       jd: alert?.candidate.jd,
       fid: alert?.candidate.fid,
@@ -234,8 +225,7 @@ const ZTFAlert = ({ route }) => {
       isdiffpos: alert?.candidate.isdiffpos,
       programid: alert?.candidate.programid,
       alert_actions: "show thumbnails",
-    };
-  };
+    });
 
   let rows = [];
 
@@ -274,6 +264,23 @@ const ZTFAlert = ({ route }) => {
         // grab the latest candid's thumbnails by default
         setCandid(candids[candids.length - 1]);
         setJd(jds[jds.length - 1]);
+
+        // fetch potential duplicates
+        dispatch(
+          fetchSources({
+            ra: data.data.filter(
+              (a) => a.candid === candids[candids.length - 1]
+            )[0].candidate.ra,
+            dec: data.data.filter(
+              (a) => a.candid === candids[candids.length - 1]
+            )[0].candidate.dec,
+            radius: 2 / 3600,
+          })
+        ).then((response) => {
+          if (response.status === "success") {
+            setFetchedDuplicates(true);
+          }
+        });
       }
     };
 
@@ -455,48 +462,50 @@ const ZTFAlert = ({ route }) => {
             <div className={classes.name}>{objectId}</div>
             <br />
             {savedSource || loadedSourceId === objectId ? (
-             <div>
-              <div className={classes.itemPaddingBottom}>
-                <Chip
-                  size="small"
-                  label="Previously Saved"
-                  clickable
-                  onClick={() => navigate(`/source/${objectId}`)}
-                  onDelete={() => window.open(`/source/${objectId}`, "_blank")}
-                  deleteIcon={<OpenInNewIcon />}
-                  color="primary"
-                />
-              </div>
-              {source.groups?.map((group) => (
-          <Tooltip
-            title={`Saved at ${group.saved_at} by ${group.saved_by?.username}`}
-            key={group.id}
-          >
-            <Chip
-              label={
-                group.nickname
-                  ? group.nickname.substring(0, 15)
-                  : group.name.substring(0, 15)
-              }
-              size="small"
-              className={classes.chip}
-              data-testid={`groupChip_${group.id}`}
-            />
-          </Tooltip>
-              ))}
-              <div className={classes.itemPaddingBottom}>
-                <div className={classes.saveAlertButton}>
-                  <SaveAlertButton
-                    alert={{
-                      id: objectId,
-                      candid: candid,
-                      group_ids: userAccessibleGroupIds,
-                    }}
-                    userGroups={userAccessibleGroups}
+              <div>
+                <div className={classes.itemPaddingBottom}>
+                  <Chip
+                    size="small"
+                    label="Previously Saved"
+                    clickable
+                    onClick={() => navigate(`/source/${objectId}`)}
+                    onDelete={() =>
+                      window.open(`/source/${objectId}`, "_blank")
+                    }
+                    deleteIcon={<OpenInNewIcon />}
+                    color="primary"
                   />
                 </div>
+                {source.groups?.map((group) => (
+                  <Tooltip
+                    title={`Saved at ${group.saved_at} by ${group.saved_by?.username}`}
+                    key={group.id}
+                  >
+                    <Chip
+                      label={
+                        group.nickname
+                          ? group.nickname.substring(0, 15)
+                          : group.name.substring(0, 15)
+                      }
+                      size="small"
+                      className={classes.chip}
+                      data-testid={`groupChip_${group.id}`}
+                    />
+                  </Tooltip>
+                ))}
+                <div className={classes.itemPaddingBottom}>
+                  <div className={classes.saveAlertButton}>
+                    <SaveAlertButton
+                      alert={{
+                        id: objectId,
+                        candid,
+                        group_ids: userAccessibleGroupIds,
+                      }}
+                      userGroups={userAccessibleGroups}
+                    />
+                  </div>
+                </div>
               </div>
-             </div>
             ) : (
               <div className={classes.itemPaddingBottom}>
                 <Chip size="small" label="NOT SAVED" />
@@ -505,7 +514,7 @@ const ZTFAlert = ({ route }) => {
                   <SaveAlertButton
                     alert={{
                       id: objectId,
-                      candid: candid,
+                      candid,
                       group_ids: userAccessibleGroupIds,
                     }}
                     userGroups={userAccessibleGroups}
@@ -513,6 +522,52 @@ const ZTFAlert = ({ route }) => {
                 </div>
               </div>
             )}
+            {fetchedDuplicates &&
+              sources?.sources?.length > 0 &&
+              !(
+                sources?.sources?.length === 1 &&
+                sources?.sources[0].id === objectId
+              ) && (
+                <div className={classes.infoLine}>
+                  <div className={classes.sourceInfo}>
+                    <b>
+                      <font color="#457b9d">Possible duplicate of:</font>
+                    </b>
+                    &nbsp;
+                    {sources.sources.map(
+                      (dup) =>
+                        dup?.id !== objectId && (
+                          <div key={dup?.id}>
+                            <Link
+                              to={`/source/${dup?.id}`}
+                              role="link"
+                              key={dup?.id}
+                            >
+                              <Button size="small">{dup?.id}</Button>
+                            </Link>
+                            <Button
+                              size="small"
+                              type="button"
+                              name={`copySourceButton${dup?.id}`}
+                              onClick={() => openDialog(dup?.id)}
+                              className={classes.sourceCopy}
+                            >
+                              <AddIcon />
+                            </Button>
+                            <CopyAlertPhotometryDialog
+                              alert={
+                                alert_data.filter((a) => a.candid === candid)[0]
+                              }
+                              duplicate={dup}
+                              dialogOpen={dialogOpen}
+                              closeDialog={closeDialog}
+                            />
+                          </div>
+                        )
+                    )}
+                  </div>
+                </div>
+              )}
             {candid > 0 && (
               <>
                 <b>candid:</b>

@@ -17,6 +17,8 @@ import MenuItem from "@mui/material/MenuItem";
 import MenuList from "@mui/material/MenuList";
 import { useForm, Controller } from "react-hook-form";
 
+import { showNotification } from "baselayer/components/Notifications";
+
 import * as alertActions from "../ducks/alert";
 import * as sourceActions from "../ducks/source";
 import FormValidationError from "./FormValidationError";
@@ -31,15 +33,9 @@ const SaveAlertButton = ({ alert, userGroups }) => {
   const groups = (useSelector((state) => state.groups.all) || []).filter(
     (g) => !g.single_user_group
   );
-  const currentUser = useSelector((state) => state.profile);
 
   const currentGroupIds = source?.groups?.map((g) => g.id);
-  const unsavedGroups = groups?.filter(
-    (g) => !currentGroupIds?.includes(g.id)
-  );
-  const savedGroups = groups?.filter((g) =>
-    currentGroupIds?.includes(g.id)
-  );
+  const unsavedGroups = groups?.filter((g) => !currentGroupIds?.includes(g.id));
 
   const {
     handleSubmit,
@@ -47,22 +43,14 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     control,
     getValues,
 
-    formState: {
-      errors,
-    },
+    formState: { errors },
   } = useForm();
 
   useEffect(() => {
     reset({
-      group_ids: []
+      group_ids: [],
     });
   }, [reset, userGroups, alert]);
-
-  useEffect(() => {
-    const fetchSource = async () => {
-      await dispatch(sourceActions.fetchSource(alert.id));
-    };
-  }, [dispatch, alert.id]);
 
   const handleClickOpenDialog = () => {
     setDialogOpen(true);
@@ -83,12 +71,23 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     const groupIDs = unsavedGroups.map((g) => g.id);
     const selectedGroupIDs = groupIDs.filter((ID, idx) => data.group_ids[idx]);
 
-    data.payload = {candid: alert.candid, group_ids: selectedGroupIDs};
+    data.payload = { candid: alert.candid, group_ids: selectedGroupIDs };
 
     const result = await dispatch(alertActions.saveAlertAsSource(data));
     if (result.status === "error") {
       setIsSubmitting(false);
     } else {
+      dispatch(
+        showNotification("Source photometry updated successfully", "info")
+      );
+      if (result?.data?.used_latest_candid) {
+        dispatch(
+          showNotification(
+            "Note that the latest alert packet was used to post thumbnails, as the provided candid didn't have any.",
+            "warning"
+          )
+        );
+      }
       setIsSubmitting(false);
       setDialogOpen(false);
       reset();
@@ -220,7 +219,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
                         checked={value}
                       />
                     )}
-                    />
+                  />
                 }
                 label={unsavedGroup.name}
               />
@@ -245,6 +244,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 SaveAlertButton.propTypes = {
   alert: PropTypes.shape({
     id: PropTypes.string,
+    candid: PropTypes.number,
     group_ids: PropTypes.arrayOf(PropTypes.number),
   }).isRequired,
   userGroups: PropTypes.arrayOf(

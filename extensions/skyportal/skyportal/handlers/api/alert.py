@@ -1,45 +1,39 @@
-from astropy.io import fits
-from astropy.visualization import (
-    MinMaxInterval,
-    AsymmetricPercentileInterval,
-    ZScaleInterval,
-    AsinhStretch,
-    LinearStretch,
-    LogStretch,
-    SqrtStretch,
-    ImageNormalize,
-)
 import base64
-import bson.json_util as bj
 import gzip
 import io
 import json
-from marshmallow.exceptions import ValidationError
+import pathlib
+import traceback
+
+import bson.json_util as bj
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pathlib
-from penquins import Kowalski
 import sqlalchemy as sa
-import traceback
+from astropy.io import fits
+from astropy.visualization import (
+    AsinhStretch,
+    AsymmetricPercentileInterval,
+    ImageNormalize,
+    LinearStretch,
+    LogStretch,
+    MinMaxInterval,
+    SqrtStretch,
+    ZScaleInterval,
+)
+from marshmallow.exceptions import ValidationError
+from penquins import Kowalski
 
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
-from ..base import BaseHandler
-from ...models import (
-    Group,
-    GroupStream,
-    Instrument,
-    Obj,
-    Stream,
-    Source,
-    User,
-)
+from skyportal.utils.calculations import great_circle_distance
+
+from ...models import Group, GroupStream, Instrument, Obj, Source, Stream, User
 from ...utils.thumbnail import post_thumbnails
+from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
-
 
 alert_available = True
 
@@ -88,7 +82,7 @@ default_projection = {
 
 def make_thumbnail(a, ttype, ztftype):
 
-    if "cutout{ztftype}" not in a:
+    if f"cutout{ztftype}" not in a:
         return None
 
     cutout_data = a[f"cutout{ztftype}"]["stampData"]
@@ -143,6 +137,7 @@ def post_alert(
     program_id_selector=None,
     candid=None,
     thumbnails_only=False,
+    obj_id_to_save=None,
 ):
     """Post alert to database.
     object_id : string
@@ -160,6 +155,8 @@ def post_alert(
         Alert candid to use to pull thumbnails. Defaults to latest alert.
     thumbnails_only : bool
         Only post thumbnails (no photometry)
+    obj_id_to_save : str
+        Object ID to save to. Defaults to object_id if None. Useful to import ZTF alerts data to other sources.
     """
 
     user = session.scalar(sa.select(User).where(User.id == user_id))
@@ -177,7 +174,15 @@ def post_alert(
 
         program_id_selector = list(program_id_selector)
 
-    obj = session.scalars(Obj.select(user).where(Obj.id == object_id)).first()
+    save_to_diff_object = False
+    if obj_id_to_save is None:
+        obj_id_to_save = object_id
+    else:
+        save_to_diff_object = True
+
+    obj = session.scalars(Obj.select(user).where(Obj.id == obj_id_to_save)).first()
+    if obj is None and save_to_diff_object:
+        raise ValueError(f"Object {obj_id_to_save} does not exist")
     if obj is None:
         obj_already_exists = False
     else:
@@ -290,6 +295,18 @@ def post_alert(
         if latest_alert_data["candidate"]["candid"] not in candids:
             alert_data["prv_candidates"].append(latest_alert_data["candidate"])
 
+    if save_to_diff_object:
+        # we want to verify that the obj and the alert are within 2 arcsec
+        ra_latest, dec_latest = (
+            latest_alert_data["candidate"]["ra"],
+            latest_alert_data["candidate"]["dec"],
+        )
+        dist = great_circle_distance(obj.ra, obj.dec, ra_latest, dec_latest)
+        if dist > 2 / 3600:
+            raise ValueError(
+                f"Object {obj_id_to_save} and alert {object_id} are more than 2 arcsec apart"
+            )
+
     if candid is None:
         if len(latest_alert_data) == 0:
             raise ValueError("Latest alert data must be present if candid is None")
@@ -357,7 +374,7 @@ def post_alert(
             f"group IDs: {forbidden_groups}."
         )
 
-    if not obj_already_exists:
+    if not obj_already_exists and save_to_diff_object is False:
         try:
             obj = schema.load(alert_thin)
         except ValidationError as e:
@@ -378,7 +395,7 @@ def post_alert(
         for group in groups:
             source = session.scalars(
                 Source.select(user).where(
-                    Source.obj_id == object_id, Source.group_id == group.id
+                    Source.obj_id == obj_id_to_save, Source.group_id == group.id
                 )
             ).first()
             if source is not None:
@@ -394,7 +411,7 @@ def post_alert(
                 )
         session.commit()
         if not obj_already_exists:
-            post_thumbnails([object_id])
+            post_thumbnails([obj_id_to_save])
 
         # post photometry
         ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
@@ -459,7 +476,7 @@ def post_alert(
                 pid_mask = df.programid == int(pid)
 
                 photometry = {
-                    "obj_id": object_id,
+                    "obj_id": obj_id_to_save,
                     "group_ids": group_ids,
                     "instrument_id": instrument.id,
                     "mjd": df.loc[pid_mask, "mjd"].tolist(),
@@ -482,49 +499,79 @@ def post_alert(
                         log(
                             f"Failed to post photometry of {object_id} to group_ids {group_ids}"
                         )
-
     # post cutouts
+    used_latest = False
     thumbnail_ids = []
-    for ttype, ztftype in [
-        ("new", "Science"),
-        ("ref", "Template"),
-        ("sub", "Difference"),
-    ]:
-        query = {
-            "query_type": "find",
-            "query": {
-                "catalog": "ZTF_alerts",
-                "filter": {
-                    "candid": candid,
-                    "candidate.programid": {"$in": program_id_selector},
+    if not save_to_diff_object:
+        for ttype, ztftype in [
+            ("new", "Science"),
+            ("ref", "Template"),
+            ("sub", "Difference"),
+        ]:
+            query = {
+                "query_type": "find",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "filter": {
+                        "candid": candid,
+                        "candidate.programid": {"$in": program_id_selector},
+                    },
+                    "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
                 },
-                "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
-            },
-            "kwargs": {
-                "limit": 1,
-            },
-        }
+                "kwargs": {
+                    "limit": 1,
+                },
+            }
 
-        response = kowalski.query(query=query)
-        if response.get("default").get("status", "error") == "success":
-            cutout = response.get("default").get("data", list(dict()))
-            if len(cutout) > 0:
-                cutout = cutout[0]
+            response = kowalski.query(query=query)
+            if response.get("default").get("status", "error") == "success":
+                cutout = response.get("default").get("data", list(dict()))
+                if len(cutout) > 0:
+                    cutout = cutout[0]
+                else:
+                    cutout = dict()
             else:
                 cutout = dict()
-        else:
-            cutout = dict()
 
-        try:
-            thumb = make_thumbnail(cutout, ttype, ztftype)
-            if thumb is not None:
-                thumbnail_id = post_thumbnail(thumb, user_id, session)
-                thumbnail_ids.append(thumbnail_id)
-        except Exception as e:
-            log(f"Failed to post thumbnails of {object_id} | {candid}")
-            log(str(e))
+            # if no cutout, try to get it from the latest alert
+            # this can happen as some candid in prv_candidates are not in the alerts table
+            # (e.g. ZTF23aamqsis with 2366187812715015001)
+            if len(cutout.keys()) == 0:
+                query = {
+                    "query_type": "find",
+                    "query": {
+                        "catalog": "ZTF_alerts",
+                        "filter": {
+                            "candid": latest_alert_data["candidate"]["candid"],
+                            "candidate.programid": {"$in": program_id_selector},
+                        },
+                        "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
+                    },
+                    "kwargs": {
+                        "limit": 1,
+                    },
+                }
+                response = kowalski.query(query=query)
+                if response.get("default").get("status", "error") == "success":
+                    cutout = response.get("default").get("data", list(dict()))
+                    if len(cutout) > 0:
+                        cutout = cutout[0]
+                        used_latest = True
+                    else:
+                        cutout = dict()
+                else:
+                    cutout = dict()
 
-    return photometry_ids, thumbnail_ids
+            try:
+                thumb = make_thumbnail(cutout, ttype, ztftype)
+                if thumb is not None:
+                    thumbnail_id = post_thumbnail(thumb, user_id, session)
+                    thumbnail_ids.append(thumbnail_id)
+            except Exception as e:
+                log(f"Failed to post thumbnails of {obj_id_to_save} | {candid}")
+                log(str(e))
+
+    return photometry_ids, thumbnail_ids, used_latest
 
 
 def get_alerts_by_id(
@@ -977,9 +1024,12 @@ class AlertHandler(BaseHandler):
         """
 
         data = self.get_json()
+        print(objectId)
+        print(data)
         candid = data.get("candid", None)
         group_ids = data.pop("group_ids", None)
         thumbnails_only = data.pop("thumbnailsOnly", False)
+        copy_to_source = data.pop("copyToSource", None)
         if group_ids is None and not thumbnails_only:
             return self.error("Missing required `group_ids` parameter.")
 
@@ -994,8 +1044,9 @@ class AlertHandler(BaseHandler):
 
             program_id_selector = list(program_id_selector)
 
+            used_latest = False
             try:
-                post_alert(
+                _, _, used_latest = post_alert(
                     objectId,
                     group_ids,
                     self.associated_user_object.id,
@@ -1003,6 +1054,7 @@ class AlertHandler(BaseHandler):
                     program_id_selector=program_id_selector,
                     candid=candid,
                     thumbnails_only=thumbnails_only,
+                    obj_id_to_save=copy_to_source,
                 )
             except Exception as e:
                 return self.error(f"Alert failed to post: {str(e)}")
@@ -1010,7 +1062,9 @@ class AlertHandler(BaseHandler):
             self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
 
-            return self.success(data={"id": objectId})
+            return self.success(
+                data={"id": objectId, "used_latest_candid": used_latest}
+            )
 
 
 class AlertAuxHandler(BaseHandler):
