@@ -323,6 +323,8 @@ class CrossMatchHandler(BaseHandler):
                 total_results = 0
                 failed_results = 0
                 for instance, instance_results in response.items():
+                    if isinstance(instance_results, dict):
+                        instance_results = [instance_results]
                     for result in instance_results:
                         if result.get("status", "error") == "success":
                             for catalog, catalog_results in result["data"].items():
