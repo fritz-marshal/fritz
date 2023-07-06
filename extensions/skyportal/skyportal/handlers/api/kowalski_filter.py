@@ -78,7 +78,7 @@ class KowalskiFilterHandler(BaseHandler):
             method="get",
             endpoint=f"api/filters/{filter_id}",
         )
-        data = response.get("default").get("data")
+        data = response.get("data")
         # drop monogdb's _id's which are not (default) JSON-serializable
         if data is not None:
             data.pop("_id", None)
