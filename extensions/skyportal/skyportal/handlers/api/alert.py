@@ -1629,15 +1629,17 @@ class AlertTripletsHandler(BaseHandler):
                     with gzip.open(io.BytesIO(cutout_data), "rb") as f:
                         with fits.open(io.BytesIO(f.read())) as hdu:
                             data = hdu[0].data
-                            medfill = np.nanmedian(data.flatten())
+                            median = np.nanmedian(data.flatten())
                             if (
-                                medfill == np.nan
-                                or medfill == -np.inf
-                                or medfill == np.inf
+                                median == np.nan
+                                or median == -np.inf
+                                or median == np.inf
                             ):
                                 image_corrupt = True
 
-                            cutout_dict[cutout] = np.nan_to_num(data, nan=medfill)
+                            # fill nans with zeros
+                            cutout_dict[cutout] = np.nan_to_num(data)
+                            
                             # normalize
                             if normalize_image and not image_corrupt:
                                 cutout_dict[cutout] /= np.linalg.norm(
@@ -1650,12 +1652,12 @@ class AlertTripletsHandler(BaseHandler):
                     # pad to 63x63 if smaller
                     shape = cutout_dict[cutout].shape
                     if shape != (63, 63):
-                        medfill = np.nanmedian(cutout_dict[cutout].flatten())
+                        # pad empty rows/cols with 1e-9
                         cutout_dict[cutout] = np.pad(
                             cutout_dict[cutout],
                             [(0, 63 - shape[0]), (0, 63 - shape[1])],
                             mode="constant",
-                            constant_values=medfill,
+                            constant_values=1e-9,
                         )
                 triplet = np.zeros((63, 63, 3))
                 triplet[:, :, 0] = cutout_dict["science"]
