@@ -1057,7 +1057,6 @@ class AlertHandler(BaseHandler):
             except Exception as e:
                 return self.error(f"Alert failed to post: {str(e)}")
 
-            self.push_all(action="skyportal/FETCH_SOURCES")
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
 
             return self.success(
