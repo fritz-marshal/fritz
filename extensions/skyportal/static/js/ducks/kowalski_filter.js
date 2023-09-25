@@ -30,6 +30,11 @@ export const EDIT_AUTOSAVE =
 export const EDIT_AUTOSAVE_OK =
   "skyportal/EDIT_AUTOSAVE_OK";
 
+export const EDIT_AUTO_FOLLOWUP =
+  "skyportal/EDIT_AUTO_FOLLOWUP";
+export const EDIT_AUTO_FOLLOWUP_OK =
+  "skyportal/EDIT_AUTO_FOLLOWUP_OK";
+
 export const DELETE_FILTER_VERSION = "skyportal/DELETE_FILTER_VERSION";
 export const DELETE_FILTER_VERSION_OK = "skyportal/DELETE_FILTER_VERSION_OK";
 
@@ -58,6 +63,12 @@ export function editAutosave({ filter_id, autosave }) {
 export function editUpdateAnnotations({ filter_id, update_annotations }) {
   return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_UPDATE_ANNOTATIONS, {
     update_annotations,
+  });
+}
+
+export function editAutoFollowup({ filter_id, auto_followup }) {
+  return API.PATCH(`/api/filters/${filter_id}/v`, EDIT_AUTO_FOLLOWUP, {
+    auto_followup,
   });
 }
 
