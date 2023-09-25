@@ -1030,30 +1030,32 @@ const FilterPlugins = ({ group }) => {
                   )}
               </div>
               <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem", marginTop: "1rem" }}>
-                <div>
-                  <InputLabel id="groupsSelectLabel">
-                    {`Don't autosave if in groups (optional)`}
-                  </InputLabel>
-                  <Select
-                    inputProps={{ MenuProps: { disableScrollLock: true } }}
-                    labelId="groupsSelectLabel"
-                    value={selectedGroupIds}
-                    onChange={onSubmitSaveAutosaveGroups}
-                    name="autosaveGroupsSelect"
-                    className={classes.allocationSelect}
-                    multiple
-                  >
-                    {(userAccessibleGroups || []).map((group) => (
-                      <MenuItem
-                        value={group.id}
-                        key={group.id}
-                        className={classes.SelectItem}
-                      >
-                        {group.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </div>
+                {filter_v?.fv && (filter_v?.autosave?.active === true || filter_v?.autosave === true) && (
+                  <div>
+                    <InputLabel id="groupsSelectLabel">
+                      {`Don't autosave if in groups (optional)`}
+                    </InputLabel>
+                    <Select
+                      inputProps={{ MenuProps: { disableScrollLock: true } }}
+                      labelId="groupsSelectLabel"
+                      value={selectedGroupIds}
+                      onChange={onSubmitSaveAutosaveGroups}
+                      name="autosaveGroupsSelect"
+                      className={classes.allocationSelect}
+                      multiple
+                    >
+                      {(userAccessibleGroups || []).map((group) => (
+                        <MenuItem
+                          value={group.id}
+                          key={group.id}
+                          className={classes.SelectItem}
+                        >
+                          {group.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
+                )}
               </div>
               <div className={classes.divider} />
               {/* AUTO FOLLOWUP */}
