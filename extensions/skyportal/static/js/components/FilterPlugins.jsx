@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import Paper from "@mui/material/Paper";
 import { useTheme } from "@mui/material/styles";
-import makeStyles from '@mui/styles/makeStyles';
+import makeStyles from "@mui/styles/makeStyles";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -20,27 +21,32 @@ import TextareaAutosize from "@mui/material/TextareaAutosize";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import IconButton from '@mui/material/IconButton';
-import CloseIcon from '@mui/icons-material/Close';
-import FileCopyIcon from '@mui/icons-material/FileCopy';
-import {CopyToClipboard} from 'react-copy-to-clipboard';
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
+import FileCopyIcon from "@mui/icons-material/FileCopy";
+import { CopyToClipboard } from "react-copy-to-clipboard";
+import TextField from "@mui/material/TextField";
+import Form from "@rjsf/mui";
+import validator from "@rjsf/validator-ajv8";
 
 import ReactDiffViewer from "react-diff-viewer";
 import { useForm, Controller } from "react-hook-form";
 import { showNotification } from "baselayer/components/Notifications";
 
 import * as filterVersionActions from "../ducks/kowalski_filter";
+import * as allocationActions from "../ducks/allocations";
+import * as instrumentsActions from "../ducks/instruments";
 
 const useStyles = makeStyles((theme) => ({
   pre: {
-    lineHeight: 8
+    lineHeight: 8,
   },
   paperDiv: {
     padding: "1rem",
@@ -57,7 +63,17 @@ const useStyles = makeStyles((theme) => ({
     flexDirection: "column",
   },
   appBar: {
-    position: 'relative',
+    position: "relative",
+  },
+  button_add: {
+    marginRight: 10,
+    height: "3.5rem"
+  },
+  divider: {
+    width: "100%",
+    height: 2,
+    backgroundColor: "rgba(0, 0, 0, .125)",
+    margin: "1rem 0",
   },
   infoLine: {
     // Get its own line
@@ -101,10 +117,10 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const FilterPlugins = ( { group } ) => {
+const FilterPlugins = ({ group }) => {
   const classes = useStyles();
   const dispatch = useDispatch();
-  const { register, handleSubmit, control } = useForm();
+  const { register, handleSubmit, setValue, control } = useForm();
 
   const theme = useTheme();
   const darkTheme = theme.palette.mode === "dark";
@@ -113,6 +129,50 @@ const FilterPlugins = ( { group } ) => {
   const filter_v = useSelector((state) => state.filter_v);
   const { fid } = useParams();
   const loadedId = useSelector((state) => state.filter.id);
+
+  const allGroups = useSelector((state) => state.groups.all);
+  const userAccessibleGroups = useSelector(
+    (state) => state.groups.userAccessible
+  );
+  const { allocationListApiClassname } = useSelector(
+    (state) => state.allocations
+  );
+  const { instrumentList, instrumentFormParams } = useSelector(
+    (state) => state.instruments
+  );
+
+  useEffect(() => {
+    if (!instrumentList || instrumentList.length === 0) {
+      dispatch(instrumentsActions.fetchInstruments());
+    }
+    if (
+      !allocationListApiClassname ||
+      allocationListApiClassname.length === 0
+    ) {
+      dispatch(allocationActions.fetchAllocationsApiClassname());
+    }
+  }, [dispatch]);
+
+  const groupLookUp = {};
+  // eslint-disable-next-line no-unused-expressions
+  allGroups?.forEach((g) => {
+    groupLookUp[g.id] = g;
+  });
+
+  const allocationLookUp = {};
+  // eslint-disable-next-line no-unused-expressions
+  allocationListApiClassname?.forEach((allocation) => {
+    allocationLookUp[allocation.id] = allocation;
+  });
+
+  const instLookUp = {};
+  // eslint-disable-next-line no-unused-expressions
+  instrumentList?.forEach((instrumentObj) => {
+    instLookUp[instrumentObj.id] = instrumentObj;
+  });
+
+  const [autosaveComment, setAutosaveComment] = useState("");
+  const [autoFollowupComment, setAutoFollowupComment] = useState("");
 
   const [otherVersion, setOtherVersion] = React.useState("");
 
@@ -142,14 +202,110 @@ const FilterPlugins = ( { group } ) => {
 
   const handleChangeAutosave = async (event) => {
     const target = event.target.checked;
+    let newAutoSave = false;
+    // the the current autosave is an object and not a boolean, copy that object
+    if (typeof filter_v.autosave === "object") {
+      newAutoSave = { ...filter_v.autosave };
+      newAutoSave.active = target;
+    } else {
+      newAutoSave = target;
+    }
     const result = await dispatch(
       filterVersionActions.editAutosave({
         filter_id: filter.id,
-        autosave: target,
+        autosave: newAutoSave,
       })
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set autosave to ${target}`));
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const handleChangeAutosaveComment = async () => {
+    let newAutosaveComment = autosaveComment;
+    if (newAutosaveComment === "") {
+      newAutosaveComment = null;
+    }
+    let newAutoSave = {};
+    // the the current autosave is an object and not a boolean, copy that object
+    if (typeof filter_v.autosave === "object") {
+      newAutoSave = { ...filter_v.autosave, comment: newAutosaveComment };
+    } else {
+      newAutoSave = { active: true, comment: newAutosaveComment };
+    }
+    const result = await dispatch(
+      filterVersionActions.editAutosave({
+        filter_id: filter.id,
+        autosave: newAutoSave,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(`Set autosave comment to ${newAutosaveComment}`)
+      );
+    } else {
+      dispatch(
+        showNotification(
+          `Failed to set autosave comment to ${newAutosaveComment}`
+        )
+      );
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const handleChangeAutoFollowupComment = async () => {
+    let newAutoFollowupComment = autoFollowupComment;
+    if (newAutoFollowupComment === "") {
+      newAutoFollowupComment = null;
+    }
+    let newAutoFollowup = {};
+    // the the current autosave is an object and not a boolean, copy that object
+    if (typeof filter_v.auto_followup === "object") {
+      newAutoFollowup = {
+        ...filter_v.auto_followup,
+        comment: newAutoFollowupComment,
+      };
+    } else {
+      newAutoFollowup = { active: true, comment: newAutoFollowupComment };
+    }
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(
+          `Set auto followup comment to ${newAutoFollowupComment}`
+        )
+      );
+    } else {
+      dispatch(
+        showNotification(
+          `Failed to set auto followup comment to ${newAutoFollowupComment}`
+        )
+      );
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const handleChangeAutoFollowup = async (event) => {
+    const target = event.target.checked;
+    let newAutoFollowup = { active: target };
+    // if there is no auto_followup object, create one
+    if (filter_v.auto_followup) {
+      newAutoFollowup = { ...filter_v.auto_followup, active: target };
+    }
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(showNotification(`Set auto_followup to ${target}`));
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
@@ -185,6 +341,72 @@ const FilterPlugins = ( { group } ) => {
   // forms
   const [openNew, setOpenNew] = React.useState(false);
   const [openDiff, setOpenDiff] = React.useState(false);
+  const [openAutosaveFilter, setOpenAutosaveFilter] = React.useState(false);
+  const [openAutoFollowupFilter, setOpenAutoFollowupFilter] =
+    React.useState(false);
+  const [openAutoFollowupPayload, setOpenAutoFollowupPayload] =
+    React.useState(false);
+  const [selectedAllocationId, setSelectedAllocationId] = useState(null);
+  const [selectedAllocationParams, setSelectedAllocationParams] =
+    useState(null);
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
+
+  useEffect(() => {
+    // set the allocation_id if there's one in the filter
+    if (filter_v?.auto_followup?.allocation_id) {
+      setSelectedAllocationId(filter_v.auto_followup.allocation_id);
+    }
+    if (filter_v?.autosave?.ignore_group_ids?.length > 0) {
+      setSelectedGroupIds(filter_v.autosave.ignore_group_ids);
+    }
+    let newPipeline = (filter_v?.fv || []).filter(
+      (fv) => fv.fid === filter_v.active_fid
+    );
+    if (newPipeline.length > 0) {
+      newPipeline = newPipeline[0].pipeline;
+    } else {
+      newPipeline = "";
+    }
+    if (filter_v?.fv?.length > 0 && filter_v?.active_fid) {
+      setValue("pipeline", newPipeline);
+    }
+    if (filter_v?.autosave?.pipeline) {
+      setValue("pipeline_autosave", filter_v.autosave.pipeline);
+    }
+    if (filter_v?.auto_followup?.pipeline) {
+      setValue("pipeline_auto_followup", filter_v.auto_followup.pipeline);
+    }
+  }, [filter_v]);
+
+  useEffect(() => {
+    if (!allocationLookUp[selectedAllocationId] || !instrumentFormParams) {
+      return;
+    }
+    const params = {
+      ...instrumentFormParams[
+        allocationLookUp[selectedAllocationId].instrument_id
+      ],
+    };
+    // remove priority, start_date, and end_date if they exist in params.schema and params.uiSchema
+    const deleted = [];
+    if (params.formSchema) {
+      if (params.formSchema.properties.start_date) {
+        delete params.formSchema.properties.start_date;
+        deleted.push("start_date");
+      }
+      if (params.formSchema.properties.end_date) {
+        delete params.formSchema.properties.end_date;
+        deleted.push("end_date");
+      }
+      // if deleted is not empty, remove these fields from the "required" list
+      if (deleted.length > 0) {
+        params.formSchema.required = (params.formSchema?.required || []).filter(
+          (item) => !deleted.includes(item)
+        );
+      }
+      setSelectedAllocationParams(params);
+    }
+  }, [selectedAllocationId, instrumentFormParams]);
 
   // save new filter version
   const onSubmitSaveFilterVersion = async (data) => {
@@ -197,6 +419,107 @@ const FilterPlugins = ( { group } ) => {
     if (result.status === "success") {
       dispatch(showNotification(`Saved new filter version`));
       setOpenNew(false);
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutosaveFilter = async (data) => {
+    let newAutosave = filter_v.autosave;
+    if (typeof filter_v.autosave === "boolean") {
+      newAutosave = { active: filter_v.autosave };
+    }
+    newAutosave.pipeline = data.pipeline_autosave;
+    const result = await dispatch(
+      filterVersionActions.editAutosave({
+        filter_id: filter.id,
+        autosave: newAutosave,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(showNotification(`Saved new autosave filter`));
+      setOpenAutosaveFilter(false);
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutoFollowupFilter = async (data) => {
+    const newAutoFollowup = filter_v.auto_followup;
+    newAutoFollowup.pipeline = data.pipeline_auto_followup;
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(showNotification(`Saved new auto followup filter`));
+      setOpenAutoFollowupFilter(false);
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutoFollowupAllocation = async (e) => {
+    setSelectedAllocationId(e.target.value);
+    if (e.target.value === filter_v.auto_followup.allocation_id) {
+      return;
+    }
+    const newAutoFollowup = {
+      ...filter_v.auto_followup,
+      allocation_id: e.target.value,
+      payload: {},
+    };
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(
+          `Saved new auto followup allocation_id to ${e.target.value}`
+        )
+      );
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutoFollowupPayload = async ({ formData }) => {
+    const newAutoFollowup = {
+      ...filter_v.auto_followup,
+      payload: formData || {},
+    };
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(showNotification(`Saved new auto followup payload`));
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutosaveGroups = async (e) => {
+    const newAutosave = filter_v.autosave;
+    if (typeof filter_v.autosave === "boolean") {
+      newAutosave = { active: filter_v.autosave };
+    }
+    newAutosave.ignore_group_ids = e.target.value;
+    const result = await dispatch(
+      filterVersionActions.editAutosave({
+        filter_id: filter.id,
+        autosave: newAutosave,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(
+          `Saved new autosave ignore_group_ids to ${e.target.value}`
+        )
+      );
+      setSelectedGroupIds(e.target.value);
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
@@ -218,6 +541,30 @@ const FilterPlugins = ( { group } ) => {
     setOpenDiff(false);
   };
 
+  const handleOpenAutosaveFilter = () => {
+    setOpenAutosaveFilter(true);
+  };
+
+  const handleCloseAutosaveFilter = () => {
+    setOpenAutosaveFilter(false);
+  };
+
+  const handleOpenAutoFollowupFilter = () => {
+    setOpenAutoFollowupFilter(true);
+  };
+
+  const handleCloseAutoFollowupFilter = () => {
+    setOpenAutoFollowupFilter(false);
+  };
+
+  const handleOpenAutoFollowupPayload = () => {
+    setOpenAutoFollowupPayload(true);
+  };
+
+  const handleCloseAutoFollowupPayload = () => {
+    setOpenAutoFollowupPayload(false);
+  };
+
   // renders
   if (!filter_v) {
     return (
@@ -227,11 +574,15 @@ const FilterPlugins = ( { group } ) => {
     );
   }
 
-  const highlightSyntax = str => (
+  const highlightSyntax = (str) => (
     <pre
-      style={{ display: 'inline', fontSize: "0.75rem", fontFamily: "Lucida Console, sans-serif" }}
+      style={{
+        display: "inline",
+        fontSize: "0.75rem",
+        fontFamily: "Lucida Console, sans-serif",
+      }}
       dangerouslySetInnerHTML={{
-        __html: str
+        __html: str,
       }}
     />
   );
@@ -267,28 +618,66 @@ const FilterPlugins = ( { group } ) => {
 
   return (
     <div>
-        {filter && (
-          <Accordion
-            expanded={panelKowalskiExpanded}
-            onChange={handlePanelKowalskiChange(true)}
+      {filter && (
+        <Accordion
+          expanded={panelKowalskiExpanded}
+          onChange={handlePanelKowalskiChange(true)}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel-streams-content"
+            id="panel-header"
+            style={{ borderBottom: "1px solid rgba(0, 0, 0, .125)" }}
           >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-streams-content"
-              id="panel-header"
-              style={{ borderBottom: "1px solid rgba(0, 0, 0, .125)" }}
-            >
-              <Typography className={classes.heading}>
-                Kowalski filter details
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordion_details}>
-              <div className={classes.infoLine}>
+            <Typography className={classes.heading}>
+              Kowalski filter details
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails className={classes.accordion_details}>
+            {filter_v?.fv && (
+                <div className={classes.infoLine}>
+                  <FormControlLabel
+                    className={classes.formControl}
+                    control={
+                      <Switch
+                        checked={filter_v.active}
+                        size="small"
+                        onChange={handleChangeActiveFilter}
+                        name="filterActive"
+                      />
+                    }
+                    label="Active"
+                  />
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem" }}>
+                {filter_v?.fv && (
+                  <FormControl className={classes.formControl}>
+                    <InputLabel id="alert-stream-select-required-label">
+                      Active version
+                    </InputLabel>
+                    <Select
+                      disabled={!filter_v.active}
+                      labelId="alert-stream-select-required-label"
+                      id="alert-stream-select"
+                      value={filter_v.active_fid}
+                      onChange={handleFidChange}
+                      className={classes.marginTop}
+                    >
+                      {filter_v.fv.map((fv) => (
+                        <MenuItem key={fv.fid} value={fv.fid}>
+                          {fv.fid}: {fv.created_at.slice(0, 19)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+              )}
+              <>
                 <Button
                   variant="contained"
                   color="primary"
                   onClick={handleNew}
-                  style={{ marginRight: 10 }}
+                  className={classes.button_add}
                 >
                   New version
                 </Button>
@@ -299,29 +688,38 @@ const FilterPlugins = ( { group } ) => {
                   onClose={handleCloseNew}
                   aria-labelledby="max-width-dialog-title"
                 >
-                  <DialogTitle id="max-width-dialog-title">Save new filter version</DialogTitle>
+                  <DialogTitle id="max-width-dialog-title">
+                    Save new filter version
+                  </DialogTitle>
                   <form onSubmit={handleSubmit(onSubmitSaveFilterVersion)}>
                     <DialogContent>
                       <DialogContentText>
-                        Kowalski filter definition. For a detailed discussion, please refer to the&nbsp;
-                        <a href="https://docs.fritz.science/user_guide.html#alert-filters-in-fritz" target="_blank" rel="noreferrer">docs</a>
+                        Kowalski filter definition. For a detailed discussion,
+                        please refer to the&nbsp;
+                        <a
+                          href="https://docs.fritz.science/user_guide.html#alert-filters-in-fritz"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          docs
+                        </a>
                       </DialogContentText>
                       <Controller
-            render={({ field: { onChange, value } }) => (
-                      <TextareaAutosize
-                        maxRows={30}
-                        minRows={6}
-                        placeholder=""
+                        render={({ field: { onChange, value } }) => (
+                          <TextareaAutosize
+                            maxRows={30}
+                            minRows={6}
+                            placeholder=""
+                            name="pipeline"
+                            style={{ width: "100%" }}
+                            ref={register("pipeline")}
+                            onChange={onChange}
+                            value={value}
+                          />
+                        )}
                         name="pipeline"
-                        style={{ width: "100%" }}
-                        ref={register("pipeline")}
-                        onChange={onChange}
-                        value={value}
+                        control={control}
                       />
-                    )}
-            name="pipeline"
-            control={control}
-          />
                     </DialogContent>
                     <DialogActions>
                       <Button
@@ -338,195 +736,157 @@ const FilterPlugins = ( { group } ) => {
                     </DialogActions>
                   </form>
                 </Dialog>
-                {
-                  filter_v?.fv &&
-                  (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleDiff}
-                      style={{marginRight: 10}}
-                    >
-                      Inspect versions/diff
-                    </Button>
-                  )
-                }
-                {
-                  filter_v?.fv &&
-                  (
-                    <Dialog fullScreen open={openDiff} onClose={handleCloseDiff}>
-                      <AppBar className={classes.appBar}>
-                        <Toolbar>
-                          <IconButton
-                            edge="start"
-                            color="inherit"
-                            onClick={handleCloseDiff}
-                            aria-label="close"
-                            size="large">
-                            <CloseIcon />
-                          </IconButton>
-                          <Typography variant="h6" className={classes.marginLeft}>
-                            Inspect filter versions and diffs
-                          </Typography>
-                        </Toolbar>
-                      </AppBar>
-                      <Paper className={classes.paperDiv}>
-                        <Grid container spacing={2}>
-                          <Grid item xs={6} align="center">
-                            <FormControl className={classes.formControl}>
-                              <Select
-                                labelId="fv-diff-label"
-                                id="fv-diff"
-                                name="filter_diff"
-                                value={otherVersion}
-                                onChange={handleSelectFilterVersionDiff}
+                {filter_v?.fv && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleDiff}
+                    className={classes.button_add}
+                  >
+                    Inspect versions/diff
+                  </Button>
+                )}
+                {filter_v?.fv && (
+                  <Dialog fullScreen open={openDiff} onClose={handleCloseDiff}>
+                    <AppBar className={classes.appBar}>
+                      <Toolbar>
+                        <IconButton
+                          edge="start"
+                          color="inherit"
+                          onClick={handleCloseDiff}
+                          aria-label="close"
+                          size="large"
+                        >
+                          <CloseIcon />
+                        </IconButton>
+                        <Typography variant="h6" className={classes.marginLeft}>
+                          Inspect filter versions and diffs
+                        </Typography>
+                      </Toolbar>
+                    </AppBar>
+                    <Paper className={classes.paperDiv}>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6} align="center">
+                          <FormControl className={classes.formControl}>
+                            <Select
+                              labelId="fv-diff-label"
+                              id="fv-diff"
+                              name="filter_diff"
+                              value={otherVersion}
+                              onChange={handleSelectFilterVersionDiff}
+                              className={classes.marginTop}
+                            >
+                              {filter_v.fv.map((fv) => (
+                                <MenuItem key={fv.fid} value={fv.fid}>
+                                  {fv.fid}: {fv.created_at.slice(0, 19)}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                            <FormHelperText>
+                              Select version to diff
+                            </FormHelperText>
+                          </FormControl>
+                          {otherVersion.length > 0 && (
+                            <CopyToClipboard
+                              text={JSON.stringify(
+                                JSON.parse(
+                                  filter_v.fv.filter(
+                                    (fv) => fv.fid === otherVersion
+                                  )[0].pipeline
+                                ),
+                                null,
+                                2
+                              )}
+                            >
+                              <IconButton
+                                color="primary"
+                                aria-label="Copy def to clipboard"
                                 className={classes.marginTop}
+                                size="large"
                               >
-                                {filter_v.fv.map((fv) => (
-                                  <MenuItem key={fv.fid} value={fv.fid}>
-                                    {fv.fid}: {fv.created_at.slice(0, 19)}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                              <FormHelperText>Select version to diff</FormHelperText>
-                            </FormControl>
-                            {otherVersion.length > 0 && (
-                              <CopyToClipboard text={
-                                JSON.stringify(
-                                  JSON.parse(
-                                    filter_v.fv.filter((fv) => fv.fid === otherVersion)[0]
-                                      .pipeline
-                                  ),
-                                  null,
-                                  2
-                                )
-                              }
-                              >
-                                <IconButton
-                                  color="primary"
-                                  aria-label="Copy def to clipboard"
-                                  className={classes.marginTop}
-                                  size="large">
-                                  <FileCopyIcon />
-                                </IconButton>
-                              </CopyToClipboard>
-                            )}
-                          </Grid>
-                          <Grid item xs={6} align="center">
-                            <Typography
-                              className={classes.big_font}
-                              color="textSecondary"
-                              gutterBottom
-                            >
-                              Active version:
-                            </Typography>
-                            <Typography
-                              className={classes.big_font}
-                              color="textPrimary"
-                              gutterBottom
-                            >
-                              {`${filter_v.active_fid}: ${filter_v.fv
-                                .filter((fv) => fv.fid === filter_v.active_fid)[0]
-                                .created_at.slice(0, 19)}`}
-                              <CopyToClipboard text={JSON.stringify(
-                                JSON.parse(
-                                  filter_v.fv.filter(
-                                    (fv) => fv.fid === filter_v.active_fid
-                                  )[0].pipeline
-                                ),
-                                null,
-                                2
-                              )}
-                              >
-                                <IconButton color="primary" aria-label="Copy def to clipboard" size="large">
-                                  <FileCopyIcon />
-                                </IconButton>
-                              </CopyToClipboard>
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={12}>
-                            <ReactDiffViewer
-                              newValue={JSON.stringify(
-                                JSON.parse(
-                                  filter_v.fv.filter(
-                                    (fv) => fv.fid === filter_v.active_fid
-                                  )[0].pipeline
-                                ),
-                                null,
-                                2
-                              )}
-                              oldValue={
-                                otherVersion.length > 0
-                                  ? JSON.stringify(
-                                  JSON.parse(
-                                    filter_v.fv.filter((fv) => fv.fid === otherVersion)[0]
-                                      .pipeline
-                                  ),
-                                  null,
-                                  2
-                                  )
-                                  : otherVersion
-                              }
-                              splitView
-                              showDiffOnly={false}
-                              useDarkTheme={darkTheme}
-                              renderContent={highlightSyntax}
-                            />
-                          </Grid>
+                                <FileCopyIcon />
+                              </IconButton>
+                            </CopyToClipboard>
+                          )}
                         </Grid>
-                      </Paper>
-                    </Dialog>
-                  )
-                }
-              </div>
-              {
-                filter_v?.fv &&
-                (
-                  <div className={classes.infoLine}>
-                    <FormControlLabel
-                      className={classes.formControl}
-                      control={
-                        <Switch
-                          checked={filter_v.active}
-                          size="small"
-                          onChange={handleChangeActiveFilter}
-                          name="filterActive"
-                        />
-                      }
-                      label="Active"
-                    />
-                  </div>
-                )
-              }
-              {
-                filter_v?.fv &&
-                (
-                  <div className={classes.infoLine}>
-                    <FormControl className={classes.formControl}>
-                      <InputLabel id="alert-stream-select-required-label">
-                        Active version
-                      </InputLabel>
-                      <Select
-                        disabled={!filter_v.active}
-                        labelId="alert-stream-select-required-label"
-                        id="alert-stream-select"
-                        value={filter_v.active_fid}
-                        onChange={handleFidChange}
-                        className={classes.marginTop}
-                      >
-                        {filter_v.fv.map((fv) => (
-                          <MenuItem key={fv.fid} value={fv.fid}>
-                            {fv.fid}: {fv.created_at.slice(0, 19)}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-                )
-              }
-              {
-                filter_v?.fv &&
-                (
+                        <Grid item xs={6} align="center">
+                          <Typography
+                            className={classes.big_font}
+                            color="textSecondary"
+                            gutterBottom
+                          >
+                            Active version:
+                          </Typography>
+                          <Typography
+                            className={classes.big_font}
+                            color="textPrimary"
+                            gutterBottom
+                          >
+                            {`${filter_v.active_fid}: ${filter_v.fv
+                              .filter((fv) => fv.fid === filter_v.active_fid)[0]
+                              .created_at.slice(0, 19)}`}
+                            <CopyToClipboard
+                              text={JSON.stringify(
+                                JSON.parse(
+                                  filter_v.fv.filter(
+                                    (fv) => fv.fid === filter_v.active_fid
+                                  )[0].pipeline
+                                ),
+                                null,
+                                2
+                              )}
+                            >
+                              <IconButton
+                                color="primary"
+                                aria-label="Copy def to clipboard"
+                                size="large"
+                              >
+                                <FileCopyIcon />
+                              </IconButton>
+                            </CopyToClipboard>
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <ReactDiffViewer
+                            newValue={JSON.stringify(
+                              JSON.parse(
+                                filter_v.fv.filter(
+                                  (fv) => fv.fid === filter_v.active_fid
+                                )[0].pipeline
+                              ),
+                              null,
+                              2
+                            )}
+                            oldValue={
+                              otherVersion.length > 0
+                                ? JSON.stringify(
+                                    JSON.parse(
+                                      filter_v.fv.filter(
+                                        (fv) => fv.fid === otherVersion
+                                      )[0].pipeline
+                                    ),
+                                    null,
+                                    2
+                                  )
+                                : otherVersion
+                            }
+                            splitView
+                            showDiffOnly={false}
+                            useDarkTheme={darkTheme}
+                            renderContent={highlightSyntax}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Dialog>
+                )}
+              </>
+            </div>
+            <div className={classes.divider} />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {/* AUTO UPDATE ANNOTATIONS */}
+              <div style={{ display: "flex", flexDirection: "row" }}>
+                {filter_v?.fv && (
                   <FormControlLabel
                     // style={{ marginLeft: "0.2rem", marginTop: "1rem" }}
                     className={classes.formControl}
@@ -541,31 +901,394 @@ const FilterPlugins = ( { group } ) => {
                     }
                     label="Update auto-annotations every time an object passes the filter"
                   />
-                )
-              }
-              {
-                filter_v?.fv &&
-                (
+                )}
+              </div>
+              <div className={classes.divider} />
+              {/* AUTO SAVE */}
+              <div style={{ display: "flex", flexDirection: "row" }}>
+                {filter_v?.fv && (
                   <FormControlLabel
                     className={classes.formControl}
                     disabled={!filter_v.active}
                     control={
                       <Switch
-                        checked={filter_v.autosave}
+                        checked={
+                          filter_v.autosave === true ||
+                          filter_v.autosave?.active === true
+                        }
                         size="small"
                         onChange={handleChangeAutosave}
                         name="filterAutosave"
                       />
                     }
-                    label={group?.name && `Automatically save all passing objects to ${group.name}`}
+                    label={
+                      group?.name &&
+                      `Automatically save all passing objects to ${group.name}`
+                    }
                   />
-                )
-              }
-            </AccordionDetails>
-          </Accordion>
-        )}
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem" }}>
+                {filter_v?.fv &&
+                  (filter_v.autosave === true ||
+                    filter_v.autosave?.active === true) && (
+                    <>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleOpenAutosaveFilter}
+                        className={classes.button_add}
+                      >
+                        Autosave filter
+                      </Button>
+                      <Dialog
+                        fullWidth
+                        maxWidth="md"
+                        open={openAutosaveFilter}
+                        onClose={handleCloseAutosaveFilter}
+                        aria-labelledby="max-width-dialog-title"
+                      >
+                        <DialogTitle id="max-width-dialog-title">
+                          Save new autosave filter
+                        </DialogTitle>
+                        <form
+                          onSubmit={handleSubmit(onSubmitSaveAutosaveFilter)}
+                        >
+                          <DialogContent>
+                            <DialogContentText>
+                              Kowalski filter definition. For a detailed
+                              discussion, please refer to the&nbsp;
+                              <a
+                                href="https://docs.fritz.science/user_guide.html#alert-filters-in-fritz"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                docs
+                              </a>
+                            </DialogContentText>
+                            <Controller
+                              render={({ field: { onChange, value } }) => (
+                                <TextareaAutosize
+                                  maxRows={30}
+                                  minRows={6}
+                                  placeholder=""
+                                  name="pipeline_autosave"
+                                  style={{ width: "100%" }}
+                                  ref={register("pipeline_autosave")}
+                                  onChange={onChange}
+                                  value={value}
+                                />
+                              )}
+                              name="pipeline_autosave"
+                              control={control}
+                            />
+                          </DialogContent>
+                          <DialogActions>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              type="submit"
+                              className={classes.button_add}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              autoFocus
+                              onClick={handleCloseAutosaveFilter}
+                            >
+                              Dismiss
+                            </Button>
+                          </DialogActions>
+                        </form>
+                      </Dialog>
+                    </>
+                  )}
+                {filter_v?.fv &&
+                  (filter_v.autosave === true ||
+                    filter_v.autosave?.active === true) && (
+                    <>
+                      <TextField
+                        className={classes.formControl}
+                        disabled={!filter_v.active}
+                        id="autosave-comment"
+                        label="Autosave comment"
+                        rows={1}
+                        defaultValue={filter_v.autosave?.comment}
+                        onChange={(event) =>
+                          setAutosaveComment(event.target.value)
+                        }
+                      />
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleChangeAutosaveComment}
+                        className={classes.button_add}
+                      >
+                        Save comment
+                      </Button>
+                    </>
+                  )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem", marginTop: "1rem" }}>
+                <div>
+                  <InputLabel id="groupsSelectLabel">
+                    {`Don't autosave if in groups (optional)`}
+                  </InputLabel>
+                  <Select
+                    inputProps={{ MenuProps: { disableScrollLock: true } }}
+                    labelId="groupsSelectLabel"
+                    value={selectedGroupIds}
+                    onChange={onSubmitSaveAutosaveGroups}
+                    name="autosaveGroupsSelect"
+                    className={classes.allocationSelect}
+                    multiple
+                  >
+                    {(userAccessibleGroups || []).map((group) => (
+                      <MenuItem
+                        value={group.id}
+                        key={group.id}
+                        className={classes.SelectItem}
+                      >
+                        {group.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+              <div className={classes.divider} />
+              {/* AUTO FOLLOWUP */}
+              <div style={{ display: "flex", flexDirection: "row" }}>
+                {filter_v?.fv && (
+                  <FormControlLabel
+                    className={classes.formControl}
+                    disabled={!filter_v.active}
+                    control={
+                      <Switch
+                        checked={filter_v?.auto_followup?.active === true}
+                        size="small"
+                        onChange={handleChangeAutoFollowup}
+                        name="filterAutoFollowup"
+                      />
+                    }
+                    label={
+                      group?.name &&
+                      `Run auto followup filter too. Passing objects trigger followup requests`
+                    }
+                  />
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem" }}>
+                {filter_v?.fv && filter_v?.auto_followup?.active === true && (
+                  <>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleOpenAutoFollowupFilter}
+                      className={classes.button_add}
+                    >
+                      Auto Followup Filter
+                    </Button>
+                    <Dialog
+                      fullWidth
+                      maxWidth="md"
+                      open={openAutoFollowupFilter}
+                      onClose={handleCloseAutoFollowupFilter}
+                      aria-labelledby="max-width-dialog-title"
+                    >
+                      <DialogTitle id="max-width-dialog-title">
+                        Save new auto followup filter
+                      </DialogTitle>
+                      <form
+                        onSubmit={handleSubmit(onSubmitSaveAutoFollowupFilter)}
+                      >
+                        <DialogContent>
+                          <DialogContentText>
+                            Kowalski filter definition. For a detailed
+                            discussion, please refer to the&nbsp;
+                            <a
+                              href="https://docs.fritz.science/user_guide.html#alert-filters-in-fritz"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              docs
+                            </a>
+                          </DialogContentText>
+                          <Controller
+                            render={({ field: { onChange, value } }) => (
+                              <TextareaAutosize
+                                maxRows={30}
+                                minRows={6}
+                                placeholder=""
+                                name="pipeline_auto_followup"
+                                style={{ width: "100%" }}
+                                ref={register("pipeline_auto_followup")}
+                                onChange={onChange}
+                                value={value}
+                              />
+                            )}
+                            name="pipeline_auto_followup"
+                            control={control}
+                          />
+                        </DialogContent>
+                        <DialogActions>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            type="submit"
+                            className={classes.button_add}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            autoFocus
+                            onClick={handleCloseAutoFollowupFilter}
+                          >
+                            Dismiss
+                          </Button>
+                        </DialogActions>
+                      </form>
+                    </Dialog>
+                  </>
+                )}
+                {filter_v?.fv && filter_v.auto_followup?.active === true && (
+                  <>
+                    <TextField
+                      className={classes.formControl}
+                      disabled={!filter_v.active}
+                      id="auto_followup-comment"
+                      label="Auto followup comment"
+                      defaultValue={filter_v.auto_followup?.comment}
+                      onChange={(event) =>
+                        setAutoFollowupComment(event.target.value)
+                      }
+                    />
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleChangeAutoFollowupComment}
+                      className={classes.button_add}
+                    >
+                      Save comment
+                    </Button>
+                  </>
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "row", marginTop: "1rem", alignItems: "end", gap: "1rem" }}>
+                {filter_v?.fv && filter_v?.auto_followup?.active === true && (
+                  <>
+                    <div>
+                      <InputLabel id="allocationSelectLabel">
+                        Allocation
+                      </InputLabel>
+                      <Select
+                        inputProps={{ MenuProps: { disableScrollLock: true } }}
+                        labelId="allocationSelectLabel"
+                        value={selectedAllocationId}
+                        onChange={onSubmitSaveAutoFollowupAllocation}
+                        name="followupRequestAllocationSelect"
+                        className={classes.allocationSelect}
+                      >
+                        {allocationListApiClassname?.map((allocation) => (
+                          <MenuItem
+                            value={allocation.id}
+                            key={allocation.id}
+                            className={classes.SelectItem}
+                          >
+                            {`${instLookUp[allocation.instrument_id]?.name} - ${
+                              groupLookUp[allocation.group_id]?.name
+                            } (PI ${allocation.pi})`}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </div>
+                    {filter_v?.auto_followup?.allocation_id &&
+                      selectedAllocationParams && (
+                        <>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleOpenAutoFollowupPayload}
+                            className={classes.button_add}
+                          >
+                            Auto Followup Payload
+                          </Button>
+                          <Dialog
+                            fullWidth
+                            maxWidth="md"
+                            open={openAutoFollowupPayload}
+                            onClose={handleCloseAutoFollowupPayload}
+                            aria-labelledby="max-width-dialog-title"
+                          >
+                            <DialogTitle id="max-width-dialog-title">
+                              Save new auto followup payload
+                            </DialogTitle>
+                            <DialogContent>
+                              <Typography
+                                className={classes.big_font}
+                                color="textSecondary"
+                                gutterBottom
+                              >
+                                Current payload:
+                              </Typography>
+                              <Typography
+                                className={classes.big_font}
+                                color="textPrimary"
+                                gutterBottom
+                              >
+                                {JSON.stringify(
+                                  filter_v.auto_followup.payload,
+                                  null,
+                                  2
+                                )}
+                              </Typography>
+                              <InputLabel id="allocationSelectLabel">
+                                Payload
+                              </InputLabel>
+                              <Form
+                                schema={selectedAllocationParams.formSchema}
+                                validator={validator}
+                                uiSchema={selectedAllocationParams.uiSchema}
+                                liveValidate
+                                // customValidate={validate}
+                                onSubmit={onSubmitSaveAutoFollowupPayload}
+                                // disabled={isSubmitting}
+                              />
+                            </DialogContent>
+                            <DialogActions>
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                type="submit"
+                                className={classes.button_add}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                autoFocus
+                                onClick={handleCloseAutoFollowupPayload}
+                              >
+                                Dismiss
+                              </Button>
+                            </DialogActions>
+                          </Dialog>
+                        </>
+                      )}
+                  </>
+                )}
+              </div>
+            </div>
+          </AccordionDetails>
+        </Accordion>
+      )}
     </div>
   );
+};
+
+FilterPlugins.propTypes = {
+  group: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+  }).isRequired,
 };
 
 export default FilterPlugins;

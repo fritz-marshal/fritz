@@ -197,7 +197,7 @@ class KowalskiFilterHandler(BaseHandler):
                     minLength: 6
                     maxLength: 6
                   autosave:
-                    type: boolean
+                    type: boolean | dict
                     description: "automatically save passing candidates to filter's group"
                   update_annotations:
                     type: boolean
@@ -220,9 +220,12 @@ class KowalskiFilterHandler(BaseHandler):
         active_fid = data.get("active_fid", None)
         autosave = data.get("autosave", None)
         update_annotations = data.get("update_annotations", None)
-        if (active, active_fid, autosave, update_annotations).count(None) == 4:
+        auto_followup = data.get("auto_followup", None)
+        if (active, active_fid, autosave, update_annotations, auto_followup).count(
+            None
+        ) == 5:
             return self.error(
-                "At least one of (active, active_fid, autosave, update_annotations) must be set"
+                "At least one of (active, active_fid, autosave, update_annotations, auto_followup) must be set"
             )
 
         # permission check
@@ -237,9 +240,38 @@ class KowalskiFilterHandler(BaseHandler):
         if active_fid is not None:
             patch_data["active_fid"] = str(active_fid)
         if autosave is not None:
-            patch_data["autosave"] = bool(autosave)
+            # autosave can either be a boolean or a dict
+            if not isinstance(autosave, dict):
+                autosave = {"active": bool(autosave)}
+            else:
+                valid_keys = {"active", "pipeline", "comment", "ignore_group_ids"}
+                if not set(autosave.keys()).issubset(valid_keys):
+                    return self.error(
+                        f"autosave dict keys must be a subset of {valid_keys}"
+                    )
+            patch_data["autosave"] = autosave
         if update_annotations is not None:
             patch_data["update_annotations"] = bool(update_annotations)
+        if auto_followup is not None:
+            if not isinstance(auto_followup, dict):
+                return self.error("auto_followup must be a dict")
+            if "active" not in auto_followup:
+                return self.error(
+                    "auto_followup dict must at least contain 'active' key"
+                )
+            valid_keys = {
+                "active",
+                "allocation_id",
+                "payload",
+                "pipeline",
+                "comment",
+                "priority",
+            }
+            if not set(auto_followup.keys()).issubset(valid_keys):
+                return self.error(
+                    f"auto_followup dict keys must be a subset of {valid_keys}"
+                )
+            patch_data["auto_followup"] = auto_followup
 
         response = kowalski.api(
             method="patch",
