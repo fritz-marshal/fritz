@@ -240,7 +240,7 @@ def post_alert(
         if len(alert_data) > 0:
             alert_data = alert_data[0]
         else:
-            raise ValueError(f"{object_id} not found on Kowalski")
+            alert_data = {"prv_candidates": [], "cross_matches": {}}
     else:
         raise ValueError(f"Failed to fetch data for {object_id} from Kowalski")
 
@@ -274,32 +274,32 @@ def post_alert(
                     }
                 },
                 {"$sort": {"candidate.jd": -1}},
-                {"$limit": 1},
             ],
         },
     }
 
     response = kowalski.query(query=query)
     if response.get("default").get("status", "error") == "success":
-        latest_alert_data = response.get("default").get("data")
-        if len(latest_alert_data) > 0:
-            latest_alert_data = latest_alert_data[0]
+        full_alert_data = response.get("default").get("data")
     else:
         raise ValueError(f"Failed to fetch data for {object_id} from Kowalski")
 
-    if len(latest_alert_data) > 0:
-        latest_alert_data["candidate"]["candid"] = int(
-            latest_alert_data["candidate"]["candid"]
-        )
+    if len(alert_data) == 0 and len(full_alert_data) == 0:
+        raise ValueError(f"{object_id} not found on Kowalski")
+
+    if len(full_alert_data) > 0:
+        for a in full_alert_data:
+            a["candidate"]["candid"] = int(a["candidate"]["candid"])
         candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
-        if latest_alert_data["candidate"]["candid"] not in candids:
-            alert_data["prv_candidates"].append(latest_alert_data["candidate"])
+        for a in full_alert_data:
+            if a["candidate"]["candid"] not in candids:
+                alert_data["prv_candidates"].append(a["candidate"])
 
     if save_to_diff_object:
         # we want to verify that the obj and the alert are within 2 arcsec
         ra_latest, dec_latest = (
-            latest_alert_data["candidate"]["ra"],
-            latest_alert_data["candidate"]["dec"],
+            full_alert_data[0]["candidate"]["ra"],
+            full_alert_data["candidate"]["dec"],
         )
         dist = great_circle_distance(obj.ra, obj.dec, ra_latest, dec_latest)
         if dist > 2 / 3600:
@@ -308,9 +308,9 @@ def post_alert(
             )
 
     if candid is None:
-        if len(latest_alert_data) == 0:
+        if len(full_alert_data) == 0:
             raise ValueError("Latest alert data must be present if candid is None")
-        candid = int(latest_alert_data["candidate"]["candid"])
+        candid = int(full_alert_data[0]["candidate"]["candid"])
 
     alert = None
     for cand in alert_data["prv_candidates"]:
@@ -542,7 +542,7 @@ def post_alert(
                     "query": {
                         "catalog": "ZTF_alerts",
                         "filter": {
-                            "candid": latest_alert_data["candidate"]["candid"],
+                            "candid": candid,
                             "candidate.programid": {"$in": program_id_selector},
                         },
                         "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
@@ -1173,10 +1173,12 @@ class AlertAuxHandler(BaseHandler):
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
                 else:
-                    # len = 0 means that objectId does not exists on Kowalski
-                    self.set_status(404)
-                    self.finish()
-                    return
+                    alert_data = {
+                        "prv_candidates": [],
+                        "cross_matches": {},
+                        "missing": True,
+                        "message": "This object's aux data (crossmatches and prv_candidates) seems to be missing. Lost data is currently being restored in Kowalski. Please use alert data directly to retrieve the detections.",
+                    }
             else:
                 return self.error(response.get("default").get("message"))
 
@@ -1217,7 +1219,6 @@ class AlertAuxHandler(BaseHandler):
                             }
                         },
                         {"$sort": {"candidate.jd": -1}},
-                        {"$limit": 1},
                     ],
                 },
             }
@@ -1225,10 +1226,8 @@ class AlertAuxHandler(BaseHandler):
             response = kowalski.query(query=query)
 
             if response.get("default").get("status", "error") == "success":
-                latest_alert_data = response.get("default").get("data", list(dict()))
-                if len(latest_alert_data) > 0:
-                    latest_alert_data = latest_alert_data[0]
-                else:
+                full_alert_data = response.get("default").get("data", list(dict()))
+                if len(full_alert_data) == 0:
                     # len = 0 means that user has insufficient permissions to see objectId
                     self.set_status(404)
                     self.finish()
@@ -1237,8 +1236,9 @@ class AlertAuxHandler(BaseHandler):
                 return self.error(response.get("default").get("message"))
 
             candids = {a.get("candid", None) for a in alert_data["prv_candidates"]}
-            if latest_alert_data["candidate"]["candid"] not in candids:
-                alert_data["prv_candidates"].append(latest_alert_data["candidate"])
+            for a in full_alert_data:
+                if a["candidate"]["candid"] not in candids:
+                    alert_data["prv_candidates"].append(a["candidate"])
 
             # cross-match with the TNS
             rads = np.array(

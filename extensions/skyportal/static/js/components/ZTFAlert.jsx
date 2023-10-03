@@ -23,6 +23,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Tooltip from "@mui/material/Tooltip";
 
 import MUIDataTable from "mui-datatables";
@@ -461,6 +462,20 @@ const ZTFAlert = ({ route }) => {
             </div>
             <div className={classes.name}>{objectId}</div>
             <br />
+            {(alert_aux_data?.missing === true) && (
+              <>
+                <Chip
+                  title="Lost aux data (including this object's non-detections and crossmatches) is being recovered in Kowalski. In the mean time, detections were fetched using the individual alerts instead"
+                  size="small"
+                  label="Warning: missing aux data"
+                  style={{
+                    backgroundColor: "#E9D502"
+                  }}
+                  icon={<WarningAmberIcon/>}
+              />
+              <br />
+            </>
+            )}
             {savedSource || loadedSourceId === objectId ? (
               <div>
                 <div className={classes.itemPaddingBottom}>
