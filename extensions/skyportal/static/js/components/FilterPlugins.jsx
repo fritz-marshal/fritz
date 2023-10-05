@@ -529,7 +529,7 @@ const FilterPlugins = ({ group }) => {
   };
 
   const onSubmitSaveAutoFollowupGroups = async (e) => {
-    let newAutoFollowup = filter_v.auto_followup;
+    const newAutoFollowup = filter_v.auto_followup;
     newAutoFollowup.target_group_ids = e.target.value;
     const result = await dispatch(
       filterVersionActions.editAutoFollowup({
@@ -1321,14 +1321,6 @@ const FilterPlugins = ({ group }) => {
                               />
                             </DialogContent>
                             <DialogActions>
-                              <Button
-                                variant="contained"
-                                color="primary"
-                                type="submit"
-                                className={classes.button_add}
-                              >
-                                Save
-                              </Button>
                               <Button
                                 autoFocus
                                 onClick={handleCloseAutoFollowupPayload}
