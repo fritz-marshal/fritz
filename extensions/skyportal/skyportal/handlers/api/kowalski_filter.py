@@ -266,6 +266,7 @@ class KowalskiFilterHandler(BaseHandler):
                 "pipeline",
                 "comment",
                 "priority",
+                "target_group_ids",
             }
             if not set(auto_followup.keys()).issubset(valid_keys):
                 return self.error(
