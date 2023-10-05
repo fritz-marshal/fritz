@@ -67,7 +67,7 @@ const useStyles = makeStyles((theme) => ({
   },
   button_add: {
     marginRight: 10,
-    height: "3.5rem"
+    height: "3.5rem",
   },
   divider: {
     width: "100%",
@@ -349,15 +349,19 @@ const FilterPlugins = ({ group }) => {
   const [selectedAllocationId, setSelectedAllocationId] = useState(null);
   const [selectedAllocationParams, setSelectedAllocationParams] =
     useState(null);
-  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
+  const [selectedIgnoreGroupIds, setSelectedIgnoreGroupIds] = useState([]);
+  const [selectedTargetGroupIds, setSelectedTargetGroupIds] = useState([]);
 
   useEffect(() => {
     // set the allocation_id if there's one in the filter
     if (filter_v?.auto_followup?.allocation_id) {
       setSelectedAllocationId(filter_v.auto_followup.allocation_id);
     }
+    if (filter_v?.auto_followup?.target_group_ids?.length > 0) {
+      setSelectedTargetGroupIds(filter_v.auto_followup.target_group_ids);
+    }
     if (filter_v?.autosave?.ignore_group_ids?.length > 0) {
-      setSelectedGroupIds(filter_v.autosave.ignore_group_ids);
+      setSelectedIgnoreGroupIds(filter_v.autosave.ignore_group_ids);
     }
     let newPipeline = (filter_v?.fv || []).filter(
       (fv) => fv.fid === filter_v.active_fid
@@ -502,7 +506,7 @@ const FilterPlugins = ({ group }) => {
   };
 
   const onSubmitSaveAutosaveGroups = async (e) => {
-    const newAutosave = filter_v.autosave;
+    let newAutosave = filter_v.autosave;
     if (typeof filter_v.autosave === "boolean") {
       newAutosave = { active: filter_v.autosave };
     }
@@ -519,11 +523,30 @@ const FilterPlugins = ({ group }) => {
           `Saved new autosave ignore_group_ids to ${e.target.value}`
         )
       );
-      setSelectedGroupIds(e.target.value);
+      setSelectedIgnoreGroupIds(e.target.value);
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
 
+  const onSubmitSaveAutoFollowupGroups = async (e) => {
+    const newAutoFollowup = filter_v.auto_followup;
+    newAutoFollowup.target_group_ids = e.target.value;
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      })
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(
+          `Saved new auto followup target_group_ids to ${e.target.value}`
+        )
+      );
+      setSelectedTargetGroupIds(e.target.value);
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
 
   const handleNew = () => {
     setOpenNew(true);
@@ -586,6 +609,8 @@ const FilterPlugins = ({ group }) => {
       }}
     />
   );
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     // not using API/kowalski_filter duck here as that would throw an error if filter does not exist on K
     const fetchInit = {
@@ -635,42 +660,49 @@ const FilterPlugins = ({ group }) => {
           </AccordionSummary>
           <AccordionDetails className={classes.accordion_details}>
             {filter_v?.fv && (
-                <div className={classes.infoLine}>
-                  <FormControlLabel
-                    className={classes.formControl}
-                    control={
-                      <Switch
-                        checked={filter_v.active}
-                        size="small"
-                        onChange={handleChangeActiveFilter}
-                        name="filterActive"
-                      />
-                    }
-                    label="Active"
-                  />
-                </div>
-              )}
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem" }}>
-                {filter_v?.fv && (
-                  <FormControl className={classes.formControl}>
-                    <InputLabel id="alert-stream-select-required-label">
-                      Active version
-                    </InputLabel>
-                    <Select
-                      disabled={!filter_v.active}
-                      labelId="alert-stream-select-required-label"
-                      id="alert-stream-select"
-                      value={filter_v.active_fid}
-                      onChange={handleFidChange}
-                      className={classes.marginTop}
-                    >
-                      {filter_v.fv.map((fv) => (
-                        <MenuItem key={fv.fid} value={fv.fid}>
-                          {fv.fid}: {fv.created_at.slice(0, 19)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+              <div className={classes.infoLine}>
+                <FormControlLabel
+                  className={classes.formControl}
+                  control={
+                    <Switch
+                      checked={filter_v.active}
+                      size="small"
+                      onChange={handleChangeActiveFilter}
+                      name="filterActive"
+                    />
+                  }
+                  label="Active"
+                />
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "end",
+                gap: "1rem",
+              }}
+            >
+              {filter_v?.fv && (
+                <FormControl className={classes.formControl}>
+                  <InputLabel id="alert-stream-select-required-label">
+                    Active version
+                  </InputLabel>
+                  <Select
+                    disabled={!filter_v.active}
+                    labelId="alert-stream-select-required-label"
+                    id="alert-stream-select"
+                    value={filter_v.active_fid}
+                    onChange={handleFidChange}
+                    className={classes.marginTop}
+                  >
+                    {filter_v.fv.map((fv) => (
+                      <MenuItem key={fv.fid} value={fv.fid}>
+                        {fv.fid}: {fv.created_at.slice(0, 19)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               )}
               <>
                 <Button
@@ -928,7 +960,14 @@ const FilterPlugins = ({ group }) => {
                   />
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "end",
+                  gap: "1rem",
+                }}
+              >
                 {filter_v?.fv &&
                   (filter_v.autosave === true ||
                     filter_v.autosave?.active === true) && (
@@ -1029,33 +1068,43 @@ const FilterPlugins = ({ group }) => {
                     </>
                   )}
               </div>
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem", marginTop: "1rem" }}>
-                {filter_v?.fv && (filter_v?.autosave?.active === true || filter_v?.autosave === true) && (
-                  <div>
-                    <InputLabel id="groupsSelectLabel">
-                      {`Don't autosave if in groups (optional)`}
-                    </InputLabel>
-                    <Select
-                      inputProps={{ MenuProps: { disableScrollLock: true } }}
-                      labelId="groupsSelectLabel"
-                      value={selectedGroupIds}
-                      onChange={onSubmitSaveAutosaveGroups}
-                      name="autosaveGroupsSelect"
-                      className={classes.allocationSelect}
-                      multiple
-                    >
-                      {(userAccessibleGroups || []).map((group) => (
-                        <MenuItem
-                          value={group.id}
-                          key={group.id}
-                          className={classes.SelectItem}
-                        >
-                          {group.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </div>
-                )}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "end",
+                  gap: "1rem",
+                  marginTop: "1rem",
+                }}
+              >
+                {filter_v?.fv &&
+                  (filter_v?.autosave?.active === true ||
+                    filter_v?.autosave === true) && (
+                    <div>
+                      <InputLabel id="groupsSelectLabel">
+                        {`Don't autosave if in groups (optional)`}
+                      </InputLabel>
+                      <Select
+                        inputProps={{ MenuProps: { disableScrollLock: true } }}
+                        labelId="groupsSelectLabel"
+                        value={selectedIgnoreGroupIds}
+                        onChange={onSubmitSaveAutosaveGroups}
+                        name="autosaveGroupsSelect"
+                        className={classes.allocationSelect}
+                        multiple
+                      >
+                        {(userAccessibleGroups || []).map((target_group) => (
+                          <MenuItem
+                            value={target_group.id}
+                            key={target_group.id}
+                            className={classes.SelectItem}
+                          >
+                            {target_group.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
               </div>
               <div className={classes.divider} />
               {/* AUTO FOLLOWUP */}
@@ -1079,7 +1128,14 @@ const FilterPlugins = ({ group }) => {
                   />
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "end", gap: "1rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "end",
+                  gap: "1rem",
+                }}
+              >
                 {filter_v?.fv && filter_v?.auto_followup?.active === true && (
                   <>
                     <Button
@@ -1175,7 +1231,15 @@ const FilterPlugins = ({ group }) => {
                   </>
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "row", marginTop: "1rem", alignItems: "end", gap: "1rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  marginTop: "1rem",
+                  alignItems: "end",
+                  gap: "1rem",
+                }}
+              >
                 {filter_v?.fv && filter_v?.auto_followup?.active === true && (
                   <>
                     <div>
@@ -1258,14 +1322,6 @@ const FilterPlugins = ({ group }) => {
                             </DialogContent>
                             <DialogActions>
                               <Button
-                                variant="contained"
-                                color="primary"
-                                type="submit"
-                                className={classes.button_add}
-                              >
-                                Save
-                              </Button>
-                              <Button
                                 autoFocus
                                 onClick={handleCloseAutoFollowupPayload}
                               >
@@ -1276,6 +1332,43 @@ const FilterPlugins = ({ group }) => {
                         </>
                       )}
                   </>
+                )}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "end",
+                  gap: "1rem",
+                  marginTop: "1rem",
+                }}
+              >
+                {filter_v?.fv && filter_v?.auto_followup?.active === true && (
+                  <div>
+                    <InputLabel id="targetGroupsSelectLabel">
+                      Target groups (optional, already includes the group of the
+                      filter)
+                    </InputLabel>
+                    <Select
+                      inputProps={{ MenuProps: { disableScrollLock: true } }}
+                      labelId="targetGroupsSelectLabel"
+                      value={selectedTargetGroupIds}
+                      onChange={onSubmitSaveAutoFollowupGroups}
+                      name="autoFollowupGroupsSelect"
+                      className={classes.allocationSelect}
+                      multiple
+                    >
+                      {(userAccessibleGroups || []).map((ignore_group) => (
+                        <MenuItem
+                          value={ignore_group.id}
+                          key={ignore_group.id}
+                          className={classes.SelectItem}
+                        >
+                          {ignore_group.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </div>
                 )}
               </div>
             </div>
