@@ -386,11 +386,13 @@ const FilterPlugins = ({ group }) => {
     if (!allocationLookUp[selectedAllocationId] || !instrumentFormParams) {
       return;
     }
-    const params = {
+    const existingParams = {
       ...instrumentFormParams[
         allocationLookUp[selectedAllocationId].instrument_id
       ],
     };
+    // we make a copy of the existing params so we don't modify the original
+    const params = Object.assign({}, existingParams);
     // remove priority, start_date, and end_date if they exist in params.schema and params.uiSchema
     const deleted = [];
     if (params.formSchema) {
