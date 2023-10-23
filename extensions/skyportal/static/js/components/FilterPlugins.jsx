@@ -392,7 +392,7 @@ const FilterPlugins = ({ group }) => {
       ],
     };
     // we make a copy of the existing params so we don't modify the original
-    const params = Object.assign({}, existingParams);
+    const params = JSON.parse(JSON.stringify(existingParams));
     // remove priority, start_date, and end_date if they exist in params.schema and params.uiSchema
     const deleted = [];
     if (params.formSchema) {
