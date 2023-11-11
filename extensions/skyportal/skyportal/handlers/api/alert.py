@@ -391,6 +391,7 @@ def post_alert(
 
     session.add(obj)
 
+    photometry_ids = []
     if not thumbnails_only:
         for group in groups:
             source = session.scalars(
@@ -464,7 +465,6 @@ def post_alert(
             )
 
         # post data from different program_id's
-        photometry_ids = []
         for pid in set(df.programid.unique()):
             group_ids = [
                 gsa.get("group_id")
