@@ -30,7 +30,6 @@ from baselayer.log import make_log
 from skyportal.utils.calculations import great_circle_distance
 
 from ...models import Group, GroupStream, Instrument, Obj, Source, Stream, User
-from ...utils.thumbnail import post_thumbnails
 from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
@@ -412,7 +411,11 @@ def post_alert(
                 )
         session.commit()
         if not obj_already_exists:
-            post_thumbnails([obj_id_to_save])
+            try:
+                obj.add_linked_thumbnails(["sdss", "ls"], session)
+            except Exception:
+                session.rollback()
+                pass
 
         # post photometry
         ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
