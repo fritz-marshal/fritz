@@ -245,6 +245,7 @@ skyportal:
             url: /about
 
       - name: Other
+        icon: MoreHoriz
         subitems:
           - name: Telescopes
             icon: MyLocation
@@ -287,6 +288,7 @@ skyportal:
             url: /taxonomies
 
       - name: Admin
+        icon: AdminPanelSettings
         permissions: ["Manage users", "System admin"]
         subitems:
           - name: DB Stats
@@ -555,7 +557,7 @@ skyportal:
 
     allow_nonadmins_delete_objs: False
 
-    bokeh_color_palette: Turbo256
+    color_palette: turbo
 
   external_logging:
     papertrail:
