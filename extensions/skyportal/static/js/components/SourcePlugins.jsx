@@ -1,29 +1,23 @@
 import React from "react";
-import Chip from "@mui/material/Chip";
 import PropTypes from "prop-types";
-import makeStyles from "@mui/styles/makeStyles";
 
 import AlertsSearchButton from "./AlertsSearchButton";
 import ArchiveSearchButton from "./ArchiveSearchButton";
 
-import { useSourceStyles } from "./SourceDesktop";
+import { useSourceStyles } from "./Source";
 
 const SourcePlugins = ({source}) => {
   const classes = useSourceStyles();
 
   return (
-    <>
-            <div>
-              <div className={classes.infoLine}>
-                  <div className={classes.infoButton}>
-                    <AlertsSearchButton ra={source.ra} dec={source.dec} />
-                  </div>
-                  <div className={classes.infoButton}>
-                    <ArchiveSearchButton ra={source.ra} dec={source.dec} />
-                  </div>
-              </div>
-            </div>
-    </>
+    <div className={classes.infoLine} style={{ padding: "0.25rem 0 0.25rem 0" }}>
+        <div className={classes.infoButton}>
+            <AlertsSearchButton ra={source.ra} dec={source.dec} />
+        </div>
+        <div className={classes.infoButton}>
+            <ArchiveSearchButton ra={source.ra} dec={source.dec} />
+        </div>
+    </div>
   );
 };
 
