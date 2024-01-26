@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import PropTypes from "prop-types";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import Button from "@mui/material/Button";
 
 import { showNotification } from "baselayer/components/Notifications";
 import * as archiveActions from "../ducks/archive";
@@ -20,7 +19,9 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
     }
   }, [catalogNames, dispatch]);
 
-  const ZTFLightCurveCatalogNames = Array.isArray(catalogNames) ? catalogNames?.filter((name) => name.indexOf('ZTF_sources_202') !== -1) : null;
+  const ZTFLightCurveCatalogNames = Array.isArray(catalogNames)
+    ? catalogNames?.filter((name) => name.indexOf("ZTF_sources_202") !== -1)
+    : null;
 
   const catalog = ZTFLightCurveCatalogNames
     ? ZTFLightCurveCatalogNames[0]
@@ -29,24 +30,27 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
   const handleClick = () => {
     if (catalog) {
       dispatch(
-        archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius })
+        archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius }),
       );
       dispatch(archiveActions.fetchNearestSources({ ra, dec }));
     } else {
       dispatch(
         showNotification(
           "Catalog names could not be fetched; enter search criteria manually",
-          "warning"
-        )
+          "warning",
+        ),
       );
     }
   };
 
   return (
-    <Link to="/archive" onClick={handleClick}>
-      <Button variant="contained" size="small">
-        Search ZTF Light Curve Archive
-      </Button>
+    <Link
+      to="/archive"
+      target="_blank"
+      onClick={handleClick}
+      style={{ textDecoration: "none", color: "black" }}
+    >
+     {`ZTF Light Curves (DR)`}
     </Link>
   );
 };

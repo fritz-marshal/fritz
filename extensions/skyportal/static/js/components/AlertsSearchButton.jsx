@@ -2,7 +2,6 @@ import React from "react";
 import PropTypes from "prop-types";
 import { useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
-import Button from "@mui/material/Button";
 
 import * as alertsActions from "../ducks/alerts";
 
@@ -13,10 +12,13 @@ const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
   };
 
   return (
-    <Link to="/alerts" onClick={handleClick}>
-      <Button variant="contained" size="small">
-        Search ZTF Alert Archive
-      </Button>
+    <Link
+      to="/alerts"
+      onClick={handleClick}
+      target="_blank"
+      style={{ textDecoration: "none", color: "black" }}
+    >
+      ZTF Alerts
     </Link>
   );
 };
