@@ -66,6 +66,12 @@ skyportal:
       api_key:
       look_back_days: 1
 
+    winter:
+      protocol: http
+      host: winter.caltech.edu
+      port: 82
+      submit_trigger: False # if False, the API POST call will only validate the payload
+
     gracedb_endpoint: https://gracedb.ligo.org/api/
 
     mpc_endpoint: https://minorplanetcenter.net
