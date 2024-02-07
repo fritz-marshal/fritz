@@ -173,6 +173,15 @@ class ArchiveCatalogsHandler(BaseHandler):
         catalog_names = kowalski.get_catalogs_all()
         # catalog names is a dict with key being the instances and value being the list of catalog names
         # we want to reformat it to be a list of all catalog names
+        # and we remove the alerts catalogs and the skymaps catalog, which are not archive catalogs
+        catalog_names = {
+            k: [
+                c
+                for c in v
+                if not any(x in c for x in ["_alerts", "_alert_aux", "skymaps"])
+            ]
+            for k, v in catalog_names.items()
+        }
         catalog_names = flatten_dict_to_list(catalog_names)
 
         return self.success(data=catalog_names)
