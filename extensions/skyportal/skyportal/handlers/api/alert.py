@@ -4,7 +4,10 @@ import io
 import json
 import pathlib
 import traceback
+from datetime import datetime, timedelta
+import arrow
 
+from astropy.time import Time
 import bson.json_util as bj
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,7 +32,18 @@ from baselayer.app.env import load_env
 from baselayer.log import make_log
 from skyportal.utils.calculations import great_circle_distance
 
-from ...models import Group, GroupStream, Instrument, Obj, Source, Stream, User
+from ...models import (
+    Group,
+    GroupStream,
+    Instrument,
+    Obj,
+    Source,
+    Stream,
+    User,
+    Candidate,
+    Filter,
+    Classification,
+)
 from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
@@ -80,7 +94,6 @@ default_projection = {
 
 
 def make_thumbnail(a, ttype, ztftype):
-
     if f"cutout{ztftype}" not in a:
         return None
 
@@ -390,7 +403,6 @@ def post_alert(
 
     session.add(obj)
 
-    photometry_ids = []
     if not thumbnails_only:
         for group in groups:
             source = session.scalars(
@@ -410,12 +422,6 @@ def post_alert(
                     )
                 )
         session.commit()
-        if not obj_already_exists:
-            try:
-                obj.add_linked_thumbnails(["sdss", "ls"], session)
-            except Exception:
-                session.rollback()
-                pass
 
         # post photometry
         ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
@@ -468,6 +474,7 @@ def post_alert(
             )
 
         # post data from different program_id's
+        photometry_ids = []
         for pid in set(df.programid.unique()):
             group_ids = [
                 gsa.get("group_id")
@@ -495,7 +502,7 @@ def post_alert(
                 if len(photometry.get("mag", ())) > 0:
                     try:
                         photometry_ids_tmp, _ = add_external_photometry(
-                            photometry, user
+                            photometry, user, duplicates="update"
                         )
                         photometry_ids = photometry_ids + photometry_ids_tmp
                     except Exception:
@@ -656,7 +663,9 @@ def get_alerts_by_ids(
             "catalog": "ZTF_alerts",
             "filter": {
                 "objectId": {"$in": [oid.strip() for oid in object_ids.split(",")]},
-                "candidate.programid": {"$in": program_id_selector},
+                "candidate.programid": {
+                    "$in": program_id_selector + [0]
+                },  # DEBUG TODO: REMOVE
             },
             "projection": projection
             if not include_all_fields
@@ -714,7 +723,7 @@ def get_alerts_by_position(
 
     # complete positional arguments? run "near" query
     if radius_units not in ["deg", "arcmin", "arcsec"]:
-        return ValueError(
+        raise ValueError(
             "Invalid radius_units value. Must be one of either "
             "'deg', 'arcmin', or 'arcsec'."
         )
@@ -723,13 +732,13 @@ def get_alerts_by_position(
         dec = float(dec)
         radius = float(radius)
     except ValueError:
-        return ValueError("Invalid (non-float) value provided.")
+        raise ValueError("Invalid (non-float) value provided.")
     if (
         (radius_units == "deg" and radius > 1)
         or (radius_units == "arcmin" and radius > 60)
         or (radius_units == "arcsec" and radius > 3600)
     ):
-        return ValueError("Radius must be <= 1.0 deg")
+        raise ValueError("Radius must be <= 1.0 deg")
 
     query = {
         "query_type": "near",
@@ -770,7 +779,7 @@ def get_alerts_by_position(
 
     if response.get("default").get("status", "error") == "success":
         alert_data = response.get("default").get("data")
-        return alert_data["ZTF_alerts"]["query_coords"]
+        return alert_data.get("ZTF_alerts", {}).get("query_coords", None)
     else:
         return None
 
@@ -1035,7 +1044,6 @@ class AlertHandler(BaseHandler):
             return self.error("Missing required `group_ids` parameter.")
 
         with self.Session() as session:
-
             # allow access to public data only by default
             program_id_selector = {1}
 
@@ -1058,6 +1066,7 @@ class AlertHandler(BaseHandler):
                     obj_id_to_save=copy_to_source,
                 )
             except Exception as e:
+                traceback.print_exc()
                 return self.error(f"Alert failed to post: {str(e)}")
 
             self.push_all(action="skyportal/FETCH_RECENT_SOURCES")
@@ -1123,6 +1132,8 @@ class AlertAuxHandler(BaseHandler):
         include_prv_candidates = (
             True if include_prv_candidates.lower() == "true" else False
         )
+        include_fp_hists = self.get_query_argument("includeFpHists", "true")
+        include_fp_hists = True if include_fp_hists.lower() == "true" else False
         include_all_fields = self.get_query_argument("includeAllFields", "false")
         include_all_fields = False if include_all_fields.lower() == "false" else True
 
@@ -1144,6 +1155,13 @@ class AlertAuxHandler(BaseHandler):
                                         "cond": {"$in": ["$$item.programid", selector]},
                                     }
                                 },
+                                "fp_hists": {
+                                    "$filter": {
+                                        "input": "$fp_hists",
+                                        "as": "item",
+                                        "cond": {"$in": ["$$item.programid", selector]},
+                                    }
+                                },
                             }
                         },
                     ],
@@ -1156,6 +1174,7 @@ class AlertAuxHandler(BaseHandler):
                         "$project": {
                             "_id": 1,
                             "cross_matches": 1,
+                            # prv_candidates
                             "prv_candidates.magpsf": 1,
                             "prv_candidates.sigmapsf": 1,
                             "prv_candidates.diffmaglim": 1,
@@ -1165,6 +1184,16 @@ class AlertAuxHandler(BaseHandler):
                             "prv_candidates.dec": 1,
                             "prv_candidates.candid": 1,
                             "prv_candidates.jd": 1,
+                            # fp_hists
+                            "fp_hists.mag": 1,
+                            "fp_hists.magerr": 1,
+                            "fp_hists.diffmaglim": 1,
+                            "fp_hists.jd": 1,
+                            "fp_hists.programid": 1,
+                            "fp_hists.fid": 1,
+                            "fp_hists.alert_ra": 1,
+                            "fp_hists.alert_dec": 1,
+                            "fp_hists.snr": 1,
                         }
                     }
                 )
@@ -1175,9 +1204,15 @@ class AlertAuxHandler(BaseHandler):
                 alert_data = response.get("default").get("data")
                 if len(alert_data) > 0:
                     alert_data = alert_data[0]
+                    # if fp_hists isn't empty, rename the alert_ra and alert_dec to ra and dec
+                    if len(alert_data.get("fp_hists", [])) > 0:
+                        for f in alert_data["fp_hists"]:
+                            f["ra"] = f.pop("alert_ra")
+                            f["dec"] = f.pop("alert_dec")
                 else:
                     alert_data = {
                         "prv_candidates": [],
+                        "fp_hists": [],
                         "cross_matches": {},
                         "missing": True,
                         "message": "This object's aux data (crossmatches and prv_candidates) seems to be missing. Lost data is currently being restored in Kowalski. Please use alert data directly to retrieve the detections.",
@@ -1222,6 +1257,7 @@ class AlertAuxHandler(BaseHandler):
                             }
                         },
                         {"$sort": {"candidate.jd": -1}},
+                        # {"$limit": 1},
                     ],
                 },
             }
@@ -1304,6 +1340,8 @@ class AlertAuxHandler(BaseHandler):
 
             if not include_prv_candidates:
                 alert_data.pop("prv_candidates", None)
+            if not include_fp_hists:
+                alert_data.pop("fp_hists", None)
 
             return self.success(data=alert_data)
 
@@ -1618,7 +1656,6 @@ class AlertTripletsHandler(BaseHandler):
 
             return_data = []
             for alert in alerts:
-
                 candid = alert["candidate"]
                 cutout_dict = dict()
                 image_corrupt = False
@@ -1673,6 +1710,207 @@ class AlertTripletsHandler(BaseHandler):
                 )
 
             return self.success(data=return_data)
+        except Exception:
+            _err = traceback.format_exc()
+            return self.error(f"failure: {_err}")
+
+
+class AlertStatsHandler(BaseHandler):
+    # add a get method to the class
+    # this get method will, given a time range, return the number of alerts in that time range
+    @auth_or_token
+    async def get(self, alert_stream="ZTF"):
+        """
+        ---
+        summary: Get number of alerts in a time range
+        tags:
+          - alerts
+          - kowalski
+        parameters:
+          - in: query
+            name: start
+            required: true
+            schema:
+              type: string
+              format: date-time
+          - in: query
+            name: end
+            required: true
+            schema:
+              type: string
+              format: date-time
+        responses:
+          '200':
+            description: Number of alerts in the time range
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: integer
+          '400':
+            description: retrieval failed
+            content:
+              application/json:
+                schema: Error
+        """
+
+        if alert_stream != "ZTF":
+            return self.error("Only ZTF alerts are currently supported")
+
+        start = self.get_query_argument("start_date", None)
+        end = self.get_query_argument("end_date", None)
+        filter_id = self.get_query_argument("filter_id", None)
+
+        if end is None:
+            end = datetime.utcnow()
+        else:
+            end = arrow.get(end).datetime
+
+        if start is None:
+            start = end - timedelta(days=3000)
+        else:
+            start = arrow.get(start).datetime
+
+        try:
+            query = {
+                "query_type": "count_documents",
+                "query": {
+                    "catalog": f"{alert_stream}_alerts",
+                    "filter": {
+                        "candidate.jd": {
+                            "$gte": Time(start).jd,
+                            "$lte": Time(end).jd,
+                        },
+                    },
+                },
+            }
+
+            response = kowalski.query(query=query)
+
+            total_alerts = None
+            if response.get("default").get("status", "error") == "success":
+                total_alerts = response.get("default").get("data", 0)
+
+            # same, but how many unique objectId are there?
+            # we do this with an aggregate query
+            query = {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": f"{alert_stream}_alerts",
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "candidate.jd": {
+                                    "$gte": Time(start).jd,
+                                    "$lte": Time(end).jd,
+                                },
+                            },
+                        },
+                        {
+                            "$group": {
+                                "_id": "$objectId",
+                            },
+                        },
+                        {
+                            "$count": "n",
+                        },
+                    ],
+                },
+            }
+
+            response = kowalski.query(query=query)
+            if response.get("default").get("status", "error") == "success":
+                total_objs = (
+                    response.get("default").get("data", [{"n": 0}]).pop().get("n", 0)
+                )
+
+            with self.Session() as session:
+                # first get the stream_ids that have the alert stream in their name
+                stream_ids = session.scalars(
+                    sa.select(Stream.id).where(Stream.name.like(f"%{alert_stream}%"))
+                ).all()
+                # then get the filter_ids that have the stream_ids
+                filter_ids = session.scalars(
+                    sa.select(Filter.id).where(Filter.stream_id.in_(stream_ids))
+                ).all()
+                if filter_id is not None:
+                    # verify that the filter_id is in the list of filter_ids
+                    filter_id = int(filter_id)
+                    if filter_id not in filter_ids:
+                        return self.error(
+                            f"Filter ID {filter_id} not found for this alert stream"
+                        )
+                    filter_ids = [filter_id]
+
+            with self.Session() as session:
+                stmt = Candidate.select(self.associated_user_object).where(
+                    Candidate.passed_at >= start,
+                    Candidate.passed_at <= end,
+                    Candidate.filter_id.in_(filter_ids),
+                )
+                total_candidates_passed = session.scalar(
+                    sa.select(sa.func.count()).select_from(stmt)
+                )
+
+                # same, but how many unique Candidate.obj_id are there?
+                stmt = (
+                    sa.select(sa.func.count(sa.distinct(Candidate.obj_id)))
+                    .select_from(Candidate)
+                    .where(
+                        Candidate.passed_at >= start,
+                        Candidate.passed_at <= end,
+                        Candidate.filter_id.in_(filter_ids),
+                    )
+                )
+                total_obj_passed = session.scalar(stmt)
+
+            # now we want to know how many of these objects where saved as sources
+            # that is, find how many candidates where saved as sources, and get the unique obj_ids count
+            with self.Session() as session:
+                stmt = (
+                    sa.select(sa.func.count(sa.distinct(Candidate.obj_id)))
+                    .select_from(Candidate)
+                    .join(Source, Source.obj_id == Candidate.obj_id)
+                    .where(
+                        Candidate.passed_at >= start,
+                        Candidate.passed_at <= end,
+                        Candidate.filter_id.in_(filter_ids),
+                        Source.active.is_(True),
+                    )
+                )
+                total_obj_saved = session.scalar(stmt)
+
+            # how many of those saved objects have a classification?
+            with self.Session() as session:
+                stmt = (
+                    sa.select(sa.func.count(sa.distinct(Candidate.obj_id)))
+                    .select_from(Candidate)
+                    .join(Source, Source.obj_id == Candidate.obj_id)
+                    .join(Classification, Classification.obj_id == Source.obj_id)
+                    .where(
+                        Candidate.passed_at >= start,
+                        Candidate.passed_at <= end,
+                        Candidate.filter_id.in_(filter_ids),
+                        Source.active.is_(True),
+                        Classification.ml.is_not(True),
+                    )
+                )
+                total_obj_classified = session.scalar(stmt)
+
+            stats = {
+                "total_alerts": total_alerts,
+                "total_objs": total_objs,
+                "total_candidates_passed": total_candidates_passed,
+                "total_obj_passed": total_obj_passed,
+                "total_obj_saved": total_obj_saved,
+                "total_obj_classified": total_obj_classified,
+            }
+            return self.success(data=stats)
+
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")

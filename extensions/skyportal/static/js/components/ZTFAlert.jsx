@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate , Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import Button from "@mui/material/Button";
 import PropTypes from "prop-types";
@@ -9,10 +9,8 @@ import {
   createTheme,
   ThemeProvider,
   StyledEngineProvider,
-  adaptV4Theme,
 } from "@mui/material/styles";
 import makeStyles from "@mui/styles/makeStyles";
-import Paper from "@mui/material/Paper";
 import Grid from "@mui/material/Grid";
 import AddIcon from "@mui/icons-material/Add";
 import Accordion from "@mui/material/Accordion";
@@ -23,8 +21,11 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import Tooltip from "@mui/material/Tooltip";
+import Paper from "@mui/material/Paper";
+import Switch from "@mui/material/Switch";
+import TextField from "@mui/material/TextField";
 
 import MUIDataTable from "mui-datatables";
 import ReactJson from "react-json-view";
@@ -53,11 +54,12 @@ const useStyles = makeStyles((theme) => ({
   whitish: {
     color: "#f0f0f0",
   },
-  itemPaddingBottom: {
-    paddingBottom: "0.5rem",
+  itemPadding: {
+    padding: "0.5rem 0 0.5rem 0",
   },
   saveAlertButton: {
-    margin: "0.5rem 0",
+    margin: "0.5rem 0 0 0",
+    paddingTop: "0.5rem",
   },
   image: {
     padding: theme.spacing(1),
@@ -86,7 +88,7 @@ const useStyles = makeStyles((theme) => ({
     width: "100%",
   },
   source: {
-    padding: "1rem",
+    padding: "2rem 0.25rem 1rem 1rem",
     display: "flex",
     flexDirection: "row",
   },
@@ -97,6 +99,14 @@ const useStyles = makeStyles((theme) => ({
     flex: "0 2 100%",
     minWidth: 0,
   },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(12rem, 1fr)",
+    gridAutoFlow: "row",
+    gap: "0.5rem",
+    width: "100%",
+    height: "100%",
+  },
   columnItem: {
     margin: "0.5rem 0",
   },
@@ -104,7 +114,6 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "200%",
     fontWeight: "900",
     color: "darkgray",
-    paddingBottom: "0.25em",
     display: "inline-block",
   },
   alignRight: {
@@ -127,19 +136,139 @@ function isString(x) {
 }
 
 const getMuiTheme = (theme) =>
-  createTheme(
-    adaptV4Theme({
-      overrides: {
-        MUIDataTableBodyCell: {
+  createTheme({
+    components: {
+      MUIDataTableBodyCell: {
+        styleOverrides: {
           root: {
             padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
-              0.25
+              0.25,
             )} ${theme.spacing(1)}`,
           },
         },
       },
-    })
+    },
+  });
+
+const ZTFAlertPlot = ({ objectId, jd }) => {
+  const aux_data = useSelector((state) => state.alert_aux_data);
+  const [showUpperLimits, setShowUpperLimits] = useState(true);
+  const [showForcedPhotometry, setShowForcedPhotometry] = useState(true);
+  const [forcedPhotometrySNR, setForcedPhotometrySNR] = useState(3);
+
+  // aux_data contains 2 fieldss: prv_candidates and fp_hists
+  // we add an "origin" field to each fp_hists entry with the value "fp"
+  // same for prv_candidates but value is null
+  let photometry = [];
+  if (aux_data && typeof aux_data === "object" && aux_data[objectId]) {
+    photometry = (aux_data[objectId].prv_candidates || []).map((d) => {
+      d.origin = "alert";
+      return d;
+    });
+
+    const fp_hists = showForcedPhotometry
+      ? (aux_data[objectId].fp_hists || []).map((d) => {
+          d.origin = "fp";
+          // for the forced photometry, we consider datapoints with SNR < forcedPhotometrySNR as upper limits
+          if (d.snr > forcedPhotometrySNR) {
+            d.magpsf = d.mag;
+            d.sigmapsf = d.magerr;
+          } else {
+            d.magpsf = null;
+            d.sigmapsf = null;
+            if (d.magpsf) {
+              // if it's a detection with SNR too low, we set diffmaglim to the detection mag
+              // to make it an upper limit
+              d.diffmaglim = d.magpsf;
+            }
+          }
+          return d;
+        })
+      : [];
+    photometry = photometry.concat(fp_hists);
+
+    if (showUpperLimits === false) {
+      photometry = photometry.filter((d) => d.magpsf);
+    }
+    // for each data point, add a filter_origin field that is the fid + / + origin
+    photometry = photometry.map((d) => {
+      if (d.origin === "alert") {
+        d.filter_origin = `${d.fid}`;
+      } else {
+        d.filter_origin = `${d.fid}/${d.origin}`;
+      }
+      return d;
+    });
+  }
+
+  if (!aux_data || aux_data[objectId] === null || jd === 0) {
+    return <div>Loading photometry...</div>;
+  }
+
+  if (photometry.length === 0) {
+    return <div>No photometry found</div>;
+  }
+  return (
+    <div style={{ width: "100%", height: "90%" }}>
+      <VegaPlotZTFAlert values={photometry || []} jd={jd} />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "flex-start",
+          gap: "0.5rem",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <Switch
+            checked={showUpperLimits}
+            onChange={() => setShowUpperLimits(!showUpperLimits)}
+            name="showUpperLimits"
+            inputProps={{ "aria-label": "show upper limits" }}
+          />
+          <div>Upper limits</div>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <Switch
+            checked={showForcedPhotometry}
+            onChange={() => setShowForcedPhotometry(!showForcedPhotometry)}
+            name="showForcedPhotometry"
+            inputProps={{ "aria-label": "show forced photometry" }}
+          />
+          <div>Forced photometry</div>
+        </div>
+        <TextField
+          id="forcedPhotometrySNR"
+          label="SNR Threshold (FP only)"
+          type="number"
+          value={forcedPhotometrySNR}
+          size="small"
+          onChange={(event) => setForcedPhotometrySNR(event.target.value)}
+          InputLabelProps={{
+            shrink: true,
+          }}
+        />
+      </div>
+    </div>
   );
+};
+
+ZTFAlertPlot.propTypes = {
+  objectId: PropTypes.string.isRequired,
+  jd: PropTypes.number.isRequired,
+};
 
 const ZTFAlert = ({ route }) => {
   const objectId = route.id;
@@ -179,35 +308,20 @@ const ZTFAlert = ({ route }) => {
   }, [dispatch, objectId]);
 
   const userAccessibleGroups = useSelector(
-    (state) => state.groups.userAccessible
+    (state) => state.groups.userAccessible,
   );
 
   const userAccessibleGroupIds = useSelector((state) =>
-    state.groups.userAccessible?.map((a) => a.id)
+    state.groups.userAccessible?.map((a) => a.id),
   );
 
   const theme = useTheme();
   const darkTheme = theme.palette.mode === "dark";
 
-  const [
-    panelPhotometryThumbnailsExpanded,
-    setPanelPhotometryThumbnailsExpanded,
-  ] = useState(true);
-
-  const handlePanelPhotometryThumbnailsChange =
-    (panel) => (event, isExpanded) => {
-      setPanelPhotometryThumbnailsExpanded(isExpanded ? panel : false);
-    };
-
   const [panelXMatchExpanded, setPanelXMatchExpanded] = useState(true);
 
   const handlePanelXMatchChange = (panel) => (event, isExpanded) => {
     setPanelXMatchExpanded(isExpanded ? panel : false);
-  };
-
-  const [panelAlertsExpanded, setPanelAlertsExpanded] = useState(true);
-  const handlePanelAlertsExpandedChange = (panel) => (event, isExpanded) => {
-    setPanelAlertsExpanded(isExpanded ? panel : false);
   };
 
   const [candid, setCandid] = useState(0);
@@ -216,22 +330,22 @@ const ZTFAlert = ({ route }) => {
   const alert_data = useSelector((state) => state.alert_data);
 
   const makeRow = (alert) => ({
-      candid: alert?.candid,
-      jd: alert?.candidate.jd,
-      fid: alert?.candidate.fid,
-      magpsf: alert?.candidate.magpsf,
-      sigmapsf: alert?.candidate.sigmapsf,
-      rb: alert?.candidate.rb,
-      drb: alert?.candidate.drb,
-      isdiffpos: alert?.candidate.isdiffpos,
-      programid: alert?.candidate.programid,
-      alert_actions: "show thumbnails",
-    });
+    candid: alert?.candid,
+    jd: alert?.candidate.jd,
+    fid: alert?.candidate.fid,
+    magpsf: alert?.candidate.magpsf,
+    sigmapsf: alert?.candidate.sigmapsf,
+    rb: alert?.candidate.rb,
+    drb: alert?.candidate.drb,
+    isdiffpos: alert?.candidate.isdiffpos,
+    programid: alert?.candidate.programid,
+    alert_actions: "show thumbnails",
+  });
 
   let rows = [];
 
-  if (alert_data !== null && !isString(alert_data)) {
-    rows = alert_data?.map((a) => makeRow(a));
+  if (alert_data && alert_data[objectId] && !isString(alert_data[objectId])) {
+    rows = alert_data[objectId]?.map((a) => makeRow(a));
   }
 
   const alert_aux_data = useSelector((state) => state.alert_aux_data);
@@ -243,7 +357,10 @@ const ZTFAlert = ({ route }) => {
   }
 
   const cachedObjectId =
-    alert_data !== null && !isString(alert_data) && candid > 0
+    alert_data &&
+    alert_data[objectId] &&
+    !isString(alert_data[objectId]) &&
+    candid > 0
       ? route.id
       : null;
 
@@ -257,10 +374,10 @@ const ZTFAlert = ({ route }) => {
         await dispatch(Actions.fetchAuxData(objectId));
 
         const candids = Array.from(
-          new Set(data.data.map((c) => c.candid))
+          new Set(data.data.map((c) => c.candid)),
         ).sort();
         const jds = Array.from(
-          new Set(data.data.map((c) => c.candidate.jd))
+          new Set(data.data.map((c) => c.candidate.jd)),
         ).sort();
         // grab the latest candid's thumbnails by default
         setCandid(candids[candids.length - 1]);
@@ -270,13 +387,13 @@ const ZTFAlert = ({ route }) => {
         dispatch(
           fetchSources({
             ra: data.data.filter(
-              (a) => a.candid === candids[candids.length - 1]
+              (a) => a.candid === candids[candids.length - 1],
             )[0].candidate.ra,
             dec: data.data.filter(
-              (a) => a.candid === candids[candids.length - 1]
+              (a) => a.candid === candids[candids.length - 1],
             )[0].candidate.dec,
             radius: 2 / 3600,
-          })
+          }),
         ).then((response) => {
           if (response.status === "success") {
             setFetchedDuplicates(true);
@@ -346,6 +463,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
+        // eslint-disable-next-line no-unused-vars
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
       },
     },
@@ -363,6 +481,7 @@ const ZTFAlert = ({ route }) => {
       options: {
         filter: false,
         sort: true,
+        // eslint-disable-next-line no-unused-vars
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
       },
     },
@@ -372,6 +491,7 @@ const ZTFAlert = ({ route }) => {
       options: {
         filter: false,
         sort: true,
+        // eslint-disable-next-line no-unused-vars
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
       },
     },
@@ -382,6 +502,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
+        // eslint-disable-next-line no-unused-vars
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
       },
     },
@@ -392,6 +513,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
+        // eslint-disable-next-line no-unused-vars
         customBodyRender: (value, tableMeta, updateValue) => value?.toFixed(5),
       },
     },
@@ -417,6 +539,7 @@ const ZTFAlert = ({ route }) => {
       options: {
         filter: false,
         sort: false,
+        // eslint-disable-next-line no-unused-vars
         customBodyRender: (value, tableMeta, updateValue) => (
           <Button
             size="small"
@@ -432,17 +555,20 @@ const ZTFAlert = ({ route }) => {
     },
   ];
 
-  if (alert_data === null) {
+  if (alert_data && alert_data[objectId] === null) {
     return (
       <div>
         <CircularProgress color="secondary" />
       </div>
     );
   }
-  if (isString(alert_data) || isString(alert_aux_data)) {
+  if (
+    isString(alert_data[objectId]) ||
+    (alert_aux_data && isString(alert_aux_data[objectId]))
+  ) {
     return <div>Failed to fetch alert data, please try again later.</div>;
   }
-  if (alert_data.length === 0) {
+  if (alert_data[objectId]?.length === 0) {
     return (
       <div>
         <Typography variant="h5" className={classes.header}>
@@ -452,279 +578,275 @@ const ZTFAlert = ({ route }) => {
     );
   }
 
-  if (alert_data.length > 0) {
+  if (alert_data[objectId]?.length > 0) {
     return (
-      <Paper elevation={1} className={classes.source}>
-        <div className={classes.column}>
-          <div className={classes.leftColumnItem}>
-            <div className={classes.alignRight}>
-              <SharePage />
-            </div>
-            <div className={classes.name}>{objectId}</div>
-            <br />
-            {(alert_aux_data?.missing === true) && (
-              <>
-                <Chip
-                  title="Lost aux data (including this object's non-detections and crossmatches) is being recovered in Kowalski. In the mean time, detections were fetched using the individual alerts instead"
-                  size="small"
-                  label="Warning: missing aux data"
+      <Grid container spacing={2}>
+        <Grid item xs={12} lg={12}>
+          <Paper>
+            <Grid container spacing={0} style={{ paddingBottom: "1rem" }}>
+              <Grid item xs={12} lg={6}>
+                <div
                   style={{
-                    backgroundColor: "#E9D502"
+                    padding: "0.5rem 1rem 0 1rem",
+                    display: "flex",
+                    flexDirection: "column",
                   }}
-                  icon={<WarningAmberIcon/>}
-              />
-              <br />
-            </>
-            )}
-            {savedSource || loadedSourceId === objectId ? (
-              <div>
-                <div className={classes.itemPaddingBottom}>
-                  <Chip
-                    size="small"
-                    label="Previously Saved"
-                    clickable
-                    onClick={() => navigate(`/source/${objectId}`)}
-                    onDelete={() =>
-                      window.open(`/source/${objectId}`, "_blank")
-                    }
-                    deleteIcon={<OpenInNewIcon />}
-                    color="primary"
-                  />
-                </div>
-                {source.groups?.map((group) => (
-                  <Tooltip
-                    title={`Saved at ${group.saved_at} by ${group.saved_by?.username}`}
-                    key={group.id}
-                  >
-                    <Chip
-                      label={
-                        group.nickname
-                          ? group.nickname.substring(0, 15)
-                          : group.name.substring(0, 15)
-                      }
-                      size="small"
-                      className={classes.chip}
-                      data-testid={`groupChip_${group.id}`}
-                    />
-                  </Tooltip>
-                ))}
-                <div className={classes.itemPaddingBottom}>
-                  <div className={classes.saveAlertButton}>
-                    <SaveAlertButton
-                      alert={{
-                        id: objectId,
-                        candid,
-                        group_ids: userAccessibleGroupIds,
-                      }}
-                      userGroups={userAccessibleGroups}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className={classes.itemPaddingBottom}>
-                <Chip size="small" label="NOT SAVED" />
-                <br />
-                <div className={classes.saveAlertButton}>
-                  <SaveAlertButton
-                    alert={{
-                      id: objectId,
-                      candid,
-                      group_ids: userAccessibleGroupIds,
-                    }}
-                    userGroups={userAccessibleGroups}
-                  />
-                </div>
-              </div>
-            )}
-            {fetchedDuplicates &&
-              sources?.sources?.length > 0 &&
-              !(
-                sources?.sources?.length === 1 &&
-                sources?.sources[0].id === objectId
-              ) && (
-                <div className={classes.infoLine}>
-                  <div className={classes.sourceInfo}>
-                    <b>
-                      <font color="#457b9d">Possible duplicate of:</font>
-                    </b>
-                    &nbsp;
-                    {sources.sources.map(
-                      (dup) =>
-                        dup?.id !== objectId && (
-                          <div key={dup?.id}>
-                            <Link
-                              to={`/source/${dup?.id}`}
-                              role="link"
-                              key={dup?.id}
-                            >
-                              <Button size="small">{dup?.id}</Button>
-                            </Link>
-                            <Button
-                              size="small"
-                              type="button"
-                              name={`copySourceButton${dup?.id}`}
-                              onClick={() => openDialog(dup?.id)}
-                              className={classes.sourceCopy}
-                            >
-                              <AddIcon />
-                            </Button>
-                            <CopyAlertPhotometryDialog
-                              alert={
-                                alert_data.filter((a) => a.candid === candid)[0]
-                              }
-                              duplicate={dup}
-                              dialogOpen={dialogOpen}
-                              closeDialog={closeDialog}
-                            />
-                          </div>
-                        )
+                >
+                  <div>
+                    <div className={classes.alignRight}>
+                      <SharePage />
+                    </div>
+                    <div className={classes.name}>{objectId}</div>
+                    {alert_aux_data[objectId]?.missing === true && (
+                      <Chip
+                        title="Lost aux data (including this object's non-detections and crossmatches) is being recovered in Kowalski. In the mean time, detections were fetched using the individual alerts instead"
+                        size="small"
+                        label="Warning: missing aux data"
+                        style={{
+                          backgroundColor: "#E9D502",
+                        }}
+                        icon={<WarningAmberIcon />}
+                      />
                     )}
                   </div>
-                </div>
-              )}
-            {candid > 0 && (
-              <>
-                <b>candid:</b>
-                &nbsp;
-                {candid}
-                <br />
-                <div className={classes.sourceInfo}>
-                  <div>
-                    <b>Position (J2000):&nbsp; &nbsp;</b>
-                  </div>
-                  <div>
-                    <span className={classes.position}>
-                      {ra_to_hours(
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.ra,
-                        ":"
-                      )}
-                      &nbsp;
-                      {dec_to_dms(
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.dec,
-                        ":"
-                      )}
-                      &nbsp;
-                    </span>
-                  </div>
-                </div>
-                <div className={classes.sourceInfo}>
-                  <div>
-                    (&alpha;,&delta;={" "}
-                    {
-                      alert_data.filter((a) => a.candid === candid)[0].candidate
-                        .ra
-                    }
-                    , &nbsp;
-                    {
-                      alert_data.filter((a) => a.candid === candid)[0].candidate
-                        .dec
-                    }
-                    ; &nbsp;
-                  </div>
-                  {candid > 0 &&
-                    alert_data.filter((a) => a.candid === candid)[0].coordinates
-                      .b && (
+                  {candid > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column" }}>
                       <div>
-                        &nbsp; l,b=
-                        {alert_data
-                          .filter((a) => a.candid === candid)[0]
-                          .coordinates?.l?.toFixed(6)}
-                        , &nbsp;
-                        {alert_data
-                          .filter((a) => a.candid === candid)[0]
-                          .coordinates?.b?.toFixed(6)}
-                        )
+                        <b>candid:</b>&nbsp;{candid}
+                      </div>
+                      <div className={classes.sourceInfo}>
+                        <b>Position (J2000):&nbsp; &nbsp;</b>
+                        <div>
+                          <span className={classes.position}>
+                            {ra_to_hours(
+                              alert_data[objectId].filter(
+                                (a) => a.candid === candid,
+                              )[0].candidate.ra,
+                              ":",
+                            )}
+                            &nbsp;
+                            {dec_to_dms(
+                              alert_data[objectId].filter(
+                                (a) => a.candid === candid,
+                              )[0].candidate.dec,
+                              ":",
+                            )}
+                            &nbsp;
+                          </span>
+                        </div>
+                      </div>
+                      <div className={classes.sourceInfo}>
+                        <div>
+                          (&alpha;,&delta;={" "}
+                          {
+                            alert_data[objectId].filter(
+                              (a) => a.candid === candid,
+                            )[0].candidate.ra
+                          }
+                          , &nbsp;
+                          {
+                            alert_data[objectId].filter(
+                              (a) => a.candid === candid,
+                            )[0].candidate.dec
+                          }
+                          ; &nbsp;
+                        </div>
+                        {candid > 0 &&
+                          alert_data[objectId].filter(
+                            (a) => a.candid === candid,
+                          )[0].coordinates.b && (
+                            <div>
+                              &nbsp; l,b=
+                              {alert_data[objectId]
+                                .filter((a) => a.candid === candid)[0]
+                                .coordinates?.l?.toFixed(6)}
+                              , &nbsp;
+                              {alert_data[objectId]
+                                .filter((a) => a.candid === candid)[0]
+                                .coordinates?.b?.toFixed(6)}
+                              )
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  )}
+                  {savedSource || loadedSourceId === objectId ? (
+                    <div>
+                      <div className={classes.itemPadding}>
+                        <Chip
+                          size="small"
+                          label="Previously Saved"
+                          clickable
+                          onClick={() => navigate(`/source/${objectId}`)}
+                          onDelete={() =>
+                            window.open(`/source/${objectId}`, "_blank")
+                          }
+                          deleteIcon={<OpenInNewIcon />}
+                          color="primary"
+                        />
+                      </div>
+                      {source.groups?.map((group) => (
+                        <Tooltip
+                          title={`Saved at ${group.saved_at} by ${group.saved_by?.username}`}
+                          key={group.id}
+                        >
+                          <Chip
+                            label={
+                              group.nickname
+                                ? group.nickname.substring(0, 15)
+                                : group.name.substring(0, 15)
+                            }
+                            size="small"
+                            className={classes.chip}
+                            data-testid={`groupChip_${group.id}`}
+                          />
+                        </Tooltip>
+                      ))}
+                      <div className={classes.itemPadding}>
+                        <div className={classes.saveAlertButton}>
+                          <SaveAlertButton
+                            alert={{
+                              id: objectId,
+                              candid,
+                              group_ids: userAccessibleGroupIds,
+                            }}
+                            userGroups={userAccessibleGroups}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={classes.itemPadding}>
+                      <Chip size="small" label="NOT SAVED" />
+                      <br />
+                      <div className={classes.saveAlertButton}>
+                        <SaveAlertButton
+                          alert={{
+                            id: objectId,
+                            candid,
+                            group_ids: userAccessibleGroupIds,
+                          }}
+                          userGroups={userAccessibleGroups}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {fetchedDuplicates &&
+                    sources?.sources?.length > 0 &&
+                    !(
+                      sources?.sources?.length === 1 &&
+                      sources?.sources[0].id === objectId
+                    ) && (
+                      <div className={classes.infoLine}>
+                        <div className={classes.sourceInfo}>
+                          <b>
+                            <font color="#457b9d">Possible duplicate of:</font>
+                          </b>
+                          &nbsp;
+                          {sources.sources.map(
+                            (dup) =>
+                              dup?.id !== objectId && (
+                                <div key={dup?.id}>
+                                  <Link
+                                    to={`/source/${dup?.id}`}
+                                    role="link"
+                                    key={dup?.id}
+                                  >
+                                    <Button size="small">{dup?.id}</Button>
+                                  </Link>
+                                  <Button
+                                    size="small"
+                                    type="button"
+                                    name={`copySourceButton${dup?.id}`}
+                                    onClick={() => openDialog(dup?.id)}
+                                    className={classes.sourceCopy}
+                                  >
+                                    <AddIcon />
+                                  </Button>
+                                  <CopyAlertPhotometryDialog
+                                    alert={
+                                      alert_data[objectId].filter(
+                                        (a) => a.candid === candid,
+                                      )[0]
+                                    }
+                                    duplicate={dup}
+                                    dialogOpen={dialogOpen}
+                                    closeDialog={closeDialog}
+                                  />
+                                </div>
+                              ),
+                          )}
+                        </div>
                       </div>
                     )}
                 </div>
-              </>
-            )}
-          </div>
-
-          <Accordion
-            expanded={panelPhotometryThumbnailsExpanded}
-            onChange={handlePanelPhotometryThumbnailsChange(true)}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-content"
-              id="photometry-panel-header"
-            >
-              <Typography className={classes.accordionHeading}>
-                Photometry and cutouts
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} lg={6}>
-                  <Suspense fallback={<CircularProgress color="secondary" />}>
-                    <VegaPlotZTFAlert
-                      dataUrl={`/api/alerts_aux/${objectId}`}
-                      jd={jd}
-                    />
-                  </Suspense>
-                </Grid>
-                <Grid
-                  container
-                  item
-                  xs={12}
-                  lg={6}
-                  spacing={1}
-                  className={classes.image}
-                  alignItems="stretch"
-                  alignContent="stretch"
-                >
-                  {candid > 0 && (
+              </Grid>
+              <Grid item xs={12} lg={6}>
+                {candid > 0 && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: "0.5rem",
+                      gridAutoFlow: "row",
+                      padding: "1rem 1rem 0 1rem",
+                    }}
+                  >
                     <ThumbnailList
                       ra={
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.ra
+                        alert_data[objectId].filter(
+                          (a) => a.candid === candid,
+                        )[0].candidate.ra
                       }
                       dec={
-                        alert_data.filter((a) => a.candid === candid)[0]
-                          .candidate.dec
+                        alert_data[objectId].filter(
+                          (a) => a.candid === candid,
+                        )[0].candidate.dec
                       }
                       thumbnails={thumbnails}
                       displayTypes={["new", "ref", "sub"]}
-                      size="10rem"
+                      useGrid={false}
+                      noMargin
+                      size="100%"
+                      minSize="5rem"
+                      maxSize="24vh"
                     />
-                  )}
-                </Grid>
+                  </div>
+                )}
               </Grid>
-            </AccordionDetails>
-          </Accordion>
+            </Grid>
+          </Paper>
+        </Grid>
 
-          <Accordion
-            expanded={panelAlertsExpanded}
-            onChange={handlePanelAlertsExpandedChange(true)}
-          >
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              aria-controls="panel-content"
-              id="alerts-panel-header"
+        <Grid item xs={12} lg={12}>
+          <Suspense fallback={<CircularProgress color="secondary" />}>
+            <Paper
+              style={{
+                width: "100%",
+                height: "55vh",
+                padding: "1rem 0.5rem 0.5rem 0.5rem",
+                backgroundColor: "white",
+              }}
             >
-              <Typography className={classes.accordionHeading}>
-                Alerts
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails className={classes.accordionDetails}>
-              <div className={classes.accordionDetails}>
-                <StyledEngineProvider injectFirst>
-                  <ThemeProvider theme={getMuiTheme(theme)}>
-                    <MUIDataTable
-                      data={rows}
-                      columns={columns}
-                      options={options}
-                    />
-                  </ThemeProvider>
-                </StyledEngineProvider>
-              </div>
-            </AccordionDetails>
-          </Accordion>
+              <ZTFAlertPlot objectId={objectId} jd={jd} />
+            </Paper>
+          </Suspense>
+        </Grid>
 
+        <Grid item xs={12} lg={12}>
+          <StyledEngineProvider injectFirst>
+            <ThemeProvider theme={getMuiTheme(theme)}>
+              <MUIDataTable
+                data={rows}
+                columns={columns}
+                options={options}
+                title="Alerts"
+              />
+            </ThemeProvider>
+          </StyledEngineProvider>
+        </Grid>
+
+        <Grid item xs={12} lg={12}>
           <Accordion
             expanded={panelXMatchExpanded}
             onChange={handlePanelXMatchChange(true)}
@@ -746,8 +868,8 @@ const ZTFAlert = ({ route }) => {
               />
             </AccordionDetails>
           </Accordion>
-        </div>
-      </Paper>
+        </Grid>
+      </Grid>
     );
   }
   return <div>Error rendering page...</div>;

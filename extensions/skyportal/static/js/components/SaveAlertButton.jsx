@@ -31,7 +31,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const source = useSelector((state) => state.source);
   const groups = (useSelector((state) => state.groups.all) || []).filter(
-    (g) => !g.single_user_group
+    (g) => !g.single_user_group,
   );
 
   const currentGroupIds = source?.groups?.map((g) => g.id);
@@ -78,14 +78,14 @@ const SaveAlertButton = ({ alert, userGroups }) => {
       setIsSubmitting(false);
     } else {
       dispatch(
-        showNotification("Source photometry updated successfully", "info")
+        showNotification("Source photometry updated successfully", "info"),
       );
       if (result?.data?.used_latest_candid) {
         dispatch(
           showNotification(
             "Note that the latest alert packet was used to post thumbnails, as the provided candid didn't have any.",
-            "warning"
-          )
+            "warning",
+          ),
         );
       }
       setIsSubmitting(false);
@@ -244,14 +244,14 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 SaveAlertButton.propTypes = {
   alert: PropTypes.shape({
     id: PropTypes.string,
-    candid: PropTypes.number,
+    candid: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     group_ids: PropTypes.arrayOf(PropTypes.number),
   }).isRequired,
   userGroups: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.number,
       name: PropTypes.string,
-    })
+    }),
   ).isRequired,
 };
 
