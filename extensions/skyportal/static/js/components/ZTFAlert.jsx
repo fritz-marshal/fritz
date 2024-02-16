@@ -351,8 +351,12 @@ const ZTFAlert = ({ route }) => {
   const alert_aux_data = useSelector((state) => state.alert_aux_data);
   let cross_matches = {};
 
-  if (alert_aux_data !== null && !isString(alert_aux_data)) {
-    cross_matches = alert_aux_data.cross_matches;
+  if (
+    alert_aux_data &&
+    alert_data[objectId] &&
+    !isString(alert_aux_data[objectId])
+  ) {
+    cross_matches = alert_aux_data[objectId]?.cross_matches;
     // const fids = Array.from(new Set(prv_candidates.map(c => c.fid)))
   }
 
