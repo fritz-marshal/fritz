@@ -267,6 +267,8 @@ class KowalskiFilterHandler(BaseHandler):
                 "comment",
                 "priority",
                 "target_group_ids",
+                "validity_days",
+                "radius",
             }
             if not set(auto_followup.keys()).issubset(valid_keys):
                 return self.error(

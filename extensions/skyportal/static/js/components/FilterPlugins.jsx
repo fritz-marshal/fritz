@@ -26,10 +26,12 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import Tooltip from "@mui/material/Tooltip";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import FileCopyIcon from "@mui/icons-material/FileCopy";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import TextField from "@mui/material/TextField";
@@ -132,13 +134,13 @@ const FilterPlugins = ({ group }) => {
 
   const allGroups = useSelector((state) => state.groups.all);
   const userAccessibleGroups = useSelector(
-    (state) => state.groups.userAccessible
+    (state) => state.groups.userAccessible,
   );
   const { allocationListApiClassname } = useSelector(
-    (state) => state.allocations
+    (state) => state.allocations,
   );
   const { instrumentList, instrumentFormParams } = useSelector(
-    (state) => state.instruments
+    (state) => state.instruments,
   );
 
   useEffect(() => {
@@ -173,6 +175,7 @@ const FilterPlugins = ({ group }) => {
 
   const [autosaveComment, setAutosaveComment] = useState("");
   const [autoFollowupComment, setAutoFollowupComment] = useState("");
+  const [autoFollowupRadius, setAutoFollowupRadius] = useState(0.5);
 
   const [otherVersion, setOtherVersion] = React.useState("");
 
@@ -192,7 +195,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editUpdateAnnotations({
         filter_id: filter.id,
         update_annotations: target,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set update_annotations to ${target}`));
@@ -214,7 +217,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutosave({
         filter_id: filter.id,
         autosave: newAutoSave,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set autosave to ${target}`));
@@ -238,17 +241,17 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutosave({
         filter_id: filter.id,
         autosave: newAutoSave,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(
-        showNotification(`Set autosave comment to ${newAutosaveComment}`)
+        showNotification(`Set autosave comment to ${newAutosaveComment}`),
       );
     } else {
       dispatch(
         showNotification(
-          `Failed to set autosave comment to ${newAutosaveComment}`
-        )
+          `Failed to set autosave comment to ${newAutosaveComment}`,
+        ),
       );
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
@@ -273,19 +276,19 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutoFollowup({
         filter_id: filter.id,
         auto_followup: newAutoFollowup,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(
         showNotification(
-          `Set auto followup comment to ${newAutoFollowupComment}`
-        )
+          `Set auto followup comment to ${newAutoFollowupComment}`,
+        ),
       );
     } else {
       dispatch(
         showNotification(
-          `Failed to set auto followup comment to ${newAutoFollowupComment}`
-        )
+          `Failed to set auto followup comment to ${newAutoFollowupComment}`,
+        ),
       );
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
@@ -302,10 +305,31 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutoFollowup({
         filter_id: filter.id,
         auto_followup: newAutoFollowup,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set auto_followup to ${target}`));
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const handleChangeAutoFollowupConstraints = async () => {
+    const newAutoFollowup = {
+      ...filter_v.auto_followup,
+      radius: autoFollowupRadius,
+    };
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      }),
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(
+          `Set auto_followup radius constraint to ${autoFollowupRadius}`,
+        ),
+      );
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
@@ -316,7 +340,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editActiveFilterVersion({
         filter_id: filter.id,
         active: active_target,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set active to ${active_target}`));
@@ -330,7 +354,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editActiveFidFilterVersion({
         filter_id: filter.id,
         active_fid: activeFidTarget,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Set active filter ID to ${activeFidTarget}`));
@@ -364,7 +388,7 @@ const FilterPlugins = ({ group }) => {
       setSelectedIgnoreGroupIds(filter_v.autosave.ignore_group_ids);
     }
     let newPipeline = (filter_v?.fv || []).filter(
-      (fv) => fv.fid === filter_v.active_fid
+      (fv) => fv.fid === filter_v.active_fid,
     );
     if (newPipeline.length > 0) {
       newPipeline = newPipeline[0].pipeline;
@@ -407,7 +431,7 @@ const FilterPlugins = ({ group }) => {
       // if deleted is not empty, remove these fields from the "required" list
       if (deleted.length > 0) {
         params.formSchema.required = (params.formSchema?.required || []).filter(
-          (item) => !deleted.includes(item)
+          (item) => !deleted.includes(item),
         );
       }
       setSelectedAllocationParams(params);
@@ -420,7 +444,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.addFilterVersion({
         filter_id: filter.id,
         pipeline: data.pipeline,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Saved new filter version`));
@@ -439,7 +463,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutosave({
         filter_id: filter.id,
         autosave: newAutosave,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Saved new autosave filter`));
@@ -455,7 +479,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutoFollowup({
         filter_id: filter.id,
         auto_followup: newAutoFollowup,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Saved new auto followup filter`));
@@ -478,13 +502,13 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutoFollowup({
         filter_id: filter.id,
         auto_followup: newAutoFollowup,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(
         showNotification(
-          `Saved new auto followup allocation_id to ${e.target.value}`
-        )
+          `Saved new auto followup allocation_id to ${e.target.value}`,
+        ),
       );
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
@@ -499,7 +523,7 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutoFollowup({
         filter_id: filter.id,
         auto_followup: newAutoFollowup,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(showNotification(`Saved new auto followup payload`));
@@ -517,13 +541,13 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutosave({
         filter_id: filter.id,
         autosave: newAutosave,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(
         showNotification(
-          `Saved new autosave ignore_group_ids to ${e.target.value}`
-        )
+          `Saved new autosave ignore_group_ids to ${e.target.value}`,
+        ),
       );
       setSelectedIgnoreGroupIds(e.target.value);
     }
@@ -537,13 +561,13 @@ const FilterPlugins = ({ group }) => {
       filterVersionActions.editAutoFollowup({
         filter_id: filter.id,
         auto_followup: newAutoFollowup,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(
         showNotification(
-          `Saved new auto followup target_group_ids to ${e.target.value}`
-        )
+          `Saved new auto followup target_group_ids to ${e.target.value}`,
+        ),
       );
       setSelectedTargetGroupIds(e.target.value);
     }
@@ -825,11 +849,11 @@ const FilterPlugins = ({ group }) => {
                               text={JSON.stringify(
                                 JSON.parse(
                                   filter_v.fv.filter(
-                                    (fv) => fv.fid === otherVersion
-                                  )[0].pipeline
+                                    (fv) => fv.fid === otherVersion,
+                                  )[0].pipeline,
                                 ),
                                 null,
-                                2
+                                2,
                               )}
                             >
                               <IconButton
@@ -863,11 +887,11 @@ const FilterPlugins = ({ group }) => {
                               text={JSON.stringify(
                                 JSON.parse(
                                   filter_v.fv.filter(
-                                    (fv) => fv.fid === filter_v.active_fid
-                                  )[0].pipeline
+                                    (fv) => fv.fid === filter_v.active_fid,
+                                  )[0].pipeline,
                                 ),
                                 null,
-                                2
+                                2,
                               )}
                             >
                               <IconButton
@@ -885,22 +909,22 @@ const FilterPlugins = ({ group }) => {
                             newValue={JSON.stringify(
                               JSON.parse(
                                 filter_v.fv.filter(
-                                  (fv) => fv.fid === filter_v.active_fid
-                                )[0].pipeline
+                                  (fv) => fv.fid === filter_v.active_fid,
+                                )[0].pipeline,
                               ),
                               null,
-                              2
+                              2,
                             )}
                             oldValue={
                               otherVersion.length > 0
                                 ? JSON.stringify(
                                     JSON.parse(
                                       filter_v.fv.filter(
-                                        (fv) => fv.fid === otherVersion
-                                      )[0].pipeline
+                                        (fv) => fv.fid === otherVersion,
+                                      )[0].pipeline,
                                     ),
                                     null,
-                                    2
+                                    2,
                                   )
                                 : otherVersion
                             }
@@ -1306,7 +1330,7 @@ const FilterPlugins = ({ group }) => {
                                 {JSON.stringify(
                                   filter_v.auto_followup.payload,
                                   null,
-                                  2
+                                  2,
                                 )}
                               </Typography>
                               <InputLabel id="allocationSelectLabel">
@@ -1371,6 +1395,62 @@ const FilterPlugins = ({ group }) => {
                       ))}
                     </Select>
                   </div>
+                )}
+              </div>
+              <div
+                style={{
+                  marginTop: "1rem",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {filter_v?.fv && filter_v?.auto_followup?.active === true && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: "0.25rem",
+                      }}
+                    >
+                      <InputLabel id="autoFollowupGroupsSelectLabel">
+                        Triggering constraints
+                      </InputLabel>
+                      <Tooltip title="Constraints are applied to triggers from the filter, cancelling them if they are met: classified (on SkyPortal or TNS), has spectra, has requests, ... but not only looking at the source of the alert, but anything within that radius.">
+                        <IconButton size="small">
+                          <HelpOutlineIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "end",
+                        gap: "1rem",
+                      }}
+                    >
+                      <TextField
+                        className={classes.formControl}
+                        disabled={!filter_v.active}
+                        id="auto_followup_constraints"
+                        label="Radius (arcsec)"
+                        defaultValue={filter_v.auto_followup?.radius}
+                        onChange={(event) =>
+                          setAutoFollowupRadius(event.target.value)
+                        }
+                      />
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleChangeAutoFollowupConstraints}
+                        className={classes.button_add}
+                      >
+                        Save Constraints
+                      </Button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

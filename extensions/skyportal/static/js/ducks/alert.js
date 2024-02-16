@@ -18,17 +18,23 @@ export function fetchAlertData(id) {
   return API.GET(`/api/alerts/${id}`, FETCH_ALERT);
 }
 
-export const fetchAuxData = (id) =>
-  API.GET(`/api/alerts_aux/${id}`, FETCH_AUX);
+export const fetchAuxData = (id) => API.GET(`/api/alerts_aux/${id}`, FETCH_AUX);
 
 export function saveAlertAsSource({ id, payload }) {
   return API.POST(`/api/alerts/${id}`, SAVE_ALERT, payload);
 }
 
-const alertDataReducer = (state = null, action) => {
+const alertDataReducer = (state = {}, action) => {
   switch (action.type) {
     case FETCH_ALERT_OK: {
-      return action.data;
+      if (action.data.length > 0) {
+        // return action.data;
+        return {
+          ...state,
+          [action.data[0].objectId]: action.data,
+        };
+      }
+      return state;
     }
     case FETCH_ALERT_ERROR: {
       return action.message;
@@ -41,10 +47,13 @@ const alertDataReducer = (state = null, action) => {
   }
 };
 
-const auxDataReducer = (state = null, action) => {
+const auxDataReducer = (state = {}, action) => {
   switch (action.type) {
     case FETCH_AUX_OK: {
-      return action.data;
+      return {
+        ...state,
+        [action.data._id]: action.data, // eslint-disable-line no-underscore-dangle
+      };
     }
     case FETCH_AUX_ERROR: {
       return action.message;
