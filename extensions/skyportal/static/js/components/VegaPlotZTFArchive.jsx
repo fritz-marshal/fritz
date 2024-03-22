@@ -6,7 +6,7 @@ import { isMobileOnly } from "react-device-detect";
 const jdNow = Date.now() / 86400000.0 + 40587. + 2400000.5;
 
 const spec = (values, colorScale) => ({
-  $schema: "https://vega.github.io/schema/vega-lite/v4.json",
+  $schema: "https://vega.github.io/schema/vega-lite/v5.2.0.json",
   width: isMobileOnly ? 250 : 500,
   height: isMobileOnly ? 150 : 250,
   data: {
