@@ -499,7 +499,7 @@ class ScopeFeaturesHandler(BaseHandler):
 
             with self.Session() as session:
                 obj = session.scalars(
-                    Obj.select(self.current_user).where(Obj.id == obj_id)
+                    Obj.select(session.user_or_token).where(Obj.id == obj_id)
                 ).first()
                 if obj is None:
                     return self.error(
@@ -508,7 +508,7 @@ class ScopeFeaturesHandler(BaseHandler):
 
                 group_ids = [g.id for g in self.current_user.accessible_groups]
                 groups = session.scalars(
-                    Group.select(self.current_user).where(Group.id.in_(group_ids))
+                    Group.select(session.user_or_token).where(Group.id.in_(group_ids))
                 ).all()
 
                 if {g.id for g in groups} != set(group_ids):
@@ -1088,7 +1088,7 @@ class ArchiveHandler(BaseHandler):
                 photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
 
                 if len(photometry.get("mag", ())) > 0:
-                    add_external_photometry(photometry, self.current_user)
+                    add_external_photometry(photometry, self.associated_user_object)
 
             finally:
                 # always attempt deleting the temporary token
