@@ -997,8 +997,6 @@ class ArchiveHandler(BaseHandler):
         )
 
         with self.Session() as session:
-            user = self.current_user
-
             try:
                 ra_mean = float(
                     np.mean(
@@ -1040,7 +1038,9 @@ class ArchiveHandler(BaseHandler):
                         "group_ids": group_ids,
                         "origin": "Fritz",
                     }
-                    post_source(post_source_data, user.id, session)
+                    post_source(
+                        post_source_data, self.associated_user_object.id, session
+                    )
 
                 # post photometry to obj_id; drop flagged data
                 df_photometry = make_photometry(light_curves, drop_flagged=True)
