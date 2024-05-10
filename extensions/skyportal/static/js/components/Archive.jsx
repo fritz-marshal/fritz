@@ -257,11 +257,14 @@ const Archive = () => {
       const ztf_lc_catalogs = Array.isArray(catalogNames)
         ? catalogNames?.filter((name) => name.indexOf("ZTF_sources_202") !== -1)
         : [];
+      // sort alphabetically descending
+      ztf_lc_catalogs.sort((a, b) => b.localeCompare(a));
       setCatalogOptions(ztf_lc_catalogs);
     }
   }, [catalogNames, dispatch, catalogNamesLoadError]);
 
   useEffect(() => {
+    const lc_id = parseInt(searchParams.get("lc_id"), 10);
     const ra = parseFloat(searchParams.get("ra"), 10);
     const dec = parseFloat(searchParams.get("dec"), 10);
     let radius = parseFloat(searchParams.get("radius"), 10);
@@ -272,38 +275,54 @@ const Archive = () => {
       ? catalogNames?.filter((name) => name.indexOf("ZTF_sources_202") !== -1)
       : [];
 
+    // sort alphabetically descending
+    ztf_lc_catalogs.sort((a, b) => b.localeCompare(a));
+
     if (!selectedCatalog && ztf_lc_catalogs?.length > 0) {
       setSelectedCatalog(ztf_lc_catalogs[0]);
     }
 
-    if (ztf_lc_catalogs?.length < 1 || Number.isNaN(ra) || Number.isNaN(dec)) {
+    if (
+      (ztf_lc_catalogs?.length < 1 || Number.isNaN(ra) || Number.isNaN(dec)) &&
+      !lc_id
+    ) {
       return;
     }
     if (Number.isNaN(radius)) {
       radius = 3;
     }
-    if (!["arcsec", "arcmin", "deg", "ra"].includes(radius_unit)) {
+    if (!["arcsec", "arcmin", "deg", "rad"].includes(radius_unit)) {
       radius_unit = "arcsec";
     }
     if (selectedCatalog && !catalog) {
       catalog = selectedCatalog;
     } else if (!catalog || !ztf_lc_catalogs.includes(catalog)) {
-      catalog = ztf_lc_catalogs[0];
+      catalog = ztf_lc_catalogs[0]; // eslint-disable-line prefer-destructuring
     } else if (catalog && ztf_lc_catalogs.includes(catalog)) {
       setSelectedCatalog(catalog);
     }
-    reset({ ra, dec, radius, radius_unit, catalog: catalog });
+    // set ra, dec, and radius to "" if they are NaN
+    reset({
+      lc_id,
+      ra: Number.isNaN(ra) ? "" : ra,
+      dec: Number.isNaN(dec) ? "" : dec,
+      radius: Number.isNaN(radius) ? "" : radius,
+      radius_unit,
+      catalog,
+    });
 
-    if (ra && dec && radius && radius_unit && catalog) {
+    if (lc_id && catalog) {
+      dispatch(archiveActions.fetchZTFLightCurves({ lc_id, catalog }));
+    } else if (ra && dec && radius && radius_unit && catalog) {
       switch (radius_unit) {
         case "arcmin":
-          radius = radius * 60; //convert arcmin to arcsec
+          radius *= 60; // convert arcmin to arcsec
           break;
         case "deg":
-          radius = radius * 3600; //convert deg to arcsec
+          radius *= 3600; // convert deg to arcsec
           break;
         case "rad":
-          radius = radius * 206264.80624709636; //convert rad to arcsec
+          radius *= 206264.80624709636; // convert rad to arcsec
           break;
         default:
           break;
@@ -324,13 +343,38 @@ const Archive = () => {
 
   const submitSearch = async () => {
     const data = getValues();
-    let { catalog, ra, dec, radius, radius_unit } = data;
+    const { catalog, radius_unit } = data;
+    let { lc_id, ra, dec, radius } = data;
+    lc_id = lc_id?.toString();
     ra = ra?.toString();
     dec = dec?.toString();
     radius = radius?.toString();
     setSelectedCatalog(catalog);
     // check that if positional query is requested then all required data are supplied
-    if (ra.length && dec.length && radius.length) {
+    if (lc_id && catalog) {
+      if (ra.length || dec.length) {
+        dispatch(
+          showNotification(
+            `Positional parameters are ignored when an ID is specified`,
+            "warning",
+          ),
+        );
+      }
+      dispatch(archiveActions.fetchZTFLightCurves({ lc_id, catalog })).then(
+        (response) => {
+          if (response.status === "error") {
+            dispatch(showNotification(response.message, "error"));
+          } else if (response?.data?.length === 1) {
+            dispatch(
+              archiveActions.fetchNearestSources({
+                ra: response.data[0]?.ra,
+                dec: response.data[0]?.dec,
+              }),
+            );
+          }
+        },
+      );
+    } else if (ra.length && dec.length && radius.length && catalog) {
       if (ra?.length) {
         if (
           ra?.includes(":") ||
@@ -366,13 +410,13 @@ const Archive = () => {
         return;
       }
       if (radius_unit === "arcmin") {
-        //convert arcmin to arcsec
+        // convert arcmin to arcsec
         radius = parseFloat(radius) * 60;
       } else if (radius_unit === "deg") {
-        //convert deg to arcsec
+        // convert deg to arcsec
         radius = parseFloat(radius) * 3600;
       } else if (radius_unit === "rad") {
-        //convert rad to arcsec
+        // convert rad to arcsec
         radius = parseFloat(radius) * 206264.80624709636;
       } else {
         radius = parseFloat(radius);
@@ -384,7 +428,10 @@ const Archive = () => {
       dispatch(archiveActions.fetchNearestSources({ ra, dec }));
     } else {
       dispatch(
-        showNotification(`Positional parameters must be all set`, "warning"),
+        showNotification(
+          `Positional parameters must be all set, or an ID must be specified`,
+          "warning",
+        ),
       );
     }
   };
@@ -394,10 +441,12 @@ const Archive = () => {
     setSaveDialogOpen(false);
   };
 
+  let rows = [];
+
   const handleSaveDialogOpen = async (selectedRows) => {
     setRowsToSave(selectedRows);
     const row = rows[selectedRows.data[0].dataIndex];
-    dispatch(axrchiveActions.fetchNearestSources({ ra: row.ra, dec: row.dec }));
+    dispatch(archiveActions.fetchNearestSources({ ra: row.ra, dec: row.dec }));
     setSaveDialogOpen(true);
   };
 
@@ -473,7 +522,6 @@ const Archive = () => {
     refmagerr: light_curve?.refmagerr,
     iqr: light_curve?.iqr,
   });
-  let rows = [];
 
   if (
     ztf_light_curves !== null &&
@@ -566,8 +614,7 @@ const Archive = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (value, tableMeta, updateValue) =>
-          ra_to_hours(value, ":"),
+        customBodyRender: (value) => ra_to_hours(value, ":"),
       },
     },
     {
@@ -576,8 +623,7 @@ const Archive = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (value, tableMeta, updateValue) =>
-          dec_to_dms(value, ":"),
+        customBodyRender: (value) => dec_to_dms(value, ":"),
       },
     },
     {
@@ -594,7 +640,7 @@ const Archive = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+        customBodyRender: (value) => value.toFixed(3),
       },
     },
     {
@@ -603,7 +649,7 @@ const Archive = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
+        customBodyRender: (value) => value.toFixed(3),
       },
     },
     {
@@ -628,8 +674,7 @@ const Archive = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (value, tableMeta, updateValue) =>
-          value ? value.toFixed(5) : value,
+        customBodyRender: (value) => (value ? value.toFixed(5) : value),
       },
     },
     {
@@ -638,8 +683,7 @@ const Archive = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (value, tableMeta, updateValue) =>
-          value ? value.toFixed(5) : value,
+        customBodyRender: (value) => (value ? value.toFixed(5) : value),
       },
     },
   ];
@@ -721,6 +765,21 @@ const Archive = () => {
                       />
                       <FormHelperText>Required</FormHelperText>
                     </FormControl>
+                    <Controller
+                      render={({ field: { onChange, value } }) => (
+                        <TextField
+                          margin="dense"
+                          name="lc_id"
+                          label="LC ID (optional)"
+                          fullWidth
+                          inputRef={register("lc_id", { required: false })}
+                          value={value}
+                          onChange={onChange}
+                        />
+                      )}
+                      name="lc_id"
+                      control={control}
+                    />
                     <Controller
                       render={({ field: { onChange, value } }) => (
                         <TextField
@@ -880,7 +939,7 @@ const Archive = () => {
                   <Controller
                     name="obj_id"
                     color="primary"
-                    render={({ field: { onChange, value } }) => (
+                    render={({ field: { onChange } }) => (
                       <RadioGroup
                         color="primary"
                         /* eslint-disable-next-line react/jsx-props-no-spreading */
@@ -918,13 +977,13 @@ const Archive = () => {
                             />
                           ))}
                         <FormControlLabel
-                          value={"Create new source"}
+                          value="Create new source"
                           control={<Radio />}
-                          label={"Create new source"}
+                          label="Create new source"
                         />
                       </RadioGroup>
                     )}
-                    defaultValue={"Create new source"}
+                    defaultValue="Create new source"
                     control={control2}
                     rules={{ required: true }}
                   />
