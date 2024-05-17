@@ -28,10 +28,8 @@ const FETCH_CROSS_MATCHES_OK = "skyportal/FETCH_CROSS_MATCHES_OK";
 const FETCH_CROSS_MATCHES_ERROR = "skyportal/FETCH_CROSS_MATCHES_ERROR";
 const FETCH_CROSS_MATCHES_FAIL = "skyportal/FETCH_CROSS_MATCHES_FAIL";
 
-export const fetchCatalogNames = () => API.GET(
-  `/api/archive/catalogs`,
-  FETCH_CATALOG_NAMES
-)
+export const fetchCatalogNames = () =>
+  API.GET(`/api/archive/catalogs`, FETCH_CATALOG_NAMES);
 
 const reducerCatalogNames = (state = null, action) => {
   switch (action.type) {
@@ -49,10 +47,11 @@ const reducerCatalogNames = (state = null, action) => {
   }
 };
 
-export const fetchCrossMatches = ({ ra, dec, radius }) => API.GET(
-  `/api/archive/cross_match?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
-  FETCH_CROSS_MATCHES
-)
+export const fetchCrossMatches = ({ ra, dec, radius }) =>
+  API.GET(
+    `/api/archive/cross_match?ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
+    FETCH_CROSS_MATCHES,
+  );
 
 const reducerCrossMatches = (state = null, action) => {
   switch (action.type) {
@@ -71,36 +70,46 @@ const reducerCrossMatches = (state = null, action) => {
 };
 
 // eslint-disable-next-line import/prefer-default-export
-export const fetchZTFLightCurves = ({ catalog, ra, dec, radius }) => API.GET(
-  `/api/archive?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
-  FETCH_ZTF_LIGHT_CURVES
-)
+export const fetchZTFLightCurves = ({ lc_id, catalog, ra, dec, radius }) => {
+  if (lc_id) {
+    return API.GET(
+      `/api/archive/${lc_id}?catalog=${catalog}`,
+      FETCH_ZTF_LIGHT_CURVES,
+    );
+  }
+  return API.GET(
+    `/api/archive?catalog=${catalog}&ra=${ra}&dec=${dec}&radius=${radius}&radius_units=arcsec`,
+    FETCH_ZTF_LIGHT_CURVES,
+  );
+};
 
 export const fetchScopeFeatures = (params) =>
-   API.POST(`/api/archive/features`, FETCH_SCOPE_FEATURES, params
-   );
+  API.POST(`/api/archive/features`, FETCH_SCOPE_FEATURES, params);
 
 const reducerScopeFeatures = (state = null, action) => {
-    switch (action.type) {
-      case FETCH_SCOPE_FEATURES_OK: {
-        return action.data;
-      }
-      case FETCH_SCOPE_FEATURES_ERROR: {
-        return action.message;
-      }
-      case FETCH_SCOPE_FEATURES_FAIL: {
-        return "uncaught error";
-      }
-      default:
-        return state;
+  switch (action.type) {
+    case FETCH_SCOPE_FEATURES_OK: {
+      return action.data;
     }
-  };
+    case FETCH_SCOPE_FEATURES_ERROR: {
+      return action.message;
+    }
+    case FETCH_SCOPE_FEATURES_FAIL: {
+      return "uncaught error";
+    }
+    default:
+      return state;
+  }
+};
 
 export function saveLightCurves(payload) {
   return API.POST(`/api/archive`, SAVE_LIGHT_CURVES, payload);
 }
 
-const reducer = (state = { lightCurves: null, queryInProgress: false }, action) => {
+const reducer = (
+  state = { lightCurves: null, queryInProgress: false },
+  action,
+) => {
   switch (action.type) {
     case FETCH_ZTF_LIGHT_CURVES: {
       return {
@@ -133,9 +142,12 @@ const reducer = (state = { lightCurves: null, queryInProgress: false }, action) 
   }
 };
 
-export function fetchNearestSources({ra, dec}) {
+export function fetchNearestSources({ ra, dec }) {
   // fetch nearest existing sources within 5 arcseconds from (ra, dec)
-  return API.GET(`/api/sources?&ra=${ra}&dec=${dec}&radius=${5/3600}`, FETCH_NEAREST_SOURCES);
+  return API.GET(
+    `/api/sources?&ra=${ra}&dec=${dec}&radius=${5 / 3600}`,
+    FETCH_NEAREST_SOURCES,
+  );
 }
 
 const reducerNearestSources = (state = null, action) => {

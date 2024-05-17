@@ -1,20 +1,12 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 
-import * as alertsActions from "../ducks/alerts";
 
 const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
-  const dispatch = useDispatch();
-  const handleClick = () => {
-    dispatch(alertsActions.fetchAlerts({ object_id: null, ra, dec, radius }));
-  };
-
   return (
     <Link
-      to="/alerts"
-      onClick={handleClick}
+      to={`/alerts?ra=${ra}&dec=${dec}&radius=${radius}&group_by_obj=true`}
       target="_blank"
       style={{ textDecoration: "none", color: "black" }}
     >

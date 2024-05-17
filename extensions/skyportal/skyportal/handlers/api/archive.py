@@ -1,15 +1,18 @@
+import uuid
+
 import numpy as np
 import pandas as pd
+
 from penquins import Kowalski
-import uuid
 from sqlalchemy.exc import IntegrityError
+
 
 from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
+from skyportal.model_util import create_token, delete_token
 from ..base import BaseHandler
 from ...models import Instrument, Source, Stream
-from skyportal.model_util import create_token, delete_token
 from .photometry import add_external_photometry
 from .source import post_source
 from ...models import (
@@ -173,15 +176,6 @@ class ArchiveCatalogsHandler(BaseHandler):
         catalog_names = kowalski.get_catalogs_all()
         # catalog names is a dict with key being the instances and value being the list of catalog names
         # we want to reformat it to be a list of all catalog names
-        # and we remove the alerts catalogs and the skymaps catalog, which are not archive catalogs
-        catalog_names = {
-            k: [
-                c
-                for c in v
-                if not any(x in c for x in ["_alerts", "_alert_aux", "skymaps"])
-            ]
-            for k, v in catalog_names.items()
-        }
         catalog_names = flatten_dict_to_list(catalog_names)
 
         return self.success(data=catalog_names)
@@ -332,8 +326,6 @@ class CrossMatchHandler(BaseHandler):
                 total_results = 0
                 failed_results = 0
                 for instance, instance_results in response.items():
-                    if isinstance(instance_results, dict):
-                        instance_results = [instance_results]
                     for result in instance_results:
                         if result.get("status", "error") == "success":
                             for catalog, catalog_results in result["data"].items():
@@ -630,7 +622,7 @@ class ScopeFeaturesHandler(BaseHandler):
 
 class ArchiveHandler(BaseHandler):
     @auth_or_token
-    def get(self):
+    def get(self, lc_id=None):
         """
         ---
         summary: Retrieve archival light curve data from Kowalski/Gloria by position
@@ -638,6 +630,11 @@ class ArchiveHandler(BaseHandler):
           - archive
           - kowalski
         parameters:
+          - in: path
+            name: lc_id
+            required: false
+            schema:
+              type: string
           - in: query
             name: catalog
             required: true
@@ -645,25 +642,25 @@ class ArchiveHandler(BaseHandler):
               type: str
           - in: query
             name: ra
-            required: true
+            required: false
             schema:
               type: float
             description: RA in degrees
           - in: query
             name: dec
-            required: true
+            required: false
             schema:
               type: float
             description: Dec. in degrees
           - in: query
             name: radius
-            required: true
+            required: false
             schema:
               type: float
             description: Max distance from specified (RA, Dec) (capped at 1 deg)
           - in: query
             name: radius_units
-            required: true
+            required: false
             schema:
               type: string
             description: Distance units (either "deg", "arcmin", or "arcsec")
@@ -715,134 +712,141 @@ class ArchiveHandler(BaseHandler):
             if catalog not in available_catalogs:
                 return self.error(f"Catalog {catalog} not available")
 
-            # executing a cone search
-            ra = self.get_query_argument("ra", None)
-            dec = self.get_query_argument("dec", None)
-            radius = self.get_query_argument("radius", None)
-            radius_units = self.get_query_argument("radius_units", None)
-
-            position_tuple = (ra, dec, radius, radius_units)
-
-            if not all(position_tuple) and any(position_tuple):
-                # incomplete positional arguments? throw errors, since
-                # either all or none should be provided
-                if ra is None:
-                    return self.error("Missing required parameter: ra")
-                if dec is None:
-                    return self.error("Missing required parameter: dec")
-                if radius is None:
-                    return self.error("Missing required parameter: radius")
-                if radius_units is None:
-                    return self.error("Missing required parameter: radius_units")
-            if all(position_tuple):
-                # complete positional arguments? run "near" query
-                if radius_units not in ["deg", "arcmin", "arcsec"]:
-                    return self.error(
-                        "Invalid radius_units value. Must be one of either "
-                        "'deg', 'arcmin', or 'arcsec'."
-                    )
+            light_curve_ids = []
+            # if a light curve ID is provided, use it instead of the positional parameters
+            if str(lc_id) not in ["None", "null", ""]:
                 try:
-                    ra = float(ra)
-                    dec = float(dec)
-                    radius = float(radius)
+                    light_curve_ids = [int(lc_id)]
                 except ValueError:
-                    return self.error("Invalid (non-float) value provided.")
-                if (
-                    (radius_units == "deg" and radius > 1)
-                    or (radius_units == "arcmin" and radius > 60)
-                    or (radius_units == "arcsec" and radius > 3600)
-                ):
-                    return self.error("Radius must be <= 1.0 deg")
+                    return self.error(f"Invalid light curve ID: {lc_id}")
+            else:
+                # executing a cone search
+                ra = self.get_query_argument("ra", None)
+                dec = self.get_query_argument("dec", None)
+                radius = self.get_query_argument("radius", None)
+                radius_units = self.get_query_argument("radius_units", None)
 
-                # grab id's first
-                query = {
-                    "query_type": "near",
-                    "query": {
-                        "max_distance": radius,
-                        "distance_units": radius_units,
-                        "radec": {"query_coords": [ra, dec]},
-                        "catalogs": {
-                            catalog: {
-                                "filter": {},
-                                "projection": {"_id": 1},
-                            }
-                        },
-                    },
-                    "kwargs": {
-                        "max_time_ms": 10000,
-                        "limit": 1000,
-                    },
-                }
+                position_tuple = (ra, dec, radius, radius_units)
 
-                response = kowalski.query(query=query)
-                failed_instances = 0
-                data = {}
-                for instance, instance_results in response.items():
-                    if instance_results.get("status", "error") == "success":
-                        for catalog, catalog_results in instance_results[
-                            "data"
-                        ].items():
-                            if catalog not in data:
-                                data[catalog] = catalog_results["query_coords"]
-                            else:
-                                data[catalog].extend(catalog_results["query_coords"])
-                    else:
-                        failed_instances += 1
+                if not all(position_tuple) and any(position_tuple):
+                    # incomplete positional arguments? throw errors, since
+                    # either all or none should be provided
+                    if ra is None:
+                        return self.error("Missing required parameter: ra")
+                    if dec is None:
+                        return self.error("Missing required parameter: dec")
+                    if radius is None:
+                        return self.error("Missing required parameter: radius")
+                    if radius_units is None:
+                        return self.error("Missing required parameter: radius_units")
+                if all(position_tuple):
+                    # complete positional arguments? run "near" query
+                    if radius_units not in ["deg", "arcmin", "arcsec"]:
+                        return self.error(
+                            "Invalid radius_units value. Must be one of either "
+                            "'deg', 'arcmin', or 'arcsec'."
+                        )
+                    try:
+                        ra = float(ra)
+                        dec = float(dec)
+                        radius = float(radius)
+                    except ValueError:
+                        return self.error("Invalid (non-float) value provided.")
+                    if (
+                        (radius_units == "deg" and radius > 1)
+                        or (radius_units == "arcmin" and radius > 60)
+                        or (radius_units == "arcsec" and radius > 3600)
+                    ):
+                        return self.error("Radius must be <= 1.0 deg")
 
-                if not failed_instances == len(response):
-                    light_curve_ids = list(set([item["_id"] for item in data[catalog]]))
-                    if len(light_curve_ids) == 0:
-                        return self.success(data=[])
+                    # grab id's first
                     query = {
-                        "query_type": "aggregate",
+                        "query_type": "near",
                         "query": {
-                            "catalog": catalog,
-                            "pipeline": [
-                                {"$match": {"_id": {"$in": light_curve_ids}}},
-                                {
-                                    "$project": {
-                                        "_id": 1,
-                                        "ra": 1,
-                                        "dec": 1,
-                                        "filter": 1,
-                                        "meanmag": 1,
-                                        "vonneumannratio": 1,
-                                        "refchi": 1,
-                                        "refmag": 1,
-                                        "refmagerr": 1,
-                                        "iqr": 1,
-                                        "data": {
-                                            "$filter": {
-                                                "input": "$data",
-                                                "as": "item",
-                                                "cond": {
-                                                    "$in": [
-                                                        "$$item.programid",
-                                                        program_id_selector,
-                                                    ]
-                                                },
-                                            }
+                            "max_distance": radius,
+                            "distance_units": radius_units,
+                            "radec": {"query_coords": [ra, dec]},
+                            "catalogs": {
+                                catalog: {
+                                    "filter": {},
+                                    "projection": {"_id": 1},
+                                }
+                            },
+                        },
+                        "kwargs": {
+                            "max_time_ms": 10000,
+                            "limit": 1000,
+                        },
+                    }
+
+                    response = kowalski.query(query=query)
+                    failed_instances = 0
+                    data = {}
+                    for instance, instance_results in response.items():
+                        if instance_results.get("status", "error") == "success":
+                            for catalog, catalog_results in instance_results[
+                                "data"
+                            ].items():
+                                if catalog not in data:
+                                    data[catalog] = catalog_results["query_coords"]
+                                else:
+                                    data[catalog].extend(
+                                        catalog_results["query_coords"]
+                                    )
+                        else:
+                            failed_instances += 1
+
+                    if not failed_instances == len(response):
+                        light_curve_ids = list({item["_id"] for item in data[catalog]})
+                        if len(light_curve_ids) == 0:
+                            return self.success(data=[])
+
+            query = {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": catalog,
+                    "pipeline": [
+                        {"$match": {"_id": {"$in": light_curve_ids}}},
+                        {
+                            "$project": {
+                                "_id": 1,
+                                "ra": 1,
+                                "dec": 1,
+                                "filter": 1,
+                                "meanmag": 1,
+                                "vonneumannratio": 1,
+                                "refchi": 1,
+                                "refmag": 1,
+                                "refmagerr": 1,
+                                "iqr": 1,
+                                "data": {
+                                    "$filter": {
+                                        "input": "$data",
+                                        "as": "item",
+                                        "cond": {
+                                            "$in": [
+                                                "$$item.programid",
+                                                program_id_selector,
+                                            ]
                                         },
                                     }
                                 },
-                            ],
+                            }
                         },
-                    }
-                    response = kowalski.query(query=query)
-                    data = []
-                    failed_instances = 0
-                    for instance, instance_results in response.items():
-                        if instance_results.get("status", "error") == "success":
-                            data.extend(instance_results["data"])
-                        else:
-                            failed_instances += 1
-                    if not failed_instances == len(response):
-                        return self.success(data=data)
-                    else:
-                        return self.error(
-                            "Could not get light curves from any instance"
-                        )
-
+                    ],
+                },
+            }
+            response = kowalski.query(query=query)
+            data = []
+            failed_instances = 0
+            for instance, instance_results in response.items():
+                if instance_results.get("status", "error") == "success":
+                    data.extend(instance_results["data"])
+                else:
+                    failed_instances += 1
+            if not failed_instances == len(response):
+                return self.success(data=data)
+            else:
                 return self.error("Could not get light curves from any instance")
         except Exception as e:
             return self.error(f"Could not get light curves: {e}")
