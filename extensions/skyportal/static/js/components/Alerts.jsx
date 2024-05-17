@@ -211,7 +211,7 @@ const Alerts = () => {
         object_id: objectId,
       });
     } else if (ra && dec) {
-      if (!["arcsec", "arcmin", "deg", "ra"].includes(radius_unit)) {
+      if (!["arcsec", "arcmin", "deg", "rad"].includes(radius_unit)) {
         radius_unit = "arcsec";
       }
       if (Number.isNaN(radius)) {
@@ -263,16 +263,6 @@ const Alerts = () => {
     rows = alerts.map((a) => makeRow(a));
   }
 
-  // DEBUG: we only have 1 alert in the testing instance, so we duplicate the row to have 20 alerts
-  if (rows.length > 0) {
-    rows = Array(20).fill(rows[0]);
-    rows = rows.map((row, i) => {
-      const newRow = { ...row };
-      newRow.jd = row.jd + i;
-      return newRow;
-    });
-  }
-
   if (groupByObj === true && rows.length > 0) {
     // first find the unique objectIds
     const uniqueObjectIds = Array.from(
@@ -293,17 +283,7 @@ const Alerts = () => {
       const separation = greatCircleDistance(ra, dec, row.ra, row.dec);
       return { ...row, separation };
     });
-
-    // // DEBUG: clone the rows to have 3 alerts, and increase the separation by 1 arcsec
-    // rows = Array(3).fill(rows[0]);
-    // rows = rows.map((row, i) => {
-    //   const newRow = { ...row };
-    //   newRow.separation = row.separation + i;
-    //   return newRow;
-    // });
   }
-
-  console.log(rows);
 
   const handleSaveDialogClose = () => {
     if (!saving) {
