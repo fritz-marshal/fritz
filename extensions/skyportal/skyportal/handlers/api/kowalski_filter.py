@@ -4,7 +4,7 @@ from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from ..base import BaseHandler
-from ...models import Filter, Stream
+from ...models import Filter, Stream, Allocation, User
 
 
 env, cfg = load_env()
@@ -202,6 +202,10 @@ class KowalskiFilterHandler(BaseHandler):
                   update_annotations:
                     type: boolean
                     description: "update annotations for existing candidates"
+                  auto_followup:
+                    type: boolean | dict
+                    description: "automatically create follow-up requests for passing and autosaved candidates"
+
         responses:
           200:
             content:
@@ -233,6 +237,15 @@ class KowalskiFilterHandler(BaseHandler):
             filter_id, self.current_user, raise_if_none=True
         )
 
+        # get the existing filter
+        response = kowalski.api(
+            method="get",
+            endpoint=f"api/filters/{filter_id}",
+        )
+        if response.get("status") == "error":
+            return self.error(message=response.get("message"))
+        existing_data = response.get("data")
+
         patch_data = {"filter_id": int(filter_id)}
 
         if active is not None:
@@ -244,11 +257,62 @@ class KowalskiFilterHandler(BaseHandler):
             if not isinstance(autosave, dict):
                 autosave = {"active": bool(autosave)}
             else:
-                valid_keys = {"active", "pipeline", "comment", "ignore_group_ids"}
+                valid_keys = {
+                    "active",
+                    "pipeline",
+                    "comment",
+                    "ignore_group_ids",
+                    "saver_id",
+                }
                 if not set(autosave.keys()).issubset(valid_keys):
                     return self.error(
                         f"autosave dict keys must be a subset of {valid_keys}"
                     )
+                if "saver_id" in autosave:
+                    with self.Session() as session:
+                        # before enforcing the group_admin | system_admin permission check,
+                        # we check if the saver_id is different from the current filter
+                        # if it is the same, we skip the permission check
+                        if (
+                            autosave["saver_id"]
+                            != existing_data.get("autosave", {}).get("saver_id")
+                            and not self.current_user.is_system_admin
+                        ):
+                            filter = session.scalar(
+                                Filter.select(session.user_or_token).where(
+                                    Filter.id == filter_id
+                                )
+                            )
+                            filter_group_users = filter.group.group_users
+                            if not any(
+                                [
+                                    group_user.user_id == self.associated_user_object.id
+                                    and group_user.admin
+                                    for group_user in filter_group_users
+                                ]
+                            ):
+                                return self.error(
+                                    "You do not have permission to set the saver_id for this filter"
+                                )
+
+                        saver_id = autosave["saver_id"]
+                        if saver_id is not None:
+                            try:
+                                saver_id = int(saver_id)
+                            except ValueError:
+                                return self.error(
+                                    f"Invalid saver_id: {saver_id}, must be an integer"
+                                )
+                            user = session.scalar(
+                                User.select(session.user_or_token).where(
+                                    User.id == saver_id
+                                )
+                            )
+                            if user is None:
+                                return self.error(
+                                    f"User with id {saver_id} not found, can't use as saver_id for auto_followup"
+                                )
+                            autosave["saver_id"] = user.id
             patch_data["autosave"] = autosave
         if update_annotations is not None:
             patch_data["update_annotations"] = bool(update_annotations)
@@ -268,12 +332,43 @@ class KowalskiFilterHandler(BaseHandler):
                 "priority",
                 "target_group_ids",
                 "validity_days",
+                "priority_order",
                 "radius",
+                "implements_update",
             }
             if not set(auto_followup.keys()).issubset(valid_keys):
                 return self.error(
                     f"auto_followup dict keys must be a subset of {valid_keys}"
                 )
+            # query the allocation by id
+            allocation_id = auto_followup.get("allocation_id", None)
+            if allocation_id is None:
+                return self.error("auto_followup dict must contain 'allocation_id' key")
+            with self.Session() as session:
+                allocation = session.scalar(
+                    Allocation.select(session.user_or_token).where(
+                        Allocation.id == allocation_id
+                    )
+                )
+                if allocation is None:
+                    return self.error(f"Allocation {allocation_id} not found")
+                try:
+                    facility_api = allocation.instrument.api_class
+                except Exception as e:
+                    return self.error(
+                        f"Could not get facility API of allocation {allocation_id}: {e}"
+                    )
+
+                priority_order = facility_api.priorityOrder
+                if priority_order not in ["asc", "desc"]:
+                    return self.error(
+                        "priority order of allocation must be one of ['asc', 'desc']"
+                    )
+
+                auto_followup["priority_order"] = priority_order
+
+                auto_followup["implements_update"] = facility_api.implements()["update"]
+
             patch_data["auto_followup"] = auto_followup
 
         response = kowalski.api(
