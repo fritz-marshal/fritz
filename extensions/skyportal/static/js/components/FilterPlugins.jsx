@@ -127,10 +127,14 @@ const FilterPlugins = ({ group }) => {
   const theme = useTheme();
   const darkTheme = theme.palette.mode === "dark";
 
+  const profile = useSelector((state) => state.profile);
+
   const filter = useSelector((state) => state.filter);
   const filter_v = useSelector((state) => state.filter_v);
   const { fid } = useParams();
   const loadedId = useSelector((state) => state.filter.id);
+
+  const { users } = useSelector((state) => state.users);
 
   const allGroups = useSelector((state) => state.groups.all);
   const userAccessibleGroups = useSelector(
@@ -375,6 +379,7 @@ const FilterPlugins = ({ group }) => {
     useState(null);
   const [selectedIgnoreGroupIds, setSelectedIgnoreGroupIds] = useState([]);
   const [selectedTargetGroupIds, setSelectedTargetGroupIds] = useState([]);
+  const [selectedSaver, setSelectedSaver] = useState(null);
 
   useEffect(() => {
     // set the allocation_id if there's one in the filter
@@ -386,6 +391,9 @@ const FilterPlugins = ({ group }) => {
     }
     if (filter_v?.autosave?.ignore_group_ids?.length > 0) {
       setSelectedIgnoreGroupIds(filter_v.autosave.ignore_group_ids);
+    }
+    if (filter_v?.autosave?.saver_id) {
+      setSelectedSaver(filter_v.autosave.saver_id);
     }
     let newPipeline = (filter_v?.fv || []).filter(
       (fv) => fv.fid === filter_v.active_fid,
@@ -403,6 +411,12 @@ const FilterPlugins = ({ group }) => {
     }
     if (filter_v?.auto_followup?.pipeline) {
       setValue("pipeline_auto_followup", filter_v.auto_followup.pipeline);
+    }
+    if (filter?.autosave?.comment) {
+      setAutosaveComment(filter.autosave.comment);
+    }
+    if (filter?.auto_followup?.comment) {
+      setAutoFollowupComment(filter.auto_followup.comment);
     }
   }, [filter_v]);
 
@@ -570,6 +584,42 @@ const FilterPlugins = ({ group }) => {
         ),
       );
       setSelectedTargetGroupIds(e.target.value);
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutosaveSaver = async (e) => {
+    let newAutosave = filter_v.autosave;
+    if (typeof filter_v.autosave === "boolean") {
+      newAutosave = { active: filter_v.autosave };
+    }
+    if (e.target.value === "unassigned") {
+      newAutosave.saver_id = null;
+    } else {
+      newAutosave.saver_id = e.target.value;
+    }
+    const result = await dispatch(
+      filterVersionActions.editAutosave({
+        filter_id: filter.id,
+        autosave: newAutosave,
+      }),
+    );
+    if (result.status === "success") {
+      if (e.target.value === "unassigned") {
+        dispatch(
+          showNotification(
+            `Unassigned autosave saver, will use Kowalski's default saver`,
+          ),
+        );
+        setSelectedSaver(null);
+      } else {
+        dispatch(
+          showNotification(
+            `Changed autosave saver to user with id ${e.target.value}`,
+          ),
+        );
+        setSelectedSaver(e.target.value);
+      }
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
@@ -1132,6 +1182,61 @@ const FilterPlugins = ({ group }) => {
                     </div>
                   )}
               </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "end",
+                  gap: "1rem",
+                  marginTop: "1rem",
+                }}
+              >
+                {filter_v?.fv &&
+                  (filter_v?.autosave?.active === true ||
+                    filter_v?.autosave === true) &&
+                  ((group?.group_users || []).filter(
+                    (group_user) =>
+                      group_user?.user_id === profile?.id &&
+                      group_user?.admin === true,
+                  ).length === 1 ||
+                    (profile?.roles || []).includes("Super admin")) && (
+                    <div>
+                      <InputLabel id="saverSelectLabel">
+                        Group user to use as the saver (optional, group admin
+                        only)
+                      </InputLabel>
+                      <Select
+                        inputProps={{ MenuProps: { disableScrollLock: true } }}
+                        labelId="groupsSelectLabel"
+                        value={selectedSaver}
+                        onChange={onSubmitSaveAutosaveSaver}
+                        name="autosaveSaverSelect"
+                        className={classes.allocationSelect}
+                      >
+                        <MenuItem
+                          value={"unassigned"}
+                          key={"unassigned"}
+                          className={classes.SelectItem}
+                        >
+                          Unassigned (use default)
+                        </MenuItem>
+                        {(group?.group_users || [])
+                          .filter((group_user) => group_user.can_save === true)
+                          .map((group_user) => (
+                            <MenuItem
+                              value={group_user.user_id}
+                              key={group_user.id}
+                              className={classes.SelectItem}
+                            >
+                              {(users || []).find(
+                                (user) => user.id === group_user.user_id,
+                              )?.username || "Loading..."}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </div>
+                  )}
+              </div>
               <div className={classes.divider} />
               {/* AUTO FOLLOWUP */}
               <div style={{ display: "flex", flexDirection: "row" }}>
@@ -1465,6 +1570,14 @@ FilterPlugins.propTypes = {
   group: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     name: PropTypes.string,
+    group_users: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.number,
+        user_id: PropTypes.number,
+        roles: PropTypes.arrayOf(PropTypes.string),
+        admin: PropTypes.bool,
+      }),
+    ),
   }).isRequired,
 };
 
