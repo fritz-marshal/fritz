@@ -7,7 +7,6 @@ import yaml
 from launcher.commands import update
 from launcher.config import check_config
 from launcher.skyportal import (
-    get_token as get_skyportal_token,
     patch as patch_skyportal,
 )
 
@@ -17,7 +16,6 @@ def build(
     repo: str = "origin",
     branch: str = "master",
     traefik: bool = False,
-    no_kowalski: bool = False,
     do_update: bool = False,
     skyportal_tag: str = "skyportal/web:latest",
     yes: bool = False,
@@ -28,18 +26,12 @@ def build(
     :param repo: Remote repository to pull from
     :param branch: Branch on the remote repository
     :param traefik: Build Fritz to run behind Traefik
-    :param no_kowalski: Do not build images for Kowalski
     :param do_update: pull <repo>/<branch>, autostash SP and update submodules
     :param skyportal_tag: Tag to apply to SkyPortal docker image
     :param yes: agree with all potentially asked questions
     """
     if do_update:
         update(init=init, repo=repo, branch=branch)
-
-    if not no_kowalski:
-        # install Kowalski's deps:
-        c = ["pip", "install", "-r", "requirements.txt"]
-        subprocess.run(c, cwd="kowalski", check=True)
 
     # check config
     check_config(cfg="fritz.defaults.yaml", yes=yes)
@@ -133,38 +125,8 @@ def build(
         if mi == max_retires + 1:
             raise RuntimeError("Failed to init SkyPortal and load seed data")
 
-        # generate a token for Kowalski to talk to SkyPortal:
-        with open("kowalski/config.yaml") as kowalski_config_yaml:
-            config = yaml.load(kowalski_config_yaml, Loader=yaml.FullLoader)
-
-        token = get_skyportal_token()
-        config["kowalski"]["skyportal"]["token"] = token
-
-        # save it to K's config:
-        with open("kowalski/config.yaml", "w") as kowalski_config_yaml:
-            yaml.dump(config, kowalski_config_yaml)
-
-        # update fritz.yaml
-        fritz_config["kowalski"]["skyportal"]["token"] = token
         with open("fritz.yaml", "w") as fritz_config_yaml:
             yaml.dump(fritz_config, fritz_config_yaml)
-
-    if not no_kowalski:
-        # Build kowalski's images
-        c = ["python", "kowalski.py", "build"]
-        if init and yes and not Path("kowalski/docker-compose.yaml").exists():
-            print("Using default config for Kowalski")
-            subprocess.run(
-                [
-                    "cp",
-                    "kowalski/docker-compose.fritz.defaults.yaml",
-                    "kowalski/docker-compose.yaml",
-                ],
-                check=True,
-            )
-        p = subprocess.run(c, cwd="kowalski")
-        if p.returncode != 0:
-            raise RuntimeError("Failed to build Kowalski's docker images")
 
     if init:
         # stop SkyPortal

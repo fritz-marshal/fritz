@@ -29,7 +29,6 @@ jobs:
       - name: Set up configs
         run: |
           cp fritz.defaults.yaml fritz.yaml
-          cp kowalski/docker-compose.fritz.defaults.yaml kowalski/docker-compose.yaml
 
       - name: Build and spin up
         run: |

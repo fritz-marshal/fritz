@@ -43,11 +43,7 @@ def test():
                 ]
             )
             > 0
-            for container_name in (
-                "kowalski_ingester_1",
-                "kowalski_api_1",
-                "skyportal_web_1",
-            )
+            for container_name in ("skyportal_web_1",)
         )
 
         if not all(containers_up):
@@ -74,11 +70,27 @@ def test():
 
     # ensure that the SkyPortal app is responding to requests
     url = (
-        f"{fritz_config['kowalski']['skyportal']['protocol']}://"
-        f"localhost:{fritz_config['kowalski']['skyportal']['port']}"
+        f"{fritz_config['skyportal']['server']['protocol']}://"
+        f"localhost:{fritz_config['skyportal']['server']['port']}"
         "/api/sysinfo"
     )
-    token = fritz_config["kowalski"]["skyportal"]["token"]
+    # grab the token from the skyportal_web_1 container's .token.yaml file
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "skyportal_web_1",
+        "cat",
+        "/skyportal/.token.yaml",
+    ]
+    # the file looks like:
+    # token=<token>
+    token = (
+        subprocess.check_output(command, universal_newlines=True).strip().split("=")[1]
+    )
+    if not token or len(str(token).strip()) == 0:
+        raise RuntimeError("Failed to get token from SkyPortal")
+
     for i in range(num_retries):
         if i == num_retries - 1:
             raise RuntimeError("SkyPortal failed to spin up")
@@ -95,63 +107,6 @@ def test():
             print("SkyPortal is not responding, waiting...")
             time.sleep(30)
             continue
-
-    alert_stream_tests = (
-        ("ZTF", "test_ingester", "dask_cluster"),
-        ("PGIR", "test_ingester_pgir", "dask_cluster_pgir"),
-        ("WINTER", "test_ingester_wntr", "dask_cluster_wntr"),
-    )
-    for instrument, test_name, log_name in alert_stream_tests:
-        pass
-        print(f"Testing {instrument} alert stream consumption and digestion")
-
-        command = [
-            "docker",
-            "exec",
-            "-i",
-            "kowalski_ingester_1",
-            "python",
-            "-m",
-            "pytest",
-            "-s",
-            f"{test_name}.py",
-        ]
-        try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            sys.exit(1)
-
-        # show processing log from dask cluster
-        command = [
-            "docker",
-            "exec",
-            "-i",
-            "kowalski_ingester_1",
-            "cat",
-            f"/data/logs/{log_name}.log",
-        ]
-        try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            sys.exit(1)
-
-    print("Testing auxiliary catalog ingestion")
-
-    command = [
-        "docker",
-        "exec",
-        "-i",
-        "kowalski_ingester_1",
-        "python",
-        "-m",
-        "pytest",
-        "-s",
-        "test_tools.py",
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError:
-        sys.exit(1)
 
     print("Testing Fritz-specific SkyPortal extensions")
 

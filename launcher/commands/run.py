@@ -1,4 +1,3 @@
-import pathlib
 import subprocess
 
 from launcher.commands.build import build
@@ -10,7 +9,6 @@ def run(
     repo: str = "origin",
     branch: str = "master",
     traefik: bool = False,
-    no_kowalski: bool = False,
     do_update: bool = False,
     skyportal_tag: str = "skyportal/web:latest",
     yes: bool = False,
@@ -22,7 +20,6 @@ def run(
             repo=repo,
             branch=branch,
             traefik=traefik,
-            no_kowalski=no_kowalski,
             do_update=do_update,
             skyportal_tag=skyportal_tag,
             yes=yes,
@@ -46,23 +43,6 @@ def run(
     )
     if p.returncode != 0:
         raise RuntimeError("Failed to start SkyPortal")
-
-    # start up kowalski
-    if yes and not pathlib.Path("kowalski/docker-compose.yaml").exists():
-        # use default docker-compose config file
-        subprocess.run(
-            [
-                "cp",
-                "docker-compose.fritz.defaults.yaml",
-                "docker-compose.yaml",
-            ],
-            check=True,
-            cwd="kowalski",
-        )
-    c = ["python", "kowalski.py", "up"]
-    p = subprocess.run(c, cwd="kowalski")
-    if p.returncode != 0:
-        raise RuntimeError("Failed to start Kowalski")
 
     if traefik:
         # check traefik's config

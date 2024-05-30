@@ -21,7 +21,7 @@ def prune(yes: bool = False):
         stop()
 
         # remove docker images
-        for image_name in ("kowalski_api", "kowalski_ingester", "skyportal/web"):
+        for image_name in "skyportal/web":
             p1 = subprocess.Popen(["docker", "images"], stdout=subprocess.PIPE)
             p2 = subprocess.Popen(
                 ["grep", image_name], stdin=p1.stdout, stdout=subprocess.PIPE
@@ -37,8 +37,6 @@ def prune(yes: bool = False):
 
         # remove docker volumes
         for volume_name in (
-            "kowalski_data",
-            "kowalski_mongodb",
             "skyportal_dbdata",
             "skyportal_thumbnails",
         ):

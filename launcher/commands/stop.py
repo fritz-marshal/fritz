@@ -17,8 +17,7 @@ def stop():
         print("Shutting down Traefik")
         subprocess.run(["docker-compose", "-f", "docker-compose.traefik.yaml", "down"])
 
-    # stop Kowalski and SkyPortal
-    subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
+    # stop SkyPortal
     subprocess.run(
         ["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"],
         cwd="skyportal",

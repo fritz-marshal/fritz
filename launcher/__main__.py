@@ -25,8 +25,7 @@ sys.path.insert(0, "skyportal")
 def initialize_submodules():
     """Initialize submodules if either submodule directory is empty"""
     do_initialize = any(
-        len(list(Path(submodule).glob("*"))) == 0
-        for submodule in ("kowalski", "skyportal")
+        len(list(Path(submodule).glob("*"))) == 0 for submodule in ("skyportal")
     )
     if do_initialize:
         p = subprocess.run(

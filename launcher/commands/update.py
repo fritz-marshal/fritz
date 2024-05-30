@@ -21,8 +21,8 @@ def update(
         raise RuntimeError("Failed to git pull Fritz")
 
     if init:
-        # initialize/update fritz's submodules kowalski and skyportal
-        # pull skyportal and kowalski
+        # initialize/update fritz's submodule skyportal
+        # pull skyportal
         p = subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
         if p.returncode != 0:
             raise RuntimeError("Failed to initialize fritz's submodules")
