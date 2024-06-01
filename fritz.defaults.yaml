@@ -83,7 +83,7 @@ skyportal:
         component: templates/HomePage
         exact: True
       - path: "/source/:id"
-        ccomponent: source/Source
+        component: source/Source
       - path: "/favorites"
         component: FavoritesPage
       - path: "/groups"
