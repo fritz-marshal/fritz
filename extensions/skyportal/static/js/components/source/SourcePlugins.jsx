@@ -7,7 +7,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Button from "../Button";
 
 import AlertsSearchButton from "../alert/AlertsSearchButton";
-import ArchiveSearchButton from "../alert/ArchiveSearchButton";
+import ArchiveSearchButton from "../archive/ArchiveSearchButton";
 
 
 const SourcePlugins = ({ source }) => {
