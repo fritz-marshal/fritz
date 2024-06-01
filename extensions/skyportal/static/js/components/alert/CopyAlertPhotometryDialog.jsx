@@ -10,10 +10,11 @@ import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 
 import { showNotification } from "baselayer/components/Notifications";
-import Button from "./Button";
 
-import { saveAlertAsSource } from "../ducks/alert";
-import FormValidationError from "./FormValidationError";
+import Button from "../Button";
+import FormValidationError from "../FormValidationError";
+
+import { saveAlertAsSource } from "../../ducks/alert";
 
 const CopyAlertPhotometryDialog = ({
   alert,

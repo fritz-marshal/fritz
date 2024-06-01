@@ -46,10 +46,10 @@ import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { showNotification } from "baselayer/components/Notifications";
-import FormValidationError from "./FormValidationError";
-import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../units";
-import * as archiveActions from "../ducks/archive";
-import { checkSource } from "../ducks/source";
+import FormValidationError from "../FormValidationError";
+import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
+import * as archiveActions from "../../ducks/archive";
+import { checkSource } from "../../ducks/source";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";

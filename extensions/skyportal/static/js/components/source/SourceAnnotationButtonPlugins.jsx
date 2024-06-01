@@ -5,9 +5,10 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 
 import CircularProgress from "@mui/material/CircularProgress";
-import Button from "./Button";
 
-import * as archiveActions from "../ducks/archive";
+import Button from "../Button";
+
+import * as archiveActions from "../../ducks/archive";
 
 const PositionedMenu = ({handle, menu_name, menu_items, disabled}) => {
     const [anchorEl, setAnchorEl] = React.useState(null);
