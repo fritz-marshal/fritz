@@ -32,10 +32,10 @@ import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import { showNotification } from "baselayer/components/Notifications";
 
-import * as filterActions from "../ducks/filter";
-import * as filterVersionActions from "../ducks/kowalski_filter";
-import * as groupActions from "../ducks/group";
-import * as streamsActions from "../ducks/streams";
+import * as filterActions from "../../ducks/filter";
+import * as filterVersionActions from "../../ducks/kowalski_filter";
+import * as groupActions from "../../ducks/group";
+import * as streamsActions from "../../ducks/streams";
 
 const GroupFiltersStreams = ({
   group,

@@ -31,16 +31,17 @@ import MUIDataTable from "mui-datatables";
 import ReactJson from "react-json-view";
 
 import SaveAlertButton from "./SaveAlertButton";
-import ThumbnailList from "./ThumbnailList";
 import CopyAlertPhotometryDialog from "./CopyAlertPhotometryDialog";
 
-import { ra_to_hours, dec_to_dms } from "../units";
-import SharePage from "./SharePage";
-import withRouter from "./withRouter";
+import ThumbnailList from "../thumbnail/ThumbnailList";
+import SharePage from "../SharePage";
+import withRouter from "../withRouter";
 
-import * as Actions from "../ducks/alert";
-import { checkSource, fetchSource } from "../ducks/source";
-import { fetchSources } from "../ducks/sources";
+import { ra_to_hours, dec_to_dms } from "../../units";
+
+import * as Actions from "../../ducks/alert";
+import { checkSource, fetchSource } from "../../ducks/source";
+import { fetchSources } from "../../ducks/sources";
 
 const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
 

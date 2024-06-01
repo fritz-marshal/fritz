@@ -4,10 +4,11 @@ import PropTypes from "prop-types";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 
-import AlertsSearchButton from "./AlertsSearchButton";
-import ArchiveSearchButton from "./ArchiveSearchButton";
+import Button from "../Button";
 
-import Button from "./Button";
+import AlertsSearchButton from "../alert/AlertsSearchButton";
+import ArchiveSearchButton from "../alert/ArchiveSearchButton";
+
 
 const SourcePlugins = ({ source }) => {
   const [anchorElArchive, setAnchorElArchive] = React.useState(null);

@@ -80,24 +80,24 @@ skyportal:
     # These are Javascript component routes
     routes:
       - path: "/"
-        component: HomePage
+        component: templates/HomePage
         exact: True
       - path: "/source/:id"
-        component: Source
+        ccomponent: source/Source
       - path: "/favorites"
         component: FavoritesPage
       - path: "/groups"
-        component: Groups
+        component: group/Groups
       - path: "/group/:id"
-        component: Group
+        component: group/Group
       - path: "/profile"
         component: Profile
       - path: "/candidates"
-        component: CandidateList
+        component: candidate/CandidateList
       - path: "/sources"
-        component: SourceList
+        component: source/SourceList
       - path: "/user/:id"
-        component: UserInfo
+        component: user/UserInfo
       - path: "/upload_photometry/:id"
         component: UploadPhotometry
       - path: "/about"
@@ -111,23 +111,23 @@ skyportal:
       - path: "/run/:id"
         component: RunSummary
       - path: "/allocations"
-        component: AllocationPage
+        component: allocation/AllocationPage
       - path: "/allocation/:id"
-        component: AllocationSummary
+        component: allocation/AllocationSummary
       - path: "/telescope/:id"
-        component: TelescopeSummary
+        component: telescope/TelescopeSummary
       - path: "/instrument/:id"
         component: InstrumentSummary
       - path: "/group_sources/:id"
-        component: GroupSources
+        component: group/GroupSources
       - path: "/user_management"
-        component: UserManagement
+        component: user/UserManagement
       - path: "/alerts"
-        component: Alerts
+        component: alert/Alerts
       - path: "/alerts/ztf/:id"
-        component: ZTFAlert
+        component: alert/ZTFAlert
       - path: "/archive"
-        component: Archive
+        component: archive/Archive
       - path: "/upload_spectrum/:id"
         component: UploadSpectrum
       - path: "/source/:id/finder"
@@ -143,17 +143,17 @@ skyportal:
       - path: "/spatial_catalogs"
         component: SpatialCatalogPage
       - path: "/gcn_events"
-        component: GcnEvents
+        component: gcn/GcnEvents
       - path: "/gcn_events/:dateobs"
-        component: GcnEventPage
+        component: gcn/GcnEventPage
       - path: "/telescopes"
-        component: TelescopePage
+        component: telescope/TelescopePage
       - path: "/instruments"
         component: InstrumentPage
       - path: "/mmadetectors"
-        component: MMADetectorPage
+        component: mma_detector/MMADetectorPage
       - path: "/services"
-        component: AnalysisServicePage
+        component: analysis/AnalysisServicePage
       - path: "/recurring_apis"
         component: RecurringAPIPage
       - path: "/shifts"
@@ -165,15 +165,15 @@ skyportal:
       - path: "/observations"
         component: ObservationPage
       - path: "/followup_requests"
-        component: FollowupRequestPage
+        component: followup_request/FollowupRequestPage
       - path: "/source/:obj_id/analysis/:analysis_id"
-        component: SourceAnalysisPage
+        component: source/SourceAnalysisPage
       - path: "/taxonomies"
         component: TaxonomyPage
       - path: "/tns_robots"
-        component: TNSRobotsPage
+        component: tns/TNSRobotsPage
       - path: "/tns_robot/:id/submissions"
-        component: TNSRobotSubmissionsPage
+        component: tns/TNSRobotSubmissionsPage
 
     observation_plan:
       default_filters: ['ztfg', 'ztfr', 'ztfi']

@@ -19,9 +19,10 @@ import { useForm, Controller } from "react-hook-form";
 
 import { showNotification } from "baselayer/components/Notifications";
 
-import * as alertActions from "../ducks/alert";
-import * as sourceActions from "../ducks/source";
-import FormValidationError from "./FormValidationError";
+import FormValidationError from "../FormValidationError";
+
+import * as alertActions from "../../ducks/alert";
+import * as sourceActions from "../../ducks/source";
 
 const SaveAlertButton = ({ alert, userGroups }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);

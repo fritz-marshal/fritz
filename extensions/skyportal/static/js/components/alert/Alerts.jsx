@@ -45,15 +45,15 @@ import TableCell from "@mui/material/TableCell";
 
 import { showNotification } from "baselayer/components/Notifications";
 
-import Button from "./Button";
-import ThumbnailList from "./ThumbnailList";
-import FormValidationError from "./FormValidationError";
+import Button from "../Button";
+import ThumbnailList from "../thumbnail/ThumbnailList";
+import FormValidationError from "../FormValidationError";
 
-import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../units";
-import { greatCircleDistance } from "../utils";
+import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
+import { greatCircleDistance } from "../../utils";
 
-import * as alertActions from "../ducks/alert";
-import * as alertsActions from "../ducks/alerts";
+import * as alertActions from "../../ducks/alert";
+import * as alertsActions from "../../ducks/alerts";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
