@@ -737,10 +737,16 @@ skyportal:
 kowalski:
   server:
     name: "Kowalski"
-    version: "2.0.0"
-    description: "Kowalski: a toolkit for Time-Domain Astronomy"
+    version: "3.0.0"
+    description: "Kowalski: a toolkit for Time-Domain Astronomy, provides an API to access most of its underlying functionality.
+    To use it, you will need a user account that can be provided by the system's administrator. Once you have an account you can retrieve your token using the `/api/auth` endpoint described here.
+    We strongly suggest accessing Kowalski using its dedicated Python client: [penquins](https://github.com/dmitryduev/penquins). It comes with its own documentation and examples, and can be installed with `pip install penquins`.
+    If you have any questions or need help, please contact us."
     host: "0.0.0.0"
     port: 4000
+    processes: 4
+    max_requests: 100000
+    timeout: 36000
     admin_username: "admin"
     # fixme: use ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(32))
     admin_password: "admin"
@@ -751,6 +757,10 @@ kowalski:
     JWT_EXP_DELTA_SECONDS:
     # fixme: use from cryptography.fernet import Fernet; Fernet.generate_key().decode()
     fernet_key: "irjsxvfJdqSJ2fcnpPacbH972dt-RPMMLE48PQ8J5Hg="
+    client_max_size: 1048576
+    contact:
+      name: "Your Name"
+      email: "your_email@your_domain.com"
 
   ztf:
     mountain_ip: null
@@ -760,30 +770,23 @@ kowalski:
     mountain_bind_ip: null
     mountain_bind_port: null
 
-  path:
-    app: "/app"
-    docs: "/app/docs"
-    ml_models_ztf: "/app/models/"
-    ml_models_pgir: "/app/models_pgir/"
-    logs: "/data/logs/"
-    data: "/data"
-    queries: "/data/queries"
-    tess: "/data/tess"
-    tmp: "/_tmp"
-    kafka: "/kafka_2.13-2.5.0"
-
   kafka:
     default.topic.config:
       auto.offset.reset: "earliest"
-    group: "fritz"
-
+    group: "kowalski"
+    scala_version: "2.13"
+    kafka_version: "3.4.1"
     bootstrap.servers: "192.168.0.64:9092,192.168.0.65:9092,192.168.0.66:9092"
     zookeeper: "192.168.0.64:2181"
     bootstrap.test.servers: "localhost:9092"
     zookeeper.test: "localhost:2181"
+    path: "kafka_2.13-3.4.1"
+    processes_per_topic:
+      ZTF: 1
 
   database:
     max_pool_size: 200
+    max_wired_tiger_cache:
     host: "kowalski_mongo_1"
     port: 27017
     # if not null, must be same as in entrypoint of mongo container
@@ -795,7 +798,7 @@ kowalski:
     username: "ztf"
     # fixme: use strong password if exposing the database to the world
     password: "ztf"
-
+    srv: False # to use with mongodb atlas or any other distant mongodb server, where specifying a port is not necessary
     build_indexes: True
 
     collections:
@@ -804,13 +807,15 @@ kowalski:
       queries: "queries"
       alerts_ztf: "ZTF_alerts"
       alerts_ztf_aux: "ZTF_alerts_aux"
-      alerts_zuds: "ZUDS_alerts"
-      alerts_zuds_aux: "ZUDS_alerts_aux"
-      tns: "TNS"
+      alerts_ztf_classifications: "ZTF_alerts_classifications"
       alerts_pgir: "PGIR_alerts"
       alerts_pgir_aux: "PGIR_alerts_aux"
       alerts_wntr: "WNTR_alerts"
       alerts_wntr_aux: "WNTR_alerts_aux"
+      alerts_turbo: "TURBO_alerts"
+      alerts_turbo_aux: "TURBO_alerts_aux"
+      skymaps: "skymaps"
+      tns: "TNS"
 
     indexes:
       ZTF_alerts:
@@ -965,6 +970,38 @@ kowalski:
             - ["coordinates.radec_geojson", "2dsphere"]
             - ["candid", -1]
           unique: false
+        - name: radec_objectid
+          fields:
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["objectid", -1]
+          unique: false
+        - name: jd_radec_candid
+          fields:
+            - ["candidate.jd", 1]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["candid", -1]
+          unique: false
+        - name: jd_radec_objectid
+          fields:
+            - ["candidate.jd", 1]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["objectid", -1]
+          unique: false
+        - name: objectid
+          fields:
+            - ["objectid", -1]
+          unique: false
+        - name: candid
+          fields:
+            - ["candid", -1]
+          unique: true
+
+      TURBO_alerts:
+        - name: radec_candid
+          fields:
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["candid", -1]
+          unique: false
         - name: radec_objectId
           fields:
             - ["coordinates.radec_geojson", "2dsphere"]
@@ -1058,9 +1095,35 @@ kowalski:
                                         "$subtract":
                                           ["$candidate.jd", "$$item.jd"],
                                       },
-                                      3650,
+                                      365,
                                     ],
                                 },
+                              ],
+                          },
+                      },
+                  },
+                "fp_hists":
+                  {
+                    "$filter":
+                      {
+                        "input": { "$arrayElemAt": ["$aux.fp_hists", 0] },
+                        "as": "item",
+                        "cond":
+                          {
+                            "$and":
+                              [
+                                { "$in": ["$$item.programid", null] },
+                                {
+                                  "$lt":
+                                    [
+                                      {
+                                        "$subtract":
+                                          ["$candidate.jd", "$$item.jd"],
+                                      },
+                                      365,
+                                    ],
+                                },
+                                { "$eq": ["$$item.procstatus", "0"] },
                               ],
                           },
                       },
@@ -1078,64 +1141,6 @@ kowalski:
       PGIR_alerts:
         # default upstream aggregation pipeline stages for filtering PGIR alerts:
         - {
-          "$match":
-            {
-              "candid": null
-            },
-        }
-        - {
-          "$project":
-            {
-              "cutoutScience": 0,
-              "cutoutTemplate": 0,
-              "cutoutDifference": 0,
-            },
-        }
-        - {
-          "$lookup":
-            {
-              "from": "PGIR_alerts_aux",
-              "localField": "objectId",
-              "foreignField": "_id",
-              "as": "aux",
-            },
-        }
-        - {
-          "$project":
-            {
-              "cross_matches": { "$arrayElemAt": [ "$aux.cross_matches", 0 ] },
-              "prv_candidates":
-                {
-                  "$filter":
-                    {
-                      "input": { "$arrayElemAt": [ "$aux.prv_candidates", 0 ] },
-                      "as": "item",
-                      "cond":
-                        {
-                          "$lt":
-                            [
-                              {
-                                "$subtract":
-                                  [ "$candidate.jd", "$$item.jd" ],
-                              },
-                                1000,
-                            ],
-                        },
-                    },
-                },
-              "schemavsn": 1,
-              "publisher": 1,
-              "objectId": 1,
-              "candid": 1,
-              "candidate": 1,
-              "classifications": 1,
-              "coordinates": 1,
-            },
-        }
-
-      WNTR_alerts:
-        # default upstream aggregation pipeline stages for filtering WNTR alerts:
-        - {
             "$match":
               {
                 "candid": null
@@ -1152,7 +1157,7 @@ kowalski:
         - {
             "$lookup":
               {
-                "from": "WNTR_alerts_aux",
+                "from": "PGIR_alerts_aux",
                 "localField": "objectId",
                 "foreignField": "_id",
                 "as": "aux",
@@ -1177,6 +1182,127 @@ kowalski:
                                     ["$candidate.jd", "$$item.jd"],
                                 },
                                 1000,
+                              ],
+                          },
+                      },
+                  },
+                "schemavsn": 1,
+                "publisher": 1,
+                "objectId": 1,
+                "candid": 1,
+                "candidate": 1,
+                "classifications": 1,
+                "coordinates": 1,
+              },
+          }
+
+      WNTR_alerts:
+        # TODO verify! copied from PGIR - 1 Aug 2022
+        # default upstream aggregation pipeline stages for filtering WNTR alerts:
+        - {
+            "$match":
+              {
+                "candid": null
+              },
+          }
+        - {
+            "$project":
+              {
+                "cutout_science": 0,
+                "cutout_template": 0,
+                "cutout_difference": 0,
+              },
+          }
+        - {
+            "$lookup":
+              {
+                "from": "WNTR_alerts_aux",
+                "localField": "objectid",
+                "foreignField": "_id",
+                "as": "aux",
+              },
+          }
+        - {
+            "$project":
+              {
+                "cross_matches": { "$arrayElemAt": ["$aux.cross_matches", 0] },
+                "prv_candidates":
+                  {
+                    "$filter":
+                      {
+                        "input": { "$arrayElemAt": ["$aux.prv_candidates", 0] },
+                        "as": "item",
+                        "cond":
+                          {
+                            "$lt":
+                              [
+                                {
+                                  "$subtract":
+                                    ["$candidate.jd", "$$item.jd"],
+                                },
+                                1000,
+                              ],
+                          },
+                      },
+                  },
+                "schemavsn": 1,
+                "publisher": 1,
+                "objectid": 1,
+                "candid": 1,
+                "candidate": 1,
+                "classifications": 1,
+                "coordinates": 1,
+              },
+          }
+
+      TURBO_alerts:
+        # default upstream aggregation pipeline stages for filtering ZTF alerts (may need to be changed for TURBO):
+        - {
+            "$match":
+              { "candid": null, "candidate.programid": { "$in": null } },
+          }
+        - {
+            "$project":
+              {
+                "cutoutScience": 0,
+                "cutoutTemplate": 0,
+                "cutoutDifference": 0,
+              },
+          }
+        - {
+            "$lookup":
+              {
+                "from": "TURBO_alerts_aux",
+                "localField": "objectId",
+                "foreignField": "_id",
+                "as": "aux",
+              },
+          }
+        - {
+            "$project":
+              {
+                "cross_matches": { "$arrayElemAt": ["$aux.cross_matches", 0] },
+                "prv_candidates":
+                  {
+                    "$filter":
+                      {
+                        "input": { "$arrayElemAt": ["$aux.prv_candidates", 0] },
+                        "as": "item",
+                        "cond":
+                          {
+                            "$and":
+                              [
+                                { "$in": ["$$item.programid", null] },
+                                {
+                                  "$lt":
+                                    [
+                                      {
+                                        "$subtract":
+                                          ["$candidate.jd", "$$item.jd"],
+                                      },
+                                      365,
+                                    ],
+                                },
                               ],
                           },
                       },
@@ -1352,6 +1478,69 @@ kowalski:
             yMeanPSFMag: 1
             yMeanPSFMagErr: 1
 
+        CLU_20190625:
+          cone_search_radius: 3
+          cone_search_unit: "deg"
+          use_distance: True
+          distance_value: "z"
+          distance_method: "redshift"
+          cm_at_distance: 30 # in kpc
+          cm_low_distance: 300 # arcsec
+          filter: {}
+          projection:
+            _id: 1
+            name: 1
+            ra: 1
+            dec: 1
+            a: 1
+            b2a: 1
+            pa: 1
+            z: 1
+            sfr_fuv: 1
+            mstar: 1
+            sfr_ha: 1
+            coordinates.radec_str: 1
+
+        NED_BetaV3:
+          cone_search_radius: 3
+          cone_search_unit: "deg"
+          use_distance: True
+          distance_value: "DistMpc"
+          distance_method: "mpc"
+          cm_at_distance: 30 # in kpc
+          cm_low_distance: 300 # arcsec
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            ra: 1
+            dec: 1
+            objname: 1
+            objtype: 1
+            z: 1
+            z_unc: 1
+            z_tech: 1
+            z_qual: 1
+            DistMpc: 1
+            DistMpc_unc: 1
+            ebv: 1
+            m_Ks: 1
+            m_Ks_unc: 1
+            tMASSphot: 1
+            Mstar: 1
+            Mstar_unc: 1
+
+        milliquas:
+          cone_search_radius: 2
+          cone_search_unit: "arcsec"
+          filter: {}
+          projection:
+            _id: 1
+            coordinates.radec_str: 1
+            Name: 1
+            Descrip: 1
+            Qpct: 1
+
       PGIR:
         2MASS_PSC:
           cone_search_radius: 8
@@ -1498,6 +1687,29 @@ kowalski:
             yMeanPSFMag: 1
             yMeanPSFMagErr: 1
 
+        CLU_20190625:
+          cone_search_radius: 3
+          cone_search_unit: "deg"
+          use_distance: True
+          distance_value: "z"
+          distance_method: "redshift"
+          cm_at_distance: 30 # in kpc
+          cm_low_distance: 300 # arcsec
+          filter: {}
+          projection:
+            _id: 1
+            name: 1
+            ra: 1
+            dec: 1
+            a: 1
+            b2a: 1
+            pa: 1
+            z: 1
+            sfr_fuv: 1
+            mstar: 1
+            sfr_ha: 1
+            coordinates.radec_str: 1
+
       WNTR:
         2MASS_PSC:
           cone_search_radius: 2
@@ -1631,20 +1843,73 @@ kowalski:
             yMeanPSFMag: 1
             yMeanPSFMagErr: 1
 
-  ml_models:
+        CLU_20190625:
+          cone_search_radius: 3
+          cone_search_unit: "deg"
+          use_distance: True
+          distance_value: "z"
+          distance_method: "redshift"
+          cm_at_distance: 30 # in kpc
+          cm_low_distance: 5 # arcsec
+          filter: {}
+          projection:
+            _id: 1
+            name: 1
+            ra: 1
+            dec: 1
+            a: 1
+            b2a: 1
+            pa: 1
+            z: 1
+            sfr_fuv: 1
+            mstar: 1
+            sfr_ha: 1
+            coordinates.radec_str: 1
+
+  ml:
     ZTF:
-      braai:
-        version: "d6_m9"
-      acai_h:
-        version: "d1_dnn_20201130"
-      acai_v:
-        version: "d1_dnn_20201130"
-      acai_o:
-        version: "d1_dnn_20201130"
-      acai_n:
-        version: "d1_dnn_20201130"
-      acai_b:
-        version: "d1_dnn_20201130"
+      # instruments need to have a list of allowed features (as tuple), and a list of models
+      allowed_features: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright', 'classtar', 'peakmag_so_far', 'maxmag_so_far', 'days_since_peak', 'days_to_peak', 'nnondet', 'age')
+      models:
+      # models need: a version (string, e.g. "v1"), a triplet (bool), and feature_names (bool, or list of feature names as tuple)
+      # if feature_names is True, all features from allowed_features are used
+        braai:
+          triplet: True
+          feature_names: False
+          version: "d6_m9"
+          url: "https://github.com/dmitryduev/braai/raw/master/models/braai_d6_m9.h5"
+        acai_h:
+          triplet: True
+          feature_names: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright')
+          version: "d1_dnn_20201130"
+          url: "https://github.com/dmitryduev/acai/raw/master/models/acai_h.d1_dnn_20201130.h5"
+        acai_v:
+          triplet: True
+          feature_names: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright')
+          version: "d1_dnn_20201130"
+          url: "https://github.com/dmitryduev/acai/raw/master/models/acai_v.d1_dnn_20201130.h5"
+        acai_o:
+          triplet: True
+          feature_names: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright')
+          version: "d1_dnn_20201130"
+          url: "https://github.com/dmitryduev/acai/raw/master/models/acai_o.d1_dnn_20201130.h5"
+        acai_n:
+          triplet: True
+          feature_names: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright')
+          version: "d1_dnn_20201130"
+          url: "https://github.com/dmitryduev/acai/raw/master/models/acai_n.d1_dnn_20201130.h5"
+        acai_b:
+          triplet: True
+          feature_names: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright')
+          version: "d1_dnn_20201130"
+          url: "https://github.com/dmitryduev/acai/raw/master/models/acai_b.d1_dnn_20201130.h5"
+        bts:
+          triplet: True
+          feature_names: ('sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'fwhm', 'magpsf', 'sigmapsf', 'chipsf', 'ra', 'dec', 'diffmaglim', 'ndethist', 'nmtchps', 'age', 'days_since_peak', 'days_to_peak', 'peakmag_so_far', 'drb', 'ncovhist', 'nnondet', 'chinr', 'sharpnr', 'scorr', 'sky', 'maxmag_so_far')
+          version: "v1.0.1"
+          format: "pb"
+          order: ["triplet", "features"]
+          url: "https://raw.githubusercontent.com/nabeelre/BTSbot/main/production_models/v1.0.1.tar.gz"
 
   skyportal:
     protocol: "http"
@@ -1663,6 +1928,12 @@ kowalski:
     url: "http://site/allexp.tbl"
     username: "username"
     password: "password"
+
+  tns:
+    url: https://wis-tns.org
+    bot_id: 31415926
+    bot_name: Null
+    api_key:
 
   dask:
     host: 127.0.0.1
@@ -1694,15 +1965,19 @@ kowalski:
     lifetime_stagger: 1 hours
     lifetime_restart: true
 
-  tns:
-    api_key:
-    bot_id: 31415926
-    bot_name: Null
-    url: https://wis-tns.org
+  dask_turbo:
+    host: 127.0.0.1
+    scheduler_port: 8790
+    dashboard_address: :8791
+    n_workers: 4
+    threads_per_worker: 1
+    lifetime: 24 hours
+    lifetime_stagger: 1 hours
+    lifetime_restart: true
 
   misc:
     broker: True
-    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2", "2.1.0", "2.1.1", "2.2.1", "2.3.1"]
+    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2", "2.1.0", "2.1.1", "2.2.0", "2.2.1", "2.3.1", "2.3.2", "2.3.3", "2.4.0", "2.4.1"]
     query_expiration_interval: 5
     max_time_ms: 300000
     max_retries: 100
@@ -1714,164 +1989,8 @@ kowalski:
     slack_bot_token:
     slack_channel_id:
 
-  # this is used to make supervisord.conf files at build time
-  supervisord:
-    api:
-      unix_http_server:
-        file: /dev/shm/supervisor.sock
-
-      supervisord:
-        logfile: /data/logs/supervisord.log
-        logfile_maxbytes: 50MB
-        logfile_backups: 20
-        loglevel: info
-        pidfile: /tmp/supervisord.pid
-        nodaemon: True
-        minfds: 1024
-        minprocs: 200
-
-      "rpcinterface:supervisor":
-        "supervisor.rpcinterface_factory": supervisor.rpcinterface:make_main_rpcinterface
-
-      supervisorctl:
-        serverurl: unix:///dev/shm/supervisor.sock
-
-      "program:gunicorn":
-        # fixme: adjust number of workers -w for your system
-        command: >
-          /usr/local/bin/gunicorn
-          -w 2
-          --bind 0.0.0.0:4000
-          --worker-tmp-dir /dev/shm
-          --worker-class aiohttp.GunicornUVLoopWebWorker
-          --log-level=DEBUG
-          --timeout 36000
-          --max-requests 100000
-          api:app_factory
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/gunicorn_stdout.log
-        stdout_logfile_maxbytes: 30MB
-        stderr_logfile: /data/logs/gunicorn_stderr.log
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-    ingester:
-      unix_http_server:
-        file: /dev/shm/supervisor.sock
-
-      supervisord:
-        logfile: /data/logs/supervisord.log
-        logfile_maxbytes: 50MB
-        logfile_backups: 20
-        loglevel: info
-        pidfile: /tmp/supervisord.pid
-        nodaemon: True
-        minfds: 1024
-        minprocs: 200
-
-      "rpcinterface:supervisor":
-        "supervisor.rpcinterface_factory": supervisor.rpcinterface:make_main_rpcinterface
-
-      supervisorctl:
-        serverurl: unix:///dev/shm/supervisor.sock
-
-      "program:dask-cluster":
-        command: /usr/local/bin/python dask_cluster.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/dask_cluster.log
-        stdout_logfile_maxbytes: 50MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:dask-cluster-pgir":
-        command: /usr/local/bin/python dask_cluster_pgir.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/dask_cluster_pgir.log
-        stdout_logfile_maxbytes: 50MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:dask-cluster-winter":
-        command: /usr/local/bin/python dask_cluster_winter.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/dask_cluster_winter.log
-        stdout_logfile_maxbytes: 50MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:alert-broker-ztf":
-        command: /usr/local/bin/python alert_broker_ztf.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/alert_broker_ztf.log
-        stdout_logfile_maxbytes: 30MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:alert-broker-pgir":
-        command: /usr/local/bin/python alert_broker_pgir.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/alert_broker_pgir.log
-        stdout_logfile_maxbytes: 30MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:alert-broker-winter":
-        command: /usr/local/bin/python alert_broker_winter.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/alert_broker_winter.log
-        stdout_logfile_maxbytes: 30MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:ops-watcher-ztf":
-        command: /usr/local/bin/python ops_watcher_ztf.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/ops_watcher_ztf.log
-        stdout_logfile_maxbytes: 30MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:tns-watcher":
-        command: /usr/local/bin/python tns_watcher.py
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/tns_watcher.log
-        stdout_logfile_maxbytes: 30MB
-        redirect_stderr: True
-        environment: "PRODUCTION=1"
-
-      "program:performance_reporter":
-        command: /usr/local/bin/python performance_reporter.py --send_to_slack --days_ago 1
-        directory: /app
-        user: root
-        autostart: true
-        autorestart: true
-        stdout_logfile: /data/logs/performance_reporter_stdout.log
-        stdout_logfile_maxbytes: 10MB
-        redirect_stderr: True
+  enabled:
+    ztf: True
+    pgir: True
+    wntr: True
+    turbo: True
