@@ -59,7 +59,7 @@ def run(
             check=True,
             cwd="kowalski",
         )
-    c = ["python", "kowalski.py", "up"]
+    c = ["make", "docker_up"]
     p = subprocess.run(c, cwd="kowalski")
     if p.returncode != 0:
         raise RuntimeError("Failed to start Kowalski")
