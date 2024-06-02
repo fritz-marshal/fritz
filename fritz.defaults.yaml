@@ -488,6 +488,7 @@ skyportal:
     #
     # You need to have Google+ API enabled; it takes a few minutes to activate.
 
+    protocol: http
     host: <host>
     port:
 
