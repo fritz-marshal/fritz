@@ -547,8 +547,12 @@ skyportal:
 
   misc:
     days_to_keep_unsaved_candidates: 7
-    public_group_name: "Sitewide Group"
     minutes_to_keep_candidate_query_cache: 120
+    minutes_to_keep_localization_instrument_query_cache: 1440
+    max_items_in_localization_instrument_query_cache: 100
+    minutes_to_keep_public_source_pages_cache: 1440
+    minutes_to_keep_reports_cache: 1440
+    public_group_name: "Sitewide Group"
     # Use a named cosmology from `astropy.cosmology.parameters.available` cosmologies
     # or supply the arguments for an `astropy.cosmology.FLRW` cosmological instance.
     # If {"flat": True} then use a subclass of the FLRW, called `FlatLambdaCMD`
@@ -567,8 +571,6 @@ skyportal:
     # The airmass value below which to track hours for when plotting
     # on an object's observability page
     hours_below_airmass_threshold: 2.9
-
-    allow_nonadmins_delete_objs: False
 
     color_palette: turbo
 
