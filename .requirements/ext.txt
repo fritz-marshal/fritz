@@ -1,2 +1,2 @@
-penquins>=2.3.2
-pymongo>=4.4.0
+penquins>=2.4.1
+pymongo>=4.7.2
