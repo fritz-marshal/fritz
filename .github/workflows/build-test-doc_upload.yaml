@@ -19,10 +19,12 @@ jobs:
       with:
         python-version: '3.10'
 
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 20
+
     - name: Install system dependencies
       run: |
-        curl -sL https://deb.nodesource.com/setup_19.x | sudo -E bash -
-
         sudo apt install -y libcurl4-gnutls-dev libgnutls28-dev
 
     - name: Install dependencies
