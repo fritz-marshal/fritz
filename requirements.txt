@@ -2,8 +2,8 @@
 -r .requirements/doc.txt
 -r .requirements/ext.txt
 -r kowalski/requirements/requirements.txt
--r kowalski/requirements/requirements_api.txt
--r kowalski/requirements/requirements_ingester.txt
--r kowalski/requirements/requirements_test.txt
--r kowalski/requirements/requirements_tools.txt
+# -r kowalski/requirements/requirements_api.txt
+# -r kowalski/requirements/requirements_ingester.txt
+# -r kowalski/requirements/requirements_test.txt
+# -r kowalski/requirements/requirements_tools.txt
 fire>=0.3.1
