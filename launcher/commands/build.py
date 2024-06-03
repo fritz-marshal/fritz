@@ -38,7 +38,7 @@ def build(
 
     if not no_kowalski:
         # install Kowalski's deps:
-        c = ["pip", "install", "-r", "requirements.txt"]
+        c = ["make", "setup"]
         subprocess.run(c, cwd="kowalski", check=True)
 
     # check config
@@ -151,7 +151,7 @@ def build(
 
     if not no_kowalski:
         # Build kowalski's images
-        c = ["python", "kowalski.py", "build"]
+        c = ["make", "docker_build"]
         if init and yes and not Path("kowalski/docker-compose.yaml").exists():
             print("Using default config for Kowalski")
             subprocess.run(

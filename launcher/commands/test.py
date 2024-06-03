@@ -17,7 +17,7 @@ def test():
     with open("fritz.yaml") as fritz_config_yaml:
         fritz_config = yaml.load(fritz_config_yaml, Loader=yaml.FullLoader)
 
-    num_retries = 10
+    num_retries = 20
     # make sure the containers are up and running
     for i in range(num_retries):
         if i == num_retries - 1:
@@ -96,57 +96,10 @@ def test():
             time.sleep(30)
             continue
 
-    alert_stream_tests = (
-        ("ZTF", "test_ingester", "dask_cluster"),
-        ("PGIR", "test_ingester_pgir", "dask_cluster_pgir"),
-        ("WINTER", "test_ingester_wntr", "dask_cluster_wntr"),
-    )
-    for instrument, test_name, log_name in alert_stream_tests:
-        pass
-        print(f"Testing {instrument} alert stream consumption and digestion")
-
-        command = [
-            "docker",
-            "exec",
-            "-i",
-            "kowalski_ingester_1",
-            "python",
-            "-m",
-            "pytest",
-            "-s",
-            f"{test_name}.py",
-        ]
-        try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            sys.exit(1)
-
-        # show processing log from dask cluster
-        command = [
-            "docker",
-            "exec",
-            "-i",
-            "kowalski_ingester_1",
-            "cat",
-            f"/data/logs/{log_name}.log",
-        ]
-        try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            sys.exit(1)
-
-    print("Testing auxiliary catalog ingestion")
-
+    print("Testing Kowalski alert stream consumption, digestion, and tools")
     command = [
-        "docker",
-        "exec",
-        "-i",
-        "kowalski_ingester_1",
-        "python",
-        "-m",
-        "pytest",
-        "-s",
-        "test_tools.py",
+        "make",
+        "docker_test",
     ]
     try:
         subprocess.run(command, check=True)
