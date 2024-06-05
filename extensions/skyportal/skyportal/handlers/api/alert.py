@@ -535,6 +535,7 @@ def post_alert(
                     "query": {
                         "catalog": "ZTF_alerts",
                         "filter": {
+                            "objectId": object_id,
                             "candidate.programid": {"$in": program_id_selector},
                         },
                         "projection": {
@@ -546,15 +547,13 @@ def post_alert(
                     },
                     "kwargs": {
                         "limit": 1,
+                        "sort": {"candidate.jd": -1},
                     },
                 }
                 response = kowalski.query(query=query)
                 if response.get("default").get("status", "error") == "success":
                     cutout = response.get("default").get("data", list(dict()))
                     if len(cutout) > 0:
-                        cutout = sorted(
-                            cutout, key=lambda x: x["candidate"]["jd"], reverse=True
-                        )
                         cutout = cutout[0]
                         used_latest = True
                     else:
