@@ -478,12 +478,17 @@ def post_alert(
 
         df["stream_ids"] = df["programid"].apply(
             lambda x: ztf_program_id_to_stream_id[x]
+            if x in ztf_program_id_to_stream_id
+            else None
         )
-        photometry["stream_ids"] = df["stream_ids"].tolist()
 
         # remove the datapoints where the stream_id is not defined
-        mask_good_stream_id = df["stream_ids"].apply(lambda x: x is not None)
+        mask_good_stream_id = df["stream_ids"].apply(
+            lambda x: x is not None and not np.isnan(x)
+        )
         df = df.loc[mask_good_stream_id]
+
+        photometry["stream_ids"] = df["stream_ids"].tolist()
 
         if len(photometry.get("mag", ())) > 0:
             try:
