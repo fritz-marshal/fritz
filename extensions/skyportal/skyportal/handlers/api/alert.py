@@ -449,19 +449,6 @@ def post_alert(
         mask_good_diffmaglim = df["diffmaglim"] > 0
         df = df.loc[mask_good_diffmaglim]
 
-        photometry = {
-            "obj_id": obj_id_to_save,
-            "instrument_id": instrument.id,
-            "mjd": df["mjd"].tolist(),
-            "mag": df["magpsf"].tolist(),
-            "magerr": df["sigmapsf"].tolist(),
-            "limiting_mag": df["diffmaglim"].tolist(),
-            "magsys": df["magsys"].tolist(),
-            "filter": df["ztf_filter"].tolist(),
-            "ra": df["ra"].tolist(),
-            "dec": df["dec"].tolist(),
-        }
-
         ztf_program_id_to_stream_id = dict()
         streams = session.scalars(Stream.select(session.user_or_token)).all()
         if streams is None:
@@ -488,9 +475,26 @@ def post_alert(
         )
         df = df.loc[mask_good_stream_id]
 
-        photometry["stream_ids"] = df["stream_ids"].tolist()
+        # post the photometry in a loop for each different stream_id
+        # as the add_external_photometry function uses the same stream_ids for all the datapoints
+        for stream_id in df["stream_ids"].unique():
+            df_stream = df.loc[df["stream_ids"] == stream_id]
+            if len(df_stream) == 0:
+                continue
 
-        if len(photometry.get("mag", ())) > 0:
+            photometry = {
+                "obj_id": obj_id_to_save,
+                "instrument_id": instrument.id,
+                "mjd": df_stream["mjd"].tolist(),
+                "mag": df_stream["magpsf"].tolist(),
+                "magerr": df_stream["sigmapsf"].tolist(),
+                "limiting_mag": df_stream["diffmaglim"].tolist(),
+                "magsys": df_stream["magsys"].tolist(),
+                "filter": df_stream["ztf_filter"].tolist(),
+                "ra": df_stream["ra"].tolist(),
+                "dec": df_stream["dec"].tolist(),
+                "stream_ids": df_stream["stream_ids"].tolist(),
+            }
             try:
                 photometry_ids, _ = add_external_photometry(photometry, user)
             except Exception as e:
