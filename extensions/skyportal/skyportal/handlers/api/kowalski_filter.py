@@ -70,23 +70,27 @@ class KowalskiFilterHandler(BaseHandler):
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
 
-        # permission check
-        _ = Filter.get_if_accessible_by(
-            filter_id, self.current_user, raise_if_none=True
-        )
-        response = kowalski.api(
-            method="get",
-            endpoint=f"api/filters/{filter_id}",
-        )
-        data = response.get("data")
-        # drop monogdb's _id's which are not (default) JSON-serializable
-        if data is not None:
-            data.pop("_id", None)
-        status = response.get("status")
-        if status == "error":
-            message = response.get("message")
-            return self.error(message=message)
-        return self.success(data=data)
+        with self.Session() as session:
+            stmt = Filter.select(session.user_or_token).where(
+                Filter.id == int(filter_id)
+            )
+            f = session.scalars(stmt).first()
+            if f is None:
+                return self.error(f"No filter with ID: {filter_id}")
+
+            response = kowalski.api(
+                method="get",
+                endpoint=f"api/filters/{filter_id}",
+            )
+            data = response.get("data")
+            # drop monogdb's _id's which are not (default) JSON-serializable
+            if data is not None:
+                data.pop("_id", None)
+            status = response.get("status")
+            if status == "error":
+                message = response.get("message")
+                return self.error(message=message)
+            return self.success(data=data)
 
     @auth_or_token
     def post(self, filter_id):
@@ -130,37 +134,43 @@ class KowalskiFilterHandler(BaseHandler):
         if pipeline is None:
             return self.error("Missing pipeline parameter")
 
-        f = Filter.get_if_accessible_by(
-            filter_id, self.current_user, raise_if_none=True
-        )
+        with self.Session() as session:
+            stmt = Filter.select(session.user_or_token).where(
+                Filter.id == int(filter_id)
+            )
+            f = session.scalars(stmt).first()
+            if f is None:
+                return self.error(f"No filter with ID: {filter_id}")
 
-        group_id = f.group_id
+            group_id = f.group_id
 
-        # get stream:
-        stream = Stream.get_if_accessible_by(
-            f.stream_id, self.current_user, raise_if_none=True
-        )
+            stmt = Stream.select(session.user_or_token).where(
+                Stream.id == int(f.stream_id)
+            )
+            stream = session.scalars(stmt).first()
+            if f is None:
+                return self.error(f"No stream with ID: {filter_id}")
 
-        post_data = {
-            "group_id": group_id,
-            "filter_id": int(filter_id),
-            "catalog": stream.altdata["collection"],
-            "permissions": stream.altdata["selector"],
-            "pipeline": pipeline,
-        }
-        response = kowalski.api(
-            method="post",
-            endpoint="api/filters",
-            data=post_data,
-        )
-        data = response.get("data")
-        if data is not None:
-            data.pop("_id", None)
-        status = response.get("status")
-        if status == "error":
-            message = response.get("message")
-            return self.error(message=message)
-        return self.success(data=data)
+            post_data = {
+                "group_id": group_id,
+                "filter_id": int(filter_id),
+                "catalog": stream.altdata["collection"],
+                "permissions": stream.altdata["selector"],
+                "pipeline": pipeline,
+            }
+            response = kowalski.api(
+                method="post",
+                endpoint="api/filters",
+                data=post_data,
+            )
+            data = response.get("data")
+            if data is not None:
+                data.pop("_id", None)
+            status = response.get("status")
+            if status == "error":
+                message = response.get("message")
+                return self.error(message=message)
+            return self.success(data=data)
 
     @auth_or_token
     def patch(self, filter_id):
@@ -232,10 +242,13 @@ class KowalskiFilterHandler(BaseHandler):
                 "At least one of (active, active_fid, autosave, update_annotations, auto_followup) must be set"
             )
 
-        # permission check
-        _ = Filter.get_if_accessible_by(
-            filter_id, self.current_user, raise_if_none=True
-        )
+        with self.Session() as session:
+            stmt = Filter.select(session.user_or_token).where(
+                Filter.id == int(filter_id)
+            )
+            f = session.scalars(stmt).first()
+            if f is None:
+                return self.error(f"No filter with ID: {filter_id}")
 
         # get the existing filter
         response = kowalski.api(
@@ -408,17 +421,20 @@ class KowalskiFilterHandler(BaseHandler):
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
 
-        # permission check
-        _ = Filter.get_if_accessible_by(
-            filter_id, self.current_user, raise_if_none=True
-        )
+        with self.Session() as session:
+            stmt = Filter.select(session.user_or_token).where(
+                Filter.id == int(filter_id)
+            )
+            f = session.scalars(stmt).first()
+            if f is None:
+                return self.error(f"No filter with ID: {filter_id}")
 
-        response = kowalski.api(
-            method="patch",
-            endpoint=f"api/filters/{filter_id}",
-        )
-        status = response.get("status")
-        if status == "error":
-            message = response.get("message")
-            return self.error(message=message)
-        return self.success()
+            response = kowalski.api(
+                method="patch",
+                endpoint=f"api/filters/{filter_id}",
+            )
+            status = response.get("status")
+            if status == "error":
+                message = response.get("message")
+                return self.error(message=message)
+            return self.success()
