@@ -85,13 +85,13 @@ skyportal:
       - path: "/source/:id"
         component: source/Source
       - path: "/favorites"
-        component: FavoritesPage
+        component: listing/FavoritesPage
       - path: "/groups"
         component: group/Groups
       - path: "/group/:id"
         component: group/Group
       - path: "/profile"
-        component: Profile
+        component: user/Profile
       - path: "/candidates"
         component: candidate/CandidateList
       - path: "/sources"
@@ -99,17 +99,17 @@ skyportal:
       - path: "/user/:id"
         component: user/UserInfo
       - path: "/upload_photometry/:id"
-        component: UploadPhotometry
+        component: photometry/UploadPhotometry
       - path: "/about"
         component: About
       - path: "/share_data/:id"
-        component: ShareDataForm
+        component: source/ShareDataForm
       - path: "/filter/:fid"
-        component: Filter
+        component: filter/Filter
       - path: "/runs"
-        component: ObservingRunPage
+        component: observing_run/ObservingRunPage
       - path: "/run/:id"
-        component: RunSummary
+        component: observing_run/RunSummary
       - path: "/allocations"
         component: allocation/AllocationPage
       - path: "/allocation/:id"
@@ -117,7 +117,7 @@ skyportal:
       - path: "/telescope/:id"
         component: telescope/TelescopeSummary
       - path: "/instrument/:id"
-        component: InstrumentSummary
+        component: instrument/InstrumentSummary
       - path: "/group_sources/:id"
         component: group/GroupSources
       - path: "/user_management"
@@ -129,19 +129,19 @@ skyportal:
       - path: "/archive"
         component: archive/Archive
       - path: "/upload_spectrum/:id"
-        component: UploadSpectrum
+        component: spectrum/UploadSpectrum
       - path: "/source/:id/finder"
         component: FindingChart
       - path: "/observability/:id"
-        component: Observability
+        component: source/Observability
       - path: "/source/:id/periodogram"
         component: Periodogram
       - path: "/db_stats"
         component: DBStats
       - path: "/galaxies"
-        component: GalaxyPage
+        component: galaxy/GalaxyPage
       - path: "/spatial_catalogs"
-        component: SpatialCatalogPage
+        component: spatial_catalog/SpatialCatalogPage
       - path: "/gcn_events"
         component: gcn/GcnEvents
       - path: "/gcn_events/:dateobs"
@@ -149,7 +149,7 @@ skyportal:
       - path: "/telescopes"
         component: telescope/TelescopePage
       - path: "/instruments"
-        component: InstrumentPage
+        component: instrument/InstrumentPage
       - path: "/mmadetectors"
         component: mma_detector/MMADetectorPage
       - path: "/services"
@@ -157,19 +157,19 @@ skyportal:
       - path: "/recurring_apis"
         component: RecurringAPIPage
       - path: "/shifts"
-        component: ShiftNoId
+        component: shift/ShiftNoId
       - path: "/shifts/:id"
-        component: ShiftWithId
+        component: shift/ShiftWithId
       - path: "/summary_search"
-        component: SummarySearch
+        component: summary/SummarySearch
       - path: "/observations"
-        component: ObservationPage
+        component: observation/ObservationPage
       - path: "/followup_requests"
         component: followup_request/FollowupRequestPage
       - path: "/source/:obj_id/analysis/:analysis_id"
         component: source/SourceAnalysisPage
       - path: "/taxonomies"
-        component: TaxonomyPage
+        component: taxonomy/TaxonomyPage
       - path: "/tns_robots"
         component: tns/TNSRobotsPage
       - path: "/tns_robot/:id/submissions"

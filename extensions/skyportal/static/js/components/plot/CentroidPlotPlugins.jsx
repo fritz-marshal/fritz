@@ -3,9 +3,9 @@ import PropTypes from "prop-types";
 import makeStyles from "@mui/styles/makeStyles";
 import Typography from "@mui/material/Typography";
 
-import * as archiveActions from "../ducks/archive";
+import * as archiveActions from "../../ducks/archive";
 
-import { greatCircleDistance } from "../utils";
+import { greatCircleDistance } from "../../utils";
 
 const hiddenCrossMatches = ["PS1_PSC"];
 

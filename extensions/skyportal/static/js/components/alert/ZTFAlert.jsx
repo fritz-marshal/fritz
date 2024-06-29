@@ -43,7 +43,7 @@ import * as Actions from "../../ducks/alert";
 import { checkSource, fetchSource } from "../../ducks/source";
 import { fetchSources } from "../../ducks/sources";
 
-const VegaPlotZTFAlert = React.lazy(() => import("./VegaPlotZTFAlert"));
+const VegaPlotZTFAlert = React.lazy(() => import("../plot/VegaPlotZTFAlert"));
 
 const useStyles = makeStyles((theme) => ({
   root: {

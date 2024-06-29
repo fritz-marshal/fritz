@@ -42,9 +42,9 @@ import ReactDiffViewer from "react-diff-viewer";
 import { useForm, Controller } from "react-hook-form";
 import { showNotification } from "baselayer/components/Notifications";
 
-import * as filterVersionActions from "../ducks/kowalski_filter";
-import * as allocationActions from "../ducks/allocations";
-import * as instrumentsActions from "../ducks/instruments";
+import * as filterVersionActions from "../../ducks/kowalski_filter";
+import * as allocationActions from "../../ducks/allocations";
+import * as instrumentsActions from "../../ducks/instruments";
 
 const useStyles = makeStyles((theme) => ({
   pre: {
