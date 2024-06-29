@@ -919,6 +919,10 @@ class ArchiveHandler(BaseHandler):
 
         if obj_id is None and (group_ids is None or len(group_ids) == 0):
             return self.error("Parameter group_ids is required if obj_id is not set")
+
+        if obj_id is not None and (type(obj_id) is not str):
+            return self.error("obj_id must be string if set")
+
         if catalog is None:
             return self.error("Missing required parameter: catalog")
         if light_curve_ids is None or len(light_curve_ids) == 0:
