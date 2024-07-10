@@ -523,7 +523,6 @@ def post_alert(
                 "mjd": df_stream["mjd"].tolist(),
                 "flux": df_stream["flux"].tolist(),
                 "fluxerr": df_stream["fluxerr"].tolist(),
-                "limiting_mag": df_stream["diffmaglim"].tolist(),
                 "filter": df_stream["filter"].tolist(),
                 "zp": df_stream["zp"].tolist(),
                 "magsys": df_stream["magsys"].tolist(),
