@@ -237,6 +237,7 @@ def post_alert(
                         "_id": 1,
                         "prv_candidates.magpsf": 1,
                         "prv_candidates.sigmapsf": 1,
+                        "prv_candidates.isdiffpos": 1,
                         "prv_candidates.diffmaglim": 1,
                         "prv_candidates.programid": 1,
                         "prv_candidates.fid": 1,
@@ -430,13 +431,14 @@ def post_alert(
 
         # post photometry
         ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
-        df["ztf_filter"] = df["fid"].apply(lambda x: ztf_filters[x])
-        df["magsys"] = "ab"
+        df["filter"] = df["fid"].apply(lambda x: ztf_filters[x])
         df["mjd"] = df["jd"] - 2400000.5
 
         df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
         df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
         df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
+        df["zp"] = 23.9
+        df["magsys"] = "ab"
 
         # deduplicate
         df = (
@@ -475,6 +477,39 @@ def post_alert(
         )
         df = df.loc[mask_good_stream_id]
 
+        # filter out bad data:
+        mask_good_diffmaglim = df["diffmaglim"] > 0
+        df = df.loc[mask_good_diffmaglim]
+
+        # convert from mag to flux
+
+        #   step 1: calculate the coefficient that determines whether the
+        #   flux should be negative or positive
+        coeff = df["isdiffpos"].apply(
+            lambda x: 1.0 if x in [True, 1, "y", "Y", "t", "1", "T"] else -1.0
+        )
+
+        #   step 2: calculate the flux normalized to an arbitrary AB zeropoint of
+        #   23.9 (results in flux in uJy)
+        df["flux"] = coeff * 10 ** (-0.4 * (df["magpsf"] - 23.9))
+
+        #   step 3: separate detections from non detections
+        detected = np.isfinite(df["magpsf"])
+        undetected = ~detected
+
+        #   step 4: calculate the flux error
+        df["fluxerr"] = None  # initialize the column
+
+        #   step 4a: calculate fluxerr for detections using sigmapsf
+        df.loc[detected, "fluxerr"] = np.abs(
+            df.loc[detected, "sigmapsf"] * df.loc[detected, "flux"] * np.log(10) / 2.5
+        )
+
+        #   step 4b: calculate fluxerr for non detections using diffmaglim
+        df.loc[undetected, "fluxerr"] = (
+            10 ** (-0.4 * (df.loc[undetected, "diffmaglim"] - 23.9)) / 5.0
+        )  # as diffmaglim is the 5-sigma depth
+
         # post the photometry in a loop for each different stream_id
         # as the add_external_photometry function uses the same stream_ids for all the datapoints
         for stream_id in df["stream_ids"].unique():
@@ -486,11 +521,11 @@ def post_alert(
                 "obj_id": obj_id_to_save,
                 "instrument_id": instrument.id,
                 "mjd": df_stream["mjd"].tolist(),
-                "mag": df_stream["magpsf"].tolist(),
-                "magerr": df_stream["sigmapsf"].tolist(),
-                "limiting_mag": df_stream["diffmaglim"].tolist(),
+                "flux": df_stream["flux"].tolist(),
+                "fluxerr": df_stream["fluxerr"].tolist(),
+                "filter": df_stream["filter"].tolist(),
+                "zp": df_stream["zp"].tolist(),
                 "magsys": df_stream["magsys"].tolist(),
-                "filter": df_stream["ztf_filter"].tolist(),
                 "ra": df_stream["ra"].tolist(),
                 "dec": df_stream["dec"].tolist(),
                 "stream_ids": df_stream["stream_ids"].tolist(),
