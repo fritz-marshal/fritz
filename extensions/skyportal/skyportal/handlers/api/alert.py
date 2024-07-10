@@ -437,6 +437,8 @@ def post_alert(
         df["mjd"] = df["mjd"].apply(lambda x: np.float64(x))
         df["magpsf"] = df["magpsf"].apply(lambda x: np.float32(x))
         df["sigmapsf"] = df["sigmapsf"].apply(lambda x: np.float32(x))
+        df["zp"] = 23.9
+        df["magsys"] = "ab"
 
         # deduplicate
         df = (
@@ -502,11 +504,6 @@ def post_alert(
         df.loc[detected, "fluxerr"] = np.abs(
             df.loc[detected, "sigmapsf"] * df.loc[detected, "flux"] * np.log(10) / 2.5
         )
-
-        #   set the zeropoint
-        df["zp"] = 23.9
-        #   set the magsys
-        df["magsys"] = "ab"
 
         #   step 4b: calculate fluxerr for non detections using diffmaglim
         df.loc[undetected, "fluxerr"] = (
