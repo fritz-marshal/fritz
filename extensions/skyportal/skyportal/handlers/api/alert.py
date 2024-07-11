@@ -289,6 +289,7 @@ def post_alert(
                         "candidate.magpsf": 1,
                         "candidate.sigmapsf": 1,
                         "candidate.diffmaglim": 1,
+                        "candidate.isdiffpos": 1,
                     }
                 },
                 {"$sort": {"candidate.jd": -1}},
