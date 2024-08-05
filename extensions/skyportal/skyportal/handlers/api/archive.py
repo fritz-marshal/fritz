@@ -925,6 +925,10 @@ class ArchiveHandler(BaseHandler):
 
         if catalog is None:
             return self.error("Missing required parameter: catalog")
+
+        if type(light_curve_ids) is int:
+            light_curve_ids = [light_curve_ids]
+
         if light_curve_ids is None or len(light_curve_ids) == 0:
             return self.error("Bad required parameter: light_curve_ids")
 
