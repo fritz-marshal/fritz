@@ -8,7 +8,7 @@ def log():
             "docker",
             "exec",
             "-i",
-            "skyportal_web_1",
+            "skyportal-web-1",
             "/bin/bash",
             "-c",
             "source /skyportal_env/bin/activate; make log",

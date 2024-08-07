@@ -44,9 +44,9 @@ def test():
             )
             > 0
             for container_name in (
-                "kowalski_ingester_1",
-                "kowalski_api_1",
-                "skyportal_web_1",
+                "kowalski-ingester-1",
+                "kowalski-api-1",
+                "skyportal-web-1",
             )
         )
 
@@ -62,7 +62,7 @@ def test():
         if i == num_retries - 1:
             raise RuntimeError("SkyPortal failed to spin up")
 
-        command = ["docker", "exec", "-i", "skyportal_web_1", "ps", "-ef"]
+        command = ["docker", "exec", "-i", "skyportal-web-1", "ps", "-ef"]
         process_list = subprocess.check_output(command, universal_newlines=True).strip()
 
         if "app.py" not in process_list:
@@ -113,7 +113,7 @@ def test():
         "docker",
         "exec",
         "-i",
-        "skyportal_web_1",
+        "skyportal-web-1",
         "cp",
         "docker.yaml",
         "test_config.yaml",
@@ -136,7 +136,7 @@ def test():
             "docker",
             "exec",
             "-i",
-            "skyportal_web_1",
+            "skyportal-web-1",
             "/bin/bash",
             "-c",
             "source /skyportal_env/bin/activate &&"

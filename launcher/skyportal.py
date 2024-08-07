@@ -17,7 +17,7 @@ def get_token():
             "docker",
             "exec",
             "-i",
-            "skyportal_web_1",
+            "skyportal-web-1",
             "/bin/bash",
             "-c",
             "cat /skyportal/.tokens.yaml",
