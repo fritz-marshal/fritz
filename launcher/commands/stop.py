@@ -15,12 +15,14 @@ def stop():
     traefik_is_running = any("traefik" in x.lower() for x in running_container_images)
     if traefik_is_running:
         print("Shutting down Traefik")
-        subprocess.run(["docker compose", "-f", "docker-compose.traefik.yaml", "down"])
+        subprocess.run(
+            ["docker", "compose", "-f", "docker-compose.traefik.yaml", "down"]
+        )
 
     # stop Kowalski and SkyPortal
     subprocess.run(["python", "kowalski.py", "down"], cwd="kowalski")
     subprocess.run(
-        ["docker compose", "-f", "docker-compose.skyportal.yaml", "down"],
+        ["docker", "compose", "-f", "docker-compose.skyportal.yaml", "down"],
         cwd="skyportal",
     )
 
