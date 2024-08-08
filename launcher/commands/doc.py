@@ -49,7 +49,7 @@ def doc(yes: bool = False, upload: bool = False):
     subprocess.run(
         [
             "npx",
-            "redoc-cli@0.9.8",
+            "redoc-cli@0.13.21",
             "bundle",
             "openapi.json",
             "--title",

@@ -40,7 +40,7 @@ def run(
     # start up skyportal
     # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
     p = subprocess.run(
-        ["docker-compose", "-f", "docker-compose.skyportal.yaml", "up", "-d"],
+        ["docker", "compose", "-f", "docker-compose.skyportal.yaml", "up", "-d"],
         cwd="skyportal",
         check=True,
     )
@@ -69,7 +69,7 @@ def run(
         check_config_exists(cfg="docker-compose.traefik.defaults.yaml", yes=yes)
         # fire up traefik
         p = subprocess.run(
-            ["docker-compose", "-f", "docker-compose.traefik.yaml", "up", "-d"],
+            ["docker", "compose", "-f", "docker-compose.traefik.yaml", "up", "-d"],
             check=True,
         )
         if p.returncode != 0:

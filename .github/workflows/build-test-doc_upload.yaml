@@ -25,6 +25,18 @@ jobs:
       with:
         node-version: 20
 
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.npm
+        key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/pip
+        key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
+
     - name: Install system dependencies
       run: |
         sudo apt update -y && sudo apt install -y libcurl4-gnutls-dev libgnutls28-dev

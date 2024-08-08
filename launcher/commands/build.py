@@ -101,7 +101,7 @@ def build(
         # start up skyportal
         # docker-compose.skyportal.yaml bind-mounts the fritz-specific config.yaml and db_seed.yaml
         p = subprocess.run(
-            ["docker-compose", "-f", "docker-compose.skyportal.yaml", "up", "-d"],
+            ["docker", "compose", "-f", "docker-compose.skyportal.yaml", "up", "-d"],
             cwd="skyportal",
             check=True,
         )
@@ -116,7 +116,7 @@ def build(
                     "docker",
                     "exec",
                     "-i",
-                    "skyportal_web_1",
+                    "skyportal-web-1",
                     "/bin/bash",
                     "-c",
                     "source /skyportal_env/bin/activate; make db_clear; make db_init;"
@@ -169,7 +169,7 @@ def build(
     if init:
         # stop SkyPortal
         subprocess.run(
-            ["docker-compose", "-f", "docker-compose.skyportal.yaml", "down"],
+            ["docker", "compose", "-f", "docker-compose.skyportal.yaml", "down"],
             cwd="skyportal",
         )
 
