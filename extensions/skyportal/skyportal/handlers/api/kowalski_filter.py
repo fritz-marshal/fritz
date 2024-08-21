@@ -348,6 +348,7 @@ class KowalskiFilterHandler(BaseHandler):
                 "priority_order",
                 "radius",
                 "implements_update",
+                "ignore_allocation_ids",
             }
             if not set(auto_followup.keys()).issubset(valid_keys):
                 return self.error(
@@ -355,31 +356,39 @@ class KowalskiFilterHandler(BaseHandler):
                 )
             # query the allocation by id
             allocation_id = auto_followup.get("allocation_id", None)
-            if allocation_id is None:
-                return self.error("auto_followup dict must contain 'allocation_id' key")
-            with self.Session() as session:
-                allocation = session.scalar(
-                    Allocation.select(session.user_or_token).where(
-                        Allocation.id == allocation_id
-                    )
-                )
-                if allocation is None:
-                    return self.error(f"Allocation {allocation_id} not found")
-                try:
-                    facility_api = allocation.instrument.api_class
-                except Exception as e:
-                    return self.error(
-                        f"Could not get facility API of allocation {allocation_id}: {e}"
-                    )
 
-                priority_order = facility_api.priorityOrder
-                if priority_order not in ["asc", "desc"]:
-                    return self.error(
-                        "priority order of allocation must be one of ['asc', 'desc']"
+            # if no allocation is provided + auto_followup is active + we are not now setting it to False, return error
+            if (
+                allocation_id is None
+                and existing_data.get("auto_followup", {}).get("active", False)
+                and auto_followup["active"]
+            ):
+                return self.error("auto_followup dict must contain 'allocation_id' key")
+
+            # only if the allocation_id is provided, we can check the priority_order and implements_update
+            if allocation_id is not None:
+                with self.Session() as session:
+                    allocation = session.scalar(
+                        Allocation.select(session.user_or_token).where(
+                            Allocation.id == allocation_id
+                        )
                     )
+                    if allocation is None:
+                        return self.error(f"Allocation {allocation_id} not found")
+                    try:
+                        facility_api = allocation.instrument.api_class
+                    except Exception as e:
+                        return self.error(
+                            f"Could not get facility API of allocation {allocation_id}: {e}"
+                        )
+
+                    priority_order = facility_api.priorityOrder
+                    if priority_order not in ["asc", "desc"]:
+                        return self.error(
+                            "priority order of allocation must be one of ['asc', 'desc']"
+                        )
 
                 auto_followup["priority_order"] = priority_order
-
                 auto_followup["implements_update"] = facility_api.implements()["update"]
 
             patch_data["auto_followup"] = auto_followup
