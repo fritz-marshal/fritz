@@ -379,6 +379,8 @@ const FilterPlugins = ({ group }) => {
     useState(null);
   const [selectedIgnoreGroupIds, setSelectedIgnoreGroupIds] = useState([]);
   const [selectedTargetGroupIds, setSelectedTargetGroupIds] = useState([]);
+  const [selectedIgnoreAllocationIds, setSelectedIgnoreAllocationIds] =
+    useState([]);
   const [selectedSaver, setSelectedSaver] = useState(null);
 
   useEffect(() => {
@@ -388,6 +390,11 @@ const FilterPlugins = ({ group }) => {
     }
     if (filter_v?.auto_followup?.target_group_ids?.length > 0) {
       setSelectedTargetGroupIds(filter_v.auto_followup.target_group_ids);
+    }
+    if (filter_v?.auto_followup?.ignore_allocation_ids?.length > 0) {
+      setSelectedIgnoreAllocationIds(
+        filter_v.auto_followup.ignore_allocation_ids,
+      );
     }
     if (filter_v?.autosave?.ignore_group_ids?.length > 0) {
       setSelectedIgnoreGroupIds(filter_v.autosave.ignore_group_ids);
@@ -620,6 +627,26 @@ const FilterPlugins = ({ group }) => {
         );
         setSelectedSaver(e.target.value);
       }
+    }
+    dispatch(filterVersionActions.fetchFilterVersion(fid));
+  };
+
+  const onSubmitSaveAutoFollowupIgnoreAllocations = async (e) => {
+    const newAutoFollowup = filter_v.auto_followup;
+    newAutoFollowup.ignore_allocation_ids = e.target.value;
+    const result = await dispatch(
+      filterVersionActions.editAutoFollowup({
+        filter_id: filter.id,
+        auto_followup: newAutoFollowup,
+      }),
+    );
+    if (result.status === "success") {
+      dispatch(
+        showNotification(
+          `Saved new auto followup ignore_allocation_ids to ${e.target.value}`,
+        ),
+      );
+      setSelectedIgnoreAllocationIds(e.target.value);
     }
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
@@ -1519,14 +1546,29 @@ const FilterPlugins = ({ group }) => {
                         gap: "0.25rem",
                       }}
                     >
-                      <InputLabel id="autoFollowupGroupsSelectLabel">
+                      <Typography id="autoFollowupGroupsSelectLabel">
                         Triggering constraints
-                      </InputLabel>
+                      </Typography>
                       <Tooltip title="Constraints are applied to triggers from the filter, cancelling them if they are met: classified (on SkyPortal or TNS), has spectra, has requests, ... but not only looking at the source of the alert, but anything within that radius.">
                         <IconButton size="small">
                           <HelpOutlineIcon />
                         </IconButton>
                       </Tooltip>
+                    </div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <InputLabel id="auto_followup_constraints_radius">
+                        Radius (arcsec) to apply constraints
+                      </InputLabel>
+                      <TextField
+                        labelId="auto_followup_constraints_radius"
+                        className={classes.formControl}
+                        disabled={!filter_v.active}
+                        id="auto_followup_constraints_radius"
+                        defaultValue={filter_v.auto_followup?.radius}
+                        onChange={(event) =>
+                          setAutoFollowupRadius(event.target.value)
+                        }
+                      />
                     </div>
                     <div
                       style={{
@@ -1534,18 +1576,53 @@ const FilterPlugins = ({ group }) => {
                         flexDirection: "row",
                         alignItems: "end",
                         gap: "1rem",
+                        marginTop: "1rem",
                       }}
                     >
-                      <TextField
-                        className={classes.formControl}
-                        disabled={!filter_v.active}
-                        id="auto_followup_constraints"
-                        label="Radius (arcsec)"
-                        defaultValue={filter_v.auto_followup?.radius}
-                        onChange={(event) =>
-                          setAutoFollowupRadius(event.target.value)
-                        }
-                      />
+                      {filter_v?.fv &&
+                        filter_v?.auto_followup?.active === true && (
+                          <div>
+                            <InputLabel id="ignoreAllocationSelectLabel">
+                              Cancel if existing pending/completed triggers
+                              with:
+                            </InputLabel>
+                            <Select
+                              inputProps={{
+                                MenuProps: { disableScrollLock: true },
+                              }}
+                              labelId="ignoreAllocationSelectLabel"
+                              value={selectedIgnoreAllocationIds}
+                              onChange={
+                                onSubmitSaveAutoFollowupIgnoreAllocations
+                              }
+                              name="autoFollowupIgnoreAllocationsSelect"
+                              className={classes.allocationSelect}
+                              multiple
+                            >
+                              {allocationListApiClassname?.map((allocation) => (
+                                <MenuItem
+                                  value={allocation.id}
+                                  key={allocation.id}
+                                  className={classes.SelectItem}
+                                >
+                                  {`${instLookUp[allocation.instrument_id]?.name} - ${
+                                    groupLookUp[allocation.group_id]?.name
+                                  } (PI ${allocation.pi})`}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </div>
+                        )}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "end",
+                        gap: "1rem",
+                        marginTop: "1rem",
+                      }}
+                    >
                       <Button
                         variant="contained"
                         color="primary"
