@@ -48,7 +48,8 @@ def patch_api_doc_template():
     output = template.render(openapi_spec=json.dumps(openapi_spec, indent=2))
 
     # Write the output to a new HTML file
-    with open("../doc/_build/html/api.html", "w") as f:
+    os.makedirs("./doc/_build/html", exist_ok=True)
+    with open("./doc/_build/html/api.html", "w") as f:
         f.write(output)
 
 
