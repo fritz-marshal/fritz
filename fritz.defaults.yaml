@@ -553,6 +553,7 @@ skyportal:
   misc:
     days_to_keep_unsaved_candidates: 7
     minutes_to_keep_candidate_query_cache: 120
+    minutes_to_keep_source_query_cache: 360
     minutes_to_keep_localization_instrument_query_cache: 1440
     max_items_in_localization_instrument_query_cache: 100
     minutes_to_keep_public_source_pages_cache: 1440
