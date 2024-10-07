@@ -42,7 +42,7 @@ def patch_api_doc_template():
     template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath="./"))
 
     # Load the template file
-    template = template_env.get_template("doc/openapi.html.template")
+    template = template_env.get_template("skyportal/doc/openapi.html.template")
 
     # Render the template with the OpenAPI spec
     output = template.render(openapi_spec=json.dumps(openapi_spec, indent=2))
@@ -89,29 +89,12 @@ def doc(yes: bool = False, upload: bool = False):
             "servers": [{"url": "https://fritz.science"}],
         },
     )
-    with open("skyportal/openapi.json", "w") as f:
+    with open("openapi.json", "w") as f:
         json.dump(spec.to_dict(), f)
 
     patch_api_doc_template()
 
-    subprocess.run(
-        [
-            "npx",
-            "redoc-cli@0.13.21",
-            "bundle",
-            "openapi.json",
-            "--title",
-            "Fritz API docs",
-            "--cdn",
-            "--options.theme.logo.gutter",
-            "2rem",
-            "-o",
-            "../doc/_build/html/api.html",
-        ],
-        check=True,
-        cwd="skyportal",
-    )
-    os.remove("skyportal/openapi.json")
+    os.remove("openapi.json")
 
     if upload:
         subprocess.run(
