@@ -874,7 +874,7 @@ class AlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         multiple:
-          summary: Retrieve objects from Kowalski by objectId and or position
+          summary: Retrieve objects from Kowalski by objectId/position
           description: Retrieve objects from Kowalski by objectId and or position
           tags:
             - alerts
