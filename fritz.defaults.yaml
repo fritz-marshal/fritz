@@ -2011,3 +2011,10 @@ kowalski:
     pgir: True
     wntr: True
     turbo: True
+
+docs:
+  servers:
+    - url: https://fritz.science
+      description: Production server
+    - url: https://preview.fritz.science
+      description: Test server

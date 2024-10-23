@@ -148,6 +148,7 @@ class ArchiveCatalogsHandler(BaseHandler):
         """
         ---
         summary: Retrieve available catalog names from Kowalski/Gloria/Melman
+        description: Retrieve available catalog names from Kowalski/Gloria/Melman
         tags:
           - archive
           - kowalski
@@ -187,6 +188,7 @@ class CrossMatchHandler(BaseHandler):
         """
         ---
         summary: Retrieve data from available catalogs on Kowalski/Gloria/Melman by position
+        description: Retrieve data from available catalogs on Kowalski/Gloria/Melman by position
         tags:
           - archive
           - kowalski
@@ -364,6 +366,7 @@ class ScopeFeaturesHandler(BaseHandler):
         """
         ---
         summary: Retrieve archival SCoPe features from Kowalski/Gloria/Melman by position, post as annotation
+        description: Retrieve archival SCoPe features from Kowalski/Gloria/Melman by position, post as annotation
         tags:
           - features
           - kowalski
@@ -626,6 +629,7 @@ class ArchiveHandler(BaseHandler):
         """
         ---
         summary: Retrieve archival light curve data from Kowalski/Gloria by position
+        description: Retrieve archival light curve data from Kowalski/Gloria by position
         tags:
           - archive
           - kowalski
