@@ -834,6 +834,7 @@ class AlertHandler(BaseHandler):
         """
         ---
         single:
+          summary: Retrieve an object from Kowalski by objectId
           description: Retrieve an object from Kowalski by objectId
           tags:
             - alerts
@@ -873,6 +874,7 @@ class AlertHandler(BaseHandler):
                 application/json:
                   schema: Error
         multiple:
+          summary: Retrieve objects from Kowalski by objectId/position
           description: Retrieve objects from Kowalski by objectId and or position
           tags:
             - alerts
@@ -1040,6 +1042,7 @@ class AlertHandler(BaseHandler):
     def post(self, objectId):
         """
         ---
+        summary: Save ZTF objectId from Kowalski as source in SkyPortal
         description: Save ZTF objectId from Kowalski as source in SkyPortal
         tags:
           - alerts
@@ -1126,6 +1129,7 @@ class AlertAuxHandler(BaseHandler):
         """
         ---
         single:
+          summary: Retrieve aux data for an objectId from Kowalski
           description: Retrieve aux data for an objectId from Kowalski
           tags:
             - alerts
@@ -1400,6 +1404,7 @@ class AlertCutoutHandler(BaseHandler):
         """
         ---
         summary: Serve alert cutout as fits or png
+        description: Serve alert cutout as fits or png
         tags:
           - alerts
           - kowalski
@@ -1609,6 +1614,7 @@ class AlertTripletsHandler(BaseHandler):
         """
         ---
         summary: Serve alert cutouts as a triplet
+        description: Serve alert cutouts as a triplet
         tags:
           - alerts
           - kowalski
@@ -1767,6 +1773,7 @@ class AlertStatsHandler(BaseHandler):
         """
         ---
         summary: Get number of alerts in a time range
+        description: Get number of alerts in a time range
         tags:
           - alerts
           - kowalski

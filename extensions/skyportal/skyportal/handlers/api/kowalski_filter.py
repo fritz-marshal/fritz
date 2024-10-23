@@ -34,6 +34,7 @@ class KowalskiFilterHandler(BaseHandler):
         """
         ---
         single:
+          summary: Retrieve a filter as stored on Kowalski
           description: Retrieve a filter as stored on Kowalski
           tags:
             - filters
@@ -96,6 +97,7 @@ class KowalskiFilterHandler(BaseHandler):
     def post(self, filter_id):
         """
         ---
+        summary: POST a new filter version
         description: POST a new filter version.
         tags:
           - filters
@@ -176,6 +178,7 @@ class KowalskiFilterHandler(BaseHandler):
     def patch(self, filter_id):
         """
         ---
+        summary: Update a filter on Kowalski
         description: Update a filter on Kowalski
         tags:
           - filters
@@ -411,6 +414,7 @@ class KowalskiFilterHandler(BaseHandler):
     def delete(self, filter_id):
         """
         ---
+        summary: Delete a filter on Kowalski
         description: Delete a filter on Kowalski
         tags:
           - filters
