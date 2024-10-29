@@ -352,11 +352,30 @@ class KowalskiFilterHandler(BaseHandler):
                 "radius",
                 "implements_update",
                 "ignore_allocation_ids",
+                "not_if_tns_reported",
             }
             if not set(auto_followup.keys()).issubset(valid_keys):
                 return self.error(
                     f"auto_followup dict keys must be a subset of {valid_keys}"
                 )
+            if "not_if_tns_reported" in auto_followup:
+                # if it's not empty or None, verify it's a a float or an int
+                if (
+                    auto_followup["not_if_tns_reported"] is not None
+                    and str(auto_followup["not_if_tns_reported"]).strip() != ""
+                ):
+                    try:
+                        auto_followup["not_if_tns_reported"] = float(
+                            auto_followup["not_if_tns_reported"]
+                        )
+                    except ValueError:
+                        return self.error(
+                            "not_if_tns_reported must be a float or an int, if not an empty string or None"
+                        )
+                else:
+                    # we still want to keep it when None, for example when we want to unset it
+                    auto_followup["not_if_tns_reported"] = None
+
             # query the allocation by id
             allocation_id = auto_followup.get("allocation_id", None)
 
