@@ -180,6 +180,7 @@ const FilterPlugins = ({ group }) => {
   const [autosaveComment, setAutosaveComment] = useState("");
   const [autoFollowupComment, setAutoFollowupComment] = useState("");
   const [autoFollowupRadius, setAutoFollowupRadius] = useState(0.5);
+  const [autoFollowupTnsAge, setAutoFollowupTnsAge] = useState(null);
 
   const [otherVersion, setOtherVersion] = React.useState("");
 
@@ -321,6 +322,7 @@ const FilterPlugins = ({ group }) => {
     const newAutoFollowup = {
       ...filter_v.auto_followup,
       radius: autoFollowupRadius,
+      not_if_tns_reported: autoFollowupTnsAge,
     };
     const result = await dispatch(
       filterVersionActions.editAutoFollowup({
@@ -331,7 +333,7 @@ const FilterPlugins = ({ group }) => {
     if (result.status === "success") {
       dispatch(
         showNotification(
-          `Set auto_followup radius constraint to ${autoFollowupRadius}`,
+          `Set auto_followup radius constraint to ${autoFollowupRadius}, and TNS age constraint to ${autoFollowupTnsAge}`,
         ),
       );
     }
@@ -1567,6 +1569,21 @@ const FilterPlugins = ({ group }) => {
                         defaultValue={filter_v.auto_followup?.radius}
                         onChange={(event) =>
                           setAutoFollowupRadius(event.target.value)
+                        }
+                      />
+                    </div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <InputLabel id="auto_followup_constraints_tns_age">
+                        Cancel if TNS reported in the last N hours. Leave empty to disable
+                      </InputLabel>
+                      <TextField
+                        labelId="auto_followup_constraints_tns_age"
+                        className={classes.formControl}
+                        disabled={!filter_v.active}
+                        id="auto_followup_constraints_tns_age"
+                        defaultValue={filter_v.auto_followup?.not_if_tns_reported}
+                        onChange={(event) =>
+                          setAutoFollowupTnsAge(event.target.value)
                         }
                       />
                     </div>
