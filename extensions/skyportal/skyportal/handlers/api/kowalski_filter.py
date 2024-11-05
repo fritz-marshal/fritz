@@ -360,6 +360,7 @@ class KowalskiFilterHandler(BaseHandler):
                 )
             if "not_if_tns_reported" in auto_followup:
                 # if it's not empty or None, verify it's a a float or an int
+                # it should be in hours
                 if (
                     auto_followup["not_if_tns_reported"] is not None
                     and str(auto_followup["not_if_tns_reported"]).strip() != ""
