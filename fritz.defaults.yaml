@@ -756,6 +756,13 @@ skyportal:
   #    transmission: [0, 1, 1, 0]
   #    description: "basic ATLAS O filter - tophat transmission"
 
+  docs:
+    servers:
+      - url: https://fritz.science
+        description: Production
+      - url: https://preview.frizt.science
+        description: Preview/Testing
+
 kowalski:
   server:
     name: "Kowalski"
