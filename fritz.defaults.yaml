@@ -760,7 +760,7 @@ skyportal:
     servers:
       - url: https://fritz.science
         description: Production
-      - url: https://preview.frizt.science
+      - url: https://preview.fritz.science
         description: Preview/Testing
 
 kowalski:
