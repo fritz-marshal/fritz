@@ -184,6 +184,8 @@ skyportal:
         component: tns/TNSRobotsPage
       - path: "/tns_robot/:id/submissions"
         component: tns/TNSRobotSubmissionsPage
+      - path: "/moving_objects/obsplan"
+        component: moving_object/MovingObjectObsPlanPage
 
     observation_plan:
       default_filters: ['ztfg', 'ztfr', 'ztfi']
@@ -288,6 +290,10 @@ skyportal:
           - name: TNS Robots
             icon: Assignment
             url: /tns_robots
+
+          - name: Moving Objects
+            icon: Animation
+            url: /moving_objects/obsplan
 
           - name: Galaxies
             icon: TornadoOutlined
