@@ -104,6 +104,8 @@ skyportal:
         component: user/Profile
       - path: "/candidates"
         component: candidate/CandidateList
+      - path: "/candidates/scan_reports"
+        component: candidate/scan_reports/ReportsList
       - path: "/sources"
         component: source/SourceList
       - path: "/user/:id"
@@ -286,6 +288,10 @@ skyportal:
           - name: Observations
             icon: ZoomInOutlined
             url: /observations
+
+          - name: Scanning report
+            icon: Summarize
+            url: /candidates/scan_reports
 
           - name: TNS Robots
             icon: Assignment
