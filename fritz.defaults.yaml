@@ -76,6 +76,11 @@ skyportal:
       api_key:
       look_back_days: 7
 
+    hermes:
+      endpoint: https://hermes.lco.global/api/v0
+      topic: hermes.test
+      token:
+
     winter:
       protocol: http
       host: winter.caltech.edu
@@ -791,9 +796,9 @@ kowalski:
     name: "Kowalski"
     version: "3.0.0"
     description: "Kowalski: a toolkit for Time-Domain Astronomy, provides an API to access most of its underlying functionality.
-    To use it, you will need a user account that can be provided by the system's administrator. Once you have an account you can retrieve your token using the `/api/auth` endpoint described here.
-    We strongly suggest accessing Kowalski using its dedicated Python client: [penquins](https://github.com/dmitryduev/penquins). It comes with its own documentation and examples, and can be installed with `pip install penquins`.
-    If you have any questions or need help, please contact us."
+      To use it, you will need a user account that can be provided by the system's administrator. Once you have an account you can retrieve your token using the `/api/auth` endpoint described here.
+      We strongly suggest accessing Kowalski using its dedicated Python client: [penquins](https://github.com/dmitryduev/penquins). It comes with its own documentation and examples, and can be installed with `pip install penquins`.
+      If you have any questions or need help, please contact us."
     host: "0.0.0.0"
     port: 4000
     processes: 4
