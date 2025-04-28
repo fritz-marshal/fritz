@@ -43,6 +43,7 @@ from ...models import (
     Stream,
     User,
 )
+from ...utils.parse import str_to_bool
 from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
@@ -1192,11 +1193,13 @@ class AlertAuxHandler(BaseHandler):
         selector = list(selector)
 
         include_prv_candidates = self.get_query_argument("includePrvCandidates", "true")
-        include_prv_candidates = include_prv_candidates.lower() != "true"
+        include_prv_candidates = str_to_bool(include_prv_candidates, default=True)
+
         include_fp_hists = self.get_query_argument("includeFpHists", "true")
-        include_fp_hists = include_fp_hists.lower() == "true"
+        include_fp_hists = str_to_bool(include_fp_hists, default=True)
+
         include_all_fields = self.get_query_argument("includeAllFields", "false")
-        include_all_fields = include_all_fields.lower() != "false"
+        include_all_fields = str_to_bool(include_all_fields.lower(), default=False)
 
         try:
             query = {
