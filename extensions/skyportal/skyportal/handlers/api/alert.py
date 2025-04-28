@@ -5,15 +5,15 @@ import json
 import pathlib
 import traceback
 from datetime import datetime, timedelta
-import arrow
 
-from astropy.time import Time
+import arrow
 import bson.json_util as bj
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sqlalchemy as sa
 from astropy.io import fits
+from astropy.time import Time
 from astropy.visualization import (
     AsinhStretch,
     AsymmetricPercentileInterval,
@@ -33,41 +33,58 @@ from baselayer.log import make_log
 from skyportal.utils.calculations import great_circle_distance
 
 from ...models import (
+    Candidate,
+    Classification,
+    Filter,
     Group,
     Instrument,
     Obj,
     Source,
     Stream,
     User,
-    Candidate,
-    Filter,
-    Classification,
 )
 from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
 
-alert_available = True
-
 env, cfg = load_env()
 log = make_log("alert")
 
 
-try:
-    kowalski = Kowalski(
-        token=cfg["app.kowalski.token"],
-        protocol=cfg["app.kowalski.protocol"],
-        host=cfg["app.kowalski.host"],
-        port=int(cfg["app.kowalski.port"]),
-        timeout=10,
-    )
-    connection_ok = kowalski.ping()
-    log(f"Kowalski connection OK: {connection_ok}")
-    if not connection_ok:
+def get_kowalski():
+    try:
+        kowalski = Kowalski(
+            token=cfg["app.kowalski.token"],
+            protocol=cfg["app.kowalski.protocol"],
+            host=cfg["app.kowalski.host"],
+            port=int(cfg["app.kowalski.port"]),
+            timeout=10,
+        )
+        connection_ok = kowalski.ping()
+        log(f"Kowalski connection OK: {connection_ok}")
+        if not connection_ok:
+            kowalski = None
+    except Exception as e:
+        log(f"Kowalski connection failed: {str(e)}")
         kowalski = None
-except Exception as e:
-    log(f"Kowalski connection failed: {str(e)}")
-    kowalski = None
+
+    return kowalski
+
+
+kowalski = get_kowalski()
+
+
+# make a decorator to check if Kowalski is available
+def kowalski_available(func):
+    def wrapper(*args, **kwargs):
+        global kowalski
+        if kowalski is None:
+            kowalski = get_kowalski()
+        if kowalski is None:
+            raise ValueError("Kowalski is not available")
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 INSTRUMENTS = {"ZTF"}
@@ -138,6 +155,30 @@ def make_thumbnail(a, ttype, ztftype):
     }
 
     return thumb
+
+
+def make_thumbnails(query: dict, kowalski: Kowalski) -> dict:
+    response = kowalski.query(query=query).get("default", {})
+    data = response.get("data", [])
+    if response.get("status", "error") == "success" and len(data) > 0:
+        cutouts = {}
+        missing = set()
+        for ttype, ztftype in [
+            ("new", "Science"),
+            ("ref", "Template"),
+            ("sub", "Difference"),
+        ]:
+            thumb = make_thumbnail(data[0], ttype, ztftype)
+            if thumb is not None:
+                cutouts[ttype] = thumb
+            else:
+                missing.add(ttype)
+
+        if len(missing) > 0:
+            raise ValueError(f"Could not make thumbnails for types {missing}")
+        return cutouts
+    else:
+        raise ValueError("Failed to fetch data for thumbnails from Kowalski")
 
 
 def post_alert(
@@ -251,7 +292,6 @@ def post_alert(
             ],
         },
     }
-
     response = kowalski.query(query=query)
     if response.get("default").get("status", "error") == "success":
         alert_data = response.get("default").get("data")
@@ -340,6 +380,7 @@ def post_alert(
         raise ValueError(
             f"Could not find {candid} to post alert from {object_id} from Kowalski"
         )
+
     df = pd.DataFrame.from_records(alert_data["prv_candidates"])
 
     # post source
@@ -452,7 +493,7 @@ def post_alert(
         mask_good_diffmaglim = df["diffmaglim"] > 0
         df = df.loc[mask_good_diffmaglim]
 
-        ztf_program_id_to_stream_id = dict()
+        ztf_program_id_to_stream_id = {}
         streams = session.scalars(Stream.select(session.user_or_token)).all()
         if streams is None:
             raise ValueError("Failed to get programid to stream_id mapping")
@@ -537,93 +578,64 @@ def post_alert(
                 log(
                     f"Failed to post photometry of {object_id} to group_ids {group_ids}: {e}",
                 )
+
     # post cutouts
     used_latest = False
     thumbnail_ids = []
     if not save_to_diff_object:
-        for ttype, ztftype in [
-            ("new", "Science"),
-            ("ref", "Template"),
-            ("sub", "Difference"),
-        ]:
-            query = {
-                "query_type": "find",
-                "query": {
-                    "catalog": "ZTF_alerts",
-                    "filter": {
-                        "candid": candid,
-                        "candidate.programid": {"$in": program_id_selector},
-                    },
-                    "projection": {"_id": 0, "objectId": 1, f"cutout{ztftype}": 1},
+        query = {
+            "query_type": "find",
+            "query": {
+                "catalog": "ZTF_alerts",
+                "filter": {
+                    "candid": int(candid),
+                    "candidate.programid": {"$in": program_id_selector},
                 },
-                "kwargs": {
-                    "limit": 1,
+                "projection": {
+                    "_id": 0,
+                    "objectId": 1,
+                    "cutoutScience": 1,
+                    "cutoutTemplate": 1,
+                    "cutoutDifference": 1,
                 },
-            }
+            },
+            "kwargs": {
+                "limit": 1,
+            },
+        }
+        thumbnails = None
+        try:
+            thumbnails = make_thumbnails(query, kowalski)
+        except Exception as e:
+            log(f"Failed to fetch cutouts for {object_id} (candid={candid}): {e}")
 
-            response = kowalski.query(query=query)
-            if response.get("default").get("status", "error") == "success":
-                cutout = response.get("default").get("data", list(dict()))
-                if len(cutout) > 0:
-                    cutout = cutout[0]
-                else:
-                    cutout = dict()
-            else:
-                cutout = dict()
-
-            # if no cutout, try to get it from the latest alert
-            # this can happen as some candid in prv_candidates are not in the alerts table
-            # (e.g. ZTF23aamqsis with 2366187812715015001)
-            if len(cutout.keys()) == 0:
-                query = {
-                    "query_type": "find",
-                    "query": {
-                        "catalog": "ZTF_alerts",
-                        "filter": {
-                            "objectId": object_id,
-                            "candidate.programid": {"$in": program_id_selector},
-                        },
-                        "projection": {
-                            "_id": 0,
-                            "objectId": 1,
-                            "candidate.jd": 1,
-                            f"cutout{ztftype}": 1,
-                        },
-                    },
-                    "kwargs": {
-                        "limit": 1,
-                        "sort": {"candidate.jd": -1},
-                    },
-                }
-                response = kowalski.query(query=query)
-                if response.get("default").get("status", "error") == "success":
-                    cutout = response.get("default").get("data", list(dict()))
-                    if len(cutout) > 0:
-                        cutout = cutout[0]
-                        used_latest = True
-                    else:
-                        cutout = dict()
-                else:
-                    cutout = dict()
-
-                if len(cutout.keys()) == 0:
-                    log(
-                        f"Failed to fetch cutout for {object_id} | {candid} | {ttype} | {ztftype}"
-                    )
-                    if thumbnails_only:
-                        raise ValueError(
-                            f"Failed to fetch cutout for {object_id} | {candid} | {ttype} | {ztftype}"
-                        )
-                    continue
-
+        if thumbnails is None:
             try:
-                thumb = make_thumbnail(cutout, ttype, ztftype)
-                if thumb is not None:
+                query["query"]["filter"] = {
+                    "objectId": object_id,
+                    "candidate.programid": {"$in": program_id_selector},
+                }
+                query["query"]["projection"]["candidate.jd"] = 1
+                query["query"]["kwargs"] = {"limit": 1, "sort": {"candidate.jd": -1}}
+                thumbnails = make_thumbnails(query, kowalski)
+                used_latest = True
+            except Exception as e:
+                log(f"Failed to fetch cutouts for {object_id} (latest): {e}")
+
+        if thumbnails is None and thumbnails_only:
+            raise ValueError(
+                f"Failed to fetch cutouts for {object_id} (candid={candid}) (and latest)"
+            )
+
+        if thumbnails is not None:
+            for ttype, thumb in thumbnails.items():
+                try:
                     thumbnail_id = post_thumbnail(thumb, user_id, session)
                     thumbnail_ids.append(thumbnail_id)
-            except Exception as e:
-                log(f"Failed to post thumbnails of {obj_id_to_save} | {candid}")
-                log(str(e))
+                except Exception as e:
+                    log(
+                        f"Failed to post thumbnail of {object_id} to group_ids {group_ids}: {e}",
+                    )
 
     return photometry_ids, thumbnail_ids, used_latest
 
@@ -830,6 +842,7 @@ def get_alerts_by_position(
 
 class AlertHandler(BaseHandler):
     @auth_or_token
+    @kowalski_available
     async def get(self, object_id: str = None):
         """
         ---
@@ -1039,6 +1052,7 @@ class AlertHandler(BaseHandler):
             return self.error(f"No data for object IDs {str(object_ids)} from Kowalski")
 
     @permissions(["Upload data"])
+    @kowalski_available
     def post(self, objectId):
         """
         ---
@@ -1125,6 +1139,7 @@ class AlertHandler(BaseHandler):
 
 class AlertAuxHandler(BaseHandler):
     @auth_or_token
+    @kowalski_available
     def get(self, object_id: str = None):
         """
         ---
@@ -1177,13 +1192,11 @@ class AlertAuxHandler(BaseHandler):
         selector = list(selector)
 
         include_prv_candidates = self.get_query_argument("includePrvCandidates", "true")
-        include_prv_candidates = (
-            True if include_prv_candidates.lower() == "true" else False
-        )
+        include_prv_candidates = include_prv_candidates.lower() != "true"
         include_fp_hists = self.get_query_argument("includeFpHists", "true")
-        include_fp_hists = True if include_fp_hists.lower() == "true" else False
+        include_fp_hists = include_fp_hists.lower() == "true"
         include_all_fields = self.get_query_argument("includeAllFields", "false")
-        include_all_fields = False if include_all_fields.lower() == "false" else True
+        include_all_fields = include_all_fields.lower() != "false"
 
         try:
             query = {
@@ -1313,7 +1326,7 @@ class AlertAuxHandler(BaseHandler):
             response = kowalski.query(query=query)
 
             if response.get("default").get("status", "error") == "success":
-                full_alert_data = response.get("default").get("data", list(dict()))
+                full_alert_data = response.get("default").get("data", [{}])
                 if len(full_alert_data) == 0:
                     # len = 0 means that user has insufficient permissions to see objectId
                     self.set_status(404)
@@ -1400,6 +1413,7 @@ class AlertAuxHandler(BaseHandler):
 
 class AlertCutoutHandler(BaseHandler):
     @auth_or_token
+    @kowalski_available
     async def get(self, object_id: str = None):
         """
         ---
@@ -1547,7 +1561,7 @@ class AlertCutoutHandler(BaseHandler):
             response = kowalski.query(query=query)
 
             if response.get("default").get("status", "error") == "success":
-                alert = response.get("default").get("data", [dict()])[0]
+                alert = response.get("default").get("data", [{}])[0]
             else:
                 return self.error("No cutout found.")
 
@@ -1610,6 +1624,7 @@ class AlertCutoutHandler(BaseHandler):
 
 class AlertTripletsHandler(BaseHandler):
     @auth_or_token
+    @kowalski_available
     async def get(self, object_id: str = None):
         """
         ---
@@ -1700,14 +1715,14 @@ class AlertTripletsHandler(BaseHandler):
             response = kowalski.query(query=query)
 
             if response.get("default").get("status", "error") == "success":
-                alerts = response.get("default").get("data", [dict()])
+                alerts = response.get("default").get("data", [{}])
             else:
                 return self.error("No cutout found.")
 
             return_data = []
             for alert in alerts:
                 candid = alert["candidate"]
-                cutout_dict = dict()
+                cutout_dict = {}
                 image_corrupt = False
 
                 for cutout in ("science", "template", "difference"):
@@ -1769,6 +1784,7 @@ class AlertStatsHandler(BaseHandler):
     # add a get method to the class
     # this get method will, given a time range, return the number of alerts in that time range
     @auth_or_token
+    @kowalski_available
     async def get(self, alert_stream="ZTF"):
         """
         ---
