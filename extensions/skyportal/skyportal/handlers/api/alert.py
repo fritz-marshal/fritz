@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 import arrow
 import bson.json_util as bj
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -47,6 +48,8 @@ from ...utils.parse import str_to_bool
 from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
+
+matplotlib.pyplot.switch_backend("Agg")
 
 env, cfg = load_env()
 log = make_log("alert")
@@ -117,8 +120,9 @@ def make_thumbnail(a, ttype, ztftype):
     cutout_data = a[f"cutout{ztftype}"]["stampData"]
     with gzip.open(io.BytesIO(cutout_data), "rb") as f:
         with fits.open(io.BytesIO(f.read()), ignore_missing_simple=True) as hdu:
-            # header = hdu[0].header
-            data_flipped_y = np.flipud(hdu[0].data)
+            data_flipped_y = np.flipud(hdu[0].data)  # ZTF-specific
+
+    buff = io.BytesIO()
     plt.close("all")
     fig = plt.figure()
     fig.set_size_inches(4, 4, forward=False)
@@ -137,25 +141,25 @@ def make_thumbnail(a, ttype, ztftype):
         img = np.nan_to_num(img, nan=median)
 
     norm = ImageNormalize(
-        img, stretch=LinearStretch() if ztftype == "Difference" else LogStretch()
+        img,
+        stretch=LinearStretch() if ztftype == "Difference" else LogStretch(),
     )
     img_norm = norm(img)
     normalizer = AsymmetricPercentileInterval(lower_percentile=1, upper_percentile=100)
     vmin, vmax = normalizer.get_limits(img_norm)
     ax.imshow(img_norm, cmap="bone", origin="lower", vmin=vmin, vmax=vmax)
-    plt.savefig("temp.png")
-    buff = io.BytesIO()
-    plt.savefig(buff, format="png", dpi=42)
-    plt.close(fig)
-    buff.seek(0)
+    plt.savefig(buff, dpi=42)
 
-    thumb = {
+    buff.seek(0)
+    plt.close("all")
+
+    thumbnail_dict = {
         "obj_id": a["objectId"],
         "data": base64.b64encode(buff.read()).decode("utf-8"),
         "ttype": ttype,
     }
 
-    return thumb
+    return thumbnail_dict
 
 
 def make_thumbnails(query: dict, kowalski: Kowalski) -> dict:
