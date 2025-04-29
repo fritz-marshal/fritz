@@ -54,6 +54,8 @@ matplotlib.pyplot.switch_backend("Agg")
 env, cfg = load_env()
 log = make_log("alert")
 
+alert_available = True
+
 
 def get_kowalski():
     try:
