@@ -3,6 +3,7 @@ import gzip
 import io
 import json
 import pathlib
+import platform
 import traceback
 from datetime import datetime, timedelta
 
@@ -49,12 +50,15 @@ from ..base import BaseHandler
 from .photometry import add_external_photometry
 from .thumbnail import post_thumbnail
 
-matplotlib.pyplot.switch_backend("Agg")
-
 env, cfg = load_env()
 log = make_log("alert")
 
-alert_available = True
+try:
+    if platform.uname()[0] == "Darwin":
+        # make the matplotlib backend non-interactive on mac to avoid errors
+        matplotlib.pyplot.switch_backend("Agg")
+except Exception as e:
+    log(f"Failed to switch matplotlib backend to non-interactive: {e}")
 
 
 def get_kowalski():
@@ -124,7 +128,6 @@ def make_thumbnail(a, ttype, ztftype):
         with fits.open(io.BytesIO(f.read()), ignore_missing_simple=True) as hdu:
             data_flipped_y = np.flipud(hdu[0].data)  # ZTF-specific
 
-    buff = io.BytesIO()
     plt.close("all")
     fig = plt.figure()
     fig.set_size_inches(4, 4, forward=False)
@@ -150,10 +153,11 @@ def make_thumbnail(a, ttype, ztftype):
     normalizer = AsymmetricPercentileInterval(lower_percentile=1, upper_percentile=100)
     vmin, vmax = normalizer.get_limits(img_norm)
     ax.imshow(img_norm, cmap="bone", origin="lower", vmin=vmin, vmax=vmax)
-    plt.savefig(buff, dpi=42)
 
+    buff = io.BytesIO()
+    plt.savefig(buff, format="png", dpi=42)
+    plt.close(fig)
     buff.seek(0)
-    plt.close("all")
 
     thumbnail_dict = {
         "obj_id": a["objectId"],
