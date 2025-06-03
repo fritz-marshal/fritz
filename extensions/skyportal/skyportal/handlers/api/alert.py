@@ -82,6 +82,7 @@ def get_kowalski():
 
 
 kowalski = get_kowalski()
+alert_available = True if kowalski is not None else False
 
 
 # make a decorator to check if Kowalski is available
