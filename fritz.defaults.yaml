@@ -185,6 +185,8 @@ skyportal:
         component: followup_request/FollowupRequestPage
       - path: "/source/:obj_id/analysis/:analysis_id"
         component: source/SourceAnalysisPage
+      - path: "/tag_management"
+        component: TagManagement
       - path: "/taxonomies"
         component: taxonomy/TaxonomyPage
       - path: "/tns_robots"
@@ -321,6 +323,11 @@ skyportal:
           - name: Recurring API
             icon: Restore
             url: /recurring_apis
+
+          - name: Tag Management
+            icon: LocalOffer
+            permissions: ["Manage sources", "System admin"]
+            url: /tag_management
 
           - name: Taxonomies
             icon: WallpaperOutlined
