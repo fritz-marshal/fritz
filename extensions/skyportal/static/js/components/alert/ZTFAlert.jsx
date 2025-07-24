@@ -299,9 +299,10 @@ const ZTFAlert = ({ route }) => {
           if (response.data?.source_exists === true) {
             setsavedSource(true);
             dispatch(fetchSource(objectId));
+            return;
           }
-          setsavedSource(false);
         }
+        setsavedSource(false);
       });
     };
     if (objectId !== loadedSourceId) {
