@@ -295,12 +295,12 @@ const ZTFAlert = ({ route }) => {
   useEffect(() => {
     const fetchExistingSource = async () => {
       dispatch(checkSource(objectId, { nameOnly: true })).then((response) => {
-        if (response?.data !== "A source of that name does not exist.") {
+        if (response.status === "success" && response.data?.source_exists === true) {
           setsavedSource(true);
           dispatch(fetchSource(objectId));
-        } else {
-          setsavedSource(false);
+          return;
         }
+        setsavedSource(false);
       });
     };
     if (objectId !== loadedSourceId) {
