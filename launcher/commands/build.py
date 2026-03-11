@@ -74,7 +74,7 @@ def build(
     # execute `make run` instead of `make run_production` at init:
     if init:
         docker_compose["services"]["web"]["command"] = (
-            'bash -c "source /skyportal_env/bin/activate && (make log &) && make run"'
+            'bash -c "source .venv/bin/activate && (make log &) && make run"'
         )
     # save the adjusted version
     with open("skyportal/docker-compose.skyportal.yaml", "w") as docker_compose_yaml:
@@ -121,7 +121,7 @@ def build(
                     "skyportal-web-1",
                     "/bin/bash",
                     "-c",
-                    "source /skyportal_env/bin/activate; make db_clear; make db_init;"
+                    "source .venv/bin/activate; make db_clear; make db_init;"
                     "make prepare_seed_data; make load_seed_data",
                 ],
                 cwd="skyportal",

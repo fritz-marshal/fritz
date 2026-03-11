@@ -139,7 +139,7 @@ def test():
             "skyportal-web-1",
             "/bin/bash",
             "-c",
-            "source /skyportal_env/bin/activate &&"
+            "source .venv/bin/activate &&"
             f"python -m pytest -s skyportal/tests/api/{api_test}",
         ]
         try:

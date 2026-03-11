@@ -11,7 +11,7 @@ def log():
             "skyportal-web-1",
             "/bin/bash",
             "-c",
-            "source /skyportal_env/bin/activate; make log",
+            "source .venv/bin/activate; make log",
         ],
         cwd="skyportal",
     )
