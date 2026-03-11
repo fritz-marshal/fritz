@@ -84,7 +84,7 @@ jobs:
       - name: Build docs
         run: |
           uv pip install wheel
-          cd skyportal && uv sync --inexact --group docs && cd ..
+          uv sync --inexact --project skyportal --active
           ./fritz doc --yes
 
       - name: Deploy docs
