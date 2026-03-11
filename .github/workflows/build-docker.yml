@@ -127,6 +127,7 @@ jobs:
       - name: Deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |-
+          source .venv/bin/activate
           cd fritz-deploy
           export PATH=$PATH:~/.local/bin
           ./deploy.py --staging --tag=$GITHUB_SHA
