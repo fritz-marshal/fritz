@@ -8,6 +8,8 @@ from launcher.commands import update
 from launcher.config import check_config
 from launcher.skyportal import (
     get_token as get_skyportal_token,
+)
+from launcher.skyportal import (
     patch as patch_skyportal,
 )
 
@@ -71,9 +73,9 @@ def build(
         docker_compose["services"]["web"]["ports"] = [f"{port}:{port}"]
     # execute `make run` instead of `make run_production` at init:
     if init:
-        docker_compose["services"]["web"][
-            "command"
-        ] = 'bash -c "source /skyportal_env/bin/activate && (make log &) && make run"'
+        docker_compose["services"]["web"]["command"] = (
+            'bash -c "source /skyportal_env/bin/activate && (make log &) && make run"'
+        )
     # save the adjusted version
     with open("skyportal/docker-compose.skyportal.yaml", "w") as docker_compose_yaml:
         yaml.dump(docker_compose, docker_compose_yaml)
@@ -93,7 +95,7 @@ def build(
         p = subprocess.run(
             ["docker", "network", "create", "fritz_net"],
             capture_output=True,
-            universal_newlines=True,
+            text=True,
         )
         if (p.returncode != 0) and ("already exists" not in p.stderr):
             raise RuntimeError("Failed to create network fritz_net")

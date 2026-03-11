@@ -21,74 +21,74 @@ jobs:
     if: github.repository_owner == 'fritz-marshal' && github.event.pull_request.draft == false
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
 
-    - uses: actions/setup-node@v6
-      with:
-        node-version: 22
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
 
-    - uses: actions/cache@v5
-      with:
-        path: |
-          ~/.npm
-        key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
 
-    # caching dustmap & sncosmo files is dependent on their corresponding
-    # python package versions, so we use that as the cache key
-    - uses: actions/cache@v5
-      with:
-        path: |
-          persistentdata/dustmap/sfd
-        key: ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
-          ${{ runner.os }}-dustmap-
+      # caching dustmap & sncosmo files is dependent on their corresponding
+      # python package versions, so we use that as the cache key
+      - uses: actions/cache@v5
+        with:
+          path: |
+            persistentdata/dustmap/sfd
+          key: ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
+            ${{ runner.os }}-dustmap-
 
-    - uses: actions/cache@v5
-      with:
-        path: |
-          ~/.astropy/cache/sncosmo/bandpasses
-        key: ${{ runner.os }}-sncosmo-${{ hashFiles('**/skyportal/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-sncosmo-${{ hashFiles('**/skyportal/pyproject.toml') }}
-          ${{ runner.os }}-sncosmo-
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.astropy/cache/sncosmo/bandpasses
+          key: ${{ runner.os }}-sncosmo-${{ hashFiles('**/skyportal/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-sncosmo-${{ hashFiles('**/skyportal/pyproject.toml') }}
+            ${{ runner.os }}-sncosmo-
 
-    - name: Install system dependencies
-      run: |
-        sudo apt update -y && sudo apt install -y libcurl4-gnutls-dev libgnutls28-dev
+      - name: Install system dependencies
+        run: |
+          sudo apt update -y && sudo apt install -y libcurl4-gnutls-dev libgnutls28-dev
 
-    - name: Install dependencies
-      run: |
-        uv sync --inexact --group dev --group docs
-        ./fritz develop
+      - name: Install dependencies
+        run: |
+          uv sync --inexact --group dev --group docs
+          ./fritz develop
 
-    - name: Lint sources
-      run: |
-        ./fritz lint
+      - name: Lint sources
+        run: |
+          ./fritz lint
 
-    - name: Build docs
-      run: |
-        uv pip install wheel
-        cd skyportal && uv sync --inexact --group docs && cd ..
-        ./fritz doc --yes
+      - name: Build docs
+        run: |
+          uv pip install wheel
+          cd skyportal && uv sync --inexact --group docs && cd ..
+          ./fritz doc --yes
 
-    - name: Deploy docs
-      if: github.ref == 'refs/heads/main'
-      uses: JamesIves/github-pages-deploy-action@v4.6.1
-      with:
-        folder: doc/_build/html
-        repository-name: fritz-marshal/doc
-        branch: main
-        ssh-key: ${{ secrets.CI_DEPLOY_KEY }}
+      - name: Deploy docs
+        if: github.ref == 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@v4.6.1
+        with:
+          folder: doc/_build/html
+          repository-name: fritz-marshal/doc
+          branch: main
+          ssh-key: ${{ secrets.CI_DEPLOY_KEY }}

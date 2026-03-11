@@ -1,6 +1,7 @@
 # Run your own Fritz
 
 Clone the repo from `GitHub`:
+
 ```bash
 git clone --recursive https://github.com/fritz-marshal/fritz.git && cd fritz
 ```

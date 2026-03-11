@@ -20,7 +20,6 @@ A schematic overview of the functional aspects of `Kowalski` and how they intera
 A non-relational (NoSQL) database `MongoDB` powers the data archive, the alert stream sink,
 and the alert handling service. We base the choice of `MongoDB` as the workhorse on the following reasons:
 
-
 - Individual alerts are stored as binary `JSON` (`BSON`) "documents" in "collections",
   a natural format for the `AVRO` alert packets.
 - Collections are implemented as B-trees, which guarantees `~log(N)` execution times for the standard

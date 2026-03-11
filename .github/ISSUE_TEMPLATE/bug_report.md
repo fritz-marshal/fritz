@@ -1,10 +1,9 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
+title: ""
 labels: bug
-assignees: ''
-
+assignees: ""
 ---
 
 Please fill out relevant sections below; remove those that are unused.
@@ -14,6 +13,7 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
+
 1. Go to '...'
 2. Click on '....'
 3. Scroll down to '....'
@@ -26,12 +26,13 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Platform information:**
- - Fritz version: (find this in the [About](https://fritz.science/about) page)
- - Interface
-   - [ ] I am using the API
-   - [ ] I am browsing on a desktop
-   - [ ] I am browsing on a phone
-   - [ ] I am browsing on a tablet
+
+- Fritz version: (find this in the [About](https://fritz.science/about) page)
+- Interface
+  - [ ] I am using the API
+  - [ ] I am browsing on a desktop
+  - [ ] I am browsing on a phone
+  - [ ] I am browsing on a tablet
 
 **Additional context**
 Add any other context about the problem here.

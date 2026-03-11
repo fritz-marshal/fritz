@@ -6,7 +6,7 @@ def generate_token(
     user_id: str,
     jwt_secret: str,
     jwt_algorithm: str = "HS256",
-    jwt_exp_delta_seconds: Optional[int] = None,
+    jwt_exp_delta_seconds: int | None = None,
 ):
     """
     Generate a token for SkyPortal to access Kowalski

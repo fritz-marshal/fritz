@@ -3,8 +3,7 @@ name: Feature request
 about: Suggest an idea for this project
 title: "Short feature description"
 labels: enhancement
-assignees: ''
-
+assignees: ""
 ---
 
 Please fill out relevant sections below; remove those that are unused.

@@ -4,8 +4,8 @@ from typing import Optional
 
 def update(
     init: bool = False,
-    repo: Optional[str] = None,
-    branch: Optional[str] = None,
+    repo: str | None = None,
+    branch: str | None = None,
 ):
     """Update Fritz
 

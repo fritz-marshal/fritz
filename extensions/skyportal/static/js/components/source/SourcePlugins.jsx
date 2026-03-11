@@ -9,7 +9,6 @@ import Button from "../Button";
 import AlertsSearchButton from "../alert/AlertsSearchButton";
 import ArchiveSearchButton from "../archive/ArchiveSearchButton";
 
-
 const SourcePlugins = ({ source }) => {
   const [anchorElArchive, setAnchorElArchive] = React.useState(null);
   const openArchive = Boolean(anchorElArchive);

@@ -20,20 +20,15 @@ export const EDIT_ACTIVE_FID_FILTER_VERSION =
 export const EDIT_ACTIVE_FID_FILTER_VERSION_OK =
   "skyportal/EDIT_ACTIVE_FID_FILTER_VERSION_OK";
 
-export const EDIT_UPDATE_ANNOTATIONS =
-  "skyportal/EDIT_UPDATE_ANNOTATIONS";
+export const EDIT_UPDATE_ANNOTATIONS = "skyportal/EDIT_UPDATE_ANNOTATIONS";
 export const EDIT_UPDATE_ANNOTATIONS_OK =
   "skyportal/EDIT_UPDATE_ANNOTATIONS_OK";
 
-export const EDIT_AUTOSAVE =
-  "skyportal/EDIT_AUTOSAVE";
-export const EDIT_AUTOSAVE_OK =
-  "skyportal/EDIT_AUTOSAVE_OK";
+export const EDIT_AUTOSAVE = "skyportal/EDIT_AUTOSAVE";
+export const EDIT_AUTOSAVE_OK = "skyportal/EDIT_AUTOSAVE_OK";
 
-export const EDIT_AUTO_FOLLOWUP =
-  "skyportal/EDIT_AUTO_FOLLOWUP";
-export const EDIT_AUTO_FOLLOWUP_OK =
-  "skyportal/EDIT_AUTO_FOLLOWUP_OK";
+export const EDIT_AUTO_FOLLOWUP = "skyportal/EDIT_AUTO_FOLLOWUP";
+export const EDIT_AUTO_FOLLOWUP_OK = "skyportal/EDIT_AUTO_FOLLOWUP_OK";
 
 export const DELETE_FILTER_VERSION = "skyportal/DELETE_FILTER_VERSION";
 export const DELETE_FILTER_VERSION_OK = "skyportal/DELETE_FILTER_VERSION_OK";
@@ -76,7 +71,7 @@ export function editActiveFidFilterVersion({ filter_id, active_fid }) {
   return API.PATCH(
     `/api/filters/${filter_id}/v`,
     EDIT_ACTIVE_FID_FILTER_VERSION,
-    { active_fid }
+    { active_fid },
   );
 }
 

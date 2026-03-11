@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from launcher.commands import (
     build,
