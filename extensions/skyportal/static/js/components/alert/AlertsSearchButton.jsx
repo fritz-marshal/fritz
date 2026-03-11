@@ -2,7 +2,6 @@ import React from "react";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 
-
 const AlertsSearchButton = ({ ra, dec, radius = 3 }) => {
   return (
     <Link

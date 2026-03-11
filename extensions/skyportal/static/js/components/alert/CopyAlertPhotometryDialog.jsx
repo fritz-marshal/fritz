@@ -56,11 +56,11 @@ const CopyAlertPhotometryDialog = ({
       saveAlertAsSource({
         id: alert.objectId,
         payload: data,
-      })
+      }),
     );
     if (result.status === "success") {
       dispatch(
-        showNotification("Source photometry updated successfully", "info")
+        showNotification("Source photometry updated successfully", "info"),
       );
       reset();
     }

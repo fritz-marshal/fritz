@@ -317,7 +317,9 @@ const Alerts = () => {
           } else {
             dispatch(
               showNotification(
-                `Failed to save ${objectId} to groups ${selectedGroups.join(", ")}`,
+                `Failed to save ${objectId} to groups ${selectedGroups.join(
+                  ", ",
+                )}`,
                 "error",
               ),
             );
