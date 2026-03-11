@@ -49,15 +49,14 @@ jobs:
 
       - id: "auth"
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: "google-github-actions/auth@v0"
+        uses: "google-github-actions/auth@v3"
         with:
           credentials_json: ${{ secrets.GKE_SA_KEY }}
 
       - name: Setup gcloud cli
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v3
         with:
-          version: "369.0.0"
           project_id: ${{ secrets.GKE_PROJECT }}
 
       # Configure Docker to use the gcloud command-line tool as a credential
@@ -74,7 +73,7 @@ jobs:
 
       - name: Get Google Kubernetes Engine credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: "google-github-actions/get-gke-credentials@v1"
+        uses: "google-github-actions/get-gke-credentials@v3"
         with:
           cluster_name: fritz-staging
           location: us-west2-a
