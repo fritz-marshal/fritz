@@ -4,6 +4,7 @@
 [Zwicky Transient Facility (ZTF)](https://ztf.caltech.edu) Phase II.
 
 It implements an end-to-end, scalable, API-first system for Time-domain Astronomy, featuring
+
 - A multi-survey data archive and alert broker
 - An interactive collaborative marshal for the transient, variable, and Solar system science cases
 - A workhorse for machine learning applications and active learning
@@ -154,6 +155,7 @@ However, `Fritz`'s users can access the entire archive of ZTF alerts (~390M as o
 ![archive-20210601](https://user-images.githubusercontent.com/7557205/120433545-36319e00-c330-11eb-9399-e68146a05d8b.gif)
 
 #### Mobile experience
+
 Fritz's interfaces are mobile-friendly, so the app will work as expected on your phone or tablet:
 
 <table>
@@ -162,7 +164,6 @@ Fritz's interfaces are mobile-friendly, so the app will work as expected on your
 <td><img alt="tablet" src="https://user-images.githubusercontent.com/7557205/114100803-b29c8900-9879-11eb-98c2-98ee91fd0e5e.gif" /></td>
 </tr>
 </table>
-
 
 ### Using the API
 
@@ -255,9 +256,9 @@ Note: for a detailed description of the ZTF alerts and their contents, please se
 `Kowalski` uses [`MongoDB`](https://mongodb.com), a document-based NoSQL database, on the backend.
 
 - For a very brief introduction into `MongoDB`, we recommend watching
-[MongoDB in 5 Minutes with Eliot Horowitz](https://www.youtube.com/watch?v=EE8ZTQxa0AM).
+  [MongoDB in 5 Minutes with Eliot Horowitz](https://www.youtube.com/watch?v=EE8ZTQxa0AM).
 - If you are familiar with relational databases, you may want to check out the
-[SQL to MongoDB Mapping Chart](https://docs.mongodb.com/manual/reference/sql-comparison/).
+  [SQL to MongoDB Mapping Chart](https://docs.mongodb.com/manual/reference/sql-comparison/).
 
 `MongoDB` database stores its data in "collections". A collection holds one or more "documents".
 Documents are analogous to records or rows in a relational database table.
@@ -296,13 +297,14 @@ Expressions can be nested.
 
 #### Testing your filter
 
-To ease the process of writing and debugging the filters, we have set up two live *public* `MongoDB Atlas` databases
+To ease the process of writing and debugging the filters, we have set up two live _public_ `MongoDB Atlas` databases
 in the cloud:
+
 - The first one contains a small curated set of ~300 sample public ZTF alerts originating from SNe, variable stars,
-AGN, and bogus detections. The auxiliary information is limited to the detection history present in the alert packets.
+  AGN, and bogus detections. The auxiliary information is limited to the detection history present in the alert packets.
 - The second one contains ~120,000 public ZTF alerts from July 6, 2020. The auxiliary information contains a ~100-day
-history of detections (limited to reduce the test database size), cross-matches with external catalogs, and a few
-additional computed quantities.
+  history of detections (limited to reduce the test database size), cross-matches with external catalogs, and a few
+  additional computed quantities.
 
 We recommend to begin exploring filtering on the first database and then move onto the second one.
 
@@ -318,16 +320,19 @@ Filters will be managed on a dedicated page on `Fritz`. A detailed description o
 Download and install MongoDB Compass for your system from [here](https://www.mongodb.com/try/download/compass).
 
 The connection string to access the first sample public alert database:
+
 ```
 mongodb://ztf:FritzZwicky@fritz-test-shard-00-00-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-01-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-02-uas9d.gcp.mongodb.net:27017/test?authSource=admin&replicaSet=fritz-test-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true
 ```
 
 The connection string to access the second sample public alert database:
+
 ```
 mongodb+srv://ztf:FritzZwicky@fritz-public-20200706.uas9d.gcp.mongodb.net/kowalski
 ```
 
 Upon connection:
+
 - Select the `kowalski` database
 - Select the `ZTF_alerts` collection
 - Go to the Aggregations tab
@@ -357,14 +362,14 @@ The upstream "massaging" mentioned above is performed by `Fritz` for each alert 
 - Selecting the newly ingested alert from the `ZTF_alerts` collection by its `candid`
 - Removing the image cutouts to reduce traffic
 - Joining the alert by its `objectId` with the corresponding entry in the `ZTF_alerts_aux` collection, which contains
-the cross-matches, ML scores, computed quantities, and archival photometry / detection history
+  the cross-matches, ML scores, computed quantities, and archival photometry / detection history
 
 The upstream stages also take care of the ACLs.
 
 `Fritz` uses the following four stages:
 
 - The first [`$match`](https://docs.mongodb.com/manual/reference/operator/aggregation/match/)
-stage selects the alert by its candid and ensures the ACLs are respected.
+  stage selects the alert by its candid and ensures the ACLs are respected.
 
 For example, for a program that has access to the partnership data:
 
@@ -385,8 +390,8 @@ specifying `"objectId": "<ZTF object id>"`, or turning it off altogether to make
 in the sample database.
 
 - The image cutouts are stored per alert, but generally not needed for the filtering purposes.
-The [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage
-removes them:
+  The [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage
+  removes them:
 
 ```json
 {
@@ -399,62 +404,46 @@ removes them:
 ```
 
 - Using the [`$lookup`](https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/) stage,
-the alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` collection, which uses the alert's
-`objectId`s as unique document identifiers (`_id` - a concept in MongoDB similar to primary keys in SQL):
+  the alert data are joined with auxiliary data stored in the `ZTF_alerts_aux` collection, which uses the alert's
+  `objectId`s as unique document identifiers (`_id` - a concept in MongoDB similar to primary keys in SQL):
 
 ```json
-  {
-    "$lookup": {
-      "from": "ZTF_alerts_aux",
-      "localField": "objectId",
-      "foreignField": "_id",
-      "as": "aux"
-    }
+{
+  "$lookup": {
+    "from": "ZTF_alerts_aux",
+    "localField": "objectId",
+    "foreignField": "_id",
+    "as": "aux"
   }
+}
 ```
 
 - The final [`$project`](https://docs.mongodb.com/manual/reference/operator/aggregation/project/) stage reshapes
-the joined data for convenience, selects the last 365 days of photometry history (which is done having practical
-considerations in mind and may be relaxed in the future),
-and applies ACLs to the detection history stored in `prv_candidates`:
+  the joined data for convenience, selects the last 365 days of photometry history (which is done having practical
+  considerations in mind and may be relaxed in the future),
+  and applies ACLs to the detection history stored in `prv_candidates`:
 
 ```json
 {
   "$project": {
     "cross_matches": {
-      "$arrayElemAt": [
-        "$aux.cross_matches",
-        0
-      ]
+      "$arrayElemAt": ["$aux.cross_matches", 0]
     },
     "prv_candidates": {
       "$filter": {
         "input": {
-          "$arrayElemAt": [
-            "$aux.prv_candidates",
-            0
-          ]
+          "$arrayElemAt": ["$aux.prv_candidates", 0]
         },
         "as": "item",
         "cond": {
           "$and": [
             {
-              "$in": [
-                "$$item.programid",
-                [
-                  1,
-                  2,
-                  3
-                ]
-              ]
+              "$in": ["$$item.programid", [1, 2, 3]]
             },
             {
               "$lt": [
                 {
-                  "$subtract": [
-                    "$candidate.jd",
-                    "$$item.jd"
-                  ]
+                  "$subtract": ["$candidate.jd", "$$item.jd"]
                 },
                 365
               ]
@@ -480,7 +469,6 @@ The user-defined filter stages then operate on the "enhanced" packets that look 
 
 `Fritz` automatically prepends these stages to all user-defined filters. However, when constructing/debugging
 filters in Compass, the users must take care of that -- all the examples below come with the upstream stages prepended.
-
 
 #### Limitations
 
@@ -517,14 +505,15 @@ For the detailed description of the available catalogs, see [here](catalogs.html
   - `acai_b` version `d1_dnn_20201130` -- phenomenological classifier, "bogus"
 
 ##### ACAI
+
 In November 2020, we deployed a set of new phenomenological deep learning classifiers called
 ACAI (Alert-Classifying AI; publication in prep.).
 The system consists of 5 binary classifiers:
 
 - `acai_h` -- "hosted" -- genuine transient in the vicinity of a "host" with (some) morphology,
-   e.g. something one could call a galaxy; should catch SN, Novae etc
+  e.g. something one could call a galaxy; should catch SN, Novae etc
 - `acai_o` -- "orphan" -- a genuine orphan transient, i.e. there are no identifiable "hosts" in its vicinity;
-   catches asteroids and hostless (or with hosts that are too faint) transients
+  catches asteroids and hostless (or with hosts that are too faint) transients
 - `acai_n` -- "nuclear" -- a genuine transient occurring in a galaxy/quasar nucleus; should catch AGN, TDEs, etc.
 - `acai_v` -- "variable star" -- variable star
 - `acai_b` -- "bogus" -- a new version of the real/bogus classifier; could be thought of as (1 - braai)
@@ -601,25 +590,30 @@ not a known Solar system object (`candidate.ssdistnr`):
 [
   {
     "$match": {
-      "classifications.acai_h": {"$gte": 0.8},
-      "classifications.acai_b": {"$lt": 0.1},
-      "classifications.acai_v": {"$lt": 0.1},
-      "classifications.acai_o": {"$lt": 0.4},
-      "classifications.acai_n": {"$lt": 0.4},
-      "candidate.ssdistnr": {"$lt": 0},
-      "candidate.isdiffpos": {"$in": [1, "1", true, "t"]}
+      "classifications.acai_h": { "$gte": 0.8 },
+      "classifications.acai_b": { "$lt": 0.1 },
+      "classifications.acai_v": { "$lt": 0.1 },
+      "classifications.acai_o": { "$lt": 0.4 },
+      "classifications.acai_n": { "$lt": 0.4 },
+      "candidate.ssdistnr": { "$lt": 0 },
+      "candidate.isdiffpos": { "$in": [1, "1", true, "t"] }
     }
   },
   {
     "$project": {
-      "annotations.age": {"$round": [{"$subtract": ["$candidate.jd", "$candidate.jdstarthist"]}, 5]},
+      "annotations.age": {
+        "$round": [
+          { "$subtract": ["$candidate.jd", "$candidate.jdstarthist"] },
+          5
+        ]
+      },
       "annotations.n_det": "$candidate.ndethist",
-      "annotations.candid": {"$toString": "$candid"},
-      "annotations.acai_h": {"$round": ["$classifications.acai_h", 5]},
-      "annotations.acai_v": {"$round": ["$classifications.acai_v", 5]},
-      "annotations.acai_o": {"$round": ["$classifications.acai_o", 5]},
-      "annotations.acai_n": {"$round": ["$classifications.acai_n", 5]},
-      "annotations.acai_b": {"$round": ["$classifications.acai_b", 5]}
+      "annotations.candid": { "$toString": "$candid" },
+      "annotations.acai_h": { "$round": ["$classifications.acai_h", 5] },
+      "annotations.acai_v": { "$round": ["$classifications.acai_v", 5] },
+      "annotations.acai_o": { "$round": ["$classifications.acai_o", 5] },
+      "annotations.acai_n": { "$round": ["$classifications.acai_n", 5] },
+      "annotations.acai_b": { "$round": ["$classifications.acai_b", 5] }
     }
   }
 ]
@@ -855,14 +849,10 @@ see [here](https://docs.mongodb.com/manual/reference/operator/aggregation/).
     "jdstarthist": "$candidate.jdstarthist",
     "jdendhist": "$candidate.jdendhist",
     "deltajd": {
-      "$subtract": [
-        "$candidate.jdendhist", "$candidate.jdstarthist"
-      ]
+      "$subtract": ["$candidate.jdendhist", "$candidate.jdstarthist"]
     },
     "psfminap": {
-      "$subtract": [
-        "$candidate.magpsf", "$candidate.magap"
-      ]
+      "$subtract": ["$candidate.magpsf", "$candidate.magap"]
     },
     "candidates_fid": {
       "$concatArrays": [
@@ -873,19 +863,13 @@ see [here](https://docs.mongodb.com/manual/reference/operator/aggregation/).
             "cond": {
               "$and": [
                 {
-                  "$eq": [
-                    "$$cand.fid", "$candidate.fid"
-                  ]
+                  "$eq": ["$$cand.fid", "$candidate.fid"]
                 },
                 {
-                  "$gt": [
-                    "$$cand.magpsf", 0
-                  ]
+                  "$gt": ["$$cand.magpsf", 0]
                 },
                 {
-                  "$lt": [
-                    "$$cand.magpsf", 99
-                  ]
+                  "$lt": ["$$cand.magpsf", 99]
                 }
               ]
             }
@@ -938,62 +922,49 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
     "candidates_fid": 1,
     "m_max_index": {
       "$indexOfArray": [
-        "$candidates_fid.magpsf", {
-          "$max": [
-            "$candidates_fid.magpsf"
-          ]
+        "$candidates_fid.magpsf",
+        {
+          "$max": ["$candidates_fid.magpsf"]
         }
       ]
     },
     "m_min_index": {
       "$indexOfArray": [
-        "$candidates_fid.magpsf", {
-          "$min": [
-            "$candidates_fid.magpsf"
-          ]
+        "$candidates_fid.magpsf",
+        {
+          "$min": ["$candidates_fid.magpsf"]
         }
       ]
     },
     "bright": {
-      "$lt": [
-        "$m_now", 99.0
-      ]
+      "$lt": ["$m_now", 99.0]
     },
     "positivesubtraction": {
-      "$in": [
-        "$isdiffpos",
-        [
-          1, "1", "t", true
-        ]
-      ]
+      "$in": ["$isdiffpos", [1, "1", "t", true]]
     },
     "real": {
       "$and": [
         {
-          "$gt": [
-            "$rbscore", 0.3
-          ]
-        }, {
-          "$gt": [
-            "$drb", 0.5
-          ]
-        }, {
-          "$gt": [
-            "$fwhm", 0.5
-          ]
-        }, {
-          "$lt": [
-            "$fwhm", 8
-          ]
-        }, {
-          "$lt": [
-            "$nbad", 5
-          ]
-        }, {
+          "$gt": ["$rbscore", 0.3]
+        },
+        {
+          "$gt": ["$drb", 0.5]
+        },
+        {
+          "$gt": ["$fwhm", 0.5]
+        },
+        {
+          "$lt": ["$fwhm", 8]
+        },
+        {
+          "$lt": ["$nbad", 5]
+        },
+        {
           "$lt": [
             {
               "$abs": "$psfminap"
-            }, 0.75
+            },
+            0.75
           ]
         }
       ]
@@ -1003,13 +974,10 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
         {
           "$and": [
             {
-              "$gt": [
-                "$sgscore", 0.76
-              ]
-            }, {
-              "$lt": [
-                "$distpsnr1", 2
-              ]
+              "$gt": ["$sgscore", 0.76]
+            },
+            {
+              "$lt": ["$distpsnr1", 2]
             }
           ]
         }
@@ -1020,87 +988,69 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
         {
           "$and": [
             {
-              "$lt": [
-                "$distpsnr1", 20
-              ]
-            }, {
-              "$lt": [
-                "$srmag", 15
-              ]
-            }, {
-              "$gt": [
-                "$srmag", 0
-              ]
-            }, {
-              "$gt": [
-                "$sgscore", 0.49
-              ]
+              "$lt": ["$distpsnr1", 20]
+            },
+            {
+              "$lt": ["$srmag", 15]
+            },
+            {
+              "$gt": ["$srmag", 0]
+            },
+            {
+              "$gt": ["$sgscore", 0.49]
             }
           ]
-        }, {
+        },
+        {
           "$and": [
             {
-              "$lt": [
-                "$distpsnr2", 20
-              ]
-            }, {
-              "$lt": [
-                "$srmag2", 15
-              ]
-            }, {
-              "$gt": [
-                "$srmag2", 0
-              ]
-            }, {
-              "$gt": [
-                "$sgscore2", 0.49
-              ]
+              "$lt": ["$distpsnr2", 20]
+            },
+            {
+              "$lt": ["$srmag2", 15]
+            },
+            {
+              "$gt": ["$srmag2", 0]
+            },
+            {
+              "$gt": ["$sgscore2", 0.49]
             }
           ]
-        }, {
+        },
+        {
           "$and": [
             {
-              "$lt": [
-                "$distpsnr3", 20
-              ]
-            }, {
-              "$lt": [
-                "$srmag3", 15
-              ]
-            }, {
-              "$gt": [
-                "$srmag3", 0
-              ]
-            }, {
-              "$gt": [
-                "$sgscore3", 0.49
-              ]
+              "$lt": ["$distpsnr3", 20]
+            },
+            {
+              "$lt": ["$srmag3", 15]
+            },
+            {
+              "$gt": ["$srmag3", 0]
+            },
+            {
+              "$gt": ["$sgscore3", 0.49]
             }
           ]
-        }, {
+        },
+        {
           "$and": [
             {
-              "$eq": [
-                "$sgscore", 0.5
-              ]
-            }, {
-              "$lt": [
-                "$distpsnr1", 0.5
-              ]
-            }, {
+              "$eq": ["$sgscore", 0.5]
+            },
+            {
+              "$lt": ["$distpsnr1", 0.5]
+            },
+            {
               "$or": [
                 {
-                  "$lt": [
-                    "$sgmag", 17
-                  ]
-                }, {
-                  "$lt": [
-                    "$srmag", 17
-                  ]
-                }, {
-                  "$lt": [
-                    "$simag", 17
-                  ]
+                  "$lt": ["$sgmag", 17]
+                },
+                {
+                  "$lt": ["$srmag", 17]
+                },
+                {
+                  "$lt": ["$simag", 17]
                 }
               ]
             }
@@ -1113,49 +1063,39 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
         {
           "$and": [
             {
-              "$lt": [
-                "$distnr", 0.4
-              ]
-            }, {
-              "$lt": [
-                "$magnr", 19
-              ]
-            }, {
-              "$gt": [
-                "$age", 90
-              ]
+              "$lt": ["$distnr", 0.4]
+            },
+            {
+              "$lt": ["$magnr", 19]
+            },
+            {
+              "$gt": ["$age", 90]
             }
           ]
-        }, {
+        },
+        {
           "$and": [
             {
-              "$lt": [
-                "$distnr", 0.8
-              ]
-            }, {
-              "$lt": [
-                "$magnr", 17
-              ]
-            }, {
-              "$gt": [
-                "$age", 90
-              ]
+              "$lt": ["$distnr", 0.8]
+            },
+            {
+              "$lt": ["$magnr", 17]
+            },
+            {
+              "$gt": ["$age", 90]
             }
           ]
-        }, {
+        },
+        {
           "$and": [
             {
-              "$lt": [
-                "$distnr", 1.2
-              ]
-            }, {
-              "$lt": [
-                "$magnr", 15
-              ]
-            }, {
-              "$gt": [
-                "$age", 90
-              ]
+              "$lt": ["$distnr", 1.2]
+            },
+            {
+              "$lt": ["$magnr", 15]
+            },
+            {
+              "$gt": ["$age", 90]
             }
           ]
         }
@@ -1164,18 +1104,17 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
     "rock": {
       "$and": [
         {
-          "$gte": [
-            "$ssdistnr", 0
-          ]
-        }, {
-          "$lt": [
-            "$ssdistnr", 12
-          ]
-        }, {
+          "$gte": ["$ssdistnr", 0]
+        },
+        {
+          "$lt": ["$ssdistnr", 12]
+        },
+        {
           "$lt": [
             {
               "$abs": "$ssmagnr"
-            }, 20
+            },
+            20
           ]
         }
       ]
@@ -1191,32 +1130,25 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
                 "$gt": [
                   {
                     "$abs": {
-                      "$subtract": [
-                        "$t_now", "$$cand.jd"
-                      ]
+                      "$subtract": ["$t_now", "$$cand.jd"]
                     }
-                  }, 0.02
+                  },
+                  0.02
                 ]
-              }, {
-                "$lt": [
-                  "$$cand.magpsf", 99
-                ]
-              }, {
-                "$in": [
-                  "$$cand.isdiffpos", [
-                    1, "1", true, "t"
-                  ]
-                ]
-              }, {
+              },
+              {
+                "$lt": ["$$cand.magpsf", 99]
+              },
+              {
+                "$in": ["$$cand.isdiffpos", [1, "1", true, "t"]]
+              },
+              {
                 "$or": [
                   {
-                    "$lt": [
-                      "$ssdistnr", -0.5
-                    ]
-                  }, {
-                    "$gt": [
-                      "$ssdistnr", 2
-                    ]
+                    "$lt": ["$ssdistnr", -0.5]
+                  },
+                  {
+                    "$gt": ["$ssdistnr", 2]
                   }
                 ]
               }
@@ -1232,16 +1164,16 @@ maximum and minimum magnitudes in the `candidates_fid` array, which we will use 
 Let us take a closer look at a few of the fields defined above:
 
 1. In the definition of `m_max_index`,
-the [`$indexOfArray`](https://docs.mongodb.com/manual/reference/operator/aggregation/indexOfArray/)
-operator returns the index of the maximum value of the `magpsf` field in the detection history:
+   the [`$indexOfArray`](https://docs.mongodb.com/manual/reference/operator/aggregation/indexOfArray/)
+   operator returns the index of the maximum value of the `magpsf` field in the detection history:
+
 - `$candidates_fid.magpsf` returns an array containing the filtered `magpsf`s
 - the [`$max`](https://docs.mongodb.com/manual/reference/operator/aggregation/max/) operator takes the maximum of that
-array
+  array
 
 2. In the definition of `stationary`, we evaluate a boolean statement (expressed using the`$and` operator)
-on each entry in the full detection history stored in the `prv_candidates` array using the
-[`$map`](https://docs.mongodb.com/manual/reference/operator/aggregation/map/) operator.
-
+   on each entry in the full detection history stored in the `prv_candidates` array using the
+   [`$map`](https://docs.mongodb.com/manual/reference/operator/aggregation/map/) operator.
 
 In the following `$project` stage, we compute the maximum and minimum magnitudes
 for the source and the corresponding time stamps using the `m_max_index` and `m_min_index` values computed above:
@@ -1250,24 +1182,16 @@ for the source and the corresponding time stamps using the `m_max_index` and `m_
 {
   "$project": {
     "m_max": {
-      "$arrayElemAt": [
-        "$candidates_fid.magpsf", "$m_max_index"
-      ]
+      "$arrayElemAt": ["$candidates_fid.magpsf", "$m_max_index"]
     },
     "m_min": {
-      "$arrayElemAt": [
-        "$candidates_fid.magpsf", "$m_min_index"
-      ]
+      "$arrayElemAt": ["$candidates_fid.magpsf", "$m_min_index"]
     },
     "t_max": {
-      "$arrayElemAt": [
-        "$candidates_fid.jd", "$m_max_index"
-      ]
+      "$arrayElemAt": ["$candidates_fid.jd", "$m_max_index"]
     },
     "t_min": {
-      "$arrayElemAt": [
-        "$candidates_fid.jd", "$m_min_index"
-      ]
+      "$arrayElemAt": ["$candidates_fid.jd", "$m_min_index"]
     },
     "t_now": 1,
     "m_now": 1,
@@ -1327,106 +1251,88 @@ The final stage adds annotations to a passing alert:
 
 ```json
 {
-    "$project": {
-      "annotations.FWHM": "$fwhm",
-      "annotations.drb": "$drb",
-      "annotations.host g-r": {
-        "$subtract": [
-          "$sgmag", "$srmag"
-        ]
-      },
-      "annotations.host r-i": {
-        "$subtract": [
-          "$srmag", "$simag"
-        ]
-      },
-      "annotations.mag at max": "$m_max",
-      "annotations.time at max": "$t_max",
-      "annotations.min-mag": "$m_min",
-      "annotations.min-time": "$t_min",
-      "annotations.time difference": {
-        "$subtract": [
-          "$t_max", "$t_min"
-        ]
-      },
-      "annotations.mag diff": {
-        "$subtract": [
-          "$m_min", "$m_max"
-        ]
-      },
-      "annotations.rise rate": {
-        "$cond": {
-          "if": {
-            "$gt": [
-              {
-                "$subtract": [
-                  "$t_max", "$t_min"
-                ]
-              }, 0
-            ]
-          },
-          "then": {
-            "$divide": [
-              {
-                "$subtract": [
-                  "$m_min", "$m_max"
-                ]
-              }, {
-                "$subtract": [
-                  "$t_max", "$t_min"
-                ]
-              }
-            ]
-          },
-          "else": null
-        }
-      },
-      "annotations.decay rate": {
-        "$cond": {
-          "if": {
-            "$lt": [
-              {
-                "$subtract": [
-                  "$t_max", "$t_min"
-                ]
-              }, 0
-            ]
-          },
-          "then": {
-            "$divide": [
-              {
-                "$subtract": [
-                  "$m_max", "$m_min"
-                ]
-              }, {
-                "$subtract": [
-                  "$t_max", "$t_min"
-                ]
-              }
-            ]
-          },
-          "else": null
-        }
-      },
-      "annotations.host ZTF ref PSF r-mag": "$magnr",
-      "annotations.PS1 psf r-mag": "$srmag",
-      "annotations.rb score": "$rbscore",
-      "annotations.sgscore1": "$sgscore",
-      "annotations.ZOGI scorr": "$scorr",
-      "annotations.distpsnr1": "$distpsnr1",
-      "annotations.distpsnr2": "$distpsnr2",
-      "annotations.distpsnr3": "$distpsnr3",
-      "annotations.magpsf": "$m_now",
-      "annotations.elongation": "$elong",
-      "annotations.magap_min_magpsf": "$psfminap",
-      "annotations.gal_lat": "$gal_lat",
-      "annotations.deltajd": {
-        "$subtract": [
-          "$jdendhist", "$jdstarthist"
-        ]
+  "$project": {
+    "annotations.FWHM": "$fwhm",
+    "annotations.drb": "$drb",
+    "annotations.host g-r": {
+      "$subtract": ["$sgmag", "$srmag"]
+    },
+    "annotations.host r-i": {
+      "$subtract": ["$srmag", "$simag"]
+    },
+    "annotations.mag at max": "$m_max",
+    "annotations.time at max": "$t_max",
+    "annotations.min-mag": "$m_min",
+    "annotations.min-time": "$t_min",
+    "annotations.time difference": {
+      "$subtract": ["$t_max", "$t_min"]
+    },
+    "annotations.mag diff": {
+      "$subtract": ["$m_min", "$m_max"]
+    },
+    "annotations.rise rate": {
+      "$cond": {
+        "if": {
+          "$gt": [
+            {
+              "$subtract": ["$t_max", "$t_min"]
+            },
+            0
+          ]
+        },
+        "then": {
+          "$divide": [
+            {
+              "$subtract": ["$m_min", "$m_max"]
+            },
+            {
+              "$subtract": ["$t_max", "$t_min"]
+            }
+          ]
+        },
+        "else": null
       }
+    },
+    "annotations.decay rate": {
+      "$cond": {
+        "if": {
+          "$lt": [
+            {
+              "$subtract": ["$t_max", "$t_min"]
+            },
+            0
+          ]
+        },
+        "then": {
+          "$divide": [
+            {
+              "$subtract": ["$m_max", "$m_min"]
+            },
+            {
+              "$subtract": ["$t_max", "$t_min"]
+            }
+          ]
+        },
+        "else": null
+      }
+    },
+    "annotations.host ZTF ref PSF r-mag": "$magnr",
+    "annotations.PS1 psf r-mag": "$srmag",
+    "annotations.rb score": "$rbscore",
+    "annotations.sgscore1": "$sgscore",
+    "annotations.ZOGI scorr": "$scorr",
+    "annotations.distpsnr1": "$distpsnr1",
+    "annotations.distpsnr2": "$distpsnr2",
+    "annotations.distpsnr3": "$distpsnr3",
+    "annotations.magpsf": "$m_now",
+    "annotations.elongation": "$elong",
+    "annotations.magap_min_magpsf": "$psfminap",
+    "annotations.gal_lat": "$gal_lat",
+    "annotations.deltajd": {
+      "$subtract": ["$jdendhist", "$jdstarthist"]
     }
   }
+}
 ```
 
 #### BTS/RCF program (simplified) filter
@@ -1441,451 +1347,389 @@ As another example, below you will find a simplified version of the Bright Trans
   /* UPSTREAM STAGES */
   // For this example, select alerts by objectId. In practice, alert is selected by candid
   {
-    "$match": {
-      "objectId": "ZTF20aacbyec",
+    $match: {
+      objectId: "ZTF20aacbyec",
       "candidate.programid": {
-        "$in": [
-          1
-        ]
-      }
-    }
-  },
-  {
-    "$project": {
-      "cutoutScience": 0,
-      "cutoutTemplate": 0,
-      "cutoutDifference": 0
-    }
-  },
-  {
-    "$lookup": {
-      "from": "ZTF_alerts_aux",
-      "localField": "objectId",
-      "foreignField": "_id",
-      "as": "aux"
-    }
-  },
-  {
-    "$project": {
-      "cross_matches": {
-        "$arrayElemAt": [
-          "$aux.cross_matches", 0
-        ]
+        $in: [1],
       },
-      "prv_candidates": {
-        "$filter": {
-          "input": {
-            "$arrayElemAt": [
-              "$aux.prv_candidates", 0
-            ]
+    },
+  },
+  {
+    $project: {
+      cutoutScience: 0,
+      cutoutTemplate: 0,
+      cutoutDifference: 0,
+    },
+  },
+  {
+    $lookup: {
+      from: "ZTF_alerts_aux",
+      localField: "objectId",
+      foreignField: "_id",
+      as: "aux",
+    },
+  },
+  {
+    $project: {
+      cross_matches: {
+        $arrayElemAt: ["$aux.cross_matches", 0],
+      },
+      prv_candidates: {
+        $filter: {
+          input: {
+            $arrayElemAt: ["$aux.prv_candidates", 0],
           },
-          "as": "item",
-          "cond": {
-            "$in": [
-              "$$item.programid", [
-                1
-              ]
-            ]
-          }
-        }
+          as: "item",
+          cond: {
+            $in: ["$$item.programid", [1]],
+          },
+        },
       },
-      "schemavsn": 1,
-      "publisher": 1,
-      "objectId": 1,
-      "candid": 1,
-      "candidate": 1,
-      "classifications": 1,
-      "coordinates": 1
-    }
+      schemavsn: 1,
+      publisher: 1,
+      objectId: 1,
+      candid: 1,
+      candidate: 1,
+      classifications: 1,
+      coordinates: 1,
+    },
   },
   /* USER-DEFINED PART */
   {
-    "$project": {
-      "_id": 0,
-      "candid": 1,
-      "objectId": 1,
+    $project: {
+      _id: 0,
+      candid: 1,
+      objectId: 1,
       "prv_candidates.jd": 1,
       "prv_candidates.magpsf": 1,
       "prv_candidates.fid": 1,
       "prv_candidates.isdiffpos": 1,
-      "isdiffpos": "$candidate.isdiffpos",
-      "m_now": "$candidate.magpsf",
-      "m_app": "$candidate.magap",
-      "t_now": "$candidate.jd",
-      "fid_now": "$candidate.fid",
-      "sgscore": "$candidate.sgscore1",
-      "sgscore2": "$candidate.sgscore2",
-      "sgscore3": "$candidate.sgscore3",
-      "srmag": "$candidate.srmag1",
-      "srmag2": "$candidate.srmag2",
-      "srmag3": "$candidate.srmag3",
-      "sgmag": "$candidate.sgmag1",
-      "simag": "$candidate.simag1",
-      "drbscore": "$candidate.drb",
-      "magnr": "$candidate.magnr",
-      "distnr": "$candidate.distnr",
-      "distpsnr1": "$candidate.distpsnr1",
-      "distpsnr2": "$candidate.distpsnr2",
-      "distpsnr3": "$candidate.distpsnr3",
-      "scorr": "$candidate.scorr",
-      "fwhm": "$candidate.fwhm",
-      "elong": "$candidate.elong",
-      "nbad": "$candidate.nbad",
-      "chipsf": "$candidate.chipsf",
-      "gal_lat": "$coordinates.b",
-      "ssdistnr": "$candidate.ssdistnr",
-      "ssmagnr": "$candidate.ssmagnr",
-      "ssnamenr": "$candidate.ssnamenr",
-      "t_start": "$candidate.jdstarthist",
-      "age": {
-        "$subtract": [
-          "$candidate.jd", "$candidate.jdstarthist"
-        ]
-      }
-    }
+      isdiffpos: "$candidate.isdiffpos",
+      m_now: "$candidate.magpsf",
+      m_app: "$candidate.magap",
+      t_now: "$candidate.jd",
+      fid_now: "$candidate.fid",
+      sgscore: "$candidate.sgscore1",
+      sgscore2: "$candidate.sgscore2",
+      sgscore3: "$candidate.sgscore3",
+      srmag: "$candidate.srmag1",
+      srmag2: "$candidate.srmag2",
+      srmag3: "$candidate.srmag3",
+      sgmag: "$candidate.sgmag1",
+      simag: "$candidate.simag1",
+      drbscore: "$candidate.drb",
+      magnr: "$candidate.magnr",
+      distnr: "$candidate.distnr",
+      distpsnr1: "$candidate.distpsnr1",
+      distpsnr2: "$candidate.distpsnr2",
+      distpsnr3: "$candidate.distpsnr3",
+      scorr: "$candidate.scorr",
+      fwhm: "$candidate.fwhm",
+      elong: "$candidate.elong",
+      nbad: "$candidate.nbad",
+      chipsf: "$candidate.chipsf",
+      gal_lat: "$coordinates.b",
+      ssdistnr: "$candidate.ssdistnr",
+      ssmagnr: "$candidate.ssmagnr",
+      ssnamenr: "$candidate.ssnamenr",
+      t_start: "$candidate.jdstarthist",
+      age: {
+        $subtract: ["$candidate.jd", "$candidate.jdstarthist"],
+      },
+    },
   },
   {
-    "$project": {
-      "objectId": 1,
-      "t_now": 1,
-      "m_now": 1,
-      "fid_now": 1,
-      "sgscore": 1,
-      "drbscore": 1,
-      "magnr": 1,
-      "distnr": 1,
-      "scorr": 1,
-      "gal_lat": 1,
-      "ssdistnr": 1,
-      "ssnamenr": 1,
-      "age": 1,
-      "peakmag": {
-        "$min": [
+    $project: {
+      objectId: 1,
+      t_now: 1,
+      m_now: 1,
+      fid_now: 1,
+      sgscore: 1,
+      drbscore: 1,
+      magnr: 1,
+      distnr: 1,
+      scorr: 1,
+      gal_lat: 1,
+      ssdistnr: 1,
+      ssnamenr: 1,
+      age: 1,
+      peakmag: {
+        $min: [
           {
-            "$map": {
-              "input": "$prv_candidates",
-              "as": "cand",
-              "in": {
-                "$cond": [
+            $map: {
+              input: "$prv_candidates",
+              as: "cand",
+              in: {
+                $cond: [
                   {
-                    "$eq": [
-                      "$$cand.fid", "$fid_now"
-                    ]
-                  }, "$$cand.magpsf", null
-                ]
-              }
-            }
-          }, "$m_now"
-        ]
+                    $eq: ["$$cand.fid", "$fid_now"],
+                  },
+                  "$$cand.magpsf",
+                  null,
+                ],
+              },
+            },
+          },
+          "$m_now",
+        ],
       },
-      "bright": {
-        "$or": [
+      bright: {
+        $or: [
           {
-            "$lt": [
-              "$m_now", 19.0
-            ]
-          }, {
-            "$map": {
-              "input": "$prv_candidates",
-              "as": "cand",
-              "in": {
-                "$and": [
+            $lt: ["$m_now", 19.0],
+          },
+          {
+            $map: {
+              input: "$prv_candidates",
+              as: "cand",
+              in: {
+                $and: [
                   {
-                    "$lt": [
+                    $lt: [
                       {
-                        "$abs": {
-                          "$subtract": [
-                            "$t_now", "$$cand.jd"
-                          ]
-                        }
-                      }, 0.75
-                    ]
-                  }, {
-                    "$in": [
-                      "$isdiffpos", [
-                        1, "1", "t", true
-                      ]
-                    ]
-                  }, {
-                    "$gt": [
-                      "$$cand.magpsf", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$$cand.magpsf", 19
-                    ]
-                  }
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "latitude": {
-        "$gte": [
-          {
-            "$abs": "$gal_lat"
-          }, 7
-        ]
-      },
-      "positivesubtraction": {
-        "$in": [
-          "$isdiffpos", [
-            1, "1", "t", true
-          ]
-        ]
-      },
-      "real": {
-        "$gt": [
-          "$drbscore", 0.5
-        ]
-      },
-      "nopointunderneath": {
-        "$not": [
-          {
-            "$and": [
-              {
-                "$gt": [
-                  "$sgscore", 0.76
-                ]
-              }, {
-                "$lt": [
-                  "$distpsnr1", 2
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "brightstar": {
-        "$or": [
-          {
-            "$and": [
-              {
-                "$lt": [
-                  "$distpsnr1", 20
-                ]
-              }, {
-                "$lt": [
-                  "$srmag", 15
-                ]
-              }, {
-                "$gt": [
-                  "$srmag", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore", 0.49
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distpsnr2", 20
-                ]
-              }, {
-                "$lt": [
-                  "$srmag2", 15
-                ]
-              }, {
-                "$gt": [
-                  "$srmag2", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore2", 0.49
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distpsnr3", 20
-                ]
-              }, {
-                "$lt": [
-                  "$srmag3", 15
-                ]
-              }, {
-                "$gt": [
-                  "$srmag3", 0
-                ]
-              }, {
-                "$gt": [
-                  "$sgscore3", 0.49
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$eq": [
-                  "$sgscore", 0.5
-                ]
-              }, {
-                "$lt": [
-                  "$distpsnr1", 0.5
-                ]
-              }, {
-                "$or": [
+                        $abs: {
+                          $subtract: ["$t_now", "$$cand.jd"],
+                        },
+                      },
+                      0.75,
+                    ],
+                  },
                   {
-                    "$lt": [
-                      "$sgmag", 17
-                    ]
-                  }, {
-                    "$lt": [
-                      "$srmag", 17
-                    ]
-                  }, {
-                    "$lt": [
-                      "$simag", 17
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+                    $in: ["$isdiffpos", [1, "1", "t", true]],
+                  },
+                  {
+                    $gt: ["$$cand.magpsf", 0],
+                  },
+                  {
+                    $lt: ["$$cand.magpsf", 19],
+                  },
+                ],
+              },
+            },
+          },
+        ],
       },
-      "variablesource": {
-        "$or": [
+      latitude: {
+        $gte: [
           {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 0.4
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 19
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 0.8
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 17
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }, {
-            "$and": [
-              {
-                "$lt": [
-                  "$distnr", 1.2
-                ]
-              }, {
-                "$lt": [
-                  "$magnr", 15
-                ]
-              }, {
-                "$gt": [
-                  "$age", 90
-                ]
-              }
-            ]
-          }
-        ]
+            $abs: "$gal_lat",
+          },
+          7,
+        ],
       },
-      "rock": {
-        "$and": [
+      positivesubtraction: {
+        $in: ["$isdiffpos", [1, "1", "t", true]],
+      },
+      real: {
+        $gt: ["$drbscore", 0.5],
+      },
+      nopointunderneath: {
+        $not: [
           {
-            "$gte": [
-              "$ssdistnr", 0
-            ]
-          }, {
-            "$lt": [
-              "$ssdistnr", 12
-            ]
-          }, {
-            "$lt": [
+            $and: [
               {
-                "$abs": "$ssmagnr"
-              }, 20
-            ]
-          }
-        ]
+                $gt: ["$sgscore", 0.76],
+              },
+              {
+                $lt: ["$distpsnr1", 2],
+              },
+            ],
+          },
+        ],
       },
-      "stationary": {
-        "$anyElementTrue": {
-          "$map": {
-            "input": "$prv_candidates",
-            "as": "cand",
-            "in": {
-              "$and": [
+      brightstar: {
+        $or: [
+          {
+            $and: [
+              {
+                $lt: ["$distpsnr1", 20],
+              },
+              {
+                $lt: ["$srmag", 15],
+              },
+              {
+                $gt: ["$srmag", 0],
+              },
+              {
+                $gt: ["$sgscore", 0.49],
+              },
+            ],
+          },
+          {
+            $and: [
+              {
+                $lt: ["$distpsnr2", 20],
+              },
+              {
+                $lt: ["$srmag2", 15],
+              },
+              {
+                $gt: ["$srmag2", 0],
+              },
+              {
+                $gt: ["$sgscore2", 0.49],
+              },
+            ],
+          },
+          {
+            $and: [
+              {
+                $lt: ["$distpsnr3", 20],
+              },
+              {
+                $lt: ["$srmag3", 15],
+              },
+              {
+                $gt: ["$srmag3", 0],
+              },
+              {
+                $gt: ["$sgscore3", 0.49],
+              },
+            ],
+          },
+          {
+            $and: [
+              {
+                $eq: ["$sgscore", 0.5],
+              },
+              {
+                $lt: ["$distpsnr1", 0.5],
+              },
+              {
+                $or: [
+                  {
+                    $lt: ["$sgmag", 17],
+                  },
+                  {
+                    $lt: ["$srmag", 17],
+                  },
+                  {
+                    $lt: ["$simag", 17],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      variablesource: {
+        $or: [
+          {
+            $and: [
+              {
+                $lt: ["$distnr", 0.4],
+              },
+              {
+                $lt: ["$magnr", 19],
+              },
+              {
+                $gt: ["$age", 90],
+              },
+            ],
+          },
+          {
+            $and: [
+              {
+                $lt: ["$distnr", 0.8],
+              },
+              {
+                $lt: ["$magnr", 17],
+              },
+              {
+                $gt: ["$age", 90],
+              },
+            ],
+          },
+          {
+            $and: [
+              {
+                $lt: ["$distnr", 1.2],
+              },
+              {
+                $lt: ["$magnr", 15],
+              },
+              {
+                $gt: ["$age", 90],
+              },
+            ],
+          },
+        ],
+      },
+      rock: {
+        $and: [
+          {
+            $gte: ["$ssdistnr", 0],
+          },
+          {
+            $lt: ["$ssdistnr", 12],
+          },
+          {
+            $lt: [
+              {
+                $abs: "$ssmagnr",
+              },
+              20,
+            ],
+          },
+        ],
+      },
+      stationary: {
+        $anyElementTrue: {
+          $map: {
+            input: "$prv_candidates",
+            as: "cand",
+            in: {
+              $and: [
                 {
-                  "$gt": [
+                  $gt: [
                     {
-                      "$abs": {
-                        "$subtract": [
-                          "$t_now", "$$cand.jd"
-                        ]
-                      }
-                    }, 0.02
-                  ]
-                }, {
-                  "$lt": [
-                    "$$cand.magpsf", 99
-                  ]
-                }, {
-                  "$in": [
-                    "$$cand.isdiffpos", [
-                      1, "1", true, "t"
-                    ]
-                  ]
-                }
-              ]
-            }
-          }
-        }
-      }
-    }
+                      $abs: {
+                        $subtract: ["$t_now", "$$cand.jd"],
+                      },
+                    },
+                    0.02,
+                  ],
+                },
+                {
+                  $lt: ["$$cand.magpsf", 99],
+                },
+                {
+                  $in: ["$$cand.isdiffpos", [1, "1", true, "t"]],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "$match": {
-      "latitude": true,
-      "bright": true,
-      "nopointunderneath": true,
-      "positivesubtraction": true,
-      "real": true,
-      "stationary": true,
-      "brightstar": false,
-      "rock": false
-    }
+    $match: {
+      latitude: true,
+      bright: true,
+      nopointunderneath: true,
+      positivesubtraction: true,
+      real: true,
+      stationary: true,
+      brightstar: false,
+      rock: false,
+    },
   },
   {
-    "$project": {
-      "objectId": 1,
+    $project: {
+      objectId: 1,
       "annotations.jd": "$t_now",
       "annotations.magnitude": "$m_now",
       "annotations.sgscore": "$sgscore",
       "annotations.peakmag": "$peakmag",
       "annotations.atpeak": {
-        "$eq": [
-          "$m_now", "$peakmag"
-        ]
+        $eq: ["$m_now", "$peakmag"],
       },
       "annotations.age": "$age",
-      "annotations.drb": "$drbscore"
-    }
-  }
-]
+      "annotations.drb": "$drbscore",
+    },
+  },
+];
 ```
 
 #### BTS/RCF program full filter
@@ -1992,433 +1836,364 @@ As we have seen above, we can build these kinds of logical expressions right int
 ```js
 [
   {
-    "$project": {
-      "cutoutScience": 0,
-      "cutoutTemplate": 0,
-      "cutoutDifference": 0
-    }
+    $project: {
+      cutoutScience: 0,
+      cutoutTemplate: 0,
+      cutoutDifference: 0,
+    },
   },
   {
-    "$lookup": {
-      "from": "ZTF_alerts_aux",
-      "localField": "objectId",
-      "foreignField": "_id",
-      "as": "aux"
-    }
+    $lookup: {
+      from: "ZTF_alerts_aux",
+      localField: "objectId",
+      foreignField: "_id",
+      as: "aux",
+    },
   },
   {
-    "$project": {
-      "cross_matches": {
-        "$arrayElemAt": [
-          "$aux.cross_matches", 0
-        ]
+    $project: {
+      cross_matches: {
+        $arrayElemAt: ["$aux.cross_matches", 0],
       },
-      "prv_candidates": {
-        "$filter": {
-          "input": {
-            "$arrayElemAt": [
-              "$aux.prv_candidates", 0
-            ]
+      prv_candidates: {
+        $filter: {
+          input: {
+            $arrayElemAt: ["$aux.prv_candidates", 0],
           },
-          "as": "item",
-          "cond": {
-            "$and": [
+          as: "item",
+          cond: {
+            $and: [
               {
-                "$in": [
-                  "$$item.programid", [
-                    1, 2, 3
-                  ]
-                ]
-              }, {
-                "$lt": [
+                $in: ["$$item.programid", [1, 2, 3]],
+              },
+              {
+                $lt: [
                   {
-                    "$subtract": [
-                      "$candidate.jd", "$$item.jd"
-                    ]
-                  }, 100
-                ]
-              }
-            ]
-          }
-        }
+                    $subtract: ["$candidate.jd", "$$item.jd"],
+                  },
+                  100,
+                ],
+              },
+            ],
+          },
+        },
       },
-      "schemavsn": 1,
-      "publisher": 1,
-      "objectId": 1,
-      "candid": 1,
-      "candidate": 1,
-      "classifications": 1,
-      "coordinates": 1
-    }
+      schemavsn: 1,
+      publisher: 1,
+      objectId: 1,
+      candid: 1,
+      candidate: 1,
+      classifications: 1,
+      coordinates: 1,
+    },
   },
   {
-    "$match": {
+    $match: {
       "candidate.magpsf": {
-        "$lt": 20
+        $lt: 20,
       },
       "candidate.isdiffpos": {
-        "$in": [
-          "1", "t"
-        ]
+        $in: ["1", "t"],
       },
       "candidate.programid": {
-        "$gt": 0
+        $gt: 0,
       },
       "candidate.ssdistnr": {
-        "$lt": -1
+        $lt: -1,
       },
       "candidate.drb": {
-        "$gt": 0.65
-      }
-    }
+        $gt: 0.65,
+      },
+    },
   },
   {
-    "$project": {
-      "objectId": 1,
-      "dist": "$candidate.distpsnr1",
-      "sg": "$candidate.sgscore1",
-      "rmag": "$candidate.srmag1",
-      "gmag": "$candidate.sgmag1",
-      "imag": "$candidate.simag1",
-      "zmag": "$candidate.szmag1"
-    }
+    $project: {
+      objectId: 1,
+      dist: "$candidate.distpsnr1",
+      sg: "$candidate.sgscore1",
+      rmag: "$candidate.srmag1",
+      gmag: "$candidate.sgmag1",
+      imag: "$candidate.simag1",
+      zmag: "$candidate.szmag1",
+    },
   },
   {
-    "$project": {
-      "_id": 0,
-      "objectId": 1,
-      "pointunderneath": {
-        "$or": [
+    $project: {
+      _id: 0,
+      objectId: 1,
+      pointunderneath: {
+        $or: [
           {
-            "$and": [
+            $and: [
               {
-                "$gt": [
-                  "$dist", 0
-                ]
-              }, {
-                "$lt": [
-                  "$dist", 2
-                ]
-              }, {
-                "$gt": [
-                  "sg", 0.76
-                ]
-              }
-            ]
-          }, {
-            "$and": [
+                $gt: ["$dist", 0],
+              },
               {
-                "$and": [
-                  {
-                    "$gt": [
-                      "$dist", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 0.5
-                    ]
-                  }, {
-                    "$eq": [
-                      "sg", 0.5
-                    ]
-                  }
-                ]
-              }, {
-                "$or": [
-                  {
-                    "$and": [
-                      {
-                        "$gt": [
-                          "$rmag", 0
-                        ]
-                      }, {
-                        "$lt": [
-                          "$rmag", 17
-                        ]
-                      }
-                    ]
-                  }, {
-                    "$and": [
-                      {
-                        "$gt": [
-                          "$gmag", 0
-                        ]
-                      }, {
-                        "$lt": [
-                          "$gmag", 17
-                        ]
-                      }
-                    ]
-                  }, {
-                    "$and": [
-                      {
-                        "$gt": [
-                          "$imag", 0
-                        ]
-                      }, {
-                        "$lt": [
-                          "$imag", 17
-                        ]
-                      }
-                    ]
-                  }, {
-                    "$and": [
-                      {
-                        "$gt": [
-                          "$zmag", 0
-                        ]
-                      }, {
-                        "$lt": [
-                          "$zmag", 17
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }, {
-            "$or": [
+                $lt: ["$dist", 2],
+              },
               {
-                "$and": [
+                $gt: ["sg", 0.76],
+              },
+            ],
+          },
+          {
+            $and: [
+              {
+                $and: [
                   {
-                    "$gt": [
-                      "$rmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$rmag", 12
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $gt: ["$dist", 0],
+                  },
                   {
-                    "$gt": [
-                      "$rmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$rmag", 15
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 5
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $lt: ["$dist", 0.5],
+                  },
                   {
-                    "$gt": [
-                      "$rmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$rmag", 15
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.8
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $eq: ["sg", 0.5],
+                  },
+                ],
+              },
+              {
+                $or: [
                   {
-                    "$gt": [
-                      "$gmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$gmag", 12
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $and: [
+                      {
+                        $gt: ["$rmag", 0],
+                      },
+                      {
+                        $lt: ["$rmag", 17],
+                      },
+                    ],
+                  },
                   {
-                    "$gt": [
-                      "$gmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$gmag", 12
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.8
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $and: [
+                      {
+                        $gt: ["$gmag", 0],
+                      },
+                      {
+                        $lt: ["$gmag", 17],
+                      },
+                    ],
+                  },
                   {
-                    "$gt": [
-                      "$imag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$imag", 12
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $and: [
+                      {
+                        $gt: ["$imag", 0],
+                      },
+                      {
+                        $lt: ["$imag", 17],
+                      },
+                    ],
+                  },
                   {
-                    "$gt": [
-                      "$imag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$imag", 14.5
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 5
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $and: [
+                      {
+                        $gt: ["$zmag", 0],
+                      },
+                      {
+                        $lt: ["$zmag", 17],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            $or: [
+              {
+                $and: [
                   {
-                    "$gt": [
-                      "$imag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$imag", 15
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.8
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $gt: ["$rmag", 0],
+                  },
                   {
-                    "$gt": [
-                      "$zmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$zmag", 11.5
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 10
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $lt: ["$rmag", 12],
+                  },
                   {
-                    "$gt": [
-                      "$zmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$zmag", 14
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.49
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 2.5
-                    ]
-                  }
-                ]
-              }, {
-                "$and": [
+                    $gt: ["sg", 0.49],
+                  },
                   {
-                    "$gt": [
-                      "$zmag", 0
-                    ]
-                  }, {
-                    "$lt": [
-                      "$zmag", 15
-                    ]
-                  }, {
-                    "$gt": [
-                      "sg", 0.8
-                    ]
-                  }, {
-                    "$lt": [
-                      "$dist", 20
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    }
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$rmag", 0],
+                  },
+                  {
+                    $lt: ["$rmag", 15],
+                  },
+                  {
+                    $gt: ["sg", 0.49],
+                  },
+                  {
+                    $lt: ["$dist", 5],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$rmag", 0],
+                  },
+                  {
+                    $lt: ["$rmag", 15],
+                  },
+                  {
+                    $gt: ["sg", 0.8],
+                  },
+                  {
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$gmag", 0],
+                  },
+                  {
+                    $lt: ["$gmag", 12],
+                  },
+                  {
+                    $gt: ["sg", 0.49],
+                  },
+                  {
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$gmag", 0],
+                  },
+                  {
+                    $lt: ["$gmag", 12],
+                  },
+                  {
+                    $gt: ["sg", 0.8],
+                  },
+                  {
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$imag", 0],
+                  },
+                  {
+                    $lt: ["$imag", 12],
+                  },
+                  {
+                    $gt: ["sg", 0.49],
+                  },
+                  {
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$imag", 0],
+                  },
+                  {
+                    $lt: ["$imag", 14.5],
+                  },
+                  {
+                    $gt: ["sg", 0.49],
+                  },
+                  {
+                    $lt: ["$dist", 5],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$imag", 0],
+                  },
+                  {
+                    $lt: ["$imag", 15],
+                  },
+                  {
+                    $gt: ["sg", 0.8],
+                  },
+                  {
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$zmag", 0],
+                  },
+                  {
+                    $lt: ["$zmag", 11.5],
+                  },
+                  {
+                    $gt: ["sg", 0.49],
+                  },
+                  {
+                    $lt: ["$dist", 10],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$zmag", 0],
+                  },
+                  {
+                    $lt: ["$zmag", 14],
+                  },
+                  {
+                    $gt: ["sg", 0.49],
+                  },
+                  {
+                    $lt: ["$dist", 2.5],
+                  },
+                ],
+              },
+              {
+                $and: [
+                  {
+                    $gt: ["$zmag", 0],
+                  },
+                  {
+                    $lt: ["$zmag", 15],
+                  },
+                  {
+                    $gt: ["sg", 0.8],
+                  },
+                  {
+                    $lt: ["$dist", 20],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    },
   },
   {
-    "$match": {
-      "pointunderneath": false
-    }
+    $match: {
+      pointunderneath: false,
+    },
   },
   {
-    "$project": {
-      "candid": 1,
-      "objectId": 1,
-      "annotations.comment": "fast!"
-    }
-  }
-]
+    $project: {
+      candid: 1,
+      objectId: 1,
+      "annotations.comment": "fast!",
+    },
+  },
+];
 ```
 
 ### Watch lists
@@ -2434,274 +2209,268 @@ Any alert from an object within 2 arcseconds from these positions will pass this
 [
   // This is the only stage you would need to modify to set up your own watch list:
   {
-    "$project": {
-      "_id": 0,
-      "watchlist": [
+    $project: {
+      _id: 0,
+      watchlist: [
         {
-          "name": "my_favorite_spot",
-          "ra": 134.0779551,
-          "dec": -0.4421303
+          name: "my_favorite_spot",
+          ra: 134.0779551,
+          dec: -0.4421303,
         },
         {
-          "name": "my_star",
-          "ra": 14.5551,
-          "dec": 37.4451303
-        }
+          name: "my_star",
+          ra: 14.5551,
+          dec: 37.4451303,
+        },
       ],
-      "max_distance_arcsec": {
-        "$literal": 2.0
+      max_distance_arcsec: {
+        $literal: 2.0,
       },
-      "ra": {
-        "$degreesToRadians": "$candidate.ra"
+      ra: {
+        $degreesToRadians: "$candidate.ra",
       },
-      "dec": {
-        "$degreesToRadians": "$candidate.dec"
-      }
-    }
+      dec: {
+        $degreesToRadians: "$candidate.dec",
+      },
+    },
   },
   // In this stage, we prepare the quantities that will be needed for the spherical distance computations
   {
-    "$project": {
-      "watchlist": 1,
-      "max_distance_arcsec": 1,
-      "dec": 1,
-      "dra_dec": {
-        "$zip": {
-          "inputs": [
+    $project: {
+      watchlist: 1,
+      max_distance_arcsec: 1,
+      dec: 1,
+      dra_dec: {
+        $zip: {
+          inputs: [
             {
-              "$map": {
-                "input": "$watchlist",
-                "as": "object",
-                "in": {
-                  "$subtract": [
-                    "$ra", {
-                      "$degreesToRadians": "$$object.ra"
-                    }
-                  ]
-                }
-              }
-            }, {
-              "$map": {
-                "input": "$watchlist",
-                "as": "object",
-                "in": {
-                  "$degreesToRadians": "$$object.dec"
-                }
-              }
-            }
-          ]
-        }
-      }
-    }
+              $map: {
+                input: "$watchlist",
+                as: "object",
+                in: {
+                  $subtract: [
+                    "$ra",
+                    {
+                      $degreesToRadians: "$$object.ra",
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $map: {
+                input: "$watchlist",
+                as: "object",
+                in: {
+                  $degreesToRadians: "$$object.dec",
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
   },
   // In this stage, we perform an accurate spherical distance computation
   // for all objects in the watch list and convert the results to arcseconds:
   {
-    "$project": {
-      "watchlist": 1,
-      "max_distance_arcsec": 1,
-      "distances_arcsec": {
-        "$map": {
-          "input": "$dra_dec",
-          "as": "s",
-          "in": {
-            "$multiply": [
-              3600.0, {
-                "$radiansToDegrees": {
-                  "$atan2": [
+    $project: {
+      watchlist: 1,
+      max_distance_arcsec: 1,
+      distances_arcsec: {
+        $map: {
+          input: "$dra_dec",
+          as: "s",
+          in: {
+            $multiply: [
+              3600.0,
+              {
+                $radiansToDegrees: {
+                  $atan2: [
                     {
-                      "$sqrt": {
-                        "$add": [
+                      $sqrt: {
+                        $add: [
                           {
-                            "$pow": [
+                            $pow: [
                               {
-                                "$multiply": [
+                                $multiply: [
                                   {
-                                    "$cos": "$dec"
-                                  }, {
-                                    "$sin": {
-                                      "$arrayElemAt": [
-                                        "$$s", 0
-                                      ]
-                                    }
-                                  }
-                                ]
-                              }, 2
-                            ]
-                          }, {
-                            "$pow": [
+                                    $cos: "$dec",
+                                  },
+                                  {
+                                    $sin: {
+                                      $arrayElemAt: ["$$s", 0],
+                                    },
+                                  },
+                                ],
+                              },
+                              2,
+                            ],
+                          },
+                          {
+                            $pow: [
                               {
-                                "$subtract": [
+                                $subtract: [
                                   {
-                                    "$multiply": [
+                                    $multiply: [
                                       {
-                                        "$cos": {
-                                          "$arrayElemAt": [
-                                            "$$s", 1
-                                          ]
-                                        }
-                                      }, {
-                                        "$sin": "$dec"
-                                      }
-                                    ]
-                                  }, {
-                                    "$multiply": [
+                                        $cos: {
+                                          $arrayElemAt: ["$$s", 1],
+                                        },
+                                      },
                                       {
-                                        "$sin": {
-                                          "$arrayElemAt": [
-                                            "$$s", 1
-                                          ]
-                                        }
-                                      }, {
-                                        "$cos": "$dec"
-                                      }, {
-                                        "$cos": {
-                                          "$arrayElemAt": [
-                                            "$$s", 0
-                                          ]
-                                        }
-                                      }
-                                    ]
-                                  }
-                                ]
-                              }, 2
-                            ]
-                          }
-                        ]
-                      }
-                    }, {
-                      "$add": [
+                                        $sin: "$dec",
+                                      },
+                                    ],
+                                  },
+                                  {
+                                    $multiply: [
+                                      {
+                                        $sin: {
+                                          $arrayElemAt: ["$$s", 1],
+                                        },
+                                      },
+                                      {
+                                        $cos: "$dec",
+                                      },
+                                      {
+                                        $cos: {
+                                          $arrayElemAt: ["$$s", 0],
+                                        },
+                                      },
+                                    ],
+                                  },
+                                ],
+                              },
+                              2,
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                    {
+                      $add: [
                         {
-                          "$multiply": [
+                          $multiply: [
                             {
-                              "$sin": {
-                                "$arrayElemAt": [
-                                  "$$s", 1
-                                ]
-                              }
-                            }, {
-                              "$sin": "$dec"
-                            }
-                          ]
-                        }, {
-                          "$multiply": [
+                              $sin: {
+                                $arrayElemAt: ["$$s", 1],
+                              },
+                            },
                             {
-                              "$cos": {
-                                "$arrayElemAt": [
-                                  "$$s", 1
-                                ]
-                              }
-                            }, {
-                              "$cos": "$dec"
-                            }, {
-                              "$cos": {
-                                "$arrayElemAt": [
-                                  "$$s", 0
-                                ]
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        }
-      }
-    }
+                              $sin: "$dec",
+                            },
+                          ],
+                        },
+                        {
+                          $multiply: [
+                            {
+                              $cos: {
+                                $arrayElemAt: ["$$s", 1],
+                              },
+                            },
+                            {
+                              $cos: "$dec",
+                            },
+                            {
+                              $cos: {
+                                $arrayElemAt: ["$$s", 0],
+                              },
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
   },
   // Here, we look for objects that fall within max_distance_arcsec:
   {
-    "$project": {
-      "watchlist": 1,
-      "distances_arcsec": 1,
-      "nearest_index": {
-        "$indexOfArray": [
-          "$distances_arcsec", {
-            "$min": "$distances_arcsec"
-          }
-        ]
-      },
-      "bingo": {
-        "$filter": {
-          "input": {
-            "$zip": {
-              "inputs": [
-                "$watchlist", "$distances_arcsec"
-              ]
-            }
+    $project: {
+      watchlist: 1,
+      distances_arcsec: 1,
+      nearest_index: {
+        $indexOfArray: [
+          "$distances_arcsec",
+          {
+            $min: "$distances_arcsec",
           },
-          "as": "item",
-          "cond": {
-            "$lte": [
+        ],
+      },
+      bingo: {
+        $filter: {
+          input: {
+            $zip: {
+              inputs: ["$watchlist", "$distances_arcsec"],
+            },
+          },
+          as: "item",
+          cond: {
+            $lte: [
               {
-                "$arrayElemAt": [
-                  "$$item", 1
-                ]
-              }, "$max_distance_arcsec"
-            ]
-          }
-        }
-      }
-    }
+                $arrayElemAt: ["$$item", 1],
+              },
+              "$max_distance_arcsec",
+            ],
+          },
+        },
+      },
+    },
   },
   // We declare victory if such objects exist:
   {
-    "$match": {
+    $match: {
       "bingo.0": {
-        "$exists": true
-      }
-    }
+        $exists: true,
+      },
+    },
   },
   // Finally, we are adding some useful annotations:
   {
-    "$project": {
+    $project: {
       "annotations.nearest_name": {
-        "$arrayElemAt": [
-          "$watchlist.name", "$nearest_index"
-        ]
+        $arrayElemAt: ["$watchlist.name", "$nearest_index"],
       },
       "annotations.nearest_distance_arcsec": {
-        "$round": [
+        $round: [
           {
-            "$arrayElemAt": [
-              "$distances_arcsec", "$nearest_index"
-            ]
-          }, 3
-        ]
+            $arrayElemAt: ["$distances_arcsec", "$nearest_index"],
+          },
+          3,
+        ],
       },
       "annotations.matches": {
-        "$map": {
-          "input": "$bingo",
-          "as": "item",
-          "in": {
-            "$arrayElemAt": [
-              "$$item", 0
-            ]
-          }
-        }
+        $map: {
+          input: "$bingo",
+          as: "item",
+          in: {
+            $arrayElemAt: ["$$item", 0],
+          },
+        },
       },
       "annotations.distances_arcsec": {
-        "$map": {
-          "input": "$bingo",
-          "as": "item",
-          "in": {
-            "$round": [
+        $map: {
+          input: "$bingo",
+          as: "item",
+          in: {
+            $round: [
               {
-                "$arrayElemAt": [
-                  "$$item", 1
-                ]
-              }, 3
-            ]
-          }
-        }
-      }
-    }
-  }
-]
+                $arrayElemAt: ["$$item", 1],
+              },
+              3,
+            ],
+          },
+        },
+      },
+    },
+  },
+];
 ```
 
 ### Tips and tricks
@@ -2714,39 +2483,40 @@ immediately after the default `Fritz`'s upstream stages:
 ```js
 [
   {
-    '$project': {
-      'prv_candidates': {
-        '$concatArrays': [
-          '$prv_candidates', [
+    $project: {
+      prv_candidates: {
+        $concatArrays: [
+          "$prv_candidates",
+          [
             {
-              'fid': '$candidate.fid',
-              'jd': '$candidate.jd',
-              'magpsf': '$candidate.magpsf'
-            }
-          ]
-        ]
-      }
-    }
+              fid: "$candidate.fid",
+              jd: "$candidate.jd",
+              magpsf: "$candidate.magpsf",
+            },
+          ],
+        ],
+      },
+    },
   },
   {
-    '$unwind': {
-      'path': '$prv_candidates'
-    }
+    $unwind: {
+      path: "$prv_candidates",
+    },
   },
   {
-    '$sort': {
-      'prv_candidates.jd': 1
-    }
+    $sort: {
+      "prv_candidates.jd": 1,
+    },
   },
   {
-    '$group': {
-      '_id': '$_id',
-      'prv_candidates': {
-        '$push': '$prv_candidates'
-      }
-    }
-  }
-]
+    $group: {
+      _id: "$_id",
+      prv_candidates: {
+        $push: "$prv_candidates",
+      },
+    },
+  },
+];
 ```
 
 These will:
@@ -2755,7 +2525,6 @@ These will:
 - Unwind the `prv_candidates` array into a bunch of documents
 - Sort them by `jd`
 - Group back into a single document with the `prv_candidates` in sorted order
-
 
 ## Feedback
 

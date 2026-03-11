@@ -40,7 +40,7 @@ def test_get_alerts_by_coords(view_only_token):
         token=view_only_token,
     )
     assert status == 200
-    assert all(["objectId" in alert for alert in data["data"]])
+    assert all("objectId" in alert for alert in data["data"])
 
 
 def test_get_alert_aux(view_only_token):

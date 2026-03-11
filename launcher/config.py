@@ -4,8 +4,8 @@ __all__ = [
 ]
 
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import yaml
 
@@ -25,7 +25,7 @@ def check_config_exists(cfg="fritz.defaults.yaml", yes=False):
         if cd.lower() == "y":
             subprocess.run(["cp", f"{cfg}", f"{c}"], check=True)
         else:
-            raise IOError(f"{c} does not exist, aborting")
+            raise OSError(f"{c} does not exist, aborting")
 
 
 def check_config(cfg="fritz.defaults.yaml", yes=False):

@@ -1574,14 +1574,17 @@ const FilterPlugins = ({ group }) => {
                     </div>
                     <div style={{ marginTop: "1rem" }}>
                       <InputLabel id="auto_followup_constraints_tns_age">
-                        Cancel if TNS reported in the last N hours. Leave empty to disable
+                        Cancel if TNS reported in the last N hours. Leave empty
+                        to disable
                       </InputLabel>
                       <TextField
                         labelId="auto_followup_constraints_tns_age"
                         className={classes.formControl}
                         disabled={!filter_v.active}
                         id="auto_followup_constraints_tns_age"
-                        defaultValue={filter_v.auto_followup?.not_if_tns_reported}
+                        defaultValue={
+                          filter_v.auto_followup?.not_if_tns_reported
+                        }
                         onChange={(event) =>
                           setAutoFollowupTnsAge(event.target.value)
                         }
@@ -1622,7 +1625,9 @@ const FilterPlugins = ({ group }) => {
                                   key={allocation.id}
                                   className={classes.SelectItem}
                                 >
-                                  {`${instLookUp[allocation.instrument_id]?.name} - ${
+                                  {`${
+                                    instLookUp[allocation.instrument_id]?.name
+                                  } - ${
                                     groupLookUp[allocation.group_id]?.name
                                   } (PI ${allocation.pi})`}
                                 </MenuItem>

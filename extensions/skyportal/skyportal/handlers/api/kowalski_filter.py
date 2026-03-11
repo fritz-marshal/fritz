@@ -1,11 +1,10 @@
-from penquins import Kowalski
-
-from baselayer.log import make_log
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
-from ..base import BaseHandler
-from ...models import Filter, Stream, Allocation, User
+from baselayer.log import make_log
+from penquins import Kowalski
 
+from ...models import Allocation, Filter, Stream, User
+from ..base import BaseHandler
 
 env, cfg = load_env()
 log = make_log("kowalski_filter")
@@ -301,11 +300,9 @@ class KowalskiFilterHandler(BaseHandler):
                             )
                             filter_group_users = filter.group.group_users
                             if not any(
-                                [
-                                    group_user.user_id == self.associated_user_object.id
-                                    and group_user.admin
-                                    for group_user in filter_group_users
-                                ]
+                                group_user.user_id == self.associated_user_object.id
+                                and group_user.admin
+                                for group_user in filter_group_users
                             ):
                                 return self.error(
                                     "You do not have permission to set the saver_id for this filter"

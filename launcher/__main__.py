@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from launcher.commands import (
     build,
@@ -16,7 +15,7 @@ from launcher.commands import (
     update,
 )
 
-from tools.check_environment import dependencies_ok
+# from tools.check_environment import dependencies_ok
 from tools.status import status
 
 sys.path.insert(0, "skyportal")
@@ -45,7 +44,7 @@ if __name__ == "__main__":
     except ImportError:
         print("This tool depends on `fire`.  Please install it using:")
         print()
-        print("  pip install fire")
+        print("  uv sync --inexact")
         print()
         sys.exit(-1)
 
@@ -64,10 +63,10 @@ if __name__ == "__main__":
         with status("Initializing submodules"):
             initialize_submodules()
 
-        env_ok = dependencies_ok()
-        if not env_ok:
-            print("\nHalting because of unsatisfied dependencies.")
-            sys.exit(-1)
+        # env_ok = dependencies_ok()
+        # if not env_ok:
+        #     print("\nHalting because of unsatisfied dependencies.")
+        #     sys.exit(-1)
 
     fire.Fire(
         {

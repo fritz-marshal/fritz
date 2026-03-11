@@ -2,24 +2,25 @@ import uuid
 
 import numpy as np
 import pandas as pd
-
+from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.env import load_env
+from baselayer.log import make_log
 from penquins import Kowalski
 from sqlalchemy.exc import IntegrityError
 
-
-from baselayer.log import make_log
-from baselayer.app.access import auth_or_token, permissions
-from baselayer.app.env import load_env
 from skyportal.model_util import create_token, delete_token
+
+from ...models import (
+    Annotation,
+    Group,
+    Instrument,
+    Obj,
+    Source,
+    Stream,
+)
 from ..base import BaseHandler
-from ...models import Instrument, Source, Stream
 from .photometry import add_external_photometry
 from .source import post_source
-from ...models import (
-    Obj,
-    Group,
-    Annotation,
-)
 
 env, cfg = load_env()
 log = make_log("archive")
@@ -57,7 +58,7 @@ try:
             continue
     if kowalski is not None:
         for instance_name, instance_data in instances.items():
-            if instance_name not in kowalski.instances.keys():
+            if instance_name not in kowalski.instances:
                 try:
                     kowalski.add(instance_name, instance_data)
                     connection_ok = kowalski.ping(instance_name)
@@ -590,7 +591,7 @@ class ScopeFeaturesHandler(BaseHandler):
                     return self.error("Could not find features on any instance.")
 
                 annotation_data = {}
-                for key in features.keys():
+                for key in features:
                     value = features[key]
                     if not pd.isnull(value):
                         if key in ["_id", "field", "ccd", "quad", "n"]:
@@ -800,7 +801,7 @@ class ArchiveHandler(BaseHandler):
                         else:
                             failed_instances += 1
 
-                    if not failed_instances == len(response):
+                    if failed_instances != len(response):
                         light_curve_ids = list({item["_id"] for item in data[catalog]})
                         if len(light_curve_ids) == 0:
                             return self.success(data=[])
@@ -848,7 +849,7 @@ class ArchiveHandler(BaseHandler):
                     data.extend(instance_results["data"])
                 else:
                     failed_instances += 1
-            if not failed_instances == len(response):
+            if failed_instances != len(response):
                 return self.success(data=data)
             else:
                 return self.error("Could not get light curves from any instance")
@@ -999,7 +1000,7 @@ class ArchiveHandler(BaseHandler):
         if len(light_curves) == 0:
             return self.error("No data found for requested light_curve_ids")
 
-        if all([len(lc.get("data", [])) == 0 for lc in light_curves]):
+        if all(len(lc.get("data", [])) == 0 for lc in light_curves):
             return self.error(
                 f"No data found for requested light_curve_ids using program_id_selector={program_id_selector}"
             )
@@ -1085,7 +1086,7 @@ class ArchiveHandler(BaseHandler):
                 }
 
                 # handle data access permissions
-                ztf_program_id_to_stream_id = dict()
+                ztf_program_id_to_stream_id = {}
                 streams = session.scalars(Stream.select(session.user_or_token)).all()
                 if streams is None:
                     return self.error("Failed to get programid to stream_id mapping")

@@ -9,7 +9,7 @@ const ArchiveSearchButton = ({ ra, dec, radius = 3 }) => {
       target="_blank"
       style={{ textDecoration: "none", color: "black" }}
     >
-     {`ZTF Light Curves (DR)`}
+      {`ZTF Light Curves (DR)`}
     </Link>
   );
 };

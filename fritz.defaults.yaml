@@ -197,7 +197,7 @@ skyportal:
         component: moving_object/MovingObjectObsPlanPage
 
     observation_plan:
-      default_filters: ['ztfg', 'ztfr', 'ztfi']
+      default_filters: ["ztfg", "ztfr", "ztfi"]
       use_skyportal_fields: True
 
     kowalski:
@@ -636,11 +636,11 @@ skyportal:
     openweather_api_key:
 
   cron: []
-#    - interval: 60
-#      script: jobs/count_unsaved_candidates.py
-    # - interval: 1440
-    #   script: jobs/delete_unsaved_candidates.py
-    #   limit: ["01:00", "02:00"]
+  #    - interval: 60
+  #      script: jobs/count_unsaved_candidates.py
+  # - interval: 1440
+  #   script: jobs/delete_unsaved_candidates.py
+  #   limit: ["01:00", "02:00"]
 
   comments_folder: persistentdata/comments
 
@@ -713,7 +713,6 @@ skyportal:
     reject_tags: # reject notices with these tags (optional)
       - MDC
       - ECLAIRs-Catalog
-
 
   twilio:
     # Twilio Sendgrid API configs
@@ -802,7 +801,8 @@ kowalski:
   server:
     name: "Kowalski"
     version: "3.0.0"
-    description: "Kowalski: a toolkit for Time-Domain Astronomy, provides an API to access most of its underlying functionality.
+    description:
+      "Kowalski: a toolkit for Time-Domain Astronomy, provides an API to access most of its underlying functionality.
       To use it, you will need a user account that can be provided by the system's administrator. Once you have an account you can retrieve your token using the `/api/auth` endpoint described here.
       We strongly suggest accessing Kowalski using its dedicated Python client: [penquins](https://github.com/dmitryduev/penquins). It comes with its own documentation and examples, and can be installed with `pip install penquins`.
       If you have any questions or need help, please contact us."
@@ -978,54 +978,54 @@ kowalski:
       PGIR_alerts:
         - name: radec_candid
           fields:
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "candid", -1 ]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["candid", -1]
           unique: false
         - name: radec_objectId
           fields:
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "objectId", -1 ]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["objectId", -1]
           unique: false
         - name: jd_radec_candid
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "candid", -1 ]
+            - ["candidate.jd", 1]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["candid", -1]
           unique: false
         - name: jd_radec_objectId
           fields:
-            - [ "candidate.jd", 1 ]
-            - [ "coordinates.radec_geojson", "2dsphere" ]
-            - [ "objectId", -1 ]
+            - ["candidate.jd", 1]
+            - ["coordinates.radec_geojson", "2dsphere"]
+            - ["objectId", -1]
           unique: false
         - name: objectId
           fields:
-            - [ "objectId", -1 ]
+            - ["objectId", -1]
           unique: false
         - name: candid
           fields:
-            - [ "candid", -1 ]
+            - ["candid", -1]
           unique: true
         - name: jd_drb_candid
           fields:
-            - [ "candidate.jd", -1 ]
-            - [ "candidate.drb", -1 ]
-            - [ "candid", -1 ]
+            - ["candidate.jd", -1]
+            - ["candidate.drb", -1]
+            - ["candid", -1]
           unique: false
         - name: jd_drb_ndethist_dmag2mass_isstar_distnearbrstar
           fields:
-            - [ "candidate.jd", -1 ]
-            - [ "candidate.drb", -1 ]
-            - [ "candidate.ndethist", 1 ]
-            - [ "candidate.dmag2mass", -1 ]
-            - [ "candidate.isstar", -1 ]
-            - [ "candidate.distnearbrstar", 1 ]
+            - ["candidate.jd", -1]
+            - ["candidate.drb", -1]
+            - ["candidate.ndethist", 1]
+            - ["candidate.dmag2mass", -1]
+            - ["candidate.isstar", -1]
+            - ["candidate.distnearbrstar", 1]
           unique: false
         - name: jd_scorr_dmag2mass
           fields:
-            - [ "candidate.jd", -1 ]
-            - [ "candidate.scorr", -1 ]
-            - [ "candidate.dmag2mass", -1 ]
+            - ["candidate.jd", -1]
+            - ["candidate.scorr", -1]
+            - ["candidate.dmag2mass", -1]
           unique: false
 
       WNTR_alerts:
@@ -1204,12 +1204,7 @@ kowalski:
 
       PGIR_alerts:
         # default upstream aggregation pipeline stages for filtering PGIR alerts:
-        - {
-            "$match":
-              {
-                "candid": null
-              },
-          }
+        - { "$match": { "candid": null } }
         - {
             "$project":
               {
@@ -1241,10 +1236,7 @@ kowalski:
                           {
                             "$lt":
                               [
-                                {
-                                  "$subtract":
-                                    ["$candidate.jd", "$$item.jd"],
-                                },
+                                { "$subtract": ["$candidate.jd", "$$item.jd"] },
                                 1000,
                               ],
                           },
@@ -1263,12 +1255,7 @@ kowalski:
       WNTR_alerts:
         # TODO verify! copied from PGIR - 1 Aug 2022
         # default upstream aggregation pipeline stages for filtering WNTR alerts:
-        - {
-            "$match":
-              {
-                "candid": null
-              },
-          }
+        - { "$match": { "candid": null } }
         - {
             "$project":
               {
@@ -1300,10 +1287,7 @@ kowalski:
                           {
                             "$lt":
                               [
-                                {
-                                  "$subtract":
-                                    ["$candidate.jd", "$$item.jd"],
-                                },
+                                { "$subtract": ["$candidate.jd", "$$item.jd"] },
                                 1000,
                               ],
                           },
@@ -1386,7 +1370,7 @@ kowalski:
         2MASS_PSC:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1397,7 +1381,7 @@ kowalski:
         AllWISE:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1414,7 +1398,7 @@ kowalski:
         Gaia_DR2:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1427,7 +1411,7 @@ kowalski:
         Gaia_EDR3:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1440,7 +1424,7 @@ kowalski:
         Gaia_DR2_WD:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1454,7 +1438,7 @@ kowalski:
         PS1_STRM:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             objID: 1
@@ -1469,7 +1453,7 @@ kowalski:
         galaxy_redshifts_20200522:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1480,7 +1464,7 @@ kowalski:
         GALEX:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 0
             name: 1
@@ -1493,7 +1477,7 @@ kowalski:
         IGAPS_DR2:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 0
             name: 1
@@ -1510,7 +1494,7 @@ kowalski:
         LAMOST_DR5_v3:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1527,7 +1511,7 @@ kowalski:
         PS1_DR1:
           cone_search_radius: 2
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1609,7 +1593,7 @@ kowalski:
         2MASS_PSC:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1620,7 +1604,7 @@ kowalski:
         AllWISE:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1637,7 +1621,7 @@ kowalski:
         Gaia_DR2:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1650,7 +1634,7 @@ kowalski:
         Gaia_EDR3:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1663,7 +1647,7 @@ kowalski:
         PS1_STRM:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             objID: 1
@@ -1678,7 +1662,7 @@ kowalski:
         galaxy_redshifts_20200522:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1689,7 +1673,7 @@ kowalski:
         GALEX:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 0
             name: 1
@@ -1702,7 +1686,7 @@ kowalski:
         IGAPS_DR2:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 0
             name: 1
@@ -1719,7 +1703,7 @@ kowalski:
         LAMOST_DR5_v3:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1736,7 +1720,7 @@ kowalski:
         PS1_DR1:
           cone_search_radius: 8
           cone_search_unit: "arcsec"
-          filter: { }
+          filter: {}
           projection:
             _id: 1
             coordinates.radec_str: 1
@@ -1935,8 +1919,8 @@ kowalski:
       # instruments need to have a list of allowed features (as tuple), and a list of models
       allowed_features: ('drb', 'diffmaglim', 'ra', 'dec', 'magpsf', 'sigmapsf', 'chipsf', 'fwhm', 'sky', 'chinr', 'sharpnr', 'sgscore1', 'distpsnr1', 'sgscore2', 'distpsnr2', 'sgscore3', 'distpsnr3', 'ndethist', 'ncovhist', 'scorr', 'nmtchps', 'clrcoeff', 'clrcounc', 'neargaia', 'neargaiabright', 'classtar', 'peakmag_so_far', 'maxmag_so_far', 'days_since_peak', 'days_to_peak', 'nnondet', 'age')
       models:
-      # models need: a version (string, e.g. "v1"), a triplet (bool), and feature_names (bool, or list of feature names as tuple)
-      # if feature_names is True, all features from allowed_features are used
+        # models need: a version (string, e.g. "v1"), a triplet (bool), and feature_names (bool, or list of feature names as tuple)
+        # if feature_names is True, all features from allowed_features are used
         braai:
           triplet: True
           feature_names: False
@@ -2041,7 +2025,21 @@ kowalski:
 
   misc:
     broker: True
-    supported_penquins_versions: ["2.0.0", "2.0.1", "2.0.2", "2.1.0", "2.1.1", "2.2.0", "2.2.1", "2.3.1", "2.3.2", "2.3.3", "2.4.0", "2.4.1"]
+    supported_penquins_versions:
+      [
+        "2.0.0",
+        "2.0.1",
+        "2.0.2",
+        "2.1.0",
+        "2.1.1",
+        "2.2.0",
+        "2.2.1",
+        "2.3.1",
+        "2.3.2",
+        "2.3.3",
+        "2.4.0",
+        "2.4.1",
+      ]
     query_expiration_interval: 5
     max_time_ms: 300000
     max_retries: 100

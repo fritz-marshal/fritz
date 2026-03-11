@@ -26,12 +26,12 @@ from astropy.visualization import (
     SqrtStretch,
     ZScaleInterval,
 )
-from marshmallow.exceptions import ValidationError
-from penquins import Kowalski
-
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
+from marshmallow.exceptions import ValidationError
+from penquins import Kowalski
+
 from skyportal.utils.calculations import great_circle_distance
 
 from ...models import (
@@ -82,7 +82,7 @@ def get_kowalski():
 
 
 kowalski = get_kowalski()
-alert_available = True if kowalski is not None else False
+alert_available = kowalski is not None
 
 
 # make a decorator to check if Kowalski is available

@@ -1,6 +1,7 @@
-import subprocess
-import os
 import json
+import os
+import subprocess
+
 import jinja2
 
 from launcher.config import check_config
@@ -79,9 +80,10 @@ def doc(yes: bool = False, upload: bool = False):
     env.update({"PYTHONPATH": "."})
 
     from baselayer.app.app_server import handlers as baselayer_handlers
+
+    from skyportal import openapi
     from skyportal.app_server import skyportal_handlers
     from skyportal.app_server_fritz import fritz_handlers
-    from skyportal import openapi
 
     spec = openapi.spec_from_handlers(
         baselayer_handlers + skyportal_handlers + fritz_handlers,

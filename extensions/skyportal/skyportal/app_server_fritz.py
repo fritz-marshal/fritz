@@ -2,11 +2,10 @@ import asyncio
 import concurrent
 
 from skyportal.app_server import make_app
-
 from skyportal.handlers.api.alert import (
-    AlertHandler,
     AlertAuxHandler,
     AlertCutoutHandler,
+    AlertHandler,
     AlertTripletsHandler,
 )
 from skyportal.handlers.api.archive import (
@@ -16,7 +15,6 @@ from skyportal.handlers.api.archive import (
     ScopeFeaturesHandler,
 )
 from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
-
 
 fritz_handlers = [
     # Fritz-specific API endpoints

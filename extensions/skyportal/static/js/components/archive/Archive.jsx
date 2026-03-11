@@ -84,7 +84,9 @@ const getMuiPopoverTheme = () =>
     }),
   );
 
-const VegaPlotZTFArchive = React.lazy(() => import("../plot/VegaPlotZTFArchive"));
+const VegaPlotZTFArchive = React.lazy(
+  () => import("../plot/VegaPlotZTFArchive"),
+);
 
 const useStyles = makeStyles((theme) => ({
   root: {

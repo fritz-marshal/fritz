@@ -76,14 +76,13 @@ BibLink.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-
 const AboutPlugins = () => {
-    const classes = useStyles();
-    const version = useSelector((state) => state.sysInfo.version);
-    const gitlog = useSelector((state) => state.sysInfo.gitlog);
+  const classes = useStyles();
+  const version = useSelector((state) => state.sysInfo.version);
+  const gitlog = useSelector((state) => state.sysInfo.gitlog);
 
-    return (
-     <div>
+  return (
+    <div>
       <Typography className={classes.header} variant="h5">
         This is Fritz&nbsp;
         <code>v{version}</code>.
@@ -91,7 +90,8 @@ const AboutPlugins = () => {
       <Typography variant="body1">
         Fritz is an open source codebase that serves as a dynamic collaborative
         platform for time-domain astronomy. It is being jointly developed at
-        Caltech, UC Berkeley, the University of Minnesota, and the Observatoire de la Côte d'Azur.
+        Caltech, UC Berkeley, the University of Minnesota, and the Observatoire
+        de la Côte d'Azur.
       </Typography>
       <Paper variant="outlined" className={classes.documentation}>
         <Typography variant="body1">
@@ -139,7 +139,8 @@ const AboutPlugins = () => {
         >
           Coughlin, Michael W., et al.,{" "}
           <em>A Data Science Platform to Enable Time-domain Astronomy.</em>{" "}
-          Publications of the Astrophysical Journal Supplement Series, 267, 2, Jul 2023.{" "}
+          Publications of the Astrophysical Journal Supplement Series, 267, 2,
+          Jul 2023.{" "}
           <a href="https://doi.org/10.3847/1538-4365/acdee1">
             https://doi.org/10.3847/1538-4365/acdee1
           </a>
@@ -219,7 +220,8 @@ const AboutPlugins = () => {
           </a>
           .
         </BibLink>
-        If you found Fritz's ACAI machine learning classifiers useful, please cite the following paper:
+        If you found Fritz's ACAI machine learning classifiers useful, please
+        cite the following paper:
       </div>
       <div>
         <BibLink
@@ -241,13 +243,10 @@ archivePrefix = {arXiv},
         >
           Dmitry A. Duev & Stéfan J. van der Walt,{" "}
           <em>
-            Phenomenological classification of the
-            Zwicky Transient Facility astronomical event alerts.{" "}
+            Phenomenological classification of the Zwicky Transient Facility
+            astronomical event alerts.{" "}
           </em>
-          <a href="https://arxiv.org/abs/2111.12142">
-            arXiv:2111.12142
-          </a>
-          .
+          <a href="https://arxiv.org/abs/2111.12142">arXiv:2111.12142</a>.
         </BibLink>
       </div>
       <Typography variant="body1">
@@ -262,12 +261,12 @@ archivePrefix = {arXiv},
             <Box p={1}>
               <div>
                 See all pull requests for{" "}
-                <a href="https://github.com/fritz-marshal/fritz/pulls">
-                  Fritz
-                </a>, {" "}
+                <a href="https://github.com/fritz-marshal/fritz/pulls">Fritz</a>
+                ,{" "}
                 <a href="https://github.com/skyportal/skyportal/pulls">
                   SkyPortal
-                </a>, and{" "}
+                </a>
+                , and{" "}
                 <a href="https://github.com/skyportal/kowalski/pulls">
                   Kowalski
                 </a>
@@ -299,16 +298,15 @@ archivePrefix = {arXiv},
                         </a>
                       )}
                     </li>
-                  )
+                  ),
                 )}
               </ul>
             </Box>
           </Paper>
         </>
       )}
-     </div>
-    )
-
+    </div>
+  );
 };
 
 export default AboutPlugins;

@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-from distutils.version import LooseVersion as Version
-import subprocess
 import pathlib
-import pkg_resources
 import re
+import subprocess
+
+import pkg_resources
+from distutils.version import LooseVersion as Version
 
 from .status import status
 
@@ -84,7 +84,7 @@ def dependencies_ok(check_python_requirements: bool = True):
         except ValueError:
             print(
                 f"\n[!] Sorry, but our script could not parse the output of "
-                f'`{" ".join(cmd)}`; please file a bug, or see '
+                f"`{' '.join(cmd)}`; please file a bug, or see "
                 f"`check_app_environment.py`\n"
             )
             raise
@@ -97,9 +97,9 @@ def dependencies_ok(check_python_requirements: bool = True):
         print()
         print("    The failed checks were:")
         print()
-        for (pkg, exc) in unsatisfied_system_dependencies:
+        for pkg, exc in unsatisfied_system_dependencies:
             cmd, get_version, min_version = system_dependencies[pkg]
-            print(f'    - {pkg}: `{" ".join(cmd)}`')
+            print(f"    - {pkg}: `{' '.join(cmd)}`")
             print("     ", exc)
         print()
         print(

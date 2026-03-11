@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import embed from "vega-embed";
 import { isMobileOnly } from "react-device-detect";
 
-const jdNow = Date.now() / 86400000.0 + 40587. + 2400000.5;
+const jdNow = Date.now() / 86400000.0 + 40587 + 2400000.5;
 
 const spec = (values, colorScale) => ({
   $schema: "https://vega.github.io/schema/vega-lite/v5.2.0.json",
@@ -183,7 +183,7 @@ VegaPlot.propTypes = {
       ra: PropTypes.number,
       sharp: PropTypes.number,
       uexpid: PropTypes.number,
-    })
+    }),
   ).isRequired,
   colorScale: PropTypes.shape({
     domain: PropTypes.arrayOf(PropTypes.number),

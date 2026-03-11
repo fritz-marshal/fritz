@@ -295,7 +295,10 @@ const ZTFAlert = ({ route }) => {
   useEffect(() => {
     const fetchExistingSource = async () => {
       dispatch(checkSource(objectId, { nameOnly: true })).then((response) => {
-        if (response.status === "success" && response.data?.source_exists === true) {
+        if (
+          response.status === "success" &&
+          response.data?.source_exists === true
+        ) {
           setsavedSource(true);
           dispatch(fetchSource(objectId));
           return;

@@ -32,7 +32,7 @@ def run(
     p = subprocess.run(
         ["docker", "network", "create", "fritz_net"],
         capture_output=True,
-        universal_newlines=True,
+        text=True,
     )
     if (p.returncode != 0) and ("already exists" not in p.stderr):
         raise RuntimeError("Failed to create network fritz_net")
