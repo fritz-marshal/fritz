@@ -83,6 +83,7 @@ jobs:
 
       - name: Build docs
         run: |
+          source .venv/bin/activate
           uv pip install wheel
           uv sync --inexact --project skyportal --active
           ./fritz doc --yes
