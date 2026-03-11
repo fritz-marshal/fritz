@@ -1,33 +1,32 @@
 import datetime
-from astropy.time import Time
-from penquins import Kowalski
-import sqlalchemy as sa
 
+import sqlalchemy as sa
+from astropy.time import Time
 from baselayer.app.access import permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
+from penquins import Kowalski
 
-from ..base import BaseHandler
 from ...models import (
-    DBSession,
     Annotation,
+    Candidate,
     Comment,
     CronJobRun,
+    DBSession,
     Filter,
+    GcnEvent,
+    Group,
     Instrument,
     Obj,
     Source,
-    Candidate,
-    User,
-    Token,
-    Group,
-    Spectrum,
-    GcnEvent,
     SourceView,
+    Spectrum,
     Telescope,
     Thumbnail,
+    Token,
+    User,
 )
-
+from ..base import BaseHandler
 
 _, cfg = load_env()
 log = make_log("api/db_stats")
@@ -214,9 +213,9 @@ class StatsHandler(BaseHandler):
                     if len(response_data) > 0
                     else None
                 )
-                data[
-                    "Latest object from TNS collection discovery date (UTC)"
-                ] = latest_tns_object_discovery_date
+                data["Latest object from TNS collection discovery date (UTC)"] = (
+                    latest_tns_object_discovery_date
+                )
 
                 for survey in ("WNTR", "PGIR", "ZTF"):
                     utc_now = datetime.datetime.utcnow()
@@ -236,9 +235,9 @@ class StatsHandler(BaseHandler):
                         },
                     }
                     response = kowalski.query(query=query_alerts_count)
-                    data[
-                        f"Number of {survey} alerts ingested yesterday (UTC)"
-                    ] = response.get("default").get("data")
+                    data[f"Number of {survey} alerts ingested yesterday (UTC)"] = (
+                        response.get("default").get("data")
+                    )
 
                     query_alerts_count = {
                         "query_type": "count_documents",
@@ -252,9 +251,9 @@ class StatsHandler(BaseHandler):
                         },
                     }
                     response = kowalski.query(query=query_alerts_count)
-                    data[
-                        f"Number of {survey} alerts ingested since 0h UTC today"
-                    ] = response.get("default").get("data")
+                    data[f"Number of {survey} alerts ingested since 0h UTC today"] = (
+                        response.get("default").get("data")
+                    )
             except Exception as e:
                 log(f"kowalski stats query failed: {str(e)}")
 
