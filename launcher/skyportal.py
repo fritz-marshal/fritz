@@ -108,8 +108,8 @@ def patch():
         skyportal_pyproject = tl.load(f)
     # we get the ext dependencies from the "ext" dependency group in the pyproject.toml of fritz
     ext_dependencies = fritz_pyproject["dependency-groups"]["ext"]
-    skyportal_pyproject["dependencies"] = list(
-        set(skyportal_pyproject["dependencies"] + ext_dependencies)
+    skyportal_pyproject["project"]["dependencies"] = list(
+        set(skyportal_pyproject["project"]["dependencies"] + ext_dependencies)
     )
     with open("skyportal/pyproject.toml", "wb") as f:
         tlw.dump(skyportal_pyproject, f)
