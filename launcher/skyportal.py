@@ -1,7 +1,8 @@
-import subprocess
 import json
+import subprocess
+
 import requests
-import tomllib as tl
+import tomli as tl
 from distutils.dir_util import copy_tree
 
 
@@ -25,7 +26,7 @@ def get_token():
         ],
         cwd="skyportal",
         capture_output=True,
-        universal_newlines=True,
+        text=True,
     )
     token = result.stdout.split()[-1]
 
@@ -49,7 +50,7 @@ def patch():
     from skyportal import __version__
 
     init_file = "skyportal/skyportal/__init__.py"
-    with open(init_file, "r") as f:
+    with open(init_file) as f:
         init = f.readlines()
     out = []
     for line in init:
@@ -87,9 +88,9 @@ def patch():
 
     # add Fritz-specific dependencies for SP
     # js
-    with open("extensions/skyportal/package.fritz.json", "r") as f:
+    with open("extensions/skyportal/package.fritz.json") as f:
         fritz_pkg = json.load(f)
-    with open("skyportal/package.json", "r") as f:
+    with open("skyportal/package.json") as f:
         skyportal_pkg = json.load(f)
 
     skyportal_pkg["dependencies"] = {
@@ -100,9 +101,9 @@ def patch():
         json.dump(skyportal_pkg, f, indent=2)
 
     # python
-    with open("pyproject.toml", "r") as f:
+    with open("pyproject.toml", "b") as f:
         fritz_pyproject = tl.load(f)
-    with open("skyportal/pyproject.toml", "r") as f:
+    with open("skyportal/pyproject.toml", "b") as f:
         skyportal_pyproject = tl.load(f)
     # we get the ext dependencies from the "ext" dependency group in the pyproject.toml of fritz
     ext_dependencies = fritz_pyproject["dependency-groups"]["ext"]
