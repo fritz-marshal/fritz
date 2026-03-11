@@ -71,7 +71,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --inexact --group dev --group doc
+        uv sync --inexact --group dev --group docs
         ./fritz develop
 
     - name: Lint sources
