@@ -1,7 +1,9 @@
-name: Build Docker image, push to gcr.io, deploy to staging
+name: Build Docker image (PR); push to gcr.io and deploy to staging (main)
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 env:
@@ -12,7 +14,7 @@ env:
 
 jobs:
   build-publish-deploy:
-    name: Setup, Build, Publish
+    name: Build always; publish/deploy on main push
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
