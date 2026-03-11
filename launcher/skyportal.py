@@ -3,6 +3,7 @@ import subprocess
 
 import requests
 import tomli as tl
+import tomli_w as tlw
 from distutils.dir_util import copy_tree
 
 
@@ -101,14 +102,14 @@ def patch():
         json.dump(skyportal_pkg, f, indent=2)
 
     # python
-    with open("pyproject.toml", "b") as f:
+    with open("pyproject.toml", "rb") as f:
         fritz_pyproject = tl.load(f)
-    with open("skyportal/pyproject.toml", "b") as f:
+    with open("skyportal/pyproject.toml", "rb") as f:
         skyportal_pyproject = tl.load(f)
     # we get the ext dependencies from the "ext" dependency group in the pyproject.toml of fritz
     ext_dependencies = fritz_pyproject["dependency-groups"]["ext"]
     skyportal_pyproject["dependencies"] = list(
         set(skyportal_pyproject["dependencies"] + ext_dependencies)
     )
-    with open("skyportal/pyproject.toml", "w") as f:
-        tl.dump(skyportal_pyproject, f)
+    with open("skyportal/pyproject.toml", "wb") as f:
+        tlw.dump(skyportal_pyproject, f)
