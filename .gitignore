@@ -5,3 +5,7 @@ __pycache__
 fritz.yaml
 node_modules
 .DS_Store
+env/
+venv/
+.venv/
+skyportal_env/
