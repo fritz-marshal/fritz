@@ -240,6 +240,8 @@ def make_programid2stream_mapper(session: Session):
     mapper = {}
     for stream in streams:
         altdata = stream.altdata
+        if altdata is None or "collection" not in altdata or "selector" not in altdata:
+            continue
         survey = altdata["collection"].split("_")[0]
         programid = max(altdata["selector"])
         key = (survey, programid)
@@ -297,7 +299,6 @@ def process_photometry(
                     continue
                 photometry_data[key] = {
                     "obj_id": object_id,
-                    "group_ids": [1],  # TODO: remove group 1, just use streams
                     "stream_ids": stream_ids,
                     "instrument_id": instrument_id,
                     "mjd": [],
