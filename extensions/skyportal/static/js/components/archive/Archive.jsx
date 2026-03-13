@@ -48,7 +48,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { showNotification } from "baselayer/components/Notifications";
 import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
-import * as archiveActions from "../../ducks/archive";
+import * as archiveActions from "../../ducks/kowalski_archive";
 import { checkSource } from "../../ducks/source";
 
 function isString(x) {
@@ -299,7 +299,7 @@ const Archive = () => {
     if (selectedCatalog && !catalog) {
       catalog = selectedCatalog;
     } else if (!catalog || !ztf_lc_catalogs.includes(catalog)) {
-      catalog = ztf_lc_catalogs[0]; // eslint-disable-line prefer-destructuring
+      catalog = ztf_lc_catalogs[0];
     } else if (catalog && ztf_lc_catalogs.includes(catalog)) {
       setSelectedCatalog(catalog);
     }
@@ -491,7 +491,6 @@ const Archive = () => {
     );
     // IDs of selected light curves
     const lightCurveIDs = rowsToSave.data.map(
-      // eslint-disable-next-line no-underscore-dangle
       (rowToSave) => rows[rowToSave.dataIndex]._id,
     );
 
@@ -512,7 +511,6 @@ const Archive = () => {
   };
 
   const makeRow = (light_curve) => ({
-    // eslint-disable-next-line no-underscore-dangle
     _id: light_curve?._id,
     ra: light_curve?.ra,
     dec: light_curve?.dec,
@@ -536,7 +534,7 @@ const Archive = () => {
   // This is just passed to MUI datatables options -- not meant to be instantiated directly.
   const renderPullOutRow = (rowData, rowMeta) => {
     const colSpan = rowData.length + 1;
-    // eslint-disable-next-line no-underscore-dangle
+
     const ZTFLightCurveId = ztf_light_curves[rowMeta.dataIndex]._id;
     const ZTFLightCurveFilterId = ztf_light_curves[rowMeta.dataIndex].filter;
     const ZTFLightCurveData = ztf_light_curves[rowMeta.dataIndex].data.map(
@@ -944,7 +942,6 @@ const Archive = () => {
                     render={({ field: { onChange } }) => (
                       <RadioGroup
                         color="primary"
-                        /* eslint-disable-next-line react/jsx-props-no-spreading */
                         onChange={(event) => {
                           onChange(event);
                           if (event.target.value === "Create new source") {
@@ -1033,7 +1030,6 @@ const Archive = () => {
                           <Checkbox
                             color="primary"
                             disabled={!saveNewSource}
-                            /* eslint-disable-next-line react/jsx-props-no-spreading */
                             checked={value}
                             onChange={onChange}
                           />

@@ -14,7 +14,7 @@ import { showNotification } from "baselayer/components/Notifications";
 import Button from "../Button";
 import FormValidationError from "../FormValidationError";
 
-import { saveAlertAsSource } from "../../ducks/alert";
+import { saveAlertAsSource } from "../../ducks/kowalski_alert";
 
 const CopyAlertPhotometryDialog = ({
   alert,

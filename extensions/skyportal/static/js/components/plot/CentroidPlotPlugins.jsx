@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import makeStyles from "@mui/styles/makeStyles";
 import Typography from "@mui/material/Typography";
 
-import * as archiveActions from "../../ducks/archive";
+import * as archiveActions from "../../ducks/kowalski_archive";
 
 import { greatCircleDistance } from "../../utils";
 
@@ -80,16 +80,23 @@ function getCrossMatches(ra, dec, dispatch) {
   dispatch(archiveActions.fetchCrossMatches({ ra, dec, radius }));
 }
 
+function getCatalogCrossMatches(crossMatches, catalog) {
+  const catalogCrossMatches = crossMatches?.[catalog];
+  return Array.isArray(catalogCrossMatches) ? catalogCrossMatches : [];
+}
+
 function getCrossMatchesTraces(crossMatches, refRA, refDec) {
   const traces = [];
   // cross_matches are already grouped by catalog (instead of filter)
   Object.keys(crossMatches).forEach((catalog) => {
+    const catalogCrossMatches = getCatalogCrossMatches(crossMatches, catalog);
+
     if (
-      crossMatches[catalog]?.length > 0 &&
+      catalogCrossMatches.length > 0 &&
       !hiddenCrossMatches.includes(catalog) &&
       crossMatchesLabels[catalog]
     ) {
-      const catalogPoints = crossMatches[catalog].map((cm) => {
+      const catalogPoints = catalogCrossMatches.map((cm) => {
         const newPoint = { ...cm };
         newPoint.ra_offset =
           Math.cos((refDec / 180) * Math.PI) * (cm.ra - refRA) * 3600;
@@ -192,13 +199,15 @@ const CentroidPlotPlugins = ({ crossMatches, refRA, refDec }) => {
   // for each catalog, get the nearest source and compute the offset
   const nearestOffsets = {};
   Object.keys(crossMatches).forEach((catalog) => {
+    const catalogCrossMatches = getCatalogCrossMatches(crossMatches, catalog);
+
     if (
-      crossMatches[catalog]?.length > 0 &&
+      catalogCrossMatches.length > 0 &&
       !hiddenCrossMatches.includes(catalog)
     ) {
       // we compute the offset_arcsec for each source in the catalog
       // and then sort by offset_arcsec to get the nearest source
-      nearestOffsets[catalog] = crossMatches[catalog] // eslint-disable-line prefer-destructuring
+      nearestOffsets[catalog] = catalogCrossMatches
         .map((cm) => {
           const ra_offset =
             Math.cos((refDec / 180) * Math.PI) * (cm.ra - refRA) * 3600;

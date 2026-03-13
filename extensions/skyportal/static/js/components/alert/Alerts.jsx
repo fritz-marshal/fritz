@@ -52,8 +52,8 @@ import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
 import { greatCircleDistance } from "../../utils";
 
-import * as alertActions from "../../ducks/alert";
-import * as alertsActions from "../../ducks/alerts";
+import * as alertActions from "../../ducks/kowalski_alert";
+import * as alertsActions from "../../ducks/kowalski_alerts";
 
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -956,7 +956,6 @@ const Alerts = () => {
                 <div key={group.id}>
                   <Checkbox
                     color="primary"
-                    /* eslint-disable-next-line react/jsx-props-no-spreading */
                     checked={selectedGroups.includes(group.id)}
                     onChange={(e) => {
                       if (e.target.checked) {

@@ -15,13 +15,14 @@ export const SAVE_ALERT = "skyportal/SAVE_ALERT";
 export const SAVE_ALERT_OK = "skyportal/SAVE_ALERT_OK";
 
 export function fetchAlertData(id) {
-  return API.GET(`/api/alerts/${id}`, FETCH_ALERT);
+  return API.GET(`/api/kowalski/alerts/${id}`, FETCH_ALERT);
 }
 
-export const fetchAuxData = (id) => API.GET(`/api/alerts_aux/${id}`, FETCH_AUX);
+export const fetchAuxData = (id) =>
+  API.GET(`/api/kowalski/alerts_aux/${id}`, FETCH_AUX);
 
 export function saveAlertAsSource({ id, payload }) {
-  return API.POST(`/api/alerts/${id}`, SAVE_ALERT, payload);
+  return API.POST(`/api/kowalski/alerts/${id}`, SAVE_ALERT, payload);
 }
 
 const alertDataReducer = (state = {}, action) => {
@@ -52,7 +53,7 @@ const auxDataReducer = (state = {}, action) => {
     case FETCH_AUX_OK: {
       return {
         ...state,
-        [action.data._id]: action.data, // eslint-disable-line no-underscore-dangle
+        [action.data._id]: action.data,
       };
     }
     case FETCH_AUX_ERROR: {

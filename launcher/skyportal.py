@@ -14,7 +14,7 @@ def api(method, endpoint, token, data=None):
 
 
 def get_token():
-    """Get admin token for Kowalski to access SkyPortal"""
+    """Get admin token to access SkyPortal"""
     result = subprocess.run(
         [
             "docker",
@@ -32,7 +32,7 @@ def get_token():
     token = result.stdout.split()[-1]
 
     if len(token) != 36:
-        raise RuntimeError("Failed to get a SkyPortal token for Kowalski")
+        raise RuntimeError("Failed to get a SkyPortal token")
 
     return token
 
@@ -64,7 +64,7 @@ def patch():
     with open(init_file, "wb") as f:
         f.write("".join(out).encode("utf-8"))
 
-    # Add git logs for SkyPortal and Kowalski
+    # Add git logs for SkyPortal
     from skyportal.utils.gitlog import get_gitlog
 
     skyportal_log = get_gitlog(
@@ -76,16 +76,6 @@ def patch():
     )
     with open("skyportal/data/gitlog-skyportal.json", "w") as f:
         json.dump(skyportal_log, f)
-
-    kowalski_log = get_gitlog(
-        cwd="kowalski",
-        name="K",
-        pr_url_base="https://github.com/dmitryduev/kowalski/pull",
-        commit_url_base="https://github.com/dmitryduev/kowalski/commit",
-        N=1000,
-    )
-    with open("skyportal/data/gitlog-kowalski.json", "w") as f:
-        json.dump(kowalski_log, f)
 
     # add Fritz-specific dependencies for SP
     # js

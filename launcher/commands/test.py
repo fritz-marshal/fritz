@@ -3,7 +3,6 @@ import sys
 import time
 from pathlib import Path
 
-import requests
 import yaml
 
 from launcher.skyportal import api as skyportal_api
@@ -43,11 +42,7 @@ def test():
                 ]
             )
             > 0
-            for container_name in (
-                "kowalski-ingester-1",
-                "kowalski-api-1",
-                "skyportal-web-1",
-            )
+            for container_name in ("skyportal-web-1",)
         )
 
         if not all(containers_up):
@@ -71,40 +66,6 @@ def test():
             continue
 
         break
-
-    # ensure that the SkyPortal app is responding to requests
-    url = (
-        f"{fritz_config['kowalski']['skyportal']['protocol']}://"
-        f"localhost:{fritz_config['kowalski']['skyportal']['port']}"
-        "/api/sysinfo"
-    )
-    token = fritz_config["kowalski"]["skyportal"]["token"]
-    for i in range(num_retries):
-        if i == num_retries - 1:
-            raise RuntimeError("SkyPortal failed to spin up")
-        try:
-            response = skyportal_api("GET", endpoint=url, token=token)
-
-            if response.status_code != 200:
-                print("SkyPortal is not responding, waiting...")
-                time.sleep(30)
-            else:
-                break
-
-        except requests.exceptions.ConnectionError:
-            print("SkyPortal is not responding, waiting...")
-            time.sleep(30)
-            continue
-
-    print("Testing Kowalski alert stream consumption, digestion, and tools")
-    command = [
-        "make",
-        "docker_test",
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError:
-        sys.exit(1)
 
     print("Testing Fritz-specific SkyPortal extensions")
 
