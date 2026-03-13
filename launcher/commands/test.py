@@ -3,7 +3,6 @@ import sys
 import time
 from pathlib import Path
 
-import requests
 import yaml
 
 from launcher.skyportal import api as skyportal_api
