@@ -577,7 +577,21 @@ skyportal:
       google_oauth2_timeout: 15
 
   services:
-    dask: False
+    disabled:
+      - dask
+    external:
+      boom:
+        repo: https://github.com/Theodlz/boom-skyportal-plugin.git
+        rev: bf0e5d43322f1b9e9c551da3d95b646ea9cb3326
+        params:
+          kafka_host: kafka-1
+          kafka_port: 9092
+          kafka_username: readonly
+          kafka_password: readonlysecret
+          kafka_sasl_mechanism: SCRAM-SHA-512
+          topics:
+            - ZTF_alerts_results
+            - LSST_alerts_results
 
   misc:
     days_to_keep_unsaved_candidates: 7
@@ -796,6 +810,16 @@ skyportal:
         description: Production
       - url: https://preview.fritz.science
         description: Preview/Testing
+
+  boom:
+    protocol: http
+    host: fritz-boom-1
+    port: 4000
+    username: admin
+    password: adminsecret
+    filter_modules:
+      mongodb_uri: "mongodb://mongo:27017"
+      database: "boom_filter_modules"
 
 docs:
   servers:
