@@ -348,6 +348,7 @@ class BoomObjectHandler(BaseHandler):
             - alerts
             - boom
         """
+        data = self.get_json()
         group_ids = data.pop("group_ids", None)
         try:
             group_ids = [int(gid) for gid in group_ids]
