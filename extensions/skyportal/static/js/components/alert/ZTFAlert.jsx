@@ -39,7 +39,7 @@ import withRouter from "../withRouter";
 
 import { ra_to_hours, dec_to_dms } from "../../units";
 
-import * as Actions from "../../ducks/alert";
+import * as Actions from "../../ducks/kowalski_alert";
 import { checkSource, fetchSource } from "../../ducks/source";
 import { fetchSources } from "../../ducks/sources";
 
@@ -471,7 +471,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
-        // eslint-disable-next-line no-unused-vars
+
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
       },
     },
@@ -489,7 +489,7 @@ const ZTFAlert = ({ route }) => {
       options: {
         filter: false,
         sort: true,
-        // eslint-disable-next-line no-unused-vars
+
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
       },
     },
@@ -499,7 +499,7 @@ const ZTFAlert = ({ route }) => {
       options: {
         filter: false,
         sort: true,
-        // eslint-disable-next-line no-unused-vars
+
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(3),
       },
     },
@@ -510,7 +510,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
-        // eslint-disable-next-line no-unused-vars
+
         customBodyRender: (value, tableMeta, updateValue) => value.toFixed(5),
       },
     },
@@ -521,7 +521,7 @@ const ZTFAlert = ({ route }) => {
         filter: false,
         sort: true,
         sortDescFirst: true,
-        // eslint-disable-next-line no-unused-vars
+
         customBodyRender: (value, tableMeta, updateValue) => value?.toFixed(5),
       },
     },
@@ -547,7 +547,7 @@ const ZTFAlert = ({ route }) => {
       options: {
         filter: false,
         sort: false,
-        // eslint-disable-next-line no-unused-vars
+
         customBodyRender: (value, tableMeta, updateValue) => (
           <Button
             size="small"

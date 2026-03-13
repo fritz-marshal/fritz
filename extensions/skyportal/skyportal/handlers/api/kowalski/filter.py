@@ -3,8 +3,8 @@ from baselayer.app.env import load_env
 from baselayer.log import make_log
 from penquins import Kowalski
 
-from ...models import Allocation, Filter, Stream, User
-from ..base import BaseHandler
+from ....models import Allocation, Filter, Stream, User
+from ...base import BaseHandler
 
 env, cfg = load_env()
 log = make_log("kowalski_filter")
@@ -171,6 +171,22 @@ class KowalskiFilterHandler(BaseHandler):
             if status == "error":
                 message = response.get("message")
                 return self.error(message=message)
+
+            # update the filter's altdata (in SkyPortal) to add a kowalski field with the filter_id and the active version fid
+            altdata = f.altdata or {}
+            new_kowalski_data = {
+                "filter_id": data["filter_id"],
+                "active_fid": data["active_fid"],
+            }
+            # update "kowalski" field if it exists, otherwise create it
+            if "kowalski" in altdata and isinstance(altdata["kowalski"], dict):
+                altdata["kowalski"].update(new_kowalski_data)
+            else:
+                altdata["kowalski"] = new_kowalski_data
+
+            f.altdata = altdata
+            session.add(f)
+            session.commit()
             return self.success(data=data)
 
     @auth_or_token
@@ -252,180 +268,200 @@ class KowalskiFilterHandler(BaseHandler):
             if f is None:
                 return self.error(f"No filter with ID: {filter_id}")
 
-        # get the existing filter
-        response = kowalski.api(
-            method="get",
-            endpoint=f"api/filters/{filter_id}",
-        )
-        if response.get("status") == "error":
-            return self.error(message=response.get("message"))
-        existing_data = response.get("data")
+            # get the existing filter
+            response = kowalski.api(
+                method="get",
+                endpoint=f"api/filters/{filter_id}",
+            )
+            if response.get("status") == "error":
+                return self.error(message=response.get("message"))
+            existing_data = response.get("data")
 
-        patch_data = {"filter_id": int(filter_id)}
+            patch_data = {"filter_id": int(filter_id)}
 
-        if active is not None:
-            patch_data["active"] = bool(active)
-        if active_fid is not None:
-            patch_data["active_fid"] = str(active_fid)
-        if autosave is not None:
-            # autosave can either be a boolean or a dict
-            if not isinstance(autosave, dict):
-                autosave = {"active": bool(autosave)}
-            else:
+            if active is not None:
+                patch_data["active"] = bool(active)
+            if active_fid is not None:
+                patch_data["active_fid"] = str(active_fid)
+            if autosave is not None:
+                # autosave can either be a boolean or a dict
+                if not isinstance(autosave, dict):
+                    autosave = {"active": bool(autosave)}
+                else:
+                    valid_keys = {
+                        "active",
+                        "pipeline",
+                        "comment",
+                        "ignore_group_ids",
+                        "saver_id",
+                    }
+                    if not set(autosave.keys()).issubset(valid_keys):
+                        return self.error(
+                            f"autosave dict keys must be a subset of {valid_keys}"
+                        )
+                    if "saver_id" in autosave:
+                        with self.Session() as session:
+                            # before enforcing the group_admin | system_admin permission check,
+                            # we check if the saver_id is different from the current filter
+                            # if it is the same, we skip the permission check
+                            if (
+                                autosave["saver_id"]
+                                != existing_data.get("autosave", {}).get("saver_id")
+                                and not self.current_user.is_system_admin
+                            ):
+                                filter = session.scalar(
+                                    Filter.select(session.user_or_token).where(
+                                        Filter.id == filter_id
+                                    )
+                                )
+                                filter_group_users = filter.group.group_users
+                                if not any(
+                                    group_user.user_id == self.associated_user_object.id
+                                    and group_user.admin
+                                    for group_user in filter_group_users
+                                ):
+                                    return self.error(
+                                        "You do not have permission to set the saver_id for this filter"
+                                    )
+
+                            saver_id = autosave["saver_id"]
+                            if saver_id is not None:
+                                try:
+                                    saver_id = int(saver_id)
+                                except ValueError:
+                                    return self.error(
+                                        f"Invalid saver_id: {saver_id}, must be an integer"
+                                    )
+                                user = session.scalar(
+                                    User.select(session.user_or_token).where(
+                                        User.id == saver_id
+                                    )
+                                )
+                                if user is None:
+                                    return self.error(
+                                        f"User with id {saver_id} not found, can't use as saver_id for auto_followup"
+                                    )
+                                autosave["saver_id"] = user.id
+                patch_data["autosave"] = autosave
+            if update_annotations is not None:
+                patch_data["update_annotations"] = bool(update_annotations)
+            if auto_followup is not None:
+                if not isinstance(auto_followup, dict):
+                    return self.error("auto_followup must be a dict")
+                if "active" not in auto_followup:
+                    return self.error(
+                        "auto_followup dict must at least contain 'active' key"
+                    )
                 valid_keys = {
                     "active",
+                    "allocation_id",
+                    "payload",
                     "pipeline",
                     "comment",
-                    "ignore_group_ids",
-                    "saver_id",
+                    "priority",
+                    "target_group_ids",
+                    "validity_days",
+                    "priority_order",
+                    "radius",
+                    "implements_update",
+                    "ignore_allocation_ids",
+                    "not_if_tns_reported",
                 }
-                if not set(autosave.keys()).issubset(valid_keys):
+                if not set(auto_followup.keys()).issubset(valid_keys):
                     return self.error(
-                        f"autosave dict keys must be a subset of {valid_keys}"
+                        f"auto_followup dict keys must be a subset of {valid_keys}"
                     )
-                if "saver_id" in autosave:
-                    with self.Session() as session:
-                        # before enforcing the group_admin | system_admin permission check,
-                        # we check if the saver_id is different from the current filter
-                        # if it is the same, we skip the permission check
-                        if (
-                            autosave["saver_id"]
-                            != existing_data.get("autosave", {}).get("saver_id")
-                            and not self.current_user.is_system_admin
-                        ):
-                            filter = session.scalar(
-                                Filter.select(session.user_or_token).where(
-                                    Filter.id == filter_id
-                                )
+                if "not_if_tns_reported" in auto_followup:
+                    # if it's not empty or None, verify it's a a float or an int
+                    # it should be in hours
+                    if (
+                        auto_followup["not_if_tns_reported"] is not None
+                        and str(auto_followup["not_if_tns_reported"]).strip() != ""
+                    ):
+                        try:
+                            auto_followup["not_if_tns_reported"] = float(
+                                auto_followup["not_if_tns_reported"]
                             )
-                            filter_group_users = filter.group.group_users
-                            if not any(
-                                group_user.user_id == self.associated_user_object.id
-                                and group_user.admin
-                                for group_user in filter_group_users
-                            ):
-                                return self.error(
-                                    "You do not have permission to set the saver_id for this filter"
-                                )
+                        except ValueError:
+                            return self.error(
+                                "not_if_tns_reported must be a float or an int, if not an empty string or None"
+                            )
+                    else:
+                        # we still want to keep it when None, for example when we want to unset it
+                        auto_followup["not_if_tns_reported"] = None
 
-                        saver_id = autosave["saver_id"]
-                        if saver_id is not None:
-                            try:
-                                saver_id = int(saver_id)
-                            except ValueError:
-                                return self.error(
-                                    f"Invalid saver_id: {saver_id}, must be an integer"
-                                )
-                            user = session.scalar(
-                                User.select(session.user_or_token).where(
-                                    User.id == saver_id
-                                )
-                            )
-                            if user is None:
-                                return self.error(
-                                    f"User with id {saver_id} not found, can't use as saver_id for auto_followup"
-                                )
-                            autosave["saver_id"] = user.id
-            patch_data["autosave"] = autosave
-        if update_annotations is not None:
-            patch_data["update_annotations"] = bool(update_annotations)
-        if auto_followup is not None:
-            if not isinstance(auto_followup, dict):
-                return self.error("auto_followup must be a dict")
-            if "active" not in auto_followup:
-                return self.error(
-                    "auto_followup dict must at least contain 'active' key"
-                )
-            valid_keys = {
-                "active",
-                "allocation_id",
-                "payload",
-                "pipeline",
-                "comment",
-                "priority",
-                "target_group_ids",
-                "validity_days",
-                "priority_order",
-                "radius",
-                "implements_update",
-                "ignore_allocation_ids",
-                "not_if_tns_reported",
-            }
-            if not set(auto_followup.keys()).issubset(valid_keys):
-                return self.error(
-                    f"auto_followup dict keys must be a subset of {valid_keys}"
-                )
-            if "not_if_tns_reported" in auto_followup:
-                # if it's not empty or None, verify it's a a float or an int
-                # it should be in hours
+                # query the allocation by id
+                allocation_id = auto_followup.get("allocation_id", None)
+
+                # if no allocation is provided + auto_followup is active + we are not now setting it to False, return error
                 if (
-                    auto_followup["not_if_tns_reported"] is not None
-                    and str(auto_followup["not_if_tns_reported"]).strip() != ""
+                    allocation_id is None
+                    and existing_data.get("auto_followup", {}).get("active", False)
+                    and auto_followup["active"]
                 ):
-                    try:
-                        auto_followup["not_if_tns_reported"] = float(
-                            auto_followup["not_if_tns_reported"]
-                        )
-                    except ValueError:
-                        return self.error(
-                            "not_if_tns_reported must be a float or an int, if not an empty string or None"
-                        )
-                else:
-                    # we still want to keep it when None, for example when we want to unset it
-                    auto_followup["not_if_tns_reported"] = None
-
-            # query the allocation by id
-            allocation_id = auto_followup.get("allocation_id", None)
-
-            # if no allocation is provided + auto_followup is active + we are not now setting it to False, return error
-            if (
-                allocation_id is None
-                and existing_data.get("auto_followup", {}).get("active", False)
-                and auto_followup["active"]
-            ):
-                return self.error("auto_followup dict must contain 'allocation_id' key")
-
-            # only if the allocation_id is provided, we can check the priority_order and implements_update
-            if allocation_id is not None:
-                with self.Session() as session:
-                    allocation = session.scalar(
-                        Allocation.select(session.user_or_token).where(
-                            Allocation.id == allocation_id
-                        )
+                    return self.error(
+                        "auto_followup dict must contain 'allocation_id' key"
                     )
-                    if allocation is None:
-                        return self.error(f"Allocation {allocation_id} not found")
-                    try:
-                        facility_api = allocation.instrument.api_class
-                    except Exception as e:
-                        return self.error(
-                            f"Could not get facility API of allocation {allocation_id}: {e}"
+
+                # only if the allocation_id is provided, we can check the priority_order and implements_update
+                if allocation_id is not None:
+                    with self.Session() as session:
+                        allocation = session.scalar(
+                            Allocation.select(session.user_or_token).where(
+                                Allocation.id == allocation_id
+                            )
                         )
+                        if allocation is None:
+                            return self.error(f"Allocation {allocation_id} not found")
+                        try:
+                            facility_api = allocation.instrument.api_class
+                        except Exception as e:
+                            return self.error(
+                                f"Could not get facility API of allocation {allocation_id}: {e}"
+                            )
 
-                    priority_order = facility_api.priorityOrder
-                    if priority_order not in ["asc", "desc"]:
-                        return self.error(
-                            "priority order of allocation must be one of ['asc', 'desc']"
-                        )
+                        priority_order = facility_api.priorityOrder
+                        if priority_order not in ["asc", "desc"]:
+                            return self.error(
+                                "priority order of allocation must be one of ['asc', 'desc']"
+                            )
 
-                auto_followup["priority_order"] = priority_order
-                auto_followup["implements_update"] = facility_api.implements()["update"]
+                    auto_followup["priority_order"] = priority_order
+                    auto_followup["implements_update"] = facility_api.implements()[
+                        "update"
+                    ]
 
-            patch_data["auto_followup"] = auto_followup
+                patch_data["auto_followup"] = auto_followup
 
-        response = kowalski.api(
-            method="patch",
-            endpoint="api/filters",
-            data=patch_data,
-        )
-        data = response.get("data")
-        if data is not None:
-            data.pop("_id", None)
-        status = response.get("status")
-        if status == "error":
-            message = response.get("message")
-            return self.error(message=message)
-        return self.success(data=data)
+            response = kowalski.api(
+                method="patch",
+                endpoint="api/filters",
+                data=patch_data,
+            )
+            data = response.get("data")
+            if data is not None:
+                data.pop("_id", None)
+            status = response.get("status")
+            if status == "error":
+                message = response.get("message")
+                return self.error(message=message)
+
+            # update the filter's altdata (in SkyPortal) to add a kowalski field with the filter_id and the active version fid, if active_fid is in the patch_data
+            new_kowalski_data = {
+                "filter_id": int(filter_id),
+            }
+            if "active_fid" in patch_data:
+                new_kowalski_data["active_fid"] = str(patch_data["active_fid"])
+            altdata = f.altdata or {}
+            # update "kowalski" field if it exists, otherwise create it
+            if "kowalski" in altdata and isinstance(altdata["kowalski"], dict):
+                altdata["kowalski"].update(new_kowalski_data)
+            else:
+                altdata["kowalski"] = new_kowalski_data
+            f.altdata = altdata
+            session.add(f)
+            session.commit()
+            return self.success(data=data)
 
     @permissions(["System admin"])
     def delete(self, filter_id):

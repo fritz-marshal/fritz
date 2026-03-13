@@ -91,7 +91,7 @@ const AboutPlugins = () => {
         Fritz is an open source codebase that serves as a dynamic collaborative
         platform for time-domain astronomy. It is being jointly developed at
         Caltech, UC Berkeley, the University of Minnesota, and the Observatoire
-        de la Côte d'Azur.
+        de la Côte d&apos;Azur.
       </Typography>
       <Paper variant="outlined" className={classes.documentation}>
         <Typography variant="body1">
@@ -220,8 +220,8 @@ const AboutPlugins = () => {
           </a>
           .
         </BibLink>
-        If you found Fritz's ACAI machine learning classifiers useful, please
-        cite the following paper:
+        If you found Fritz&apos;s ACAI machine learning classifiers useful,
+        please cite the following paper:
       </div>
       <div>
         <BibLink

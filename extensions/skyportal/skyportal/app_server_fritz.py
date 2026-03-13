@@ -2,34 +2,51 @@ import asyncio
 import concurrent
 
 from skyportal.app_server import make_app
-from skyportal.handlers.api.alert import (
-    AlertAuxHandler,
-    AlertCutoutHandler,
-    AlertHandler,
-    AlertTripletsHandler,
+from skyportal.handlers.api.boom import (
+    BoomFilterHandler,
+    BoomFilterModulesHandler,
+    BoomObjectHandler,
+    BoomRunFilterHandler,
 )
-from skyportal.handlers.api.archive import (
-    ArchiveCatalogsHandler,
-    ArchiveHandler,
-    CrossMatchHandler,
-    ScopeFeaturesHandler,
+from skyportal.handlers.api.kowalski import (
+    KowalskiAlertAuxHandler,
+    KowalskiAlertCutoutHandler,
+    KowalskiAlertHandler,
+    KowalskiAlertTripletsHandler,
+    KowalskiArchiveCatalogsHandler,
+    KowalskiArchiveHandler,
+    KowalskiCrossMatchHandler,
+    KowalskiFilterHandler,
+    KowalskiScopeFeaturesHandler,
 )
-from skyportal.handlers.api.kowalski_filter import KowalskiFilterHandler
 
+# Fritz-specific API endpoints
 fritz_handlers = [
-    # Fritz-specific API endpoints
-    # Alerts
-    (r"/api/alerts(/.+)?", AlertHandler),
-    (r"/api/alerts_aux(/.+)?", AlertAuxHandler),
-    (r"/api/alerts_cutouts(/.+)?", AlertCutoutHandler),
-    (r"/api/alerts_triplets(/.+)?", AlertTripletsHandler),
-    # Archive
-    (r"/api/archive", ArchiveHandler),
-    (r"/api/archive/catalogs", ArchiveCatalogsHandler),
-    (r"/api/archive/cross_match", CrossMatchHandler),
-    (r"/api/archive/features", ScopeFeaturesHandler),
-    # Alert Stream filter versioning via K:
-    (r"/api/filters/([0-9]+)?/v", KowalskiFilterHandler),
+    # BOOM API endpoints
+    (r"/api/boom/filters(/.*)", BoomFilterHandler),
+    (r"/api/boom/filter_modules(/.*)?", BoomFilterModulesHandler),
+    (r"/api/boom/run_filter", BoomRunFilterHandler),
+    (r"/api/boom/alerts/([0-9A-Za-z-_\.\+]+)/([0-9A-Za-z-_\.\+]+)", BoomObjectHandler),
+    # Kowalski API endpoints
+    (r"/api/kowalski/filters/([0-9]+)?/v", KowalskiFilterHandler),
+    (r"/api/kowalski/alerts(/.+)?", KowalskiAlertHandler),
+    (r"/api/kowalski/alerts_aux(/.+)?", KowalskiAlertAuxHandler),
+    (r"/api/kowalski/alerts_cutouts(/.+)?", KowalskiAlertCutoutHandler),
+    (r"/api/kowalski/alerts_triplets(/.+)?", KowalskiAlertTripletsHandler),
+    (r"/api/kowalski/archive", KowalskiArchiveHandler),
+    (r"/api/kowalski/archive/catalogs", KowalskiArchiveCatalogsHandler),
+    (r"/api/kowalski/archive/cross_match", KowalskiCrossMatchHandler),
+    (r"/api/kowalski/archive/features", KowalskiScopeFeaturesHandler),
+    # Same but without the "/kowalski" prefix, to maintain
+    # compatibility with existing Fritz API endpoints
+    (r"/api/alerts(/.+)?", KowalskiAlertHandler),
+    (r"/api/alerts_aux(/.+)?", KowalskiAlertAuxHandler),
+    (r"/api/alerts_cutouts(/.+)?", KowalskiAlertCutoutHandler),
+    (r"/api/alerts_triplets(/.+)?", KowalskiAlertTripletsHandler),
+    (r"/api/archive", KowalskiArchiveHandler),
+    (r"/api/archive/catalogs", KowalskiArchiveCatalogsHandler),
+    (r"/api/archive/cross_match", KowalskiCrossMatchHandler),
+    (r"/api/archive/features", KowalskiScopeFeaturesHandler),
 ]
 
 

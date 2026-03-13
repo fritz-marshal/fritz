@@ -8,7 +8,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 
 import Button from "../Button";
 
-import * as archiveActions from "../../ducks/archive";
+import * as archiveActions from "../../ducks/kowalski_archive";
 
 const PositionedMenu = ({ handle, menu_name, menu_items, disabled }) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -58,6 +58,7 @@ const PositionedMenu = ({ handle, menu_name, menu_items, disabled }) => {
               event.preventDefault();
               handleCloseMenu(item);
             }}
+            key={item}
           >
             {item}
           </MenuItem>
@@ -65,6 +66,13 @@ const PositionedMenu = ({ handle, menu_name, menu_items, disabled }) => {
       </Menu>
     </div>
   );
+};
+
+PositionedMenu.propTypes = {
+  handle: PropTypes.func.isRequired,
+  menu_name: PropTypes.string.isRequired,
+  menu_items: PropTypes.arrayOf(PropTypes.string).isRequired,
+  disabled: PropTypes.bool.isRequired,
 };
 
 const SourceAnnotationButtonPlugins = ({ source }) => {

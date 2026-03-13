@@ -5,9 +5,7 @@ import json
 import pathlib
 import platform
 import traceback
-from datetime import datetime, timedelta
 
-import arrow
 import bson.json_util as bj
 import matplotlib
 import matplotlib.pyplot as plt
@@ -34,10 +32,7 @@ from penquins import Kowalski
 
 from skyportal.utils.calculations import great_circle_distance
 
-from ...models import (
-    Candidate,
-    Classification,
-    Filter,
+from ....models import (
     Group,
     Instrument,
     Obj,
@@ -45,10 +40,10 @@ from ...models import (
     Stream,
     User,
 )
-from ...utils.parse import str_to_bool
-from ..base import BaseHandler
-from .photometry import add_external_photometry
-from .thumbnail import post_thumbnail
+from ....utils.parse import str_to_bool
+from ...base import BaseHandler
+from ..photometry import add_external_photometry
+from ..thumbnail import post_thumbnail
 
 env, cfg = load_env()
 log = make_log("alert")
@@ -1789,209 +1784,6 @@ class AlertTripletsHandler(BaseHandler):
                 )
 
             return self.success(data=return_data)
-        except Exception:
-            _err = traceback.format_exc()
-            return self.error(f"failure: {_err}")
-
-
-class AlertStatsHandler(BaseHandler):
-    # add a get method to the class
-    # this get method will, given a time range, return the number of alerts in that time range
-    @auth_or_token
-    @kowalski_available
-    async def get(self, alert_stream="ZTF"):
-        """
-        ---
-        summary: Get number of alerts in a time range
-        description: Get number of alerts in a time range
-        tags:
-          - alerts
-          - kowalski
-        parameters:
-          - in: query
-            name: start
-            required: true
-            schema:
-              type: string
-              format: date-time
-          - in: query
-            name: end
-            required: true
-            schema:
-              type: string
-              format: date-time
-        responses:
-          '200':
-            description: Number of alerts in the time range
-            content:
-              application/json:
-                schema:
-                  allOf:
-                    - $ref: '#/components/schemas/Success'
-                    - type: object
-                      properties:
-                        data:
-                          type: integer
-          '400':
-            description: retrieval failed
-            content:
-              application/json:
-                schema: Error
-        """
-
-        if alert_stream != "ZTF":
-            return self.error("Only ZTF alerts are currently supported")
-
-        start = self.get_query_argument("start_date", None)
-        end = self.get_query_argument("end_date", None)
-        filter_id = self.get_query_argument("filter_id", None)
-
-        if end is None:
-            end = datetime.utcnow()
-        else:
-            end = arrow.get(end).datetime
-
-        if start is None:
-            start = end - timedelta(days=3000)
-        else:
-            start = arrow.get(start).datetime
-
-        try:
-            query = {
-                "query_type": "count_documents",
-                "query": {
-                    "catalog": f"{alert_stream}_alerts",
-                    "filter": {
-                        "candidate.jd": {
-                            "$gte": Time(start).jd,
-                            "$lte": Time(end).jd,
-                        },
-                    },
-                },
-            }
-
-            response = kowalski.query(query=query)
-
-            total_alerts = None
-            if response.get("default").get("status", "error") == "success":
-                total_alerts = response.get("default").get("data", 0)
-
-            # same, but how many unique objectId are there?
-            # we do this with an aggregate query
-            query = {
-                "query_type": "aggregate",
-                "query": {
-                    "catalog": f"{alert_stream}_alerts",
-                    "pipeline": [
-                        {
-                            "$match": {
-                                "candidate.jd": {
-                                    "$gte": Time(start).jd,
-                                    "$lte": Time(end).jd,
-                                },
-                            },
-                        },
-                        {
-                            "$group": {
-                                "_id": "$objectId",
-                            },
-                        },
-                        {
-                            "$count": "n",
-                        },
-                    ],
-                },
-            }
-
-            response = kowalski.query(query=query)
-            if response.get("default").get("status", "error") == "success":
-                total_objs = (
-                    response.get("default").get("data", [{"n": 0}]).pop().get("n", 0)
-                )
-
-            with self.Session() as session:
-                # first get the stream_ids that have the alert stream in their name
-                stream_ids = session.scalars(
-                    sa.select(Stream.id).where(Stream.name.like(f"%{alert_stream}%"))
-                ).all()
-                # then get the filter_ids that have the stream_ids
-                filter_ids = session.scalars(
-                    sa.select(Filter.id).where(Filter.stream_id.in_(stream_ids))
-                ).all()
-                if filter_id is not None:
-                    # verify that the filter_id is in the list of filter_ids
-                    filter_id = int(filter_id)
-                    if filter_id not in filter_ids:
-                        return self.error(
-                            f"Filter ID {filter_id} not found for this alert stream"
-                        )
-                    filter_ids = [filter_id]
-
-            with self.Session() as session:
-                stmt = Candidate.select(self.associated_user_object).where(
-                    Candidate.passed_at >= start,
-                    Candidate.passed_at <= end,
-                    Candidate.filter_id.in_(filter_ids),
-                )
-                total_candidates_passed = session.scalar(
-                    sa.select(sa.func.count()).select_from(stmt)
-                )
-
-                # same, but how many unique Candidate.obj_id are there?
-                stmt = (
-                    sa.select(sa.func.count(sa.distinct(Candidate.obj_id)))
-                    .select_from(Candidate)
-                    .where(
-                        Candidate.passed_at >= start,
-                        Candidate.passed_at <= end,
-                        Candidate.filter_id.in_(filter_ids),
-                    )
-                )
-                total_obj_passed = session.scalar(stmt)
-
-            # now we want to know how many of these objects where saved as sources
-            # that is, find how many candidates where saved as sources, and get the unique obj_ids count
-            with self.Session() as session:
-                stmt = (
-                    sa.select(sa.func.count(sa.distinct(Candidate.obj_id)))
-                    .select_from(Candidate)
-                    .join(Source, Source.obj_id == Candidate.obj_id)
-                    .where(
-                        Candidate.passed_at >= start,
-                        Candidate.passed_at <= end,
-                        Candidate.filter_id.in_(filter_ids),
-                        Source.active.is_(True),
-                    )
-                )
-                total_obj_saved = session.scalar(stmt)
-
-            # how many of those saved objects have a classification?
-            with self.Session() as session:
-                stmt = (
-                    sa.select(sa.func.count(sa.distinct(Candidate.obj_id)))
-                    .select_from(Candidate)
-                    .join(Source, Source.obj_id == Candidate.obj_id)
-                    .join(Classification, Classification.obj_id == Source.obj_id)
-                    .where(
-                        Candidate.passed_at >= start,
-                        Candidate.passed_at <= end,
-                        Candidate.filter_id.in_(filter_ids),
-                        Source.active.is_(True),
-                        Classification.ml.is_not(True),
-                    )
-                )
-                total_obj_classified = session.scalar(stmt)
-
-            stats = {
-                "total_alerts": total_alerts,
-                "total_objs": total_objs,
-                "total_candidates_passed": total_candidates_passed,
-                "total_obj_passed": total_obj_passed,
-                "total_obj_saved": total_obj_saved,
-                "total_obj_classified": total_obj_classified,
-            }
-            return self.success(data=stats)
-
         except Exception:
             _err = traceback.format_exc()
             return self.error(f"failure: {_err}")

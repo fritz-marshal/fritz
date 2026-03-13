@@ -21,7 +21,7 @@ import { showNotification } from "baselayer/components/Notifications";
 
 import FormValidationError from "../FormValidationError";
 
-import * as alertActions from "../../ducks/alert";
+import * as alertActions from "../../ducks/kowalski_alert";
 import * as sourceActions from "../../ducks/source";
 
 const SaveAlertButton = ({ alert, userGroups }) => {
@@ -104,7 +104,12 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 
   const [splitButtonMenuOpen, setSplitButtonMenuOpen] = useState(false);
   const anchorRef = useRef(null);
+  const [anchorEl, setAnchorEl] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    setAnchorEl(anchorRef.current);
+  }, []);
 
   const handleClickMainButton = async () => {
     if (selectedIndex === 0) {
@@ -157,7 +162,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
       </ButtonGroup>
       <Popper
         open={splitButtonMenuOpen}
-        anchorEl={anchorRef.current}
+        anchorEl={anchorEl}
         role={undefined}
         transition
         disablePortal
@@ -165,7 +170,6 @@ const SaveAlertButton = ({ alert, userGroups }) => {
       >
         {({ TransitionProps, placement }) => (
           <Grow
-            /* eslint-disable-next-line react/jsx-props-no-spreading */
             {...TransitionProps}
             style={{
               transformOrigin:

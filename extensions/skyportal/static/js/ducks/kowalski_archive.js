@@ -69,7 +69,6 @@ const reducerCrossMatches = (state = null, action) => {
   }
 };
 
-// eslint-disable-next-line import/prefer-default-export
 export const fetchZTFLightCurves = ({ lc_id, catalog, ra, dec, radius }) => {
   if (lc_id) {
     return API.GET(
