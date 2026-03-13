@@ -582,16 +582,23 @@ skyportal:
     external:
       boom:
         repo: https://github.com/Theodlz/boom-skyportal-plugin.git
-        rev: bf0e5d43322f1b9e9c551da3d95b646ea9cb3326
+        rev: main
         params:
-          kafka_host: kafka-1
-          kafka_port: 9092
-          kafka_username: readonly
-          kafka_password: readonlysecret
-          kafka_sasl_mechanism: SCRAM-SHA-512
-          topics:
-            - ZTF_alerts_results
-            - LSST_alerts_results
+          kafka:
+            host: kafka-1
+            port: 9092
+            username: readonly
+            password: readonlysecret
+            sasl_mechanism: SCRAM-SHA-512
+            topics:
+              - ZTF_alerts_results
+              - LSST_alerts_results
+          api:
+            protocol: http
+            host: boom-api-1
+            port: 4000
+            username: admin
+            password: adminsecret
 
   misc:
     days_to_keep_unsaved_candidates: 7
@@ -813,7 +820,7 @@ skyportal:
 
   boom:
     protocol: http
-    host: fritz-boom-1
+    host: boom-api-1
     port: 4000
     username: admin
     password: adminsecret
