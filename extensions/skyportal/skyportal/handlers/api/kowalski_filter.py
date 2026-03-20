@@ -4,8 +4,8 @@ from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
-from ....models import Allocation, Filter, Stream, User
-from ...base import BaseHandler
+from ...models import Allocation, Filter, Stream, User
+from ..base import BaseHandler
 
 env, cfg = load_env()
 log = make_log("kowalski_filter")

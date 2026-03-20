@@ -2,10 +2,11 @@ import traceback
 from datetime import datetime, timedelta
 
 import requests
+from pymongo import MongoClient
+
 from baselayer.app.access import auth_or_token
 from baselayer.app.env import load_env
 from baselayer.log import make_log
-from pymongo import MongoClient
 
 from ...base import BaseHandler
 

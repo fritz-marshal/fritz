@@ -2,12 +2,12 @@ import uuid
 
 import numpy as np
 import pandas as pd
-from baselayer.app.access import auth_or_token, permissions
-from baselayer.app.env import load_env
-from baselayer.log import make_log
 from penquins import Kowalski
 from sqlalchemy.exc import IntegrityError
 
+from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.env import load_env
+from baselayer.log import make_log
 from skyportal.model_util import create_token, delete_token
 
 from ....models import (

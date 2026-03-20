@@ -15,11 +15,12 @@ from astropy.visualization import (
     LinearStretch,
     LogStretch,
 )
+from scipy.ndimage import rotate
+from sqlalchemy.orm.session import Session
+
 from baselayer.app.access import permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
-from scipy.ndimage import rotate
-from sqlalchemy.orm.session import Session
 
 from ....models import (
     Group,

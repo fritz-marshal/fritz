@@ -21,16 +21,46 @@ import {
 } from "../../../../hooks/useContexts";
 import { useDispatch } from "react-redux";
 import { putElement } from "../../../../ducks/boom_filter_modules";
+import { normalizeFieldValue } from "../../../../utils/conditionHelpers";
 
-// Helper function to normalize field values that may be objects or strings
-// Supports:
-// - String values (legacy): "fieldName"
-// - Object with metadata (new): { name: "fieldName", _meta: {...} }
-const normalizeFieldValue = (field) => {
-  if (!field) return "";
-  if (typeof field === "string") return field;
-  if (typeof field === "object" && field.name) return field.name;
-  return "";
+const OPERATOR_LABELS = {
+  $anyElementTrue: "Any Element True",
+  $allElementsTrue: "All Elements True",
+  $filter: "Filter",
+  $map: "Map",
+  $min: "Minimum",
+  $max: "Maximum",
+  $avg: "Average",
+  $sum: "Sum",
+  $size: "Count Elements",
+  $stdDevPop: "Standard Deviation (Population)",
+  $median: "Median",
+  $all: "All",
+};
+
+const getOperatorLabel = (operator) => OPERATOR_LABELS[operator] || operator;
+
+const getOperatorOutputType = (operator) => {
+  if (["$anyElementTrue", "$allElementsTrue"].includes(operator))
+    return "boolean";
+  if (["$filter", "$map"].includes(operator)) return "array";
+  if (
+    ["$min", "$max", "$avg", "$sum", "$size", "$stdDevPop", "$median"].includes(
+      operator,
+    )
+  )
+    return "number";
+  return null;
+};
+
+const getCompatibleOperators = (operator) => {
+  if (operator === "$map") return ["$map"];
+  const outputType = getOperatorOutputType(operator);
+  if (outputType === "boolean") return ["$anyElementTrue", "$allElementsTrue"];
+  if (outputType === "array") return ["$filter"];
+  if (outputType === "number")
+    return ["$min", "$max", "$avg", "$sum", "$size", "$stdDevPop", "$median"];
+  return [operator];
 };
 
 const ListConditionPopover = ({
@@ -226,85 +256,6 @@ const ListConditionPopover = ({
   };
 
   const renderListVariableContent = (listVar) => {
-    const getOperatorLabel = (operator) => {
-      const operatorLabels = {
-        $anyElementTrue: "Any Element True",
-        $allElementsTrue: "All Elements True",
-        $filter: "Filter",
-        $min: "Minimum",
-        $max: "Maximum",
-        $avg: "Average",
-        $sum: "Sum",
-        $size: "Size",
-        $stdDevPop: "Standard Deviation (Population)",
-        $median: "Median",
-        $all: "All",
-        $map: "Map",
-      };
-      return operatorLabels[operator] || operator;
-    };
-
-    // Get the output type for a list operator
-    const getOperatorOutputType = (operator) => {
-      // Boolean-returning operators
-      if (["$anyElementTrue", "$allElementsTrue"].includes(operator)) {
-        return "boolean";
-      }
-      // Array-returning operators
-      if (["$filter", "$map"].includes(operator)) {
-        return "array";
-      }
-      // Number-returning operators
-      if (
-        [
-          "$min",
-          "$max",
-          "$avg",
-          "$sum",
-          "$size",
-          "$stdDevPop",
-          "$median",
-        ].includes(operator)
-      ) {
-        return "number";
-      }
-      // For others, return null (don't display type)
-      return null;
-    };
-
-    // Get operators that are compatible with the given operator (same output type)
-    const getCompatibleOperators = (operator) => {
-      // $map cannot be switched to/from other operators
-      if (operator === "$map") {
-        return ["$map"];
-      }
-
-      const outputType = getOperatorOutputType(operator);
-
-      if (outputType === "boolean") {
-        return ["$anyElementTrue", "$allElementsTrue"];
-      }
-
-      if (outputType === "array") {
-        return ["$filter"];
-      }
-
-      if (outputType === "number") {
-        return [
-          "$min",
-          "$max",
-          "$avg",
-          "$sum",
-          "$size",
-          "$stdDevPop",
-          "$median",
-        ];
-      }
-
-      // For other operators, return just the operator itself (can't change)
-      return [operator];
-    };
-
     // Determine if this list variable can be edited (has conditions to edit)
     const canEdit =
       listVar.listCondition.value &&
@@ -845,25 +796,6 @@ const ListConditionPopover = ({
     variables,
     listVariables,
   ) => {
-    // Get the operator label from mongoOperatorLabels
-    const getOperatorLabel = (operator) => {
-      const operatorLabels = {
-        $anyElementTrue: "Any Element True",
-        $allElementsTrue: "All Elements True",
-        $filter: "Filter",
-        $map: "Map",
-        $min: "Minimum",
-        $max: "Maximum",
-        $avg: "Average",
-        $sum: "Sum",
-        $size: "Count Elements",
-        $stdDevPop: "Standard Deviation (Population)",
-        $median: "Median",
-        $all: "All",
-      };
-      return operatorLabels[operator] || operator;
-    };
-
     return (
       <div
         style={{

@@ -25,19 +25,11 @@ import {
 } from "../../../../hooks/useContexts";
 import BlockComponent from "../block/BlockComponent";
 import AutocompleteFields from "../condition/AutocompleteFields";
-import { getFieldOptionsWithVariable } from "../../../../utils/conditionHelpers";
+import {
+  getFieldOptionsWithVariable,
+  normalizeFieldValue,
+} from "../../../../utils/conditionHelpers";
 import { postElement } from "../../../../ducks/boom_filter_modules";
-
-/**
- * Helper function to extract string value from AutocompleteFields output
- * Handles both legacy string format and new object format with metadata
- */
-const normalizeFieldValue = (value) => {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value.name) return value.name;
-  return String(value);
-};
 
 const defaultBlock = () => ({
   id: uuidv4(),

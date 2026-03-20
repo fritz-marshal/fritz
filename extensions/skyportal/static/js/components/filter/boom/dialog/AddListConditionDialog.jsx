@@ -24,55 +24,26 @@ import {
   useListConditionSave,
 } from "../../../../hooks/useDialog";
 import { useCurrentBuilder } from "../../../../hooks/useContexts";
+import { normalizeFieldValue } from "../../../../utils/conditionHelpers";
+import { getSimpleType } from "../../../../constants/filterConstants";
 import BlockComponent from "../block/BlockComponent";
 import MapExpressionEditor from "./MapExpressionEditor";
 import { postElement } from "../../../../ducks/boom_filter_modules";
 import { useDispatch, useSelector } from "react-redux";
 
-/**
- * Helper function to extract string value from AutocompleteFields output
- * Handles both legacy string format and new object format with metadata
- */
-const normalizeFieldValue = (value) => {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value.name) return value.name;
-  return String(value);
-};
-
-// Import utility function for type mapping
-const getSimpleType = (avroType) => {
-  if (typeof avroType === "string") {
-    // Map Avro primitive types to our system types
-    switch (avroType) {
-      case "double":
-      case "float":
-      case "int":
-      case "long":
-        return "number";
-      case "string":
-        return "string";
-      case "boolean":
-        return "boolean";
-      default:
-        return "string";
-    }
-  }
-
-  if (Array.isArray(avroType)) {
-    // Handle union types - get the non-null type
-    const nonNullType = avroType.find((t) => t !== "null");
-    return getSimpleType(nonNullType);
-  }
-
-  if (typeof avroType === "object") {
-    if (avroType.type === "array") return "array";
-    if (avroType.type === "record") return "object";
-    return getSimpleType(avroType.type);
-  }
-
-  return "string";
-};
+const OPERATORS_NEEDING_CONDITIONS = [
+  "$anyElementTrue",
+  "$allElementsTrue",
+  "$filter",
+];
+const OPERATORS_NEEDING_SUBFIELD = [
+  "$min",
+  "$max",
+  "$avg",
+  "$sum",
+  "$stdDevPop",
+  "$median",
+];
 
 const SubFieldSelector = ({
   selectedSubField,
@@ -85,14 +56,8 @@ const SubFieldSelector = ({
     return subFieldOptions.filter((option) => option.type === "number");
   };
 
-  const shouldShowSubFieldSelector = [
-    "$min",
-    "$max",
-    "$avg",
-    "$sum",
-    "$stdDevPop",
-    "$median",
-  ].includes(selectedOperator);
+  const shouldShowSubFieldSelector =
+    OPERATORS_NEEDING_SUBFIELD.includes(selectedOperator);
 
   if (!shouldShowSubFieldSelector) {
     return null;
@@ -155,6 +120,7 @@ const SubFieldSelector = ({
 };
 
 SubFieldSelector.propTypes = {
+  key: PropTypes.string,
   selectedSubField: PropTypes.string,
   onSubFieldChange: PropTypes.func,
   subFieldOptions: PropTypes.arrayOf(
@@ -164,7 +130,6 @@ SubFieldSelector.propTypes = {
     }),
   ),
   selectedOperator: PropTypes.string,
-  key: PropTypes.string,
 };
 
 const ArrayFieldSelector = ({
@@ -240,6 +205,7 @@ const ArrayFieldSelector = ({
 };
 
 ArrayFieldSelector.propTypes = {
+  key: PropTypes.string,
   selectedArrayField: PropTypes.string,
   onFieldChange: PropTypes.func,
   availableArrayFields: PropTypes.arrayOf(
@@ -248,7 +214,6 @@ ArrayFieldSelector.propTypes = {
       type: PropTypes.string,
     }),
   ),
-  key: PropTypes.string,
 };
 
 const ConditionNameInput = ({ conditionName, onNameChange, nameError }) => {
@@ -410,11 +375,8 @@ const ConditionBuilderSection = ({
   onMapFieldsChange,
   customVariables,
 }) => {
-  const shouldShowConditionBuilder = [
-    "$anyElementTrue",
-    "$allElementsTrue",
-    "$filter",
-  ].includes(selectedOperator);
+  const shouldShowConditionBuilder =
+    OPERATORS_NEEDING_CONDITIONS.includes(selectedOperator);
 
   const shouldShowMapEditor = selectedOperator === "$map";
 
@@ -450,12 +412,6 @@ const ConditionBuilderSection = ({
     // For cross_matches style fields, we should use the passed subFieldOptions
     if (subFieldOptions && subFieldOptions.length > 0) {
       const fieldOptionsList = [...(fieldOptions || []), ...subFieldOptions];
-
-      // Continue with the rest of the component using subFieldOptions
-      const fieldOptionsListForCrossmatch = [
-        ...(fieldOptions || []),
-        ...subFieldOptions,
-      ];
 
       return (
         <Box>
@@ -801,19 +757,12 @@ const AddListConditionDialog = () => {
     }
 
     // Check if conditions are required for this operator
-    const operatorNeedsConditions = [
-      "$anyElementTrue",
-      "$allElementsTrue",
-      "$filter",
-    ].includes(form.selectedOperator);
-    const operatorNeedsSubField = [
-      "$min",
-      "$max",
-      "$avg",
-      "$sum",
-      "$stdDevPop",
-      "$median",
-    ].includes(form.selectedOperator);
+    const operatorNeedsConditions = OPERATORS_NEEDING_CONDITIONS.includes(
+      form.selectedOperator,
+    );
+    const operatorNeedsSubField = OPERATORS_NEEDING_SUBFIELD.includes(
+      form.selectedOperator,
+    );
     const isMapOperator = form.selectedOperator === "$map";
 
     // Build map expression object if it's a $map operator
@@ -874,22 +823,22 @@ const AddListConditionDialog = () => {
           (lv) => lv.name === dialog.listFieldName,
         );
         if (existingListVar && existingListVar.listCondition?.subFieldOptions) {
-          // Use subFieldOptions from the existing list variable
-          // Extract just the subfield name (after the last dot) to avoid nesting issues
+          // Use subFieldOptions from the existing list variable.
+          // Strip to bare subfield name — handleFieldSelection will re-prefix
+          // with the input variable name at runtime (so "prv_candidates.jd" → "jd"
+          // stored here, then "myVar1.jd" when used as input to another condition).
           return existingListVar.listCondition.subFieldOptions.map((opt) => {
-            // Extract the subfield name (everything after the last dot)
             const subfieldName = opt.label.includes(".")
               ? opt.label.split(".").pop()
               : opt.label;
 
             return {
               ...opt,
-              // Preserve group for map operators, otherwise remove grouping
               group:
                 existingListVar.listCondition.operator === "$map"
                   ? opt.group
                   : undefined,
-              label: subfieldName, // Use just the subfield name, relative to this list
+              label: subfieldName,
             };
           });
         }
@@ -904,18 +853,15 @@ const AddListConditionDialog = () => {
             arrayField.arrayItems &&
             arrayField.arrayItems.fields
           ) {
-            const subFieldOptionsConsistent = arrayField.arrayItems.fields.map(
-              (sub) => {
-                const { name, ...subWithoutName } = sub;
-                return {
-                  ...subWithoutName,
-                  label: `${dialog.listFieldName}.${name}`,
-                  type: getSimpleType(sub.type),
-                  isSchemaField: true, // Mark as schema field for proper metadata routing
-                };
-              },
-            );
-            return [...fieldOptions, ...subFieldOptionsConsistent];
+            return arrayField.arrayItems.fields.map((sub) => {
+              const { name, ...subWithoutName } = sub;
+              return {
+                ...subWithoutName,
+                label: `${dialog.listFieldName}.${name}`,
+                type: getSimpleType(sub.type),
+                isSchemaField: true,
+              };
+            });
           }
         }
         // Fall back to the original subFieldOptions from dialog
@@ -961,19 +907,12 @@ const AddListConditionDialog = () => {
   };
 
   const isFormValid = () => {
-    const operatorNeedsSubField = [
-      "$min",
-      "$max",
-      "$avg",
-      "$sum",
-      "$stdDevPop",
-      "$median",
-    ].includes(form.selectedOperator);
-    const operatorNeedsConditions = [
-      "$anyElementTrue",
-      "$allElementsTrue",
-      "$filter",
-    ].includes(form.selectedOperator);
+    const operatorNeedsSubField = OPERATORS_NEEDING_SUBFIELD.includes(
+      form.selectedOperator,
+    );
+    const operatorNeedsConditions = OPERATORS_NEEDING_CONDITIONS.includes(
+      form.selectedOperator,
+    );
     const isMapOperator = form.selectedOperator === "$map";
 
     return (

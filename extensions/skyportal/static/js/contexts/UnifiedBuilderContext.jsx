@@ -17,9 +17,8 @@ export const UnifiedBuilderContext = createContext();
 export const UnifiedBuilderProvider = ({ children, mode = "filter" }) => {
   const dispatch = useDispatch();
 
-  // Core state - can be used for both filters and annotations
+  // Core state
   const [filters, setFilters] = useState([]);
-  const [annotations, setAnnotations] = useState([]);
   const [collapsedBlocks, setCollapsedBlocks] = useState({});
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -104,9 +103,8 @@ export const UnifiedBuilderProvider = ({ children, mode = "filter" }) => {
     loadData();
   }, [dispatch, mode, currentStream]);
 
-  // Determine which data to use based on mode
-  const currentData = mode === "annotation" ? annotations : filters;
-  const setCurrentData = mode === "annotation" ? setAnnotations : setFilters;
+  const currentData = filters;
+  const setCurrentData = setFilters;
 
   // Get hook functionalities
   const dataManipulation = useFilterManipulation(currentData, setCurrentData);
@@ -368,11 +366,8 @@ export const UnifiedBuilderProvider = ({ children, mode = "filter" }) => {
     schema,
     fieldOptions,
 
-    // Core state - provide both for backward compatibility
     filters: currentData,
     setFilters: setCurrentData,
-    annotations,
-    setAnnotations,
     collapsedBlocks,
     setCollapsedBlocks,
     hasInitialized,

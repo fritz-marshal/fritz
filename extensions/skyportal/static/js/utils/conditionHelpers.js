@@ -1,3 +1,11 @@
+// Normalize a field value that may be a string or an object with a .name property
+export const normalizeFieldValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value.name) return value.name;
+  return String(value);
+};
+
 // Helper function to infer type from switch case outcomes
 const inferSwitchCaseType = (
   switchCondition,
@@ -214,18 +222,6 @@ export const getFieldType = (
     ? fieldOptionsList.find((f) => f.label === fieldName)
     : null;
 
-  const detectedType = fieldVar?.type
-    ? fieldVar.type
-    : fieldVar
-      ? "number"
-      : listVar?.type
-        ? listVar.type
-        : switchCase
-          ? "inferred"
-          : fieldObjList?.type
-            ? fieldObjList.type
-            : "unknown";
-
   if (fieldVar?.type) {
     return fieldVar.type;
   }
@@ -426,8 +422,6 @@ export const getOperatorsForField = (
     case "array_variable": // List variables should have the same operators as regular arrays
     case "array_switch": // Switch cases with array outcomes should have the same operators as regular arrays
       return [
-        // "$in",
-        // "$nin",
         "$anyElementTrue",
         "$allElementsTrue",
         "$filter",
@@ -445,8 +439,6 @@ export const getOperatorsForField = (
       ];
     case "array_variable_boolean": // List variables with anyElementTrue/allElementsTrue operators - exclude length operators
       return [
-        // "$in",
-        // "$nin",
         "$anyElementTrue",
         "$allElementsTrue",
         "$filter",
@@ -478,29 +470,21 @@ export const getFieldOptionsWithVariable = (
   currentContextTime = null, // Optional: filter switches created after this time
   currentStream = null, // Optional: filter by stream
 ) => {
-  // Helper to filter by stream - include items with no stream or matching stream
-  const filterByStream = (items) => {
-    if (!currentStream || !items) return items;
-    return items.filter(
-      (item) => !item.stream || item.stream === currentStream.split(" ")[0],
-    );
-  };
+  const streamPrefix = currentStream ? currentStream.split(" ")[0] : null;
+  const matchesStream = (item) =>
+    !streamPrefix || !item.stream || item.stream === streamPrefix;
 
-  const filteredListVariables = filterByStream(customListVariables);
-  const filteredCustomVariables = filterByStream(customVariables);
-  const filteredSwitchCases = filterByStream(customSwitchCases);
+  const filteredListVariables = streamPrefix
+    ? customListVariables?.filter(matchesStream)
+    : customListVariables;
+  const filteredCustomVariables = streamPrefix
+    ? customVariables?.filter(matchesStream)
+    : customVariables;
+  const filteredSwitchCases = streamPrefix
+    ? customSwitchCases?.filter(matchesStream)
+    : customSwitchCases;
 
-  // Helper to normalize name values (handle both string and object formats)
-  const normalizeName = (name) => {
-    if (!name) return "";
-    if (typeof name === "string") return name;
-    if (typeof name === "object") {
-      if (name.name) {
-        return name.name;
-      }
-    }
-    return String(name);
-  };
+  const normalizeName = normalizeFieldValue;
 
   const listVariableOptions =
     filteredListVariables?.map((lv) => {

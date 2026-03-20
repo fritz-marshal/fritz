@@ -67,9 +67,6 @@ const FilterBuilderContent = ({
     setHasBeenModified,
     // Get the factory function for creating default conditions
     createDefaultCondition,
-    // Get annotations and projection fields for saving/loading
-    annotations,
-    setAnnotations,
     projectionFields,
     setProjectionFields,
   } = useFilterBuilder();
@@ -130,15 +127,10 @@ const FilterBuilderContent = ({
       if (activeFilters.length > 0 && activeFilters[0].version) {
         const versionData = activeFilters[0].version;
 
-        // Check if version data contains both filters and annotations (new format)
-        if (versionData.filters && versionData.annotations !== undefined) {
+        if (versionData.filters) {
           setLocalFilterData(versionData.filters);
           if (setFilters) {
             setFilters(versionData.filters);
-          }
-          // Restore annotations if they exist
-          if (versionData.annotations && setAnnotations) {
-            setAnnotations(versionData.annotations);
           }
           // Restore projection fields if they exist
           if (versionData.projectionFields && setProjectionFields) {
@@ -211,7 +203,6 @@ const FilterBuilderContent = ({
     setCollapsedBlocks,
     localFilterData,
     setLocalFilterData,
-    setAnnotations,
     setProjectionFields,
   ]);
 
@@ -327,13 +318,8 @@ const FilterBuilderContent = ({
       const currentFilters =
         localFilterData || contextFilters || filtersToRender;
 
-      // Get current annotations from context
-      const currentAnnotations = annotations || [];
-
-      // Combine filters and annotations in the version data
       const versionData = {
         filters: currentFilters,
-        annotations: currentAnnotations,
         projectionFields: projectionFields || [],
       };
 

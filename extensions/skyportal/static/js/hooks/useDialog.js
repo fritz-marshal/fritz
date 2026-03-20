@@ -200,11 +200,10 @@ export const useListConditionDialog = (
       (lv) => lv.name === fieldLabel,
     );
     if (listVariable && listVariable.listCondition?.subFieldOptions) {
-      // Use sub-field options from the list variable
-      // Extract just the subfield name (after the last dot) to avoid nesting issues
+      // Use sub-field options from the list variable, prefixed with the variable name
       const updatedSubFieldOptions =
         listVariable.listCondition.subFieldOptions.map((opt) => {
-          // Extract the subfield name (everything after the last dot)
+          // Extract the bare subfield name (everything after the last dot)
           const subfieldName = opt.label.includes(".")
             ? opt.label.split(".").pop()
             : opt.label;
@@ -218,7 +217,9 @@ export const useListConditionDialog = (
           return {
             ...opt,
             group: groupName,
-            label: subfieldName, // Use just the subfield name, relative to this list
+            // Prefix with the variable name so resolveFieldReference can map
+            // "inputname.jd" → "$$this.jd" in MongoDB generation
+            label: `${fieldLabel}.${subfieldName}`,
           };
         });
       setSubFieldOptions(updatedSubFieldOptions);

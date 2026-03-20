@@ -40,13 +40,23 @@ const SaveBlockDialogMenu = () => {
     }
 
     const nameValue = saveName.trim();
+    const streamName = stream?.split(" ")[0];
 
     const notAvailable = await dispatch(
-      fetchElement({ name: nameValue, elements: "blocks" }),
+      fetchElement({ survey: nameValue, elements: "blocks" }),
     );
-    if (notAvailable.data.blocks?.length > 0) {
-      setSaveError("Name already exists. Please choose another.");
-      return;
+    if (notAvailable?.data?.blocks != null) {
+      const existingStreams = notAvailable.data.blocks.streams;
+      // Name conflicts only if the existing block belongs to the same stream
+      const isConflict =
+        !existingStreams ||
+        existingStreams.length === 0 ||
+        !streamName ||
+        existingStreams.includes(streamName);
+      if (isConflict) {
+        setSaveError("Name already exists. Please choose another.");
+        return;
+      }
     }
 
     const saved = await dispatch(

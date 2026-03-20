@@ -20,10 +20,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Collapse,
-  Tooltip,
-  Tabs,
-  Tab,
   Stack,
   Link,
 } from "@mui/material";
@@ -31,8 +27,6 @@ import {
   ContentCopy as CopyIcon,
   Close as CloseIcon,
   PlayArrow as RunIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Fullscreen as FullscreenIcon,
   FirstPage as FirstPageIcon,
   LastPage as LastPageIcon,
@@ -54,6 +48,8 @@ import {
   runBoomTestFilter,
   clearBoomFilter,
 } from "../../../../ducks/boom_run_filter";
+import PipelineViewer from "./PipelineViewer";
+import FullscreenResultsDialog from "./FullscreenResultsDialog";
 
 const useStyles = makeStyles((theme) => ({
   timeRange: {
@@ -63,36 +59,6 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: "1rem",
   },
 }));
-
-const getStageDescription = (stageName) => {
-  const descriptions = {
-    $match:
-      "Filters documents to pass only those that match the specified condition(s)",
-    $project:
-      "Reshapes documents by including, excluding, or adding new fields",
-    $lookup: "Performs a left outer join to documents from another collection",
-    $unwind:
-      "Deconstructs an array field to output a document for each element",
-    $group:
-      "Groups documents by a specified identifier and applies aggregation functions",
-    $sort: "Sorts documents by specified field(s)",
-    $limit: "Limits the number of documents passed to the next stage",
-    $skip: "Skips a specified number of documents",
-    $addFields: "Adds new fields to documents",
-    $replaceRoot: "Replaces the input document with the specified document",
-    $facet: "Processes multiple aggregation pipelines within a single stage",
-    $bucket: "Categorizes documents into groups based on specified boundaries",
-    $size: "Returns a count of the number of documents at this stage",
-    $out: "Writes the resulting documents to a collection",
-    $merge:
-      "Writes the results of the aggregation pipeline to a specified collection",
-    $filter: "Filters array elements based on specified criteria",
-    $map: "Applies an expression to each element in an array",
-    $reduce:
-      "Applies an expression to each element in an array and combines them",
-  };
-  return descriptions[stageName] || "MongoDB aggregation stage";
-};
 
 // Helper function to properly combine user pipeline with additional stages
 // Note: Sorting is now handled by the API, not in the pipeline
@@ -1263,241 +1229,17 @@ const MongoQueryDialog = () => {
               )}
 
               {/* Pipeline Visualization */}
-              <Box sx={{ mb: 3 }}>
-                <Box
-                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
-                >
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    MongoDB Pipeline ({pipeline.length} stage
-                    {pipeline.length !== 1 ? "s" : ""})
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowPipeline(!showPipeline)}
-                  >
-                    {showPipeline ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </Box>
-
-                <Collapse in={showPipeline}>
-                  {/* Pipeline View Tabs */}
-                  <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-                    <Tabs
-                      value={pipelineView}
-                      onChange={(e, newValue) => setPipelineView(newValue)}
-                      aria-label="pipeline view tabs"
-                    >
-                      <Tab
-                        label="Complete Pipeline"
-                        value="complete"
-                        sx={{ textTransform: "none" }}
-                      />
-                      <Tab
-                        label="Stage by Stage"
-                        value="stages"
-                        sx={{ textTransform: "none" }}
-                      />
-                    </Tabs>
-                  </Box>
-
-                  {/* Tab Content Container */}
-                  <Box
-                    sx={{
-                      minHeight: "400px",
-                      position: "relative",
-                      backgroundColor: "background.paper",
-                    }}
-                  >
-                    {/* Complete Pipeline View */}
-                    {pipelineView === "complete" && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          minHeight: "100%",
-                          backgroundColor: "background.paper",
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            mb: 2,
-                          }}
-                        >
-                          <Typography variant="subtitle2" fontWeight="bold">
-                            Complete Pipeline JSON:
-                          </Typography>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<CopyIcon />}
-                            onClick={handleCopy}
-                          >
-                            Copy to Clipboard
-                          </Button>
-                        </Box>
-
-                        <Box
-                          sx={{
-                            backgroundColor: "#f5f5f5",
-                            border: "1px solid #ddd",
-                            borderRadius: 1,
-                            p: 2,
-                            maxHeight: "400px",
-                            overflow: "auto",
-                          }}
-                        >
-                          <ReactJson src={pipeline} name={false} />
-                        </Box>
-
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ mt: 2, display: "block" }}
-                        >
-                          This aggregation pipeline can be used directly with
-                          MongoDB&apos;s aggregate() method.
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {/* Stage by Stage View */}
-                    {pipelineView === "stages" && (
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          minHeight: "100%",
-                          backgroundColor: "background.paper",
-                        }}
-                      >
-                        {/* Individual Stage Details */}
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 2,
-                          }}
-                        >
-                          {pipeline.map((stage, index) => {
-                            const stageName = Object.keys(stage)[0];
-                            const stageContent = stage[stageName];
-                            const description = getStageDescription(stageName);
-                            const isStageExpanded = expandedStages.has(index);
-
-                            return (
-                              <Paper
-                                key={index}
-                                elevation={1}
-                                sx={{
-                                  p: 2,
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                }}
-                              >
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    mb: 1,
-                                  }}
-                                >
-                                  <Box
-                                    sx={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 1,
-                                    }}
-                                  >
-                                    <Chip
-                                      label={`Stage ${index + 1}`}
-                                      size="small"
-                                      color="primary"
-                                      variant="outlined"
-                                    />
-                                    <Typography
-                                      variant="h6"
-                                      sx={{
-                                        color: "primary.main",
-                                        fontFamily: "monospace",
-                                      }}
-                                    >
-                                      {stageName}
-                                    </Typography>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleStageToggle(index)}
-                                      sx={{ ml: 1 }}
-                                    >
-                                      {isStageExpanded ? (
-                                        <ExpandLessIcon />
-                                      ) : (
-                                        <ExpandMoreIcon />
-                                      )}
-                                    </IconButton>
-                                  </Box>
-                                  <Tooltip title={`Copy ${stageName} stage`}>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() =>
-                                        handleCopyStage(stageName, stageContent)
-                                      }
-                                      sx={{
-                                        opacity: 0.7,
-                                        "&:hover": { opacity: 1 },
-                                      }}
-                                    >
-                                      <CopyIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Box>
-
-                                <Typography
-                                  variant="body2"
-                                  color="text.secondary"
-                                  sx={{ mb: 2, fontStyle: "italic" }}
-                                >
-                                  {description}
-                                </Typography>
-
-                                <Collapse in={isStageExpanded}>
-                                  <Box
-                                    component="pre"
-                                    sx={{
-                                      backgroundColor: "#f8f9fa",
-                                      border: "1px solid #e9ecef",
-                                      borderRadius: 1,
-                                      p: 1.5,
-                                      overflow: "auto",
-                                      maxHeight: "300px",
-                                      fontFamily:
-                                        'Monaco, Consolas, "Courier New", monospace',
-                                      fontSize: "13px",
-                                      lineHeight: 1.4,
-                                      whiteSpace: "pre-wrap",
-                                      wordBreak: "break-word",
-                                      margin: 0,
-                                    }}
-                                  >
-                                    {JSON.stringify(stageContent, null, 2)}
-                                  </Box>
-                                </Collapse>
-                              </Paper>
-                            );
-                          })}
-                        </Box>
-                      </Box>
-                    )}
-                  </Box>
-                </Collapse>
-              </Box>
+              <PipelineViewer
+                pipeline={pipeline}
+                showPipeline={showPipeline}
+                setShowPipeline={setShowPipeline}
+                pipelineView={pipelineView}
+                setPipelineView={setPipelineView}
+                expandedStages={expandedStages}
+                handleStageToggle={handleStageToggle}
+                handleCopy={handleCopy}
+                handleCopyStage={handleCopyStage}
+              />
             </Box>
           )}
         </DialogContent>
@@ -1524,349 +1266,20 @@ const MongoQueryDialog = () => {
         </Alert>
       </Snackbar>
 
-      {/* Fullscreen Results Dialog */}
-      <Dialog
-        open={isFullscreen}
-        onClose={() => setIsFullscreen(false)}
-        maxWidth={false}
-        fullScreen
-        sx={{
-          "& .MuiDialog-paper": {
-            margin: 0,
-            maxHeight: "100vh",
-            height: "100vh",
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            pb: 1,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="h6">Query Results</Typography>
-            <Chip
-              label={
-                queryCompleted && totalDocuments === 0
-                  ? "0 documents"
-                  : queryCompleted
-                    ? `${totalDocuments} documents`
-                    : "Loading..."
-              }
-              size="small"
-              color={
-                queryCompleted && totalDocuments === 0
-                  ? "default"
-                  : queryCompleted
-                    ? "success"
-                    : "primary"
-              }
-            />
-            {totalDocuments > pageSize && (
-              <Chip
-                label={`Page ${currentPage} of ${Math.ceil(
-                  totalDocuments / pageSize,
-                )}`}
-                size="small"
-                variant="outlined"
-              />
-            )}
-          </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <IconButton
-              onClick={handleDownloadResults}
-              disabled={!displayResults.data?.length}
-              title="Download results as JSON"
-              sx={{ color: "text.secondary" }}
-            >
-              <DownloadIcon />
-            </IconButton>
-            <IconButton
-              onClick={() => setIsFullscreen(false)}
-              sx={{ color: "text.secondary" }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-
-        <DialogContent
-          sx={{
-            p: 0,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-          }}
-        >
-          {displayResults.data?.length > 0 ? (
-            <>
-              <TableContainer
-                component={Paper}
-                sx={{
-                  flex: 1,
-                  overflow: "auto",
-                  "& .MuiTable-root": {
-                    minWidth: 650,
-                  },
-                }}
-              >
-                <Table stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      {Object.keys(displayResults.data[0] || {})
-                        .filter((key) => key !== "_id")
-                        .map((key) => (
-                          <TableCell
-                            key={key}
-                            sx={{
-                              fontWeight: "bold",
-                              backgroundColor: "grey.100",
-                              whiteSpace: "nowrap",
-                              minWidth: 120,
-                            }}
-                          >
-                            {key}
-                          </TableCell>
-                        ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {displayResults.data.map((row, rowIndex) => (
-                      <TableRow
-                        key={rowIndex}
-                        sx={{
-                          height: "auto",
-                          minHeight: "fit-content",
-                          "& .MuiTableCell-root": {
-                            height: "auto",
-                            minHeight: "fit-content",
-                          },
-                        }}
-                      >
-                        {Object.keys(row)
-                          .filter((key) => key !== "_id")
-                          .map((key) => (
-                            <TableCell
-                              key={key}
-                              sx={{
-                                verticalAlign: "top",
-                                height: "auto",
-                                minHeight: "fit-content",
-                              }}
-                            >
-                              {(() => {
-                                const value = row[key];
-
-                                // Handle null or undefined - display as text
-                                if (value === null || value === undefined) {
-                                  return (
-                                    <Typography
-                                      variant="body2"
-                                      sx={{
-                                        wordBreak: "break-word",
-                                        whiteSpace: "pre-wrap",
-                                        fontStyle: "italic",
-                                        color: "text.secondary",
-                                      }}
-                                    >
-                                      {value === null ? "null" : "undefined"}
-                                    </Typography>
-                                  );
-                                }
-
-                                // Handle objects (including arrays)
-                                if (typeof value === "object") {
-                                  try {
-                                    // Validate that the object can be stringified (valid JSON structure)
-                                    JSON.stringify(value);
-
-                                    return (
-                                      <Box
-                                        sx={{
-                                          maxWidth: 300,
-                                          maxHeight: expandedCells.has(
-                                            `${rowIndex}-${key}`,
-                                          )
-                                            ? "none"
-                                            : 100,
-                                          overflow: expandedCells.has(
-                                            `${rowIndex}-${key}`,
-                                          )
-                                            ? "visible"
-                                            : "hidden",
-                                          position: "relative",
-                                          minHeight: "fit-content",
-                                          height: "auto",
-                                          "& .react-json-view": {
-                                            height: "auto !important",
-                                            minHeight: "fit-content",
-                                          },
-                                        }}
-                                      >
-                                        <ReactJson
-                                          src={value}
-                                          theme="rjv-default"
-                                          collapsed={
-                                            key === "annotations"
-                                              ? false
-                                              : !expandedCells.has(
-                                                  `${rowIndex}-${key}`,
-                                                )
-                                          }
-                                          displayDataTypes={false}
-                                          displayObjectSize={false}
-                                          enableClipboard={false}
-                                          name={false}
-                                          style={{
-                                            fontSize: "12px",
-                                            lineHeight: "1.4",
-                                            height: "auto",
-                                            minHeight: "fit-content",
-                                          }}
-                                        />
-                                      </Box>
-                                    );
-                                  } catch (error) {
-                                    // If object can't be stringified, display error info
-                                    return (
-                                      <Typography
-                                        variant="body2"
-                                        sx={{
-                                          wordBreak: "break-word",
-                                          whiteSpace: "pre-wrap",
-                                          color: "error.main",
-                                        }}
-                                      >
-                                        {`[Invalid Object: ${error.message}]`}
-                                      </Typography>
-                                    );
-                                  }
-                                }
-
-                                // Handle primitive values (string, number, boolean)
-                                return (
-                                  <Typography
-                                    variant="body2"
-                                    sx={{
-                                      wordBreak: "break-word",
-                                      whiteSpace: "pre-wrap",
-                                    }}
-                                  >
-                                    {String(value)}
-                                  </Typography>
-                                );
-                              })()}
-                            </TableCell>
-                          ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* Fullscreen Pagination Controls */}
-              {(totalDocuments > pageSize ||
-                hasNextPage ||
-                currentPage > 1 ||
-                displayResults.data?.length >= pageSize) && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    p: 1,
-                    borderTop: 1,
-                    borderColor: "divider",
-                  }}
-                >
-                  <Stack spacing={1}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 0.5,
-                        alignItems: "center",
-                      }}
-                    >
-                      <IconButton
-                        onClick={(e) => handlePageChange(e, 1)}
-                        disabled={currentPage <= 1 || isLoadingPage}
-                        size="small"
-                        title="First page"
-                      >
-                        <FirstPageIcon fontSize="small" />
-                      </IconButton>
-
-                      <IconButton
-                        onClick={(e) => handlePageChange(e, currentPage - 1)}
-                        disabled={currentPage <= 1 || isLoadingPage}
-                        size="small"
-                        title="Previous page"
-                      >
-                        <ChevronLeftIcon fontSize="small" />
-                      </IconButton>
-
-                      <Typography
-                        variant="body2"
-                        sx={{ minWidth: 100, textAlign: "center", mx: 1 }}
-                      >
-                        Page {currentPage} of{" "}
-                        {Math.ceil(totalDocuments / pageSize)}
-                      </Typography>
-
-                      <IconButton
-                        onClick={(e) => handlePageChange(e, currentPage + 1)}
-                        disabled={!hasNextPage || isLoadingPage}
-                        size="small"
-                        title="Next page"
-                      >
-                        <ChevronRightIcon fontSize="small" />
-                      </IconButton>
-
-                      <IconButton
-                        onClick={(e) =>
-                          handlePageChange(
-                            e,
-                            Math.ceil(totalDocuments / pageSize),
-                          )
-                        }
-                        disabled={!hasNextPage || isLoadingPage}
-                        size="small"
-                        title="Last page"
-                      >
-                        <LastPageIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-
-                    <Typography
-                      variant="caption"
-                      sx={{ textAlign: "center", color: "text.secondary" }}
-                    >
-                      {isLoadingPage
-                        ? "Loading..."
-                        : `Showing ${
-                            (currentPage - 1) * pageSize + 1
-                          }-${Math.min(
-                            currentPage * pageSize,
-                            totalDocuments,
-                          )} of ${totalDocuments} results`}
-                    </Typography>
-                  </Stack>
-                </Box>
-              )}
-            </>
-          ) : (
-            <Box sx={{ p: 3, textAlign: "center" }}>
-              <Typography variant="body1" color="text.secondary">
-                No results to display
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
+      <FullscreenResultsDialog
+        isFullscreen={isFullscreen}
+        setIsFullscreen={setIsFullscreen}
+        displayResults={displayResults}
+        queryCompleted={queryCompleted}
+        totalDocuments={totalDocuments}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        hasNextPage={hasNextPage}
+        isLoadingPage={isLoadingPage}
+        expandedCells={expandedCells}
+        handlePageChange={handlePageChange}
+        handleDownloadResults={handleDownloadResults}
+      />
     </>
   );
 };
