@@ -502,8 +502,13 @@ const buildDependencyGraph = (
     customSwitchCases,
   );
 
-  // Calculate dependency levels using topological sort
-  calculateDependencyLevels(graph);
+  // Calculate dependency levels using topological sort.
+  // Arithmetic variables are always inlined into the expressions that reference
+  // them, so they never produce a separate $addFields stage. Excluding them
+  // from the level calculation prevents list variables from being artificially
+  // pushed to higher levels just because they reference an arithmetic variable.
+  const arithmeticVarNames = new Set(customVariables.map((v) => v.name));
+  calculateDependencyLevels(graph, arithmeticVarNames);
 
   return graph;
 };
@@ -1307,9 +1312,14 @@ const analyzeBlockForDeps = (
 };
 
 /**
- * Calculates dependency levels using topological sort
+ * Calculates dependency levels using topological sort.
+ * @param {object} graph - The dependency graph.
+ * @param {Set<string>} arithmeticVarNames - Names of arithmetic variables.
+ *   These are always inlined at expression-build time, so a dependency on one
+ *   does NOT require the dependent variable to be placed in a later $addFields
+ *   stage. Passing this set prevents artificial level inflation.
  */
-const calculateDependencyLevels = (graph) => {
+const calculateDependencyLevels = (graph, arithmeticVarNames = new Set()) => {
   const visited = new Set();
   const visiting = new Set();
   const levels = new Map();
@@ -1329,8 +1339,15 @@ const calculateDependencyLevels = (graph) => {
     const deps = graph.variables.get(node) || new Set();
     for (const dep of deps) {
       if (graph.variables.has(dep)) {
-        // Only for variables, not schema fields
-        maxDepLevel = Math.max(maxDepLevel, visit(dep, currentLevel) + 1);
+        if (arithmeticVarNames.has(dep)) {
+          // Arithmetic vars are inlined: they don't add a stage (+0 not +1).
+          // But we still recurse through them so that transitive list-var
+          // dependencies (e.g. arith var references $jd_min_prv) are counted.
+          maxDepLevel = Math.max(maxDepLevel, visit(dep, currentLevel));
+        } else {
+          // List vars and switch cases create a real stage boundary.
+          maxDepLevel = Math.max(maxDepLevel, visit(dep, currentLevel) + 1);
+        }
       }
     }
 
@@ -1690,6 +1707,12 @@ const extractEarlyMatchConditions = (
       filter.children &&
       filter.children.length > 0
     ) {
+      const parentLogic = (
+        filter.logic ||
+        filter.operator ||
+        "and"
+      ).toLowerCase();
+
       // If this block has isTrue === false, don't unwrap it - keep it intact
       // It needs special handling in the main match stage
       if (filter.isTrue === false) {
@@ -1702,14 +1725,13 @@ const extractEarlyMatchConditions = (
       const hasInvertedChild = filter.children.some(
         (child) => child.isTrue === false,
       );
-      if (hasInvertedChild) {
+      if (hasInvertedChild && parentLogic !== "and") {
         remainingFilters.push(filter);
         return;
       }
 
       const simpleChildren = [];
       const complexChildren = [];
-      const parentLogic = (filter.logic || "and").toLowerCase();
 
       // Unwrap two levels: root block and its immediate child blocks
       filter.children.forEach((child, childIndex) => {
@@ -1719,7 +1741,17 @@ const extractEarlyMatchConditions = (
           child.children &&
           child.children.length > 0
         ) {
-          const childLogic = (child.logic || "and").toLowerCase();
+          // Never unwrap inverted child blocks; keep them in remaining filters
+          if (child.isTrue === false) {
+            complexChildren.push(child);
+            return;
+          }
+
+          const childLogic = (
+            child.logic ||
+            child.operator ||
+            "and"
+          ).toLowerCase();
 
           // If logical operators differ, check if the entire block is simple
           // and keep it intact (can't split conditions across different logical operators)

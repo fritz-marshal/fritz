@@ -648,12 +648,7 @@ const MongoQueryDialog = () => {
           direction = "backward";
         }
 
-        const queryResult = await executeQuery(
-          newPage,
-          false,
-          cursor,
-          direction,
-        );
+        const queryResult = await executeQuery(false, cursor, direction);
         setHasNextPage(queryResult.hasNext);
 
         const newCursors = new Map(pageCursors);
@@ -675,7 +670,6 @@ const MongoQueryDialog = () => {
       } else {
         const lastPageOffsetCalc = totalDocuments - (newPage - 1) * pageSize;
         const countQueryResult = await executeQuery(
-          newPage,
           false,
           null,
           "backward",
@@ -924,6 +918,13 @@ const MongoQueryDialog = () => {
                       <FullscreenIcon />
                     </IconButton>
                   </Box>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Generated query results — not all alert fields are shown.
+                  </Typography>
                   {displayResults.data?.length > 0 ? (
                     <>
                       <TableContainer

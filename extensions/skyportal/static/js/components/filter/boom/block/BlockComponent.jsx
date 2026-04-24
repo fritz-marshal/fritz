@@ -9,25 +9,12 @@ import BlockHeader from "./BlockHeader";
 import ConditionComponent from "../condition/ConditionComponent";
 
 const useBlockState = (block, isRoot) => {
-  const { collapsedBlocks, customBlocks } = useCurrentBuilder();
+  const { collapsedBlocks } = useCurrentBuilder();
 
   const customBlockName = useMemo(() => {
     if (!block) return null;
-
-    let blockName = block.customBlockName;
-
-    if (block.customBlockName) {
-      const found = customBlocks?.find((cb) => cb.block?.id === block?.id);
-      if (found) {
-        const latestName = found.name.replace(/^Custom\./, "");
-        if (latestName !== block.customBlockName) {
-          blockName = latestName;
-        }
-      }
-    }
-
-    return blockName;
-  }, [block, customBlocks]);
+    return block.customBlockName || null;
+  }, [block]);
 
   const isCustomBlock = useMemo(() => !!customBlockName, [customBlockName]);
 
