@@ -1528,7 +1528,7 @@ class AlertCutoutHandler(BaseHandler):
                     lower_percentile=1, upper_percentile=100
                 ),
                 "min_max": MinMaxInterval(),
-                "zscale": ZScaleInterval(nsamples=600, contrast=0.045, krej=2.5),
+                "zscale": ZScaleInterval(n_samples=600, contrast=0.045, krej=2.5),
             }
             if interval is None:
                 interval = "asymmetric_percentile"
