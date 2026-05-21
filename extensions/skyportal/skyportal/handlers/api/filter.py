@@ -4,9 +4,9 @@ from sqlalchemy.orm import joinedload
 
 from baselayer.app.access import auth_or_token, permissions
 
-from ...models import Filter, GroupUser
+from ...models import Filter
 from ..base import BaseHandler
-from .boom.filter import boom_token, boom_url, get_boom_token
+from .boom.utils import boom_token, boom_url, get_boom_token
 from .group import has_admin_access_for_group
 
 
@@ -51,6 +51,11 @@ class FilterHandler(BaseHandler):
                   schema: Error
         """
 
+        if filter_id is not None:
+            try:
+                filter_id = int(filter_id)
+            except (TypeError, ValueError):
+                return self.error(f"Invalid filter_id: {filter_id}")
         with self.Session() as session:
             if filter_id is not None:
                 f = session.scalars(
@@ -135,6 +140,10 @@ class FilterHandler(BaseHandler):
               application/json:
                 schema: Error
         """
+        try:
+            filter_id = int(filter_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid filter_id: {filter_id}")
         with self.Session() as session:
             f = session.scalars(
                 Filter.select(session.user_or_token, mode="update").where(
@@ -223,6 +232,10 @@ class FilterHandler(BaseHandler):
                 schema: Success
         """
 
+        try:
+            filter_id = int(filter_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid filter_id: {filter_id}")
         with self.Session() as session:
             f = session.scalars(
                 Filter.select(session.user_or_token, mode="delete").where(

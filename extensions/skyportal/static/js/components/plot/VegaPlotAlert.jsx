@@ -2,6 +2,12 @@ import React from "react";
 import PropTypes from "prop-types";
 import embed from "vega-embed";
 
+// Consistent color palette for photometric bands across surveys
+const BAND_COLOR_SCALE = {
+  domain: ["u", "g", "r", "i", "z", "y"],
+  range: ["#7B2D8B", "#28a745", "#dc3545", "#f3dc11", "#ff8c00", "#8B4513"],
+};
+
 const spec = (url, values, jd) => {
   const specJSON = {
     $schema: "https://vega.github.io/schema/vega-lite/v5.2.0.json",
@@ -18,7 +24,7 @@ const spec = (url, values, jd) => {
         selection: {
           filterErrBars: {
             type: "multi",
-            fields: ["fid"],
+            fields: ["band"],
             bind: "legend",
           },
         },
@@ -35,29 +41,21 @@ const spec = (url, values, jd) => {
           x: {
             field: "jd",
             type: "quantitative",
-            scale: {
-              zero: false,
-            },
+            scale: { zero: false },
           },
           y: {
             field: "magMin",
             type: "quantitative",
-            scale: {
-              zero: false,
-              reverse: true,
-            },
+            scale: { zero: false, reverse: true },
           },
           y2: {
             field: "magMax",
             type: "quantitative",
-            scale: {
-              zero: false,
-              reverse: true,
-            },
           },
           color: {
-            field: "fid",
+            field: "band",
             type: "nominal",
+            scale: BAND_COLOR_SCALE,
           },
           opacity: {
             condition: { selection: "filterErrBars", value: 1 },
@@ -66,12 +64,12 @@ const spec = (url, values, jd) => {
         },
       },
 
-      // Render Detections
+      // Render detections
       {
         selection: {
           filterMags: {
             type: "multi",
-            fields: ["fid"],
+            fields: ["band"],
             bind: "legend",
           },
           grid: {
@@ -83,7 +81,7 @@ const spec = (url, values, jd) => {
         mark: {
           type: "point",
           shape: "circle",
-          filled: "true",
+          filled: true,
           size: 100,
         },
         transform: [
@@ -97,33 +95,22 @@ const spec = (url, values, jd) => {
           x: {
             field: "jd",
             type: "quantitative",
-            scale: {
-              zero: false,
-            },
+            scale: { zero: false },
           },
           y: {
             field: "magpsf",
             type: "quantitative",
-            scale: {
-              zero: false,
-              reverse: true,
-            },
-            axis: {
-              title: "mag",
-            },
+            scale: { zero: false, reverse: true },
+            axis: { title: "mag" },
           },
           color: {
-            field: "fid",
+            field: "band",
             type: "nominal",
-            scale: {
-              domain: [1, 2, 3],
-              range: ["#28a745", "#dc3545", "#f3dc11"],
-            },
+            scale: BAND_COLOR_SCALE,
           },
           tooltip: [
-            // { field: "candid", title: "candid" },
             { field: "magAndErr", title: "mag", type: "nominal" },
-            { field: "fid", type: "ordinal" },
+            { field: "band", type: "nominal" },
             { field: "jd", type: "quantitative" },
             { field: "diffmaglim", type: "quantitative", format: ".2f" },
             { field: "origin", type: "ordinal" },
@@ -135,13 +122,13 @@ const spec = (url, values, jd) => {
         },
       },
 
-      // Render limiting mags
+      // Render limiting mags (non-detections)
       {
         transform: [{ filter: "datum.magpsf == null" }],
         selection: {
           filterLimitingMags: {
             type: "multi",
-            fields: ["fid"],
+            fields: ["band"],
             bind: "legend",
           },
         },
@@ -154,20 +141,19 @@ const spec = (url, values, jd) => {
           x: {
             field: "jd",
             type: "quantitative",
-            scale: {
-              zero: false,
-            },
+            scale: { zero: false },
           },
           y: {
             field: "diffmaglim",
             type: "quantitative",
           },
           color: {
-            field: "fid",
+            field: "band",
             type: "nominal",
+            scale: BAND_COLOR_SCALE,
           },
           tooltip: [
-            { field: "fid", type: "ordinal" },
+            { field: "band", type: "nominal" },
             { field: "jd", type: "quantitative" },
             { field: "diffmaglim", type: "quantitative", format: ".2f" },
           ],
@@ -178,7 +164,7 @@ const spec = (url, values, jd) => {
         },
       },
 
-      // render selected candid date
+      // Vertical rule marking the selected alert's JD
       {
         data: { values: [{}] },
         mark: { type: "rule", strokeDash: [4, 4], size: 1, opacity: 0.3 },
@@ -197,13 +183,11 @@ const spec = (url, values, jd) => {
       url,
       format: {
         type: "json",
-        property: "data.prv_candidates", // where in the JSON does the data live
+        property: "data.prv_candidates",
       },
     };
   } else {
-    specJSON.data = {
-      values,
-    };
+    specJSON.data = { values };
   }
   return specJSON;
 };

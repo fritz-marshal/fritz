@@ -41,7 +41,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import FormValidationError from "../../../FormValidationError.jsx";
 import ReactJson from "react-json-view";
-import makeStyles from "@mui/styles/makeStyles";
+import { makeStyles } from "tss-react/mui";
 import { useDispatch, useSelector } from "react-redux";
 import {
   runBoomFilter,
@@ -51,7 +51,7 @@ import {
 import PipelineViewer from "./PipelineViewer";
 import FullscreenResultsDialog from "./FullscreenResultsDialog";
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles()((theme) => ({
   timeRange: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -138,7 +138,7 @@ const MongoQueryDialog = () => {
     getFormattedMongoQuery,
     hasValidQuery,
   } = useCurrentBuilder();
-  const classes = useStyles();
+  const { classes } = useStyles();
 
   const filter_stream = useSelector(
     (state) => state.boom_filter_v.stream?.name?.split(" ")[0],

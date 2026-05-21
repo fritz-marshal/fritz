@@ -437,6 +437,11 @@ class ScopeFeaturesHandler(BaseHandler):
         radius = data.pop("radius", 2)
         radius_units = data.pop("radius_units", "arcsec")
 
+        try:
+            obj_id = str(obj_id)
+        except Exception as e:
+            return self.error(f"Invalid object ID: {str(e)}. Must be a string.")
+
         if catalog not in available_catalogs:
             return self.error(f"Catalog {catalog} not available")
 
@@ -520,7 +525,7 @@ class ScopeFeaturesHandler(BaseHandler):
                 # unpack the result
                 data = {}
                 failed_instances = 0
-                for instance, instance_results in response.items():
+                for instance_results in response.values():
                     if instance_results.get("status", "error") == "success":
                         for catalog, catalog_results in instance_results[
                             "data"
@@ -580,7 +585,7 @@ class ScopeFeaturesHandler(BaseHandler):
                 response = kowalski.query(query=query)
                 features = {}
                 failed_instances = 0
-                for instance, instance_results in response.items():
+                for instance_results in response.values():
                     if instance_results.get("status", "error") == "success":
                         features = instance_results.get("data", [{}])[0]
                         if len(list(features.keys())) > 0:
@@ -714,6 +719,10 @@ class ArchiveHandler(BaseHandler):
             program_id_selector = list(program_id_selector)
 
             catalog = self.get_query_argument("catalog")
+            try:
+                catalog = str(catalog)
+            except Exception as e:
+                return self.error(f"Invalid catalog name: {str(e)}. Must be a string.")
             if catalog not in available_catalogs:
                 return self.error(f"Catalog {catalog} not available")
 
@@ -787,7 +796,7 @@ class ArchiveHandler(BaseHandler):
                     response = kowalski.query(query=query)
                     failed_instances = 0
                     data = {}
-                    for instance, instance_results in response.items():
+                    for instance_results in response.values():
                         if instance_results.get("status", "error") == "success":
                             for catalog, catalog_results in instance_results[
                                 "data"
@@ -844,7 +853,7 @@ class ArchiveHandler(BaseHandler):
             response = kowalski.query(query=query)
             data = []
             failed_instances = 0
-            for instance, instance_results in response.items():
+            for instance_results in response.values():
                 if instance_results.get("status", "error") == "success":
                     data.extend(instance_results["data"])
                 else:
@@ -985,7 +994,7 @@ class ArchiveHandler(BaseHandler):
 
         data = {}
         failed_instances = 0
-        for instance, instance_results in response.items():
+        for instance_results in response.values():
             if instance_results.get("status", "error") == "success":
                 if catalog not in data:
                     data[catalog] = instance_results.get("data", [])

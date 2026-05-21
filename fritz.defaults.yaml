@@ -141,8 +141,8 @@ skyportal:
         component: user/UserManagement
       - path: "/alerts"
         component: alert/Alerts
-      - path: "/alerts/ztf/:id"
-        component: alert/ZTFAlert
+      - path: "/alerts/:survey/:id"
+        component: alert/Alert
       - path: "/archive"
         component: archive/Archive
       - path: "/upload_spectrum/:id"

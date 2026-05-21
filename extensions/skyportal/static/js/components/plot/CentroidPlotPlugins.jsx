@@ -1,26 +1,30 @@
 import React from "react";
 import PropTypes from "prop-types";
-import makeStyles from "@mui/styles/makeStyles";
+import { makeStyles } from "tss-react/mui";
 import Typography from "@mui/material/Typography";
 
-import * as archiveActions from "../../ducks/kowalski_archive";
+import * as archiveActions from "../../ducks/boom_archive";
 
 import { greatCircleDistance } from "../../utils";
 
-const hiddenCrossMatches = ["PS1_PSC"];
+// list of cross-match catalogs to hide
+const hiddenCrossMatches = ["PS1_PSC", "TNS"];
 
+// map the cross-match catalog names to the colors to use for plotting them
 const crossMatchesColors = {
   AllWISE: "#2f5492",
-  Gaia_EDR3: "#FF00FF",
+  CatWISE2020: "#d6de40",
+  Gaia_DR3: "#FF00FF",
   PS1_DR1: "#3bbed5",
-  PS1_PSC: "#d62728",
   GALEX: "#6607c2",
-  TNS: "#ed6cf6",
+  "2MASS_PSC": "#000000",
+  LSPSC: "#d62728",
 };
 
+// map the fields names to display for each cross-match source to the actual field names
 const crossMatchesLabels = {
   AllWISE: {
-    name: "designation",
+    name: "_id",
     ra_unc: "sigra",
     dec_unc: "sigdec",
     w1: "w1mpro",
@@ -28,8 +32,15 @@ const crossMatchesLabels = {
     w3: "w3mpro",
     w4: "w4mpro",
   },
-  Gaia_EDR3: {
-    name: "designation",
+  CatWISE2020: {
+    name: "_id",
+    ra_unc: "sigra",
+    dec_unc: "sigdec",
+    w1: "w1mpro",
+    w2: "w2mpro",
+  },
+  Gaia_DR3: {
+    name: "_id",
     ra_unc: "ra_error",
     dec_unc: "dec_error",
     parallax: "parallax",
@@ -45,12 +56,12 @@ const crossMatchesLabels = {
     nDetections: "nDetections",
   },
   GALEX: {
-    name: "name",
+    name: "_id",
     FUVmag: "FUVmag",
     NUVmag: "NUVmag",
   },
   "2MASS_PSC": {
-    name: "designation",
+    name: "_id",
     j_mag: "j_m",
     j_mag_unc: "j_msigcom",
     h_mag: "h_m",
@@ -58,17 +69,16 @@ const crossMatchesLabels = {
     k_mag: "k_m",
     k_mag_unc: "k_msigcom",
   },
-  TNS: {
-    name: "name",
-    discoverymag: "discoverymag",
-    discoverydate: "discoverydate",
-    internal_names: "internal_names",
+  LSPSC: {
+    name: "_id",
+    score: "score",
   },
 };
 
+// max radius in arcseconds to use for cross-matching
 const radius = 10.0;
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles()(() => ({
   pluginContainer: {
     paddingTop: "0.5em",
     width: "100%",
@@ -186,7 +196,7 @@ function getCrossMatchesTraces(crossMatches, refRA, refDec) {
 }
 
 const CentroidPlotPlugins = ({ crossMatches, refRA, refDec }) => {
-  const classes = useStyles();
+  const { classes } = useStyles();
   if (
     !crossMatches ||
     Object.keys(crossMatches).length === 0 ||

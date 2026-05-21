@@ -14,10 +14,11 @@ import { showNotification } from "baselayer/components/Notifications";
 import Button from "../Button";
 import FormValidationError from "../FormValidationError";
 
-import { saveAlertAsSource } from "../../ducks/kowalski_alert";
+import { saveAlertAsSource } from "../../ducks/boom_alert";
 
 const CopyAlertPhotometryDialog = ({
   alert,
+  survey,
   duplicate,
   dialogOpen,
   closeDialog,
@@ -54,6 +55,7 @@ const CopyAlertPhotometryDialog = ({
     data.copyToSource = duplicate.id;
     const result = await dispatch(
       saveAlertAsSource({
+        survey,
         id: alert.objectId,
         payload: data,
       }),
@@ -120,6 +122,7 @@ CopyAlertPhotometryDialog.propTypes = {
   alert: PropTypes.shape({
     objectId: PropTypes.string,
   }).isRequired,
+  survey: PropTypes.string.isRequired,
   duplicate: PropTypes.string.isRequired,
   dialogOpen: PropTypes.bool.isRequired,
   closeDialog: PropTypes.func.isRequired,

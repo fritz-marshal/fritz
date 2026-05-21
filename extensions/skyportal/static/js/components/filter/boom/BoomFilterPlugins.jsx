@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
-import makeStyles from "@mui/styles/makeStyles";
+import { makeStyles } from "tss-react/mui";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import FormControl from "@mui/material/FormControl";
@@ -27,7 +27,7 @@ import { showNotification } from "baselayer/components/Notifications";
 
 import * as filterActions from "../../../ducks/boom_filter";
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles()((theme) => ({
   pre: {
     lineHeight: 8,
   },
@@ -101,7 +101,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const BoomFilterPlugins = ({ group }) => {
-  const classes = useStyles();
+  const { classes } = useStyles();
   const dispatch = useDispatch();
   const { handleSubmit, setValue, control } = useForm();
 

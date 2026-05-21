@@ -36,7 +36,10 @@ const SourcePlugins = ({ source }) => {
         }}
       >
         <MenuItem>
-          <AlertsSearchButton ra={source.ra} dec={source.dec} />
+          <AlertsSearchButton ra={source.ra} dec={source.dec} survey="ZTF" />
+        </MenuItem>
+        <MenuItem>
+          <AlertsSearchButton ra={source.ra} dec={source.dec} survey="LSST" />
         </MenuItem>
         <MenuItem>
           <ArchiveSearchButton ra={source.ra} dec={source.dec} />
