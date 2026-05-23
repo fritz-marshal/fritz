@@ -74,12 +74,25 @@ jobs:
       - name: Bring up boom stack
         working-directory: boom
         env:
+          # Required by the api service.
           BOOM_DATABASE__USERNAME: mongoadmin
           BOOM_DATABASE__PASSWORD: mongoadminsecret
           BOOM_API__AUTH__SECRET_KEY: ci-integration-test-secret-key-padded-to-32chars
           BOOM_API__AUTH__ADMIN_PASSWORD: adminsecret
           STACK_NAME: boom
           DOMAIN: localhost
+          # Required only by services we don't need for these tests
+          # (prometheus, grafana, kafka admin, LSST consumer), but the
+          # compose file parses them regardless of `--profile`.
+          PROMETHEUS_USER: ci
+          PROMETHEUS_HASHED_PASSWORD: "$2y$10$dummyhashvalueforpromauthonly00000000000000000000000000"
+          GRAFANA_ADMIN_PASSWORD: ci-grafana
+          KAFKA_ADMIN_PASSWORD: ci-kafka-admin
+          KAFKA_READONLY_PASSWORD: ci-kafka-readonly
+          BOOM_KAFKA__CONSUMER__ZTF__GROUP_ID: boom-ztf-consumer-group
+          BOOM_KAFKA__CONSUMER__LSST__GROUP_ID: boom-lsst-consumer-group
+          BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
+          BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
         run: |
           docker compose -p boom -f docker-compose.yaml --profile prod up -d --build
 
