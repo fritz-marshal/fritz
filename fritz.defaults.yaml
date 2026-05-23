@@ -825,7 +825,10 @@ skyportal:
     username: admin
     password: adminsecret
     filter_modules:
-      mongodb_uri: "mongodb://mongo:27017"
+      # boom-mongo is provisioned with MONGO_INITDB_ROOT_USERNAME/PASSWORD
+      # so the URI must authenticate. Production deployments should
+      # override these via their own fritz.yaml.
+      mongodb_uri: "mongodb://mongoadmin:mongoadminsecret@mongo:27017/?authSource=admin"
       database: "boom_filter_modules"
 
 docs:

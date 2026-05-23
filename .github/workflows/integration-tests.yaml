@@ -95,6 +95,14 @@ jobs:
         run: |
           cat > docker-compose.ci.yaml <<'EOF'
           services:
+            api:
+              environment:
+                # Filter-activation validation must point at a date our
+                # seed dataset actually contains, and we relax the match-
+                # rate cap so the test filter doesn't get rejected for
+                # matching too many alerts in a small (~100-alert) seed.
+                BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "${BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT}"
+                BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "${BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE}"
             consumer-ztf:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
@@ -113,6 +121,8 @@ jobs:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "${BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT}"
+                BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "${BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE}"
             consumer-lsst:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
@@ -145,6 +155,14 @@ jobs:
           BOOM_KAFKA__CONSUMER__LSST__GROUP_ID: boom-lsst-consumer-group
           BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
           BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
+          # Filter activation validation: boom's default reference_night is
+          # 2026-03-16, but our seed dataset is 2024-06-17. Without this
+          # override, POST /filters returns 400 because no alerts exist on
+          # the reference night.
+          BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "2024-06-17"
+          # Allow up to 100% match rate so the validation test passes even
+          # if our filter matches every seeded alert.
+          BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "100"
         run: |
           docker compose -p boom \
             -f docker-compose.yaml \
