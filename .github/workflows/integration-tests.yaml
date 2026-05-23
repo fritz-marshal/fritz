@@ -152,6 +152,21 @@ jobs:
           docker logs skyportal-web-1 --tail=200
           exit 1
 
+      # The skyportal-web-1 container starts the app via supervisor but
+      # does NOT initialize the database schema or load seed data. Without
+      # this step, the `users` table doesn't exist and skyportal's
+      # tests/conftest.py:75 fails at import time with UndefinedTable.
+      # `db_create_tables` runs skyportal/initial_setup.py; `load_seed_data`
+      # uses data/db_seed.yaml which fritz bind-mounts as db_fritz.yaml.
+      - name: Initialize SkyPortal database
+        run: |
+          docker exec -i skyportal-web-1 /bin/bash -c "
+            source .venv/bin/activate &&
+            make db_create_tables &&
+            make db_migrate &&
+            make load_seed_data
+          "
+
       # Inject the cached SFD dustmap into the container so the dustmap
       # auto-downloader at conftest-collect time finds it and skips the
       # ~128 MiB fetch. Best-effort — if no cache hit, the in-container
