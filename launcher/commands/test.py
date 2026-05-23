@@ -98,10 +98,13 @@ def test():
         str(container_root / f.relative_to(host_root)) for f in test_files
     ]
 
-    # The skyportal container is built with UV_NO_DEV=1, so test-only deps
-    # (selenium, pytest plugins) aren't installed. SkyPortal's tests/conftest.py
-    # imports tests.fixtures -> tests.test_util -> selenium at module load,
-    # so we install the dev group before invoking pytest.
+    # The skyportal container is built with ENV UV_NO_DEV=1, so test-only
+    # deps (selenium, pytest plugins) are absent and `uv sync --group dev`
+    # is silently a no-op. SkyPortal's tests/conftest.py imports
+    # tests.fixtures -> tests.test_util -> selenium at module load, so we
+    # install the missing pins directly. Versions match skyportal's
+    # pyproject.toml dev group at the pinned submodule SHA.
+    test_deps = "selenium==4.38.0 selenium-requests==2.0.4 pytest-rerunfailures pytest-randomly==4.0.1 webdriver-manager"
     command = [
         "docker",
         "exec",
@@ -110,7 +113,7 @@ def test():
         "/bin/bash",
         "-c",
         "source .venv/bin/activate && "
-        "uv sync --inexact --group dev --active --quiet && "
+        f"uv pip install --quiet {test_deps} && "
         f"python -m pytest -v -s {' '.join(container_paths)}",
     ]
     try:
