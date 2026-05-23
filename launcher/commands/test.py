@@ -105,6 +105,20 @@ def test():
     # install the missing pins directly. Versions match skyportal's
     # pyproject.toml dev group at the pinned submodule SHA.
     test_deps = "selenium==4.38.0 selenium-requests==2.0.4 pytest-rerunfailures pytest-randomly==4.0.1 webdriver-manager"
+
+    # skyportal/tests/conftest.py also hard-fails if `geckodriver` is not
+    # on PATH (it's used by the selenium driver fixture). None of our API
+    # tests touch the browser, but the check fires at import time. Pull
+    # the upstream linux64 binary into a writable bin dir on PATH.
+    geckodriver_install = (
+        "command -v geckodriver >/dev/null 2>&1 || ("
+        "mkdir -p /skyportal/.venv/bin && cd /tmp && "
+        "wget -q https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz "
+        "&& tar xzf geckodriver-v0.36.0-linux64.tar.gz "
+        "&& mv geckodriver /skyportal/.venv/bin/geckodriver "
+        "&& rm geckodriver-v0.36.0-linux64.tar.gz)"
+    )
+
     command = [
         "docker",
         "exec",
@@ -114,6 +128,7 @@ def test():
         "-c",
         "source .venv/bin/activate && "
         f"uv pip install --quiet {test_deps} && "
+        f"{geckodriver_install} && "
         f"python -m pytest -v -s {' '.join(container_paths)}",
     ]
     try:
