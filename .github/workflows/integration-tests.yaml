@@ -159,10 +159,12 @@ jobs:
       #
       # `db_create_tables` runs skyportal/initial_setup.py which uses
       # SQLAlchemy's Base.metadata.create_all() to materialize the *current*
-      # schema directly. We then `alembic stamp head` to mark every
-      # migration as applied — running `alembic upgrade head` would replay
-      # migrations from zero and collide on columns the create_all already
-      # made (e.g. photometry.owner_id).
+      # schema directly. We deliberately do NOT run `alembic upgrade head`
+      # afterward — that would replay migrations from zero and collide on
+      # columns create_all already produced (e.g. photometry.owner_id).
+      # Skipping `alembic stamp head` as well: tests don't query the
+      # alembic_version table; invoking alembic outside `make` doesn't
+      # pick up the docker-network DB host (defaults to 127.0.0.1).
       #
       # load_seed_data reads data/db_seed.yaml which fritz bind-mounts
       # as db_fritz.yaml (users, streams with ZTF_alerts altdata, groups).
@@ -171,7 +173,6 @@ jobs:
           docker exec -i skyportal-web-1 /bin/bash -c "
             source .venv/bin/activate &&
             make db_create_tables &&
-            python -m alembic stamp head &&
             make load_seed_data
           "
 
