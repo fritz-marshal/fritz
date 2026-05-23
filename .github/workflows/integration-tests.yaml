@@ -291,27 +291,31 @@ jobs:
       # The app started before the schema existed, so its first call to
       # provision_token() failed and `.tokens.yaml` was never written —
       # which leaves the seed loader (tools/data_loader.py) spinning on
-      # missing tokens for the full retry budget. Restarting all app
-      # workers via supervisor re-runs make_app() against the now-created
-      # schema, which writes `.tokens.yaml` and lets the seed proceed.
-      - name: Restart SkyPortal app workers
+      # missing tokens for the full retry budget. `docker restart` re-runs
+      # the container's CMD (supervisord), which re-runs make_app() against
+      # the now-existing schema, writes `.tokens.yaml`, and lets the seed
+      # proceed. The container's bind-mounted volumes (config.yaml,
+      # persistentdata) survive the restart. We can't use `supervisorctl
+      # restart all` here because supervisorctl defaults to
+      # /var/run/supervisor.sock but baselayer's template places the
+      # socket at /skyportal/run/supervisor.sock; specifying the config
+      # is fragile across baselayer versions.
+      - name: Restart SkyPortal container to provision admin token
         run: |
-          # `restart all` is safer than naming workers individually:
-          # supervisor processes are `app_00`, `app_01`, ... (not grouped
-          # under `app:`), and the count can vary with config.
-          docker exec -i skyportal-web-1 supervisorctl restart all
-          # Give the workers a few seconds to write .tokens.yaml.
-          for i in $(seq 1 30); do
-            if docker exec -i skyportal-web-1 test -s /skyportal/.tokens.yaml; then
-              echo ".tokens.yaml written"
+          docker restart skyportal-web-1
+          # Wait for app workers to come back AND for .tokens.yaml to
+          # exist with non-empty content.
+          for i in $(seq 1 60); do
+            if docker exec -i skyportal-web-1 ps -ef | grep -q "app.py" && \
+               docker exec -i skyportal-web-1 test -s /skyportal/.tokens.yaml; then
+              echo "app restarted and .tokens.yaml present"
               exit 0
             fi
-            echo "waiting for .tokens.yaml ($i/30)..."
-            sleep 2
+            echo "waiting for restart + tokens ($i/60)..."
+            sleep 5
           done
-          echo ".tokens.yaml never appeared"
-          docker exec -i skyportal-web-1 supervisorctl status || true
-          docker logs skyportal-web-1 --tail=200
+          echo "skyportal failed to come back after restart"
+          docker logs skyportal-web-1 --tail=300
           exit 1
 
       - name: Seed SkyPortal database
@@ -353,6 +357,19 @@ jobs:
       # build across the steps; failures in one don't mask the other.
       - name: Run API tests
         run: ./fritz test api
+
+      # The container runs as the `skyportal` user (Dockerfile line 75);
+      # apt requires root. Install Firefox here via a dedicated root exec
+      # so the launcher itself can stay user-mode.
+      - name: Install Firefox in container (for frontend tests)
+        if: always()
+        run: |
+          docker exec -i -u root skyportal-web-1 /bin/bash -c "
+            command -v firefox >/dev/null 2>&1 || (
+              apt-get update >/dev/null &&
+              apt-get install -y --no-install-recommends firefox-esr >/dev/null
+            )
+          "
 
       - name: Run frontend tests
         if: always()

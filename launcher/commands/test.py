@@ -158,35 +158,35 @@ def test(scope: str = "all"):
     )
 
     # Firefox is only needed for frontend tests (driver fixture in
-    # skyportal/tests/test_util.py). The container is debian-bookworm so
-    # firefox-esr is in apt. FRONTEND_TEST_HEADLESS=1 tells the driver
-    # fixture to pass `-headless` to FirefoxOptions, since the CI
-    # container has no display. Skip the install when running api-only
-    # to save ~30-60s of apt time.
+    # skyportal/tests/test_util.py). We don't install it here because apt
+    # requires root and the container runs as the `skyportal` user;
+    # callers (CI workflow) install it via a root-mode `docker exec`
+    # before invoking `./fritz test frontend`. FRONTEND_TEST_HEADLESS=1
+    # tells the driver fixture to pass `-headless` to FirefoxOptions,
+    # since the CI container has no display.
     needs_firefox = "frontend/boom" in boom_subdirs
-    firefox_install = (
-        (
-            "command -v firefox >/dev/null 2>&1 || ("
-            "apt-get update >/dev/null && "
-            "apt-get install -y --no-install-recommends firefox-esr >/dev/null)"
-        )
-        if needs_firefox
-        else "true"
+    firefox_check = (
+        "command -v firefox >/dev/null 2>&1 || "
+        "(echo 'firefox not installed; cannot run frontend tests' >&2 && exit 1)"
     )
 
     docker_exec_args = ["docker", "exec", "-i"]
     if needs_firefox:
         docker_exec_args.extend(["-e", "FRONTEND_TEST_HEADLESS=1"])
 
+    pre_pytest = (
+        f"source .venv/bin/activate && "
+        f"uv pip install --quiet {test_deps} && "
+        f"{geckodriver_install}"
+    )
+    if needs_firefox:
+        pre_pytest += f" && {firefox_check}"
+
     command = docker_exec_args + [
         "skyportal-web-1",
         "/bin/bash",
         "-c",
-        "source .venv/bin/activate && "
-        f"uv pip install --quiet {test_deps} && "
-        f"{geckodriver_install} && "
-        f"{firefox_install} && "
-        f"python -m pytest -v -s {' '.join(container_paths)}",
+        f"{pre_pytest} && python -m pytest -v -s {' '.join(container_paths)}",
     ]
     try:
         subprocess.run(command, check=True)
