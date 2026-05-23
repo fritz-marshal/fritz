@@ -317,12 +317,16 @@ jobs:
       # `requires_boom_data` tests and as the OID/candid for happy-path
       # tests, since the ZTF public 20240617 archive doesn't contain our
       # legacy hardcoded ZTF20aaelulu.
+      #
+      # We write to /tmp rather than /skyportal/persistentdata because
+      # the latter's root directory is root-owned (only its subdirs are
+      # chowned to the skyportal user by the Dockerfile).
       - name: Inject BOOM seed reference into container
         run: |
           docker exec -i skyportal-web-1 /bin/bash -c \
-            "mkdir -p /skyportal/persistentdata && cat > /skyportal/persistentdata/boom_seed.json" \
+            "cat > /tmp/boom_seed.json" \
             <<< '${{ steps.boom_seed.outputs.seed_json }}'
-          docker exec -i skyportal-web-1 cat /skyportal/persistentdata/boom_seed.json
+          docker exec -i skyportal-web-1 cat /tmp/boom_seed.json
 
       # Inject the cached SFD dustmap into the container so the dustmap
       # auto-downloader at conftest-collect time finds it and skips the

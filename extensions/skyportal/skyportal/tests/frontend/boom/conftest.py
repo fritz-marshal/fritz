@@ -14,7 +14,7 @@ import os
 
 import pytest
 
-_BOOM_SEED_FILE = "/skyportal/persistentdata/boom_seed.json"
+_BOOM_SEED_FILE = "/tmp/boom_seed.json"
 
 
 def pytest_configure(config):

@@ -17,7 +17,10 @@ from skyportal.tests import api
 # reference" step. Contains the objectId and candid of the first alert
 # ingested by boom's consumer-ztf, so tests don't need to hard-code a
 # specific OID that may not exist in the current seed dataset.
-_BOOM_SEED_FILE = "/skyportal/persistentdata/boom_seed.json"
+# We use /tmp because the skyportal-web-1 container runs as the
+# `skyportal` user, which can't write under /skyportal/persistentdata
+# directly (only its chowned subdirs).
+_BOOM_SEED_FILE = "/tmp/boom_seed.json"
 
 
 def pytest_configure(config):
