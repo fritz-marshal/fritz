@@ -108,15 +108,20 @@ def test():
 
     # skyportal/tests/conftest.py also hard-fails if `geckodriver` is not
     # on PATH (it's used by the selenium driver fixture). None of our API
-    # tests touch the browser, but the check fires at import time. Pull
-    # the upstream linux64 binary into a writable bin dir on PATH.
+    # tests touch the browser, but the check fires at import time. The
+    # container has neither wget nor curl, so we download via Python's
+    # urllib (always present alongside the venv interpreter).
+    geckodriver_url = (
+        "https://github.com/mozilla/geckodriver/releases/download/"
+        "v0.36.0/geckodriver-v0.36.0-linux64.tar.gz"
+    )
     geckodriver_install = (
         "command -v geckodriver >/dev/null 2>&1 || ("
         "mkdir -p /skyportal/.venv/bin && cd /tmp && "
-        "wget -q https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz "
-        "&& tar xzf geckodriver-v0.36.0-linux64.tar.gz "
+        f"python -c \"import urllib.request; urllib.request.urlretrieve('{geckodriver_url}', '/tmp/geckodriver.tar.gz')\" "
+        "&& tar xzf /tmp/geckodriver.tar.gz "
         "&& mv geckodriver /skyportal/.venv/bin/geckodriver "
-        "&& rm geckodriver-v0.36.0-linux64.tar.gz)"
+        "&& rm /tmp/geckodriver.tar.gz)"
     )
 
     command = [
