@@ -98,6 +98,10 @@ def test():
         str(container_root / f.relative_to(host_root)) for f in test_files
     ]
 
+    # The skyportal container is built with UV_NO_DEV=1, so test-only deps
+    # (selenium, pytest plugins) aren't installed. SkyPortal's tests/conftest.py
+    # imports tests.fixtures -> tests.test_util -> selenium at module load,
+    # so we install the dev group before invoking pytest.
     command = [
         "docker",
         "exec",
@@ -106,6 +110,7 @@ def test():
         "/bin/bash",
         "-c",
         "source .venv/bin/activate && "
+        "uv sync --inexact --group dev --active --quiet && "
         f"python -m pytest -v -s {' '.join(container_paths)}",
     ]
     try:
