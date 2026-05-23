@@ -11,6 +11,48 @@ import pytest
 
 from skyportal.tests import api
 
+# The canonical seed object — used both as a probe (does BOOM have ZTF
+# data at all?) and as the OID alert/object/cutout tests query against.
+_BOOM_SEED_OID = "ZTF20aaelulu"
+
+
+def pytest_configure(config):
+    """Register custom markers so pytest doesn't warn about them."""
+    config.addinivalue_line(
+        "markers",
+        "requires_boom_data: test depends on BOOM mongo being seeded "
+        "(skipped automatically when the canonical seed object is absent).",
+    )
+
+
+def _boom_has_seed_data(token) -> bool:
+    """Probe BOOM via skyportal for the canonical seed object."""
+    try:
+        status, data = api(
+            "GET",
+            f"boom/surveys/ZTF/alerts?objectId={_BOOM_SEED_OID}",
+            token=token,
+        )
+    except Exception:
+        return False
+    return status == 200 and bool(data.get("data"))
+
+
+@pytest.fixture(autouse=True)
+def _boom_seed_data_gate(request, super_admin_token):
+    """Skip tests marked `requires_boom_data` when BOOM mongo is empty."""
+    if "requires_boom_data" not in request.keywords:
+        return
+    cached = request.config.cache.get("boom/has_seed_data", None)
+    if cached is None:
+        cached = _boom_has_seed_data(super_admin_token)
+        request.config.cache.set("boom/has_seed_data", cached)
+    if not cached:
+        pytest.skip(
+            f"BOOM has no seed data ({_BOOM_SEED_OID} not found); "
+            "seed boom-mongo with ZTF alerts to enable happy-path tests."
+        )
+
 
 @pytest.fixture
 def boom_ztf_stream(super_admin_token, public_stream):
@@ -32,7 +74,7 @@ def boom_ztf_stream(super_admin_token, public_stream):
 
 
 @pytest.fixture
-def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream):
+def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream, request):
     """A SkyPortal Filter provisioned on the BOOM side.
 
     Two-step setup, mirroring the frontend:
@@ -41,7 +83,21 @@ def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream):
          BOOM filter, and populates Filter.altdata with the BOOM filter_id.
 
     Yields the SkyPortal Filter ID. Best-effort DELETE on teardown.
+
+    BOOM validates new filters by running their pipeline against the ZTF
+    corpus, so without seed data step 2 returns 400. We skip up-front
+    when the seed probe says BOOM is empty.
     """
+    cached = request.config.cache.get("boom/has_seed_data", None)
+    if cached is None:
+        cached = _boom_has_seed_data(super_admin_token)
+        request.config.cache.set("boom/has_seed_data", cached)
+    if not cached:
+        pytest.skip(
+            f"BOOM has no seed data ({_BOOM_SEED_OID} not found); "
+            "skip filter-provisioning tests until boom-mongo is seeded."
+        )
+
     status, data = api(
         "POST",
         "filters",

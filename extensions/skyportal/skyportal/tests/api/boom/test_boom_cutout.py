@@ -1,3 +1,5 @@
+import pytest
+
 from skyportal.tests import api
 
 SURVEY = "ZTF"
@@ -9,6 +11,7 @@ def _cutout_url(query: str) -> str:
     return f"boom/surveys/{SURVEY}/alerts/cutouts?{query}"
 
 
+@pytest.mark.requires_boom_data
 def test_get_cutout_fits_by_candid(view_only_token):
     status, data = api(
         "GET", _cutout_url(f"candid={CANDID}&file_format=fits"), token=view_only_token
@@ -20,6 +23,7 @@ def test_get_cutout_fits_by_candid(view_only_token):
         assert key in data["data"]
 
 
+@pytest.mark.requires_boom_data
 def test_get_cutout_fits_by_object_id(view_only_token):
     status, data = api(
         "GET",
@@ -31,6 +35,7 @@ def test_get_cutout_fits_by_object_id(view_only_token):
     assert isinstance(data["data"], dict)
 
 
+@pytest.mark.requires_boom_data
 def test_get_cutout_png_all_types(view_only_token):
     for cutout in ("science", "template", "difference"):
         response = api(

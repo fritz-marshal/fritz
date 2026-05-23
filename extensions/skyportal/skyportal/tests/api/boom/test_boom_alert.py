@@ -1,3 +1,5 @@
+import pytest
+
 from skyportal.tests import api
 
 SURVEY = "ZTF"
@@ -12,6 +14,7 @@ def _alerts_url(query: str = "") -> str:
     return f"{base}?{query}" if query else base
 
 
+@pytest.mark.requires_boom_data
 def test_get_alerts_by_object_id(view_only_token):
     status, data = api("GET", _alerts_url(f"objectId={OID}"), token=view_only_token)
     assert status == 200
@@ -21,6 +24,7 @@ def test_get_alerts_by_object_id(view_only_token):
     assert all(alert.get("objectId") == OID for alert in data["data"])
 
 
+@pytest.mark.requires_boom_data
 def test_get_alerts_by_object_id_comma_list(view_only_token):
     status, data = api(
         "GET", _alerts_url(f"objectId={OID},{OID}"), token=view_only_token
@@ -30,6 +34,7 @@ def test_get_alerts_by_object_id_comma_list(view_only_token):
     assert isinstance(data["data"], list)
 
 
+@pytest.mark.requires_boom_data
 def test_get_alerts_by_candid(view_only_token):
     status, data = api("GET", _alerts_url(f"candid={CANDID}"), token=view_only_token)
     assert status == 200
@@ -38,6 +43,7 @@ def test_get_alerts_by_candid(view_only_token):
     assert any(alert.get("candid") == CANDID for alert in data["data"])
 
 
+@pytest.mark.requires_boom_data
 def test_get_alerts_by_candid_and_object_id(view_only_token):
     status, data = api(
         "GET",
@@ -49,6 +55,7 @@ def test_get_alerts_by_candid_and_object_id(view_only_token):
     assert isinstance(data["data"], list)
 
 
+@pytest.mark.requires_boom_data
 def test_get_alerts_by_cone_search(view_only_token):
     ra, dec, radius = 108.5, 35.8, 1
     status, data = api(
@@ -61,6 +68,7 @@ def test_get_alerts_by_cone_search(view_only_token):
     assert all("objectId" in alert for alert in data["data"])
 
 
+@pytest.mark.requires_boom_data
 def test_get_alerts_cone_plus_object_id_filter(view_only_token):
     ra, dec, radius = 108.5, 35.8, 1
     status, data = api(

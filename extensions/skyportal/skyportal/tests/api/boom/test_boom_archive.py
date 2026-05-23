@@ -1,3 +1,5 @@
+import pytest
+
 from skyportal.tests import api
 
 
@@ -11,6 +13,7 @@ def test_get_archive_catalogs(view_only_token):
         assert not name.startswith(("ZTF_", "LSST_", "PTF_", "PGIR_", "WNTR_"))
 
 
+@pytest.mark.requires_boom_data
 def test_cross_match_happy_path(view_only_token):
     ra, dec = 0.00017675657877, 80.01266744553764
     status, data = api(

@@ -84,12 +84,21 @@ def test():
     except subprocess.CalledProcessError:
         sys.exit(1)
 
-    # Discover fritz-specific test files on the host (under
-    # extensions/skyportal/...), then translate the paths to where they
-    # land inside the container (skyportal/...). Recursive so subdirs
-    # (e.g. tests/api/boom/) are picked up.
-    host_root = Path("extensions/skyportal/skyportal/tests")
-    container_root = Path("skyportal/tests")
+    # Discover fritz-specific BOOM test files on the host, then translate
+    # the paths to where they land inside the container.
+    #
+    # We deliberately scope to the boom/ subdir rather than rglob'ing the
+    # whole tests/ tree. The legacy api/test_alerts.py, test_archive.py,
+    # test_kowalski_filters.py and api_tests/.../test_filters.py all fail
+    # with `TypeError: 'module' object is not callable` because of a
+    # name collision: skyportal/tests/__init__.py defines an `api()`
+    # function, and `skyportal/tests/api/` is a subpackage. Once the
+    # subpackage is imported during test collection, the function is
+    # rebound to the package. The boom tests live deeper (tests/api/boom/)
+    # and resolve correctly via import order; the sibling-level legacy
+    # tests do not. Fixing the collision belongs in skyportal proper.
+    host_root = Path("extensions/skyportal/skyportal/tests/api/boom")
+    container_root = Path("skyportal/tests/api/boom")
     test_files = sorted(host_root.rglob("test_*.py"))
     if not test_files:
         print(f"No test files found under {host_root}")

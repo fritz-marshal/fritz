@@ -1,3 +1,5 @@
+import pytest
+
 from skyportal.tests import api
 
 SURVEY = "ZTF"
@@ -10,6 +12,7 @@ def _obj_url(oid: str, query: str = "") -> str:
     return f"{base}?{query}" if query else base
 
 
+@pytest.mark.requires_boom_data
 def test_get_object_aux_default(view_only_token):
     status, data = api("GET", _obj_url(OID), token=view_only_token)
     assert status == 200
@@ -20,6 +23,7 @@ def test_get_object_aux_default(view_only_token):
         assert key in data["data"]
 
 
+@pytest.mark.requires_boom_data
 def test_get_object_aux_can_omit_arrays(view_only_token):
     status, data = api(
         "GET",
@@ -38,6 +42,7 @@ def test_get_object_aux_can_omit_arrays(view_only_token):
     assert "prv_nondetections" not in data["data"]
 
 
+@pytest.mark.requires_boom_data
 def test_get_object_aux_include_all_fields(view_only_token):
     status, data = api(
         "GET",
@@ -48,6 +53,7 @@ def test_get_object_aux_include_all_fields(view_only_token):
     assert data["status"] == "success"
 
 
+@pytest.mark.requires_boom_data
 def test_get_unknown_object_returns_missing_sentinel(view_only_token):
     status, data = api("GET", _obj_url(UNKNOWN_OID), token=view_only_token)
     assert status == 200
@@ -88,6 +94,7 @@ def test_post_object_rejects_inaccessible_group(upload_data_token):
     assert data["status"] == "error"
 
 
+@pytest.mark.requires_boom_data
 def test_post_object_happy_path(upload_data_token, public_group):
     """End-to-end import: ask BOOM for the alert, save Obj+Source+photometry
     into SkyPortal, and confirm the source is then queryable."""

@@ -108,11 +108,14 @@ jobs:
         run: |
           docker compose -p boom -f docker-compose.yaml --profile prod up -d --build
 
-      # Boom's api service is on boom's internal network and traefik-public,
-      # but not on fritz_net. Connect it so skyportal-web-1 can resolve
-      # `boom-api-1` by hostname.
-      - name: Attach boom-api to fritz_net
-        run: docker network connect fritz_net boom-api-1
+      # Boom's api + mongo services are on boom's internal network, not
+      # fritz_net. Connect them so skyportal-web-1 can resolve `boom-api-1`
+      # by hostname (used by all BOOM handlers) and `mongo` (used by the
+      # filter_modules handler — see fritz.defaults.yaml boom.filter_modules).
+      - name: Attach boom-api + mongo to fritz_net
+        run: |
+          docker network connect fritz_net boom-api-1
+          docker network connect --alias mongo fritz_net boom-mongo-1
 
       - name: Wait for boom-api to be reachable
         run: |
