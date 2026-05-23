@@ -238,18 +238,20 @@ jobs:
       - name: Capture BOOM seed OID + candid + position
         id: boom_seed
         run: |
+          # BOOM stores candid as the document's _id; `candid` as a
+          # top-level field is undefined. Use _id as the canonical candid.
           seed_json=$(docker exec -i boom-mongo-1 mongosh --quiet \
             --username mongoadmin \
             --password mongoadminsecret \
             --authenticationDatabase admin \
             --eval '
               const a = db.getSiblingDB("boom").ZTF_alerts.findOne(
-                {}, {objectId: 1, candid: 1, "candidate.ra": 1, "candidate.dec": 1}
+                {}, {_id: 1, objectId: 1, "candidate.ra": 1, "candidate.dec": 1}
               );
               if (!a) { print(""); } else {
                 print(JSON.stringify({
                   objectId: a.objectId,
-                  candid: String(a.candid),
+                  candid: String(a._id),
                   ra: a.candidate ? a.candidate.ra : null,
                   dec: a.candidate ? a.candidate.dec : null,
                 }));

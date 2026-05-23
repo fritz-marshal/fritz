@@ -147,7 +147,13 @@ class BoomFilterHandler(BaseHandler):
                     response = requests.post(
                         data_url, json=data_payload, headers=headers
                     )
-                    response.raise_for_status()
+                    if not response.ok:
+                        # Surface BOOM's actual rejection message instead
+                        # of just the bare HTTP status from raise_for_status.
+                        return self.error(
+                            f"BOOM rejected filter creation "
+                            f"({response.status_code}): {response.text}"
+                        )
                     data = {
                         "altdata": {
                             "boom": {"filter_id": response.json()["data"]["id"]},
