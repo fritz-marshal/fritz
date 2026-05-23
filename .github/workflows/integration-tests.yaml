@@ -156,14 +156,22 @@ jobs:
       # does NOT initialize the database schema or load seed data. Without
       # this step, the `users` table doesn't exist and skyportal's
       # tests/conftest.py:75 fails at import time with UndefinedTable.
-      # `db_create_tables` runs skyportal/initial_setup.py; `load_seed_data`
-      # uses data/db_seed.yaml which fritz bind-mounts as db_fritz.yaml.
+      #
+      # `db_create_tables` runs skyportal/initial_setup.py which uses
+      # SQLAlchemy's Base.metadata.create_all() to materialize the *current*
+      # schema directly. We then `alembic stamp head` to mark every
+      # migration as applied — running `alembic upgrade head` would replay
+      # migrations from zero and collide on columns the create_all already
+      # made (e.g. photometry.owner_id).
+      #
+      # load_seed_data reads data/db_seed.yaml which fritz bind-mounts
+      # as db_fritz.yaml (users, streams with ZTF_alerts altdata, groups).
       - name: Initialize SkyPortal database
         run: |
           docker exec -i skyportal-web-1 /bin/bash -c "
             source .venv/bin/activate &&
             make db_create_tables &&
-            make db_migrate &&
+            python -m alembic stamp head &&
             make load_seed_data
           "
 
