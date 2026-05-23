@@ -298,7 +298,7 @@ jobs:
       # that pulls in sncosmo entirely.
       - name: Provision admin token (.tokens.yaml)
         run: |
-          docker exec -i skyportal-web-1 /skyportal/.venv/bin/python -c 'from skyportal.model_util import provision_token; t = provision_token(); open("/skyportal/.tokens.yaml", "w").write(f"INITIAL_ADMIN: {t.id}\n"); print("Provisioned admin token:", t.id)'
+          docker exec -i skyportal-web-1 /skyportal/.venv/bin/python -c 'from baselayer.app.env import load_env; from skyportal.models import init_db, DBSession; from skyportal.model_util import provision_token; _, cfg = load_env(); init_db(**cfg["database"]); t = provision_token(); DBSession().commit(); open("/skyportal/.tokens.yaml", "w").write(f"INITIAL_ADMIN: {t.id}\n"); print("Provisioned admin token:", t.id)'
           docker exec -i skyportal-web-1 cat /skyportal/.tokens.yaml
 
       - name: Seed SkyPortal database
