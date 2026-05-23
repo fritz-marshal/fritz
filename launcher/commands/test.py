@@ -7,10 +7,27 @@ import yaml
 
 from launcher.skyportal import api as skyportal_api
 
+_SCOPE_TO_SUBDIRS = {
+    "api": ["api/boom"],
+    "frontend": ["frontend/boom"],
+    "all": ["api/boom", "frontend/boom"],
+}
 
-def test():
-    """Run the test suite"""
-    print("Running integration testing...")
+
+def test(scope: str = "all"):
+    """Run the integration test suite.
+
+    scope: which test slice to run.
+        api      → just BOOM API tests (no browser/Firefox needed)
+        frontend → just BOOM frontend tests (requires Firefox)
+        all      → both (default)
+    """
+    if scope not in _SCOPE_TO_SUBDIRS:
+        print(f"Unknown test scope '{scope}'. Choose: {list(_SCOPE_TO_SUBDIRS)}")
+        sys.exit(2)
+    boom_subdirs = _SCOPE_TO_SUBDIRS[scope]
+
+    print(f"Running integration testing (scope={scope})...")
 
     # load config
     with open("fritz.yaml") as fritz_config_yaml:
@@ -100,7 +117,6 @@ def test():
     # Fixing the collision belongs in skyportal proper.
     host_tests = Path("extensions/skyportal/skyportal/tests")
     container_tests = Path("skyportal/tests")
-    boom_subdirs = ["api/boom", "frontend/boom"]
     test_files: list[Path] = []
     for subdir in boom_subdirs:
         host_root = host_tests / subdir
@@ -141,23 +157,28 @@ def test():
         "&& rm /tmp/geckodriver.tar.gz)"
     )
 
-    # Firefox is needed for frontend tests (driver fixture in
+    # Firefox is only needed for frontend tests (driver fixture in
     # skyportal/tests/test_util.py). The container is debian-bookworm so
     # firefox-esr is in apt. FRONTEND_TEST_HEADLESS=1 tells the driver
     # fixture to pass `-headless` to FirefoxOptions, since the CI
-    # container has no display.
+    # container has no display. Skip the install when running api-only
+    # to save ~30-60s of apt time.
+    needs_firefox = "frontend/boom" in boom_subdirs
     firefox_install = (
-        "command -v firefox >/dev/null 2>&1 || "
-        "apt-get update >/dev/null && "
-        "apt-get install -y --no-install-recommends firefox-esr >/dev/null"
+        (
+            "command -v firefox >/dev/null 2>&1 || ("
+            "apt-get update >/dev/null && "
+            "apt-get install -y --no-install-recommends firefox-esr >/dev/null)"
+        )
+        if needs_firefox
+        else "true"
     )
 
-    command = [
-        "docker",
-        "exec",
-        "-i",
-        "-e",
-        "FRONTEND_TEST_HEADLESS=1",
+    docker_exec_args = ["docker", "exec", "-i"]
+    if needs_firefox:
+        docker_exec_args.extend(["-e", "FRONTEND_TEST_HEADLESS=1"])
+
+    command = docker_exec_args + [
         "skyportal-web-1",
         "/bin/bash",
         "-c",

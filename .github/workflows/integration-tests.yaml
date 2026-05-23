@@ -282,12 +282,42 @@ jobs:
       #
       # load_seed_data reads data/db_seed.yaml which fritz bind-mounts
       # as db_fritz.yaml (users, streams with ZTF_alerts altdata, groups).
-      - name: Initialize SkyPortal database
+      - name: Create SkyPortal schema
         run: |
           docker exec -i skyportal-web-1 /bin/bash -c "
-            source .venv/bin/activate &&
-            make db_create_tables &&
-            make load_seed_data
+            source .venv/bin/activate && make db_create_tables
+          "
+
+      # The app started before the schema existed, so its first call to
+      # provision_token() failed and `.tokens.yaml` was never written —
+      # which leaves the seed loader (tools/data_loader.py) spinning on
+      # missing tokens for the full retry budget. Restarting all app
+      # workers via supervisor re-runs make_app() against the now-created
+      # schema, which writes `.tokens.yaml` and lets the seed proceed.
+      - name: Restart SkyPortal app workers
+        run: |
+          # `restart all` is safer than naming workers individually:
+          # supervisor processes are `app_00`, `app_01`, ... (not grouped
+          # under `app:`), and the count can vary with config.
+          docker exec -i skyportal-web-1 supervisorctl restart all
+          # Give the workers a few seconds to write .tokens.yaml.
+          for i in $(seq 1 30); do
+            if docker exec -i skyportal-web-1 test -s /skyportal/.tokens.yaml; then
+              echo ".tokens.yaml written"
+              exit 0
+            fi
+            echo "waiting for .tokens.yaml ($i/30)..."
+            sleep 2
+          done
+          echo ".tokens.yaml never appeared"
+          docker exec -i skyportal-web-1 supervisorctl status || true
+          docker logs skyportal-web-1 --tail=200
+          exit 1
+
+      - name: Seed SkyPortal database
+        run: |
+          docker exec -i skyportal-web-1 /bin/bash -c "
+            source .venv/bin/activate && make load_seed_data
           "
 
       # Write the BOOM seed OID/candid (discovered earlier from boom-mongo)
@@ -318,8 +348,15 @@ jobs:
           fi
 
       # ── Tests ──────────────────────────────────────────────────────────
-      - name: Run integration tests
-        run: ./fritz test
+      # Split mirrors skyportal's CI structure: one job, multiple pytest
+      # invocations against slices of the test tree. Sharing the stack
+      # build across the steps; failures in one don't mask the other.
+      - name: Run API tests
+        run: ./fritz test api
+
+      - name: Run frontend tests
+        if: always()
+        run: ./fritz test frontend
 
       # Pull the dustmap back out for the cache action on success.
       - name: Persist dustmap from container
