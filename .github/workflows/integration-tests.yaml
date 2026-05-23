@@ -290,33 +290,16 @@ jobs:
 
       # The app started before the schema existed, so its first call to
       # provision_token() failed and `.tokens.yaml` was never written —
-      # which leaves the seed loader (tools/data_loader.py) spinning on
-      # missing tokens for the full retry budget. `docker restart` re-runs
-      # the container's CMD (supervisord), which re-runs make_app() against
-      # the now-existing schema, writes `.tokens.yaml`, and lets the seed
-      # proceed. The container's bind-mounted volumes (config.yaml,
-      # persistentdata) survive the restart. We can't use `supervisorctl
-      # restart all` here because supervisorctl defaults to
-      # /var/run/supervisor.sock but baselayer's template places the
-      # socket at /skyportal/run/supervisor.sock; specifying the config
-      # is fragile across baselayer versions.
-      - name: Restart SkyPortal container to provision admin token
+      # which leaves the seed loader (tools/data_loader.py) spinning on a
+      # missing token. Rather than restarting the whole container (which
+      # also tickles a flaky sncosmo bandpass-download path in gcn_service
+      # imports), we call provision_token() directly here. It only touches
+      # baselayer + skyportal.model_util, avoiding the photometry import
+      # that pulls in sncosmo entirely.
+      - name: Provision admin token (.tokens.yaml)
         run: |
-          docker restart skyportal-web-1
-          # Wait for app workers to come back AND for .tokens.yaml to
-          # exist with non-empty content.
-          for i in $(seq 1 60); do
-            if docker exec -i skyportal-web-1 ps -ef | grep -q "app.py" && \
-               docker exec -i skyportal-web-1 test -s /skyportal/.tokens.yaml; then
-              echo "app restarted and .tokens.yaml present"
-              exit 0
-            fi
-            echo "waiting for restart + tokens ($i/60)..."
-            sleep 5
-          done
-          echo "skyportal failed to come back after restart"
-          docker logs skyportal-web-1 --tail=300
-          exit 1
+          docker exec -i skyportal-web-1 /skyportal/.venv/bin/python -c 'from skyportal.model_util import provision_token; t = provision_token(); open("/skyportal/.tokens.yaml", "w").write(f"INITIAL_ADMIN: {t.id}\n"); print("Provisioned admin token:", t.id)'
+          docker exec -i skyportal-web-1 cat /skyportal/.tokens.yaml
 
       - name: Seed SkyPortal database
         run: |
