@@ -83,6 +83,36 @@ jobs:
       # cargo-watch dev container (faster, no rebuild on file changes).
       # The Rust image is built from source via the compose `build:` block;
       # boom does not publish a tagged image to ghcr yet.
+      #
+      # Boom's compose only exposes BOOM_API__AUTH__SECRET_KEY to the api
+      # service, but the shared config.yaml that all boom services parse
+      # requires it. Without an override, consumer-ztf and scheduler-ztf
+      # crash with "API secret key must be set" before they can consume
+      # produced alerts. The override file below propagates the env var
+      # to those services so the kafka pipeline works end-to-end.
+      - name: Write boom CI compose override
+        working-directory: boom
+        run: |
+          cat > docker-compose.ci.yaml <<'EOF'
+          services:
+            consumer-ztf:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+            scheduler-ztf:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+            consumer-lsst:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+            scheduler-lsst:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+          EOF
+
       - name: Bring up boom stack
         working-directory: boom
         env:
@@ -106,7 +136,10 @@ jobs:
           BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
           BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
         run: |
-          docker compose -p boom -f docker-compose.yaml --profile prod up -d --build
+          docker compose -p boom \
+            -f docker-compose.yaml \
+            -f docker-compose.ci.yaml \
+            --profile prod up -d --build
 
       # Boom's api + mongo services are on boom's internal network, not
       # fritz_net. Connect them so skyportal-web-1 can resolve `boom-api-1`
@@ -132,7 +165,75 @@ jobs:
           (cd boom && docker compose -p boom logs --tail=200) || true
           exit 1
 
+      # ── Seed BOOM with ZTF test alerts ─────────────────────────────────
+      # boom's prebuilt image ships /app/kafka_producer; running it inside
+      # an existing service container avoids needing a Rust toolchain on
+      # the runner. The ZTF public archive at 20240617 has ~710 alerts;
+      # we cap at 100 to keep the seed step fast (~30s).
+      #
+      # consumer-ztf then pulls them off the kafka topic into mongo. We
+      # poll boom-mongo's ZTF_alerts collection until it's non-empty.
+      - name: Seed BOOM kafka with ZTF alerts
+        working-directory: boom
+        run: |
+          docker compose -p boom exec -T scheduler-ztf \
+            /app/kafka_producer ztf 20240617 public \
+              --limit 100 \
+              --server-url broker:29092
+
+      - name: Wait for BOOM mongo to ingest alerts
+        run: |
+          for i in $(seq 1 60); do
+            count=$(docker exec -i boom-mongo-1 mongosh --quiet \
+              --username mongoadmin \
+              --password mongoadminsecret \
+              --authenticationDatabase admin \
+              --eval 'db.getSiblingDB("boom").ZTF_alerts.countDocuments({})' \
+              2>/dev/null || echo 0)
+            if [ "$count" -gt 0 ] 2>/dev/null; then
+              echo "BOOM mongo has $count ZTF_alerts; seed complete"
+              exit 0
+            fi
+            echo "waiting for consumer-ztf to ingest ($i/60, count=$count)..."
+            sleep 5
+          done
+          echo "BOOM never ingested alerts"
+          (cd boom && docker compose -p boom logs --tail=200 consumer-ztf) || true
+          exit 1
+
       # ── Fritz / SkyPortal stack ────────────────────────────────────────
+      # boom_seed_oid_capture is exported here for later steps. The seed
+      # OID/candid get written into a file inside the skyportal container
+      # once it's up, so the conftest probe can discover what's actually
+      # there (the 20240617 ZTF public archive doesn't contain the hard-
+      # coded ZTF20aaelulu we'd normally use).
+      - name: Capture BOOM seed OID + candid + position
+        id: boom_seed
+        run: |
+          seed_json=$(docker exec -i boom-mongo-1 mongosh --quiet \
+            --username mongoadmin \
+            --password mongoadminsecret \
+            --authenticationDatabase admin \
+            --eval '
+              const a = db.getSiblingDB("boom").ZTF_alerts.findOne(
+                {}, {objectId: 1, candid: 1, "candidate.ra": 1, "candidate.dec": 1}
+              );
+              if (!a) { print(""); } else {
+                print(JSON.stringify({
+                  objectId: a.objectId,
+                  candid: String(a.candid),
+                  ra: a.candidate ? a.candidate.ra : null,
+                  dec: a.candidate ? a.candidate.dec : null,
+                }));
+              }
+            ' 2>/dev/null | tail -n 1)
+          echo "Captured: $seed_json"
+          if [ -z "$seed_json" ]; then
+            echo "No alert found in mongo despite count > 0; aborting"
+            exit 1
+          fi
+          echo "seed_json=$seed_json" >> "$GITHUB_OUTPUT"
+
       - name: Build fritz image
         run: |
           cp fritz.defaults.yaml fritz.yaml
@@ -178,6 +279,18 @@ jobs:
             make db_create_tables &&
             make load_seed_data
           "
+
+      # Write the BOOM seed OID/candid (discovered earlier from boom-mongo)
+      # into a file the conftest can read. Conftest uses this to gate
+      # `requires_boom_data` tests and as the OID/candid for happy-path
+      # tests, since the ZTF public 20240617 archive doesn't contain our
+      # legacy hardcoded ZTF20aaelulu.
+      - name: Inject BOOM seed reference into container
+        run: |
+          docker exec -i skyportal-web-1 /bin/bash -c \
+            "mkdir -p /skyportal/persistentdata && cat > /skyportal/persistentdata/boom_seed.json" \
+            <<< '${{ steps.boom_seed.outputs.seed_json }}'
+          docker exec -i skyportal-web-1 cat /skyportal/persistentdata/boom_seed.json
 
       # Inject the cached SFD dustmap into the container so the dustmap
       # auto-downloader at conftest-collect time finds it and skips the

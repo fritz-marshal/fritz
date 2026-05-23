@@ -3,10 +3,6 @@ import pytest
 from skyportal.tests import api
 
 SURVEY = "ZTF"
-# Known object in the BOOM test corpus (same one used by the legacy
-# Kowalski tests). If the seed dataset changes, update both.
-OID = "ZTF20aaelulu"
-CANDID = 1105522281015015000
 
 
 def _alerts_url(query: str = "") -> str:
@@ -14,40 +10,26 @@ def _alerts_url(query: str = "") -> str:
     return f"{base}?{query}" if query else base
 
 
-@pytest.mark.requires_boom_data
-def test_get_alerts_by_object_id(view_only_token):
-    status, data = api("GET", _alerts_url(f"objectId={OID}"), token=view_only_token)
-    assert status == 200
-    assert data["status"] == "success"
-    assert isinstance(data["data"], list)
-    assert len(data["data"]) > 0
-    assert all(alert.get("objectId") == OID for alert in data["data"])
+# ── Happy paths (need a real alert in BOOM mongo) ────────────────────────────
 
 
 @pytest.mark.requires_boom_data
-def test_get_alerts_by_object_id_comma_list(view_only_token):
+def test_get_alerts_by_object_id(view_only_token, boom_seed_oid):
     status, data = api(
-        "GET", _alerts_url(f"objectId={OID},{OID}"), token=view_only_token
+        "GET", _alerts_url(f"objectId={boom_seed_oid}"), token=view_only_token
     )
     assert status == 200
     assert data["status"] == "success"
     assert isinstance(data["data"], list)
+    assert len(data["data"]) > 0
+    assert all(alert.get("objectId") == boom_seed_oid for alert in data["data"])
 
 
 @pytest.mark.requires_boom_data
-def test_get_alerts_by_candid(view_only_token):
-    status, data = api("GET", _alerts_url(f"candid={CANDID}"), token=view_only_token)
-    assert status == 200
-    assert data["status"] == "success"
-    assert isinstance(data["data"], list)
-    assert any(alert.get("candid") == CANDID for alert in data["data"])
-
-
-@pytest.mark.requires_boom_data
-def test_get_alerts_by_candid_and_object_id(view_only_token):
+def test_get_alerts_by_object_id_comma_list(view_only_token, boom_seed_oid):
     status, data = api(
         "GET",
-        _alerts_url(f"candid={CANDID}&objectId={OID}"),
+        _alerts_url(f"objectId={boom_seed_oid},{boom_seed_oid}"),
         token=view_only_token,
     )
     assert status == 200
@@ -56,11 +38,37 @@ def test_get_alerts_by_candid_and_object_id(view_only_token):
 
 
 @pytest.mark.requires_boom_data
-def test_get_alerts_by_cone_search(view_only_token):
-    ra, dec, radius = 108.5, 35.8, 1
+def test_get_alerts_by_candid(view_only_token, boom_seed_candid):
+    status, data = api(
+        "GET", _alerts_url(f"candid={boom_seed_candid}"), token=view_only_token
+    )
+    assert status == 200
+    assert data["status"] == "success"
+    assert isinstance(data["data"], list)
+    assert any(alert.get("candid") == boom_seed_candid for alert in data["data"])
+
+
+@pytest.mark.requires_boom_data
+def test_get_alerts_by_candid_and_object_id(
+    view_only_token, boom_seed_candid, boom_seed_oid
+):
     status, data = api(
         "GET",
-        _alerts_url(f"ra={ra}&dec={dec}&radius={radius}&radius_units=deg"),
+        _alerts_url(f"candid={boom_seed_candid}&objectId={boom_seed_oid}"),
+        token=view_only_token,
+    )
+    assert status == 200
+    assert data["status"] == "success"
+    assert isinstance(data["data"], list)
+
+
+@pytest.mark.requires_boom_data
+def test_get_alerts_by_cone_search(view_only_token, boom_seed_ra, boom_seed_dec):
+    status, data = api(
+        "GET",
+        _alerts_url(
+            f"ra={boom_seed_ra}&dec={boom_seed_dec}&radius=0.5&radius_units=deg"
+        ),
         token=view_only_token,
     )
     assert status == 200
@@ -69,18 +77,23 @@ def test_get_alerts_by_cone_search(view_only_token):
 
 
 @pytest.mark.requires_boom_data
-def test_get_alerts_cone_plus_object_id_filter(view_only_token):
-    ra, dec, radius = 108.5, 35.8, 1
+def test_get_alerts_cone_plus_object_id_filter(
+    view_only_token, boom_seed_ra, boom_seed_dec, boom_seed_oid
+):
     status, data = api(
         "GET",
         _alerts_url(
-            f"ra={ra}&dec={dec}&radius={radius}&radius_units=deg&objectId={OID}"
+            f"ra={boom_seed_ra}&dec={boom_seed_dec}&radius=0.5&radius_units=deg"
+            f"&objectId={boom_seed_oid}"
         ),
         token=view_only_token,
     )
     assert status == 200
     assert data["status"] == "success"
-    assert all(alert.get("objectId") == OID for alert in data["data"])
+    assert all(alert.get("objectId") == boom_seed_oid for alert in data["data"])
+
+
+# ── Error paths (independent of seed data) ──────────────────────────────────
 
 
 def test_get_alerts_no_params_errors(view_only_token):

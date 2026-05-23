@@ -5,15 +5,19 @@ endpoints), so they require a running boom-api-1 service. Any test that
 uses them will fail at fixture setup if BOOM is unreachable.
 """
 
+import json
+import os
 import uuid
 
 import pytest
 
 from skyportal.tests import api
 
-# The canonical seed object — used both as a probe (does BOOM have ZTF
-# data at all?) and as the OID alert/object/cutout tests query against.
-_BOOM_SEED_OID = "ZTF20aaelulu"
+# Path inside the container written by the workflow's "Inject BOOM seed
+# reference" step. Contains the objectId and candid of the first alert
+# ingested by boom's consumer-ztf, so tests don't need to hard-code a
+# specific OID that may not exist in the current seed dataset.
+_BOOM_SEED_FILE = "/skyportal/persistentdata/boom_seed.json"
 
 
 def pytest_configure(config):
@@ -21,36 +25,74 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "requires_boom_data: test depends on BOOM mongo being seeded "
-        "(skipped automatically when the canonical seed object is absent).",
+        "(skipped automatically when no BOOM seed reference file is found).",
     )
 
 
-def _boom_has_seed_data(token) -> bool:
-    """Probe BOOM via skyportal for the canonical seed object."""
+def _load_boom_seed():
+    """Return {objectId, candid} dict from the seed file, or None."""
+    if not os.path.exists(_BOOM_SEED_FILE):
+        return None
     try:
-        status, data = api(
-            "GET",
-            f"boom/surveys/ZTF/alerts?objectId={_BOOM_SEED_OID}",
-            token=token,
-        )
-    except Exception:
-        return False
-    return status == 200 and bool(data.get("data"))
+        with open(_BOOM_SEED_FILE) as f:
+            payload = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if "objectId" not in payload or "candid" not in payload:
+        return None
+    return payload
+
+
+@pytest.fixture(scope="session")
+def boom_seed():
+    """Session-scoped (objectId, candid) for tests that need a real alert.
+
+    Returns None if BOOM wasn't seeded (e.g. running locally without the
+    workflow's seed step). Tests marked `requires_boom_data` will be
+    skipped in that case by `_boom_seed_data_gate`.
+    """
+    return _load_boom_seed()
+
+
+@pytest.fixture
+def boom_seed_oid(boom_seed):
+    if boom_seed is None:
+        pytest.skip("BOOM seed file not present")
+    return boom_seed["objectId"]
+
+
+@pytest.fixture
+def boom_seed_candid(boom_seed):
+    if boom_seed is None:
+        pytest.skip("BOOM seed file not present")
+    return int(boom_seed["candid"])
+
+
+@pytest.fixture
+def boom_seed_ra(boom_seed):
+    if boom_seed is None or boom_seed.get("ra") is None:
+        pytest.skip("BOOM seed ra not present")
+    return float(boom_seed["ra"])
+
+
+@pytest.fixture
+def boom_seed_dec(boom_seed):
+    if boom_seed is None or boom_seed.get("dec") is None:
+        pytest.skip("BOOM seed dec not present")
+    return float(boom_seed["dec"])
 
 
 @pytest.fixture(autouse=True)
-def _boom_seed_data_gate(request, super_admin_token):
-    """Skip tests marked `requires_boom_data` when BOOM mongo is empty."""
+def _boom_seed_data_gate(request):
+    """Skip tests marked `requires_boom_data` when no seed file exists."""
     if "requires_boom_data" not in request.keywords:
         return
-    cached = request.config.cache.get("boom/has_seed_data", None)
-    if cached is None:
-        cached = _boom_has_seed_data(super_admin_token)
-        request.config.cache.set("boom/has_seed_data", cached)
-    if not cached:
+    if _load_boom_seed() is None:
         pytest.skip(
-            f"BOOM has no seed data ({_BOOM_SEED_OID} not found); "
-            "seed boom-mongo with ZTF alerts to enable happy-path tests."
+            f"BOOM seed reference {_BOOM_SEED_FILE} not present; "
+            "the workflow's BOOM-seeding steps must run before these tests."
         )
 
 
@@ -74,7 +116,7 @@ def boom_ztf_stream(super_admin_token, public_stream):
 
 
 @pytest.fixture
-def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream, request):
+def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream):
     """A SkyPortal Filter provisioned on the BOOM side.
 
     Two-step setup, mirroring the frontend:
@@ -86,15 +128,11 @@ def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream, request):
 
     BOOM validates new filters by running their pipeline against the ZTF
     corpus, so without seed data step 2 returns 400. We skip up-front
-    when the seed probe says BOOM is empty.
+    when no seed reference file is present.
     """
-    cached = request.config.cache.get("boom/has_seed_data", None)
-    if cached is None:
-        cached = _boom_has_seed_data(super_admin_token)
-        request.config.cache.set("boom/has_seed_data", cached)
-    if not cached:
+    if _load_boom_seed() is None:
         pytest.skip(
-            f"BOOM has no seed data ({_BOOM_SEED_OID} not found); "
+            f"BOOM seed reference {_BOOM_SEED_FILE} not present; "
             "skip filter-provisioning tests until boom-mongo is seeded."
         )
 
