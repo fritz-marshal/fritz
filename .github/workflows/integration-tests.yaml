@@ -1,0 +1,144 @@
+name: Integration tests (fritz + boom)
+
+# Runs on every PR and on push to main / the kowalski-to-boom migration
+# branch. The boom service bring-up has open TODOs (see steps below);
+# expect failures until those are resolved by iterating in CI.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - from-kowalski-to-boom
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout fritz
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Checkout boom (sibling working dir)
+        uses: actions/checkout@v6
+        with:
+          repository: boom-astro/boom
+          ref: main
+          path: boom
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install fritz Python deps
+        run: |
+          uv sync --inexact
+          ./fritz develop
+
+      # ── Networks ───────────────────────────────────────────────────────
+      # fritz_net is the network fritz creates for skyportal-web-1.
+      # traefik-public is declared as `external: true` in boom's compose
+      # (used by traefik labels even when no traefik proxy runs in CI),
+      # so it must exist before `docker compose up`.
+      - name: Create shared docker networks
+        run: |
+          docker network create fritz_net || true
+          docker network create traefik-public || true
+
+      # ── Boom stack ─────────────────────────────────────────────────────
+      # With `-p boom` and service name `api`, container becomes
+      # `boom-api-1`, which is what fritz.defaults.yaml's boom.host expects.
+      # --profile prod selects the prebuilt-image variant rather than the
+      # cargo-watch dev container (faster, no rebuild on file changes).
+      # The Rust image is built from source via the compose `build:` block;
+      # boom does not publish a tagged image to ghcr yet.
+      - name: Bring up boom stack
+        working-directory: boom
+        env:
+          BOOM_DATABASE__USERNAME: mongoadmin
+          BOOM_DATABASE__PASSWORD: mongoadminsecret
+          BOOM_API__AUTH__SECRET_KEY: ci-integration-test-secret-key-padded-to-32chars
+          BOOM_API__AUTH__ADMIN_PASSWORD: adminsecret
+          STACK_NAME: boom
+          DOMAIN: localhost
+        run: |
+          docker compose -p boom -f docker-compose.yaml --profile prod up -d --build
+
+      # Boom's api service is on boom's internal network and traefik-public,
+      # but not on fritz_net. Connect it so skyportal-web-1 can resolve
+      # `boom-api-1` by hostname.
+      - name: Attach boom-api to fritz_net
+        run: docker network connect fritz_net boom-api-1
+
+      - name: Wait for boom-api to be reachable
+        run: |
+          for i in $(seq 1 60); do
+            if docker run --rm --network fritz_net curlimages/curl:latest \
+                -fsS http://boom-api-1:4000/ >/dev/null 2>&1; then
+              echo "boom-api ready"
+              exit 0
+            fi
+            echo "waiting for boom-api ($i/60)..."
+            sleep 5
+          done
+          echo "boom-api never became reachable"
+          (cd boom && docker compose -p boom logs --tail=200) || true
+          exit 1
+
+      # ── Fritz / SkyPortal stack ────────────────────────────────────────
+      - name: Build fritz image
+        run: |
+          cp fritz.defaults.yaml fritz.yaml
+          ./fritz build
+
+      - name: Start fritz stack
+        run: ./fritz run
+
+      - name: Wait for SkyPortal app
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec -i skyportal-web-1 ps -ef | grep -q "app.py"; then
+              echo "skyportal app ready"
+              exit 0
+            fi
+            echo "waiting for skyportal app ($i/60)..."
+            sleep 10
+          done
+          echo "skyportal never came up"
+          docker logs skyportal-web-1 --tail=200
+          exit 1
+
+      # ── Tests ──────────────────────────────────────────────────────────
+      - name: Run integration tests
+        run: ./fritz test
+
+      # ── Diagnostics on failure ─────────────────────────────────────────
+      - name: Dump skyportal logs on failure
+        if: failure()
+        run: |
+          docker logs skyportal-web-1 --tail=500 || true
+
+      - name: Dump boom logs on failure
+        if: failure()
+        working-directory: boom
+        run: |
+          docker compose -p boom logs --tail=500 || true

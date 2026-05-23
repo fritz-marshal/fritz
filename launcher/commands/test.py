@@ -84,29 +84,31 @@ def test():
     except subprocess.CalledProcessError:
         sys.exit(1)
 
-    api_tests = [
-        test_file.name
-        for test_file in Path("extensions/skyportal/skyportal/tests/api").glob(
-            "test_*.py"
-        )
+    # Discover fritz-specific test files on the host (under
+    # extensions/skyportal/...), then translate the paths to where they
+    # land inside the container (skyportal/...). Recursive so subdirs
+    # (e.g. tests/api/boom/) are picked up.
+    host_root = Path("extensions/skyportal/skyportal/tests")
+    container_root = Path("skyportal/tests")
+    test_files = sorted(host_root.rglob("test_*.py"))
+    if not test_files:
+        print(f"No test files found under {host_root}")
+        sys.exit(1)
+    container_paths = [
+        str(container_root / f.relative_to(host_root)) for f in test_files
     ]
 
-    error = False
-    for api_test in api_tests:
-        command = [
-            "docker",
-            "exec",
-            "-i",
-            "skyportal-web-1",
-            "/bin/bash",
-            "-c",
-            "source .venv/bin/activate &&"
-            f"python -m pytest -s skyportal/tests/api/{api_test}",
-        ]
-        try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            error = True
-            continue
-    if error:
+    command = [
+        "docker",
+        "exec",
+        "-i",
+        "skyportal-web-1",
+        "/bin/bash",
+        "-c",
+        "source .venv/bin/activate && "
+        f"python -m pytest -v -s {' '.join(container_paths)}",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
         sys.exit(1)
