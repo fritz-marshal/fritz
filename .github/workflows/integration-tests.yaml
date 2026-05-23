@@ -99,6 +99,16 @@ jobs:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                # Default config has localhost:9092 which doesn't resolve
+                # inside the container. Point at the broker hostname.
+                BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
+              # Pin the consumer to the same date our seed step uses, so
+              # it subscribes to ztf_20240617_programid1 instead of the
+              # auto-derived ztf_<today>_programid1.
+              command:
+                - /app/kafka_consumer
+                - ztf
+                - "20240617"
             scheduler-ztf:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}

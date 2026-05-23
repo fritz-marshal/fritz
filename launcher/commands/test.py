@@ -87,24 +87,32 @@ def test():
     # Discover fritz-specific BOOM test files on the host, then translate
     # the paths to where they land inside the container.
     #
-    # We deliberately scope to the boom/ subdir rather than rglob'ing the
-    # whole tests/ tree. The legacy api/test_alerts.py, test_archive.py,
-    # test_kowalski_filters.py and api_tests/.../test_filters.py all fail
-    # with `TypeError: 'module' object is not callable` because of a
-    # name collision: skyportal/tests/__init__.py defines an `api()`
-    # function, and `skyportal/tests/api/` is a subpackage. Once the
-    # subpackage is imported during test collection, the function is
-    # rebound to the package. The boom tests live deeper (tests/api/boom/)
-    # and resolve correctly via import order; the sibling-level legacy
-    # tests do not. Fixing the collision belongs in skyportal proper.
-    host_root = Path("extensions/skyportal/skyportal/tests/api/boom")
-    container_root = Path("skyportal/tests/api/boom")
-    test_files = sorted(host_root.rglob("test_*.py"))
+    # We deliberately scope to the boom/ subdirs (api and frontend) rather
+    # than rglob'ing the whole tests/ tree. The legacy api/test_alerts.py,
+    # test_archive.py, test_kowalski_filters.py and
+    # api_tests/.../test_filters.py all fail with
+    # `TypeError: 'module' object is not callable` because of a name
+    # collision: skyportal/tests/__init__.py defines an `api()` function,
+    # and `skyportal/tests/api/` is a subpackage. Once the subpackage is
+    # imported during test collection, the function is rebound to the
+    # package. The boom tests live deeper (tests/api/boom/) and resolve
+    # correctly via import order; the sibling-level legacy tests do not.
+    # Fixing the collision belongs in skyportal proper.
+    host_tests = Path("extensions/skyportal/skyportal/tests")
+    container_tests = Path("skyportal/tests")
+    boom_subdirs = ["api/boom", "frontend/boom"]
+    test_files: list[Path] = []
+    for subdir in boom_subdirs:
+        host_root = host_tests / subdir
+        if host_root.exists():
+            test_files.extend(sorted(host_root.rglob("test_*.py")))
     if not test_files:
-        print(f"No test files found under {host_root}")
+        print(
+            f"No test files found under {[str(host_tests / d) for d in boom_subdirs]}"
+        )
         sys.exit(1)
     container_paths = [
-        str(container_root / f.relative_to(host_root)) for f in test_files
+        str(container_tests / f.relative_to(host_tests)) for f in test_files
     ]
 
     # The skyportal container is built with ENV UV_NO_DEV=1, so test-only
@@ -133,16 +141,30 @@ def test():
         "&& rm /tmp/geckodriver.tar.gz)"
     )
 
+    # Firefox is needed for frontend tests (driver fixture in
+    # skyportal/tests/test_util.py). The container is debian-bookworm so
+    # firefox-esr is in apt. FRONTEND_TEST_HEADLESS=1 tells the driver
+    # fixture to pass `-headless` to FirefoxOptions, since the CI
+    # container has no display.
+    firefox_install = (
+        "command -v firefox >/dev/null 2>&1 || "
+        "apt-get update >/dev/null && "
+        "apt-get install -y --no-install-recommends firefox-esr >/dev/null"
+    )
+
     command = [
         "docker",
         "exec",
         "-i",
+        "-e",
+        "FRONTEND_TEST_HEADLESS=1",
         "skyportal-web-1",
         "/bin/bash",
         "-c",
         "source .venv/bin/activate && "
         f"uv pip install --quiet {test_deps} && "
         f"{geckodriver_install} && "
+        f"{firefox_install} && "
         f"python -m pytest -v -s {' '.join(container_paths)}",
     ]
     try:
