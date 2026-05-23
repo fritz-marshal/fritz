@@ -45,7 +45,15 @@ def test_get_alerts_by_candid(view_only_token, boom_seed_candid):
     assert status == 200
     assert data["status"] == "success"
     assert isinstance(data["data"], list)
-    assert any(alert.get("candid") == boom_seed_candid for alert in data["data"])
+    assert len(data["data"]) > 0
+    # BOOM stores candid as the alert document's _id, and skyportal's
+    # convert_large_ints stringifies values above JS's MAX_SAFE_INTEGER.
+    # Compare as strings to be robust.
+    seed = str(boom_seed_candid)
+    assert any(
+        str(alert.get("_id") or alert.get("candid") or "") == seed
+        for alert in data["data"]
+    )
 
 
 @pytest.mark.requires_boom_data

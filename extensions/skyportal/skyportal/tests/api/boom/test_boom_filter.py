@@ -30,7 +30,12 @@ def test_get_boom_filter_non_integer_errors(view_only_token):
 def test_post_new_version(super_admin_token, boom_filter):
     """POSTing to an already-provisioned BOOM filter appends a new pipeline
     version (rather than re-creating)."""
-    new_pipeline = [{"$match": {"candidate.drb": {"$gt": 0.9}}}]
+    # BOOM requires the pipeline to end with a $project that includes
+    # objectId (see build_and_test_filter_version in boom's filters.rs).
+    new_pipeline = [
+        {"$match": {"candidate.drb": {"$gt": 0.9}}},
+        {"$project": {"objectId": 1, "candid": 1, "candidate": 1}},
+    ]
     status, data = api(
         "POST",
         f"boom/filters/{boom_filter}",
@@ -113,7 +118,12 @@ def _run_filter_payload(**overrides):
     base = {
         "filter_id": 1,
         "selectedCollection": "ZTF_alerts",
-        "pipeline": [{"$match": {"candidate.drb": {"$gt": 0.5}}}],
+        # BOOM's /filters/test endpoint also validates the pipeline ends
+        # with a $project that includes objectId.
+        "pipeline": [
+            {"$match": {"candidate.drb": {"$gt": 0.5}}},
+            {"$project": {"objectId": 1, "candid": 1, "candidate": 1}},
+        ],
         "start_jd": 2459000.0,
         "end_jd": 2459001.0,
     }

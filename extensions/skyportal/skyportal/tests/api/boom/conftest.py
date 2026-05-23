@@ -152,7 +152,12 @@ def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream):
     assert status == 200, data
     filter_id = data["data"]["id"]
 
-    pipeline = [{"$match": {"candidate.drb": {"$gt": 0.5}}}]
+    # BOOM rejects pipelines whose last stage isn't a $project that
+    # includes objectId (validation in build_and_test_filter_version).
+    pipeline = [
+        {"$match": {"candidate.drb": {"$gt": 0.5}}},
+        {"$project": {"objectId": 1, "candid": 1, "candidate": 1}},
+    ]
     status, data = api(
         "POST",
         f"boom/filters/{filter_id}",
