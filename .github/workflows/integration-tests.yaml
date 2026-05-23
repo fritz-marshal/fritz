@@ -298,7 +298,12 @@ jobs:
       # that pulls in sncosmo entirely.
       - name: Provision admin token (.tokens.yaml)
         run: |
-          docker exec -i skyportal-web-1 /skyportal/.venv/bin/python -c 'from baselayer.app.env import load_env; from skyportal.models import init_db, DBSession; from skyportal.model_util import provision_token; _, cfg = load_env(); init_db(**cfg["database"]); t = provision_token(); DBSession().commit(); open("/skyportal/.tokens.yaml", "w").write(f"INITIAL_ADMIN: {t.id}\n"); print("Provisioned admin token:", t.id)'
+          # load_env() parses --config from sys.argv, which is empty
+          # under `python -c`, so only the defaults get merged in (no
+          # config.yaml) and the DB host stays at localhost. Calling
+          # load_config directly with explicit config_files bypasses the
+          # argparse path. Same flow `app_server.py` runs at startup.
+          docker exec -i skyportal-web-1 /skyportal/.venv/bin/python -c 'from baselayer.app.config import load_config; from skyportal.models import init_db, DBSession; from skyportal.model_util import provision_token; cfg = load_config(config_files=["config.yaml"]); init_db(**cfg["database"]); t = provision_token(); DBSession().commit(); open("/skyportal/.tokens.yaml", "w").write(f"INITIAL_ADMIN: {t.id}\n"); print("Provisioned admin token:", t.id)'
           docker exec -i skyportal-web-1 cat /skyportal/.tokens.yaml
 
       - name: Seed SkyPortal database
