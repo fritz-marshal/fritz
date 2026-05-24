@@ -15,26 +15,29 @@ def test_get_archive_catalogs(view_only_token):
 
 @pytest.mark.requires_boom_data
 def test_cross_match_happy_path(view_only_token):
-    # The cross-match endpoint fans out over BOOM's reference catalogs
-    # (Gaia, PS1, etc). Our CI seed only ingests ZTF_alerts, so no
-    # reference catalogs are available — the handler then returns 400
-    # with "No reference catalogs available in Boom to cross-match
-    # against." Skip when that's the case so we don't fail on a known
-    # data-coverage gap; the underlying wire-up is exercised by the
-    # validation/error tests below.
+    # The cross-match endpoint fans out over BOOM's reference catalogs.
+    # In CI we seed a `test_catalog` collection with 1000 fake sources
+    # in a 0.01 deg box around (RA=0, Dec=80). The wider search radius
+    # here (1 deg) is generous enough that we should always get matches
+    # given the fake catalog density, while still exercising the real
+    # cone-search code path. Defensive skip kept so the test degrades
+    # gracefully if the catalog seeding step is removed/skipped.
     status, catalogs_data = api("GET", "boom/archive/catalogs", token=view_only_token)
     if status != 200 or not catalogs_data.get("data"):
         pytest.skip("BOOM has no reference catalogs ingested; skipping cross-match")
 
-    ra, dec = 0.00017675657877, 80.01266744553764
+    ra, dec = 0.005, 80.0  # inside the fake_source_* spread
     status, data = api(
         "GET",
-        f"boom/archive/cross_match?ra={ra}&dec={dec}&radius=2&radius_units=arcsec",
+        f"boom/archive/cross_match?ra={ra}&dec={dec}&radius=1&radius_units=deg",
         token=view_only_token,
     )
     assert status == 200
     assert data["status"] == "success"
     assert isinstance(data["data"], dict)
+    # The fake catalog should have produced at least one hit.
+    assert "test_catalog" in data["data"]
+    assert len(data["data"]["test_catalog"]) > 0
 
 
 def test_cross_match_missing_params_errors(view_only_token):

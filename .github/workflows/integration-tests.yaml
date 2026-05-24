@@ -235,6 +235,47 @@ jobs:
       # once it's up, so the conftest probe can discover what's actually
       # there (the 20240617 ZTF public archive doesn't contain the hard-
       # coded ZTF20aaelulu we'd normally use).
+      # Insert a fake reference catalog so the cross_match endpoint has
+      # something to search against. BOOM's get_catalogs treats every
+      # non-system mongo collection as a catalog, so just inserting docs
+      # in a non-survey-prefixed collection is enough. The cone_search
+      # query expects coordinates.radec_geojson as a GeoJSON Point with
+      # longitude shifted by -180 (see boom/api/routes/queries/cone_search.rs).
+      # Sources are placed in a small box around (RA=0, Dec=80) so the
+      # cross_match test's hard-coded probe position finds matches.
+      # Must run BEFORE fritz starts: skyportal's archive.py caches the
+      # catalog list at module-load time with a 1-hour TTL.
+      - name: Seed BOOM with fake reference catalog
+        run: |
+          docker exec -i boom-mongo-1 mongosh --quiet \
+            --username mongoadmin \
+            --password mongoadminsecret \
+            --authenticationDatabase admin \
+            --eval '
+              const boom = db.getSiblingDB("boom");
+              boom.test_catalog.drop();
+              const docs = [];
+              for (let i = 0; i < 1000; i++) {
+                const ra = Math.random() * 0.01;
+                const dec = 80 + (Math.random() - 0.5) * 0.01;
+                docs.push({
+                  _id: i,
+                  name: `fake_source_${i}`,
+                  ra: ra,
+                  dec: dec,
+                  coordinates: {
+                    radec_geojson: {
+                      type: "Point",
+                      coordinates: [ra - 180, dec],
+                    },
+                  },
+                });
+              }
+              boom.test_catalog.insertMany(docs);
+              boom.test_catalog.createIndex({"coordinates.radec_geojson": "2dsphere"});
+              print("test_catalog seeded with " + boom.test_catalog.countDocuments({}) + " docs");
+            '
+
       - name: Capture BOOM seed OID + candid + position
         id: boom_seed
         run: |
