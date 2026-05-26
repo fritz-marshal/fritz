@@ -48,3 +48,74 @@ def test_alerts_search_results_for_seed_oid(driver, boom_seed_oid):
     one row references it."""
     driver.get(f"/alerts?survey=ZTF&objectId={boom_seed_oid}")
     driver.wait_for_xpath(f"//*[contains(text(),'{boom_seed_oid}')]")
+
+
+@pytest.mark.requires_boom_data
+def test_open_alert_from_table(driver, boom_seed_oid):
+    """The main navigation flow: open the alerts search page, click the
+    alert's objectId link in the results table, switch to the new tab
+    that opens (the row link has target='_blank'), and verify the
+    Alert.jsx detail page rendered with the SaveAlertButton present.
+    This exercises the row link in Alerts.jsx:497-508 and confirms that
+    clicking through to the detail page wires up the save action.
+    """
+    driver.get(f"/alerts?survey=ZTF&objectId={boom_seed_oid}")
+    # Row link uses data-testid={objectId} (Alerts.jsx:502).
+    link = driver.wait_for_xpath(f"//*[@data-testid='{boom_seed_oid}']", 20)
+
+    original_window = driver.current_window_handle
+    starting_handles = set(driver.window_handles)
+    link.click()
+
+    # target='_blank' opens a new tab; switch to whichever handle is new.
+    import time
+
+    deadline = time.time() + 20
+    new_handle = None
+    while time.time() < deadline:
+        new_handles = set(driver.window_handles) - starting_handles
+        if new_handles:
+            new_handle = next(iter(new_handles))
+            break
+        time.sleep(0.5)
+    assert new_handle is not None, "alert link did not open a new tab"
+    driver.switch_to.window(new_handle)
+    try:
+        # SaveAlertButton has data-testid=saveAlertButton_{alert.id} where
+        # alert.id is the objectId.
+        driver.wait_for_xpath(
+            f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']", 30
+        )
+    finally:
+        driver.close()
+        driver.switch_to.window(original_window)
+
+
+@pytest.mark.requires_boom_data
+def test_save_alert_as_source(driver, boom_seed_oid, public_group):
+    """Drive the Save-as-Source workflow end-to-end: open the alert
+    detail page, click the SaveAlertButton, check a group in the dialog,
+    and submit. Verifies the success toast appears, which means the
+    full chain (frontend → boom_alert duck → /api/boom/.../alerts ingest
+    → skyportal Source creation) ran. `public_group` ensures there is at
+    least one selectable group in the dialog.
+    """
+    driver.get(f"/alerts/ZTF/{boom_seed_oid}")
+    save_btn = driver.wait_for_xpath(
+        f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']", 30
+    )
+    save_btn.click()
+    # Dialog title (SaveAlertButton.jsx:206).
+    driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
+    # Pick the first group checkbox.
+    checkbox = driver.wait_for_xpath("//input[@type='checkbox' and not(@disabled)]", 10)
+    checkbox.click()
+    # Submit button has name=finalSaveAlertButton{alert.id}.
+    submit = driver.wait_for_xpath(
+        f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", 10
+    )
+    submit.click()
+    # Success notification (SaveAlertButton.jsx:84).
+    driver.wait_for_xpath(
+        "//*[contains(text(),'Source photometry updated successfully')]", 30
+    )
