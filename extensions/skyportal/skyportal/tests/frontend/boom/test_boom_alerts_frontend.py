@@ -111,12 +111,17 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     )
     # Dialog title (SaveAlertButton.jsx:206).
     driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
-    # First selectable group checkbox in the dialog. click_xpath's
-    # multi-strategy click handles the MUI dialog backdrop properly —
-    # backdrop-blocked native click falls through to JS click, and the
-    # final ActionChains fallback fires real DOM events that React Hook
-    # Form's Controller picks up.
-    driver.click_xpath("//input[@type='checkbox' and not(@disabled)]", timeout=10)
+    # First selectable group checkbox in the dialog. The raw <input> is
+    # `visibility: hidden` in MUI (only the SVG icon is visible), so
+    # element_to_be_clickable returns False — we have to pass
+    # wait_clickable=False to skip that gate. click_xpath's 3-strategy
+    # click then routes through JS / ActionChains, which dispatches the
+    # real DOM events React Hook Form's Controller listens to.
+    driver.click_xpath(
+        "//input[@type='checkbox' and not(@disabled)]",
+        wait_clickable=False,
+        timeout=10,
+    )
     # Submit button has name=finalSaveAlertButton{alert.id}.
     driver.click_xpath(
         f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", timeout=10
