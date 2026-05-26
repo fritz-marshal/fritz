@@ -107,14 +107,17 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     save_btn.click()
     # Dialog title (SaveAlertButton.jsx:206).
     driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
-    # Pick the first group checkbox.
+    # Pick the first group checkbox. Use a JS click — selenium's native
+    # .click() on the raw <input> is blocked by MUI's dialog backdrop
+    # ("element click intercepted"), but the click handler still fires
+    # via the underlying form control.
     checkbox = driver.wait_for_xpath("//input[@type='checkbox' and not(@disabled)]", 10)
-    checkbox.click()
+    driver.execute_script("arguments[0].click();", checkbox)
     # Submit button has name=finalSaveAlertButton{alert.id}.
     submit = driver.wait_for_xpath(
         f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", 10
     )
-    submit.click()
+    driver.execute_script("arguments[0].click();", submit)
     # Success notification (SaveAlertButton.jsx:84).
     driver.wait_for_xpath(
         "//*[contains(text(),'Source photometry updated successfully')]", 30
