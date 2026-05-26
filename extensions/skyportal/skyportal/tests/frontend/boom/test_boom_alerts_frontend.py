@@ -19,6 +19,8 @@ import time
 
 import pytest
 
+from skyportal.tests import api
+
 
 def test_alerts_page_loads(driver):
     """The /alerts route mounts and renders the survey selector."""
@@ -97,13 +99,14 @@ def test_open_alert_from_table(driver, boom_seed_oid):
 
 
 @pytest.mark.requires_boom_data
-def test_save_alert_as_source(driver, boom_seed_oid, public_group):
+def test_save_alert_as_source(driver, boom_seed_oid, public_group, super_admin_token):
     """Drive the Save-as-Source workflow end-to-end: open the alert
     detail page, click the SaveAlertButton, check a group in the dialog,
-    and submit. Verifies the success toast appears, which means the
-    full chain (frontend → boom_alert duck → /api/boom/.../alerts ingest
-    → skyportal Source creation) ran. `public_group` ensures there is at
-    least one selectable group in the dialog.
+    and submit. We verify the *outcome* via the API — confirm a Source
+    was created — rather than waiting for a UI notification, because
+    the success toast can dismiss before selenium catches it, or be
+    skipped if a non-error/non-success branch fires. `public_group`
+    ensures there is at least one selectable group in the dialog.
     """
     driver.get(f"/alerts/ZTF/{boom_seed_oid}")
     driver.click_xpath(
@@ -115,11 +118,9 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     # The <input> is visibility:hidden in MUI (only the SVG icon is
     # visible), so any direct click ends up missing the actual hit area
     # OR fires an event React Hook Form ignores. Clicking the label
-    # text (FormControlLabel's <label> wrapper or the inner label span)
-    # triggers the native label→input pairing the way a real user
-    # would, which is exactly what RHF's Controller picks up.
-    # public_group.name is a random UUID prefix that's unique on the
-    # page, so we can target it directly.
+    # text triggers the native label→input pairing, which is exactly
+    # what RHF's Controller picks up. public_group.name is a random
+    # UUID prefix that's unique on the page.
     driver.click_xpath(
         f"//*[contains(text(),'{public_group.name}')]",
         timeout=10,
@@ -128,7 +129,22 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     driver.click_xpath(
         f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", timeout=10
     )
-    # Success notification (SaveAlertButton.jsx:84).
-    driver.wait_for_xpath(
-        "//*[contains(text(),'Source photometry updated successfully')]", 30
+
+    # Poll the API for the Source. The full chain we're verifying is:
+    # dialog submit → boom_alert.saveAlertAsSource duck → backend
+    # POST /api/boom/surveys/ZTF/objects/{oid} (BoomObjectHandler.post)
+    # → Obj + Source created.
+    deadline = time.time() + 30
+    last_status = None
+    while time.time() < deadline:
+        last_status, data = api(
+            "GET", f"sources/{boom_seed_oid}", token=super_admin_token
+        )
+        if last_status == 200 and data.get("status") == "success":
+            assert data["data"]["id"] == boom_seed_oid
+            return
+        time.sleep(1)
+    pytest.fail(
+        f"Source {boom_seed_oid} never appeared after submit "
+        f"(last GET /sources status={last_status})"
     )
