@@ -6,7 +6,16 @@ the new Alert.jsx detail view. We only assert minimal landmarks — that
 the page mounts and shows the survey selector / alert details — so the
 tests remain robust to small UI tweaks while still catching regressions
 like a route disappearing or a duck/reducer wiring change.
+
+All clicks go through skyportal's `driver.click_xpath()` helper
+(defined on MyCustomWebDriver in skyportal/tests/test_util.py). It
+wraps a 3-strategy click chain — native selenium click, JS click,
+ActionChains coordinate click — plus scroll-into-view, which together
+handle MUI dialog backdrops and other interaction edge cases that
+bare `element.click()` trips on.
 """
+
+import time
 
 import pytest
 
@@ -61,15 +70,11 @@ def test_open_alert_from_table(driver, boom_seed_oid):
     """
     driver.get(f"/alerts?survey=ZTF&objectId={boom_seed_oid}")
     # Row link uses data-testid={objectId} (Alerts.jsx:502).
-    link = driver.wait_for_xpath(f"//*[@data-testid='{boom_seed_oid}']", 20)
-
     original_window = driver.current_window_handle
     starting_handles = set(driver.window_handles)
-    link.click()
+    driver.click_xpath(f"//*[@data-testid='{boom_seed_oid}']", timeout=20)
 
     # target='_blank' opens a new tab; switch to whichever handle is new.
-    import time
-
     deadline = time.time() + 20
     new_handle = None
     while time.time() < deadline:
@@ -101,29 +106,21 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     least one selectable group in the dialog.
     """
     driver.get(f"/alerts/ZTF/{boom_seed_oid}")
-    save_btn = driver.wait_for_xpath(
-        f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']", 30
+    driver.click_xpath(
+        f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']", timeout=30
     )
-    save_btn.click()
     # Dialog title (SaveAlertButton.jsx:206).
     driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
-    # Pick the first group checkbox. Two layers of trickiness:
-    # (1) Selenium's native .click() on anything inside the MUI dialog
-    #     gets "element click intercepted" by the backdrop.
-    # (2) JS-clicking the raw <input> toggles `checked` but does NOT
-    #     fire the React synthetic onChange that react-hook-form
-    #     listens for — so validateGroups() sees nothing selected
-    #     and the form silently fails validation (no notification).
-    # Clicking the wrapping <label> (via .closest('label')) is both
-    # backdrop-immune and triggers a proper onChange via the native
-    # label→input wiring.
-    checkbox = driver.wait_for_xpath("//input[@type='checkbox' and not(@disabled)]", 10)
-    driver.execute_script("arguments[0].closest('label').click();", checkbox)
+    # First selectable group checkbox in the dialog. click_xpath's
+    # multi-strategy click handles the MUI dialog backdrop properly —
+    # backdrop-blocked native click falls through to JS click, and the
+    # final ActionChains fallback fires real DOM events that React Hook
+    # Form's Controller picks up.
+    driver.click_xpath("//input[@type='checkbox' and not(@disabled)]", timeout=10)
     # Submit button has name=finalSaveAlertButton{alert.id}.
-    submit = driver.wait_for_xpath(
-        f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", 10
+    driver.click_xpath(
+        f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", timeout=10
     )
-    driver.execute_script("arguments[0].click();", submit)
     # Success notification (SaveAlertButton.jsx:84).
     driver.wait_for_xpath(
         "//*[contains(text(),'Source photometry updated successfully')]", 30
