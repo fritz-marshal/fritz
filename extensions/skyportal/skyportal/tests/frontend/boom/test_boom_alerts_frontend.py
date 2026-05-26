@@ -111,15 +111,17 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     )
     # Dialog title (SaveAlertButton.jsx:206).
     driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
-    # First selectable group checkbox in the dialog. The raw <input> is
-    # `visibility: hidden` in MUI (only the SVG icon is visible), so
-    # element_to_be_clickable returns False — we have to pass
-    # wait_clickable=False to skip that gate. click_xpath's 3-strategy
-    # click then routes through JS / ActionChains, which dispatches the
-    # real DOM events React Hook Form's Controller listens to.
+    # Click the group's label text rather than the raw checkbox input.
+    # The <input> is visibility:hidden in MUI (only the SVG icon is
+    # visible), so any direct click ends up missing the actual hit area
+    # OR fires an event React Hook Form ignores. Clicking the label
+    # text (FormControlLabel's <label> wrapper or the inner label span)
+    # triggers the native label→input pairing the way a real user
+    # would, which is exactly what RHF's Controller picks up.
+    # public_group.name is a random UUID prefix that's unique on the
+    # page, so we can target it directly.
     driver.click_xpath(
-        "//input[@type='checkbox' and not(@disabled)]",
-        wait_clickable=False,
+        f"//*[contains(text(),'{public_group.name}')]",
         timeout=10,
     )
     # Submit button has name=finalSaveAlertButton{alert.id}.
