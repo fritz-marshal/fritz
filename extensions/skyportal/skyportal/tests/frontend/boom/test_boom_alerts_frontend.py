@@ -107,12 +107,18 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group):
     save_btn.click()
     # Dialog title (SaveAlertButton.jsx:206).
     driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
-    # Pick the first group checkbox. Use a JS click — selenium's native
-    # .click() on the raw <input> is blocked by MUI's dialog backdrop
-    # ("element click intercepted"), but the click handler still fires
-    # via the underlying form control.
+    # Pick the first group checkbox. Two layers of trickiness:
+    # (1) Selenium's native .click() on anything inside the MUI dialog
+    #     gets "element click intercepted" by the backdrop.
+    # (2) JS-clicking the raw <input> toggles `checked` but does NOT
+    #     fire the React synthetic onChange that react-hook-form
+    #     listens for — so validateGroups() sees nothing selected
+    #     and the form silently fails validation (no notification).
+    # Clicking the wrapping <label> (via .closest('label')) is both
+    # backdrop-immune and triggers a proper onChange via the native
+    # label→input wiring.
     checkbox = driver.wait_for_xpath("//input[@type='checkbox' and not(@disabled)]", 10)
-    driver.execute_script("arguments[0].click();", checkbox)
+    driver.execute_script("arguments[0].closest('label').click();", checkbox)
     # Submit button has name=finalSaveAlertButton{alert.id}.
     submit = driver.wait_for_xpath(
         f"//button[@name='finalSaveAlertButton{boom_seed_oid}']", 10
