@@ -21,7 +21,7 @@ import { showNotification } from "baselayer/components/Notifications";
 
 import FormValidationError from "../FormValidationError";
 
-import * as alertActions from "../../ducks/kowalski_alert";
+import * as alertActions from "../../ducks/boom_alert";
 import * as sourceActions from "../../ducks/source";
 
 const SaveAlertButton = ({ alert, userGroups }) => {
@@ -35,8 +35,9 @@ const SaveAlertButton = ({ alert, userGroups }) => {
     (g) => !g.single_user_group,
   );
 
-  const currentGroupIds = source?.groups?.map((g) => g.id);
-  const unsavedGroups = groups?.filter((g) => !currentGroupIds?.includes(g.id));
+  const currentGroupIds =
+    source?.id === alert.id ? source?.groups?.map((g) => g.id) ?? [] : [];
+  const unsavedGroups = groups?.filter((g) => !currentGroupIds.includes(g.id));
 
   const {
     handleSubmit,
@@ -69,6 +70,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
   const onSubmitGroupSelectSave = async (data) => {
     setIsSubmitting(true);
     data.id = alert.id;
+    data.survey = alert.survey;
     const groupIDs = unsavedGroups.map((g) => g.id);
     const selectedGroupIDs = groupIDs.filter((ID, idx) => data.group_ids[idx]);
 
@@ -249,6 +251,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
 SaveAlertButton.propTypes = {
   alert: PropTypes.shape({
     id: PropTypes.string,
+    survey: PropTypes.string,
     candid: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     group_ids: PropTypes.arrayOf(PropTypes.number),
   }).isRequired,

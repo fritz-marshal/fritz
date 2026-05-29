@@ -2,10 +2,11 @@ import datetime
 
 import sqlalchemy as sa
 from astropy.time import Time
+from penquins import Kowalski
+
 from baselayer.app.access import permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
-from penquins import Kowalski
 
 from ...models import (
     Annotation,

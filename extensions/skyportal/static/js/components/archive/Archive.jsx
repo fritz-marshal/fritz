@@ -11,7 +11,7 @@ import {
   useTheme,
   adaptV4Theme,
 } from "@mui/material/styles";
-import makeStyles from "@mui/styles/makeStyles";
+import { makeStyles } from "tss-react/mui";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -88,7 +88,7 @@ const VegaPlotZTFArchive = React.lazy(
   () => import("../plot/VegaPlotZTFArchive"),
 );
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles()((theme) => ({
   root: {
     margin: 0,
     padding: 0,
@@ -201,7 +201,7 @@ const ZTFLightCurveColors = {
 
 const Archive = () => {
   const dispatch = useDispatch();
-  const classes = useStyles();
+  const { classes } = useStyles();
   const theme = useTheme();
   const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
 
@@ -212,7 +212,7 @@ const Archive = () => {
   const userGroupIds = useSelector((state) =>
     state.groups.userAccessible?.map((a) => a.id),
   );
-  const catalogNames = useSelector((state) => state.catalog_names);
+  const catalogNames = useSelector((state) => state.kowalski_catalog_names);
   const { lightCurves: ztf_light_curves, queryInProgress } = useSelector(
     (state) => state.ztf_light_curves,
   );

@@ -71,6 +71,11 @@ class KowalskiFilterHandler(BaseHandler):
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
 
+        try:
+            filter_id = int(filter_id)
+        except ValueError:
+            return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
+
         with self.Session() as session:
             stmt = Filter.select(session.user_or_token).where(
                 Filter.id == int(filter_id)
@@ -131,6 +136,11 @@ class KowalskiFilterHandler(BaseHandler):
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
 
+        try:
+            filter_id = int(filter_id)
+        except ValueError:
+            return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
+
         data = self.get_json()
         pipeline = data.get("pipeline", None)
         if pipeline is None:
@@ -150,8 +160,8 @@ class KowalskiFilterHandler(BaseHandler):
                 Stream.id == int(f.stream_id)
             )
             stream = session.scalars(stmt).first()
-            if f is None:
-                return self.error(f"No stream with ID: {filter_id}")
+            if stream is None:
+                return self.error(f"No stream with ID: {f.stream_id}")
 
             post_data = {
                 "group_id": group_id,
@@ -247,6 +257,11 @@ class KowalskiFilterHandler(BaseHandler):
         """
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
+
+        try:
+            filter_id = int(filter_id)
+        except ValueError:
+            return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
 
         data = self.get_json()
         active = data.get("active", None)
@@ -487,6 +502,11 @@ class KowalskiFilterHandler(BaseHandler):
         """
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
+
+        try:
+            filter_id = int(filter_id)
+        except ValueError:
+            return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
 
         with self.Session() as session:
             stmt = Filter.select(session.user_or_token).where(

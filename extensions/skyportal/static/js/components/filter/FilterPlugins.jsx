@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import PropTypes from "prop-types";
 import { useDispatch, useSelector } from "react-redux";
 import Paper from "@mui/material/Paper";
-import makeStyles from "@mui/styles/makeStyles";
+import { makeStyles } from "tss-react/mui";
 import CircularProgress from "@mui/material/CircularProgress";
 
 import * as kowalskiFilterActions from "../../ducks/kowalski_filter";
@@ -12,7 +12,7 @@ import * as filterActions from "../../ducks/filter";
 import BoomFilterPlugins from "./boom/BoomFilterPlugins";
 import KowalskiFilterPlugins from "./kowalski/KowalskiFilterPlugins";
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles()((theme) => ({
   paperDiv: {
     padding: "1rem",
     height: "100%",
@@ -20,7 +20,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const FilterPlugins = ({ group }) => {
-  const classes = useStyles();
+  const { classes } = useStyles();
   const dispatch = useDispatch();
 
   const { fid } = useParams();

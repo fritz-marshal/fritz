@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import sqlalchemy as sa
 from astropy.io import fits
-from astropy.time import Time
 from astropy.visualization import (
     AsinhStretch,
     AsymmetricPercentileInterval,
@@ -515,9 +514,11 @@ def post_alert(
                 ztf_program_id_to_stream_id[3] = stream.id
 
         df["stream_ids"] = df["programid"].apply(
-            lambda x: ztf_program_id_to_stream_id[x]
-            if x in ztf_program_id_to_stream_id
-            else None
+            lambda x: (
+                ztf_program_id_to_stream_id[x]
+                if x in ztf_program_id_to_stream_id
+                else None
+            )
         )
 
         # remove the datapoints where the stream_id is not defined
@@ -1102,6 +1103,10 @@ class AlertHandler(BaseHandler):
               application/json:
                 schema: Error
         """
+        try:
+            objectId = str(objectId)
+        except Exception as e:
+            return self.error(f"Invalid objectId: {str(e)}. Must be a string.")
 
         data = self.get_json()
         candid = data.get("candid", None)

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
 import Paper from "@mui/material/Paper";
 import { useTheme } from "@mui/material/styles";
-import makeStyles from "@mui/styles/makeStyles";
+import { makeStyles } from "tss-react/mui";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -46,7 +46,7 @@ import * as filterVersionActions from "../../../ducks/kowalski_filter";
 import * as allocationActions from "../../../ducks/allocations";
 import * as instrumentsActions from "../../../ducks/instruments";
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles()((theme) => ({
   pre: {
     lineHeight: 8,
   },
@@ -120,7 +120,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const KowalskiFilterPlugins = ({ group }) => {
-  const classes = useStyles();
+  const { classes } = useStyles();
   const dispatch = useDispatch();
   const { register, handleSubmit, setValue, control } = useForm();
 

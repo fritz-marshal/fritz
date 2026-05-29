@@ -1,5 +1,4 @@
 from baselayer.app.env import load_env
-
 from skyportal.tests import api
 
 _, cfg = load_env()
