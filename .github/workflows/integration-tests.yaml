@@ -1,0 +1,449 @@
+name: Integration tests (fritz + boom)
+
+# Runs on every PR and on push to main / the kowalski-to-boom migration
+# branch. The boom service bring-up has open TODOs (see steps below);
+# expect failures until those are resolved by iterating in CI.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - from-kowalski-to-boom
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout fritz
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Checkout boom (sibling working dir)
+        uses: actions/checkout@v6
+        with:
+          repository: boom-astro/boom
+          ref: main
+          path: boom
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install fritz Python deps
+        run: |
+          uv sync --inexact
+          ./fritz develop
+
+      # SkyPortal's conftest triggers a fresh ~128 MiB SFD dustmap download
+      # at pytest-collect time. Cache it on the runner; we'll inject the
+      # files into the container after fritz boots.
+      - name: Cache SFD dustmap
+        uses: actions/cache@v5
+        with:
+          path: persistentdata/dustmap/sfd
+          key: ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
+            ${{ runner.os }}-dustmap-
+
+      # ── Networks ───────────────────────────────────────────────────────
+      # fritz_net is the network fritz creates for skyportal-web-1.
+      # traefik-public is declared as `external: true` in boom's compose
+      # (used by traefik labels even when no traefik proxy runs in CI),
+      # so it must exist before `docker compose up`.
+      - name: Create shared docker networks
+        run: |
+          docker network create fritz_net || true
+          docker network create traefik-public || true
+
+      # ── Boom stack ─────────────────────────────────────────────────────
+      # With `-p boom` and service name `api`, container becomes
+      # `boom-api-1`, which is what fritz.defaults.yaml's boom.host expects.
+      # --profile prod selects the prebuilt-image variant rather than the
+      # cargo-watch dev container (faster, no rebuild on file changes).
+      # The Rust image is built from source via the compose `build:` block;
+      # boom does not publish a tagged image to ghcr yet.
+      #
+      # Boom's compose only exposes BOOM_API__AUTH__SECRET_KEY to the api
+      # service, but the shared config.yaml that all boom services parse
+      # requires it. Without an override, consumer-ztf and scheduler-ztf
+      # crash with "API secret key must be set" before they can consume
+      # produced alerts. The override file below propagates the env var
+      # to those services so the kafka pipeline works end-to-end.
+      - name: Write boom CI compose override
+        working-directory: boom
+        run: |
+          cat > docker-compose.ci.yaml <<'EOF'
+          services:
+            api:
+              environment:
+                # Filter-activation validation must point at a date our
+                # seed dataset actually contains, and we relax the match-
+                # rate cap so the test filter doesn't get rejected for
+                # matching too many alerts in a small (~100-alert) seed.
+                BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "${BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT}"
+                BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "${BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE}"
+            consumer-ztf:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                # Default config has localhost:9092 which doesn't resolve
+                # inside the container. Point at the broker hostname.
+                BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
+              # Pin the consumer to the same date our seed step uses, so
+              # it subscribes to ztf_20240617_programid1 instead of the
+              # auto-derived ztf_<today>_programid1.
+              command:
+                - /app/kafka_consumer
+                - ztf
+                - "20240617"
+            scheduler-ztf:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "${BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT}"
+                BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "${BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE}"
+            consumer-lsst:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+            scheduler-lsst:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+          EOF
+
+      - name: Bring up boom stack
+        working-directory: boom
+        env:
+          # Required by the api service.
+          BOOM_DATABASE__USERNAME: mongoadmin
+          BOOM_DATABASE__PASSWORD: mongoadminsecret
+          BOOM_API__AUTH__SECRET_KEY: ci-integration-test-secret-key-padded-to-32chars
+          BOOM_API__AUTH__ADMIN_PASSWORD: adminsecret
+          STACK_NAME: boom
+          DOMAIN: localhost
+          # Required only by services we don't need for these tests
+          # (prometheus, grafana, kafka admin, LSST consumer), but the
+          # compose file parses them regardless of `--profile`.
+          PROMETHEUS_USER: ci
+          PROMETHEUS_HASHED_PASSWORD: "$2y$10$dummyhashvalueforpromauthonly00000000000000000000000000"
+          GRAFANA_ADMIN_PASSWORD: ci-grafana
+          KAFKA_ADMIN_PASSWORD: ci-kafka-admin
+          KAFKA_READONLY_PASSWORD: ci-kafka-readonly
+          BOOM_KAFKA__CONSUMER__ZTF__GROUP_ID: boom-ztf-consumer-group
+          BOOM_KAFKA__CONSUMER__LSST__GROUP_ID: boom-lsst-consumer-group
+          BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
+          BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
+          # Filter activation validation: boom's default reference_night is
+          # 2026-03-16, but our seed dataset is 2024-06-17. Without this
+          # override, POST /filters returns 400 because no alerts exist on
+          # the reference night.
+          BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "2024-06-17"
+          # Allow up to 100% match rate so the validation test passes even
+          # if our filter matches every seeded alert.
+          BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "100"
+        run: |
+          docker compose -p boom \
+            -f docker-compose.yaml \
+            -f docker-compose.ci.yaml \
+            --profile prod up -d --build
+
+      # Boom's api + mongo services are on boom's internal network, not
+      # fritz_net. Connect them so skyportal-web-1 can resolve `boom-api-1`
+      # by hostname (used by all BOOM handlers) and `mongo` (used by the
+      # filter_modules handler — see fritz.defaults.yaml boom.filter_modules).
+      - name: Attach boom-api + mongo to fritz_net
+        run: |
+          docker network connect fritz_net boom-api-1
+          docker network connect --alias mongo fritz_net boom-mongo-1
+
+      - name: Wait for boom-api to be reachable
+        run: |
+          for i in $(seq 1 60); do
+            if docker run --rm --network fritz_net curlimages/curl:latest \
+                -fsS http://boom-api-1:4000/ >/dev/null 2>&1; then
+              echo "boom-api ready"
+              exit 0
+            fi
+            echo "waiting for boom-api ($i/60)..."
+            sleep 5
+          done
+          echo "boom-api never became reachable"
+          (cd boom && docker compose -p boom logs --tail=200) || true
+          exit 1
+
+      # ── Seed BOOM with ZTF test alerts ─────────────────────────────────
+      # boom's prebuilt image ships /app/kafka_producer; running it inside
+      # an existing service container avoids needing a Rust toolchain on
+      # the runner. The ZTF public archive at 20240617 has ~710 alerts;
+      # we cap at 100 to keep the seed step fast (~30s).
+      #
+      # consumer-ztf then pulls them off the kafka topic into mongo. We
+      # poll boom-mongo's ZTF_alerts collection until it's non-empty.
+      - name: Seed BOOM kafka with ZTF alerts
+        working-directory: boom
+        run: |
+          docker compose -p boom exec -T scheduler-ztf \
+            /app/kafka_producer ztf 20240617 public \
+              --limit 100 \
+              --server-url broker:29092
+
+      - name: Wait for BOOM mongo to ingest alerts
+        run: |
+          for i in $(seq 1 60); do
+            count=$(docker exec -i boom-mongo-1 mongosh --quiet \
+              --username mongoadmin \
+              --password mongoadminsecret \
+              --authenticationDatabase admin \
+              --eval 'db.getSiblingDB("boom").ZTF_alerts.countDocuments({})' \
+              2>/dev/null || echo 0)
+            if [ "$count" -gt 0 ] 2>/dev/null; then
+              echo "BOOM mongo has $count ZTF_alerts; seed complete"
+              exit 0
+            fi
+            echo "waiting for consumer-ztf to ingest ($i/60, count=$count)..."
+            sleep 5
+          done
+          echo "BOOM never ingested alerts"
+          (cd boom && docker compose -p boom logs --tail=200 consumer-ztf) || true
+          exit 1
+
+      # ── Fritz / SkyPortal stack ────────────────────────────────────────
+      # boom_seed_oid_capture is exported here for later steps. The seed
+      # OID/candid get written into a file inside the skyportal container
+      # once it's up, so the conftest probe can discover what's actually
+      # there (the 20240617 ZTF public archive doesn't contain the hard-
+      # coded ZTF20aaelulu we'd normally use).
+      # Insert a fake reference catalog so the cross_match endpoint has
+      # something to search against. BOOM's get_catalogs treats every
+      # non-system mongo collection as a catalog, so just inserting docs
+      # in a non-survey-prefixed collection is enough. The cone_search
+      # query expects coordinates.radec_geojson as a GeoJSON Point with
+      # longitude shifted by -180 (see boom/api/routes/queries/cone_search.rs).
+      # Sources are placed in a small box around (RA=0, Dec=80) so the
+      # cross_match test's hard-coded probe position finds matches.
+      # Must run BEFORE fritz starts: skyportal's archive.py caches the
+      # catalog list at module-load time with a 1-hour TTL.
+      - name: Seed BOOM with fake reference catalog
+        run: |
+          docker exec -i boom-mongo-1 mongosh --quiet \
+            --username mongoadmin \
+            --password mongoadminsecret \
+            --authenticationDatabase admin \
+            --eval '
+              const boom = db.getSiblingDB("boom");
+              boom.test_catalog.drop();
+              const docs = [];
+              for (let i = 0; i < 1000; i++) {
+                const ra = Math.random() * 0.01;
+                const dec = 80 + (Math.random() - 0.5) * 0.01;
+                docs.push({
+                  _id: i,
+                  name: `fake_source_${i}`,
+                  ra: ra,
+                  dec: dec,
+                  coordinates: {
+                    radec_geojson: {
+                      type: "Point",
+                      coordinates: [ra - 180, dec],
+                    },
+                  },
+                });
+              }
+              boom.test_catalog.insertMany(docs);
+              boom.test_catalog.createIndex({"coordinates.radec_geojson": "2dsphere"});
+              print("test_catalog seeded with " + boom.test_catalog.countDocuments({}) + " docs");
+            '
+
+      - name: Capture BOOM seed OID + candid + position
+        id: boom_seed
+        run: |
+          # BOOM stores candid as the document's _id; `candid` as a
+          # top-level field is undefined. Use _id as the canonical candid.
+          seed_json=$(docker exec -i boom-mongo-1 mongosh --quiet \
+            --username mongoadmin \
+            --password mongoadminsecret \
+            --authenticationDatabase admin \
+            --eval '
+              const a = db.getSiblingDB("boom").ZTF_alerts.findOne(
+                {}, {_id: 1, objectId: 1, "candidate.ra": 1, "candidate.dec": 1}
+              );
+              if (!a) { print(""); } else {
+                print(JSON.stringify({
+                  objectId: a.objectId,
+                  candid: String(a._id),
+                  ra: a.candidate ? a.candidate.ra : null,
+                  dec: a.candidate ? a.candidate.dec : null,
+                }));
+              }
+            ' 2>/dev/null | tail -n 1)
+          echo "Captured: $seed_json"
+          if [ -z "$seed_json" ]; then
+            echo "No alert found in mongo despite count > 0; aborting"
+            exit 1
+          fi
+          echo "seed_json=$seed_json" >> "$GITHUB_OUTPUT"
+
+      - name: Build fritz image
+        run: |
+          cp fritz.defaults.yaml fritz.yaml
+          ./fritz build
+
+      - name: Start fritz stack
+        run: ./fritz run
+
+      - name: Wait for SkyPortal app
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec -i skyportal-web-1 ps -ef | grep -q "app.py"; then
+              echo "skyportal app ready"
+              exit 0
+            fi
+            echo "waiting for skyportal app ($i/60)..."
+            sleep 10
+          done
+          echo "skyportal never came up"
+          docker logs skyportal-web-1 --tail=200
+          exit 1
+
+      # The skyportal-web-1 container starts the app via supervisor but
+      # does NOT initialize the database schema or load seed data. Without
+      # this step, the `users` table doesn't exist and skyportal's
+      # tests/conftest.py:75 fails at import time with UndefinedTable.
+      #
+      # `db_create_tables` runs skyportal/initial_setup.py which uses
+      # SQLAlchemy's Base.metadata.create_all() to materialize the *current*
+      # schema directly. We deliberately do NOT run `alembic upgrade head`
+      # afterward — that would replay migrations from zero and collide on
+      # columns create_all already produced (e.g. photometry.owner_id).
+      # Skipping `alembic stamp head` as well: tests don't query the
+      # alembic_version table; invoking alembic outside `make` doesn't
+      # pick up the docker-network DB host (defaults to 127.0.0.1).
+      #
+      # load_seed_data reads data/db_seed.yaml which fritz bind-mounts
+      # as db_fritz.yaml (users, streams with ZTF_alerts altdata, groups).
+      - name: Create SkyPortal schema
+        run: |
+          docker exec -i skyportal-web-1 /bin/bash -c "
+            source .venv/bin/activate && make db_create_tables
+          "
+
+      # The app started before the schema existed, so its first call to
+      # provision_token() failed and `.tokens.yaml` was never written —
+      # which leaves the seed loader (tools/data_loader.py) spinning on a
+      # missing token. Rather than restarting the whole container (which
+      # also tickles a flaky sncosmo bandpass-download path in gcn_service
+      # imports), we call provision_token() directly here. It only touches
+      # baselayer + skyportal.model_util, avoiding the photometry import
+      # that pulls in sncosmo entirely.
+      - name: Provision admin token (.tokens.yaml)
+        run: |
+          # load_env() parses --config from sys.argv, which is empty
+          # under `python -c`, so only the defaults get merged in (no
+          # config.yaml) and the DB host stays at localhost. Calling
+          # load_config directly with explicit config_files bypasses the
+          # argparse path. Same flow `app_server.py` runs at startup.
+          docker exec -i skyportal-web-1 /skyportal/.venv/bin/python -c 'from baselayer.app.config import load_config; from skyportal.models import init_db, DBSession; from skyportal.model_util import provision_token; cfg = load_config(config_files=["config.yaml"]); init_db(**cfg["database"]); t = provision_token(); DBSession().commit(); open("/skyportal/.tokens.yaml", "w").write(f"INITIAL_ADMIN: {t.id}\n"); print("Provisioned admin token:", t.id)'
+          docker exec -i skyportal-web-1 cat /skyportal/.tokens.yaml
+
+      - name: Seed SkyPortal database
+        run: |
+          docker exec -i skyportal-web-1 /bin/bash -c "
+            source .venv/bin/activate && make load_seed_data
+          "
+
+      # Write the BOOM seed OID/candid (discovered earlier from boom-mongo)
+      # into a file the conftest can read. Conftest uses this to gate
+      # `requires_boom_data` tests and as the OID/candid for happy-path
+      # tests, since the ZTF public 20240617 archive doesn't contain our
+      # legacy hardcoded ZTF20aaelulu.
+      #
+      # We write to /tmp rather than /skyportal/persistentdata because
+      # the latter's root directory is root-owned (only its subdirs are
+      # chowned to the skyportal user by the Dockerfile).
+      - name: Inject BOOM seed reference into container
+        run: |
+          docker exec -i skyportal-web-1 /bin/bash -c \
+            "cat > /tmp/boom_seed.json" \
+            <<< '${{ steps.boom_seed.outputs.seed_json }}'
+          docker exec -i skyportal-web-1 cat /tmp/boom_seed.json
+
+      # Inject the cached SFD dustmap into the container so the dustmap
+      # auto-downloader at conftest-collect time finds it and skips the
+      # ~128 MiB fetch. Best-effort — if no cache hit, the in-container
+      # download still works, just slower.
+      - name: Seed dustmap inside container
+        run: |
+          if [ -d persistentdata/dustmap/sfd ] && [ -n "$(ls -A persistentdata/dustmap/sfd 2>/dev/null)" ]; then
+            docker exec -i skyportal-web-1 mkdir -p /skyportal/persistentdata/dustmap/sfd
+            docker cp persistentdata/dustmap/sfd/. skyportal-web-1:/skyportal/persistentdata/dustmap/sfd
+            echo "dustmap files copied into container:"
+            docker exec -i skyportal-web-1 ls -lh /skyportal/persistentdata/dustmap/sfd
+          else
+            echo "no cached dustmap on host; container will download fresh"
+          fi
+
+      # ── Tests ──────────────────────────────────────────────────────────
+      # Split mirrors skyportal's CI structure: one job, multiple pytest
+      # invocations against slices of the test tree. Sharing the stack
+      # build across the steps; failures in one don't mask the other.
+      - name: Run API tests
+        run: ./fritz test api
+
+      # The container runs as the `skyportal` user (Dockerfile line 75);
+      # apt requires root. Install Firefox here via a dedicated root exec
+      # so the launcher itself can stay user-mode.
+      - name: Install Firefox in container (for frontend tests)
+        if: always()
+        run: |
+          docker exec -i -u root skyportal-web-1 /bin/bash -c "
+            command -v firefox >/dev/null 2>&1 || (
+              apt-get update >/dev/null &&
+              apt-get install -y --no-install-recommends firefox-esr >/dev/null
+            )
+          "
+
+      - name: Run frontend tests
+        if: always()
+        run: ./fritz test frontend
+
+      # Pull the dustmap back out for the cache action on success.
+      - name: Persist dustmap from container
+        if: success() || failure()
+        run: |
+          docker exec -i skyportal-web-1 bash -c '[ -d /skyportal/persistentdata/dustmap/sfd ]' || exit 0
+          mkdir -p persistentdata/dustmap/sfd
+          docker cp skyportal-web-1:/skyportal/persistentdata/dustmap/sfd/. persistentdata/dustmap/sfd
+
+      # ── Diagnostics on failure ─────────────────────────────────────────
+      - name: Dump skyportal logs on failure
+        if: failure()
+        run: |
+          docker logs skyportal-web-1 --tail=500 || true
+
+      - name: Dump boom logs on failure
+        if: failure()
+        working-directory: boom
+        run: |
+          docker compose -p boom logs --tail=500 || true

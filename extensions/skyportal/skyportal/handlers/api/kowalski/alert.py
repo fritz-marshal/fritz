@@ -514,9 +514,11 @@ def post_alert(
                 ztf_program_id_to_stream_id[3] = stream.id
 
         df["stream_ids"] = df["programid"].apply(
-            lambda x: ztf_program_id_to_stream_id[x]
-            if x in ztf_program_id_to_stream_id
-            else None
+            lambda x: (
+                ztf_program_id_to_stream_id[x]
+                if x in ztf_program_id_to_stream_id
+                else None
+            )
         )
 
         # remove the datapoints where the stream_id is not defined

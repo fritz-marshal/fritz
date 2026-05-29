@@ -7,10 +7,27 @@ import yaml
 
 from launcher.skyportal import api as skyportal_api
 
+_SCOPE_TO_SUBDIRS = {
+    "api": ["api/boom"],
+    "frontend": ["frontend/boom"],
+    "all": ["api/boom", "frontend/boom"],
+}
 
-def test():
-    """Run the test suite"""
-    print("Running integration testing...")
+
+def test(scope: str = "all"):
+    """Run the integration test suite.
+
+    scope: which test slice to run.
+        api      → just BOOM API tests (no browser/Firefox needed)
+        frontend → just BOOM frontend tests (requires Firefox)
+        all      → both (default)
+    """
+    if scope not in _SCOPE_TO_SUBDIRS:
+        print(f"Unknown test scope '{scope}'. Choose: {list(_SCOPE_TO_SUBDIRS)}")
+        sys.exit(2)
+    boom_subdirs = _SCOPE_TO_SUBDIRS[scope]
+
+    print(f"Running integration testing (scope={scope})...")
 
     # load config
     with open("fritz.yaml") as fritz_config_yaml:
@@ -84,29 +101,94 @@ def test():
     except subprocess.CalledProcessError:
         sys.exit(1)
 
-    api_tests = [
-        test_file.name
-        for test_file in Path("extensions/skyportal/skyportal/tests/api").glob(
-            "test_*.py"
+    # Discover fritz-specific BOOM test files on the host, then translate
+    # the paths to where they land inside the container.
+    #
+    # We deliberately scope to the boom/ subdirs (api and frontend) rather
+    # than rglob'ing the whole tests/ tree. The legacy api/test_alerts.py,
+    # test_archive.py, test_kowalski_filters.py and
+    # api_tests/.../test_filters.py all fail with
+    # `TypeError: 'module' object is not callable` because of a name
+    # collision: skyportal/tests/__init__.py defines an `api()` function,
+    # and `skyportal/tests/api/` is a subpackage. Once the subpackage is
+    # imported during test collection, the function is rebound to the
+    # package. The boom tests live deeper (tests/api/boom/) and resolve
+    # correctly via import order; the sibling-level legacy tests do not.
+    # Fixing the collision belongs in skyportal proper.
+    host_tests = Path("extensions/skyportal/skyportal/tests")
+    container_tests = Path("skyportal/tests")
+    test_files: list[Path] = []
+    for subdir in boom_subdirs:
+        host_root = host_tests / subdir
+        if host_root.exists():
+            test_files.extend(sorted(host_root.rglob("test_*.py")))
+    if not test_files:
+        print(
+            f"No test files found under {[str(host_tests / d) for d in boom_subdirs]}"
         )
+        sys.exit(1)
+    container_paths = [
+        str(container_tests / f.relative_to(host_tests)) for f in test_files
     ]
 
-    error = False
-    for api_test in api_tests:
-        command = [
-            "docker",
-            "exec",
-            "-i",
-            "skyportal-web-1",
-            "/bin/bash",
-            "-c",
-            "source .venv/bin/activate &&"
-            f"python -m pytest -s skyportal/tests/api/{api_test}",
-        ]
-        try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            error = True
-            continue
-    if error:
+    # The skyportal container is built with ENV UV_NO_DEV=1, so test-only
+    # deps (selenium, pytest plugins) are absent and `uv sync --group dev`
+    # is silently a no-op. SkyPortal's tests/conftest.py imports
+    # tests.fixtures -> tests.test_util -> selenium at module load, so we
+    # install the missing pins directly. Versions match skyportal's
+    # pyproject.toml dev group at the pinned submodule SHA.
+    test_deps = "selenium==4.38.0 selenium-requests==2.0.4 pytest-rerunfailures pytest-randomly==4.0.1 webdriver-manager"
+
+    # skyportal/tests/conftest.py also hard-fails if `geckodriver` is not
+    # on PATH (it's used by the selenium driver fixture). None of our API
+    # tests touch the browser, but the check fires at import time. The
+    # container has neither wget nor curl, so we download via Python's
+    # urllib (always present alongside the venv interpreter).
+    geckodriver_url = (
+        "https://github.com/mozilla/geckodriver/releases/download/"
+        "v0.36.0/geckodriver-v0.36.0-linux64.tar.gz"
+    )
+    geckodriver_install = (
+        "command -v geckodriver >/dev/null 2>&1 || ("
+        "mkdir -p /skyportal/.venv/bin && cd /tmp && "
+        f"python -c \"import urllib.request; urllib.request.urlretrieve('{geckodriver_url}', '/tmp/geckodriver.tar.gz')\" "
+        "&& tar xzf /tmp/geckodriver.tar.gz "
+        "&& mv geckodriver /skyportal/.venv/bin/geckodriver "
+        "&& rm /tmp/geckodriver.tar.gz)"
+    )
+
+    # Firefox is only needed for frontend tests (driver fixture in
+    # skyportal/tests/test_util.py). We don't install it here because apt
+    # requires root and the container runs as the `skyportal` user;
+    # callers (CI workflow) install it via a root-mode `docker exec`
+    # before invoking `./fritz test frontend`. FRONTEND_TEST_HEADLESS=1
+    # tells the driver fixture to pass `-headless` to FirefoxOptions,
+    # since the CI container has no display.
+    needs_firefox = "frontend/boom" in boom_subdirs
+    firefox_check = (
+        "command -v firefox >/dev/null 2>&1 || "
+        "(echo 'firefox not installed; cannot run frontend tests' >&2 && exit 1)"
+    )
+
+    docker_exec_args = ["docker", "exec", "-i"]
+    if needs_firefox:
+        docker_exec_args.extend(["-e", "FRONTEND_TEST_HEADLESS=1"])
+
+    pre_pytest = (
+        f"source .venv/bin/activate && "
+        f"uv pip install --quiet {test_deps} && "
+        f"{geckodriver_install}"
+    )
+    if needs_firefox:
+        pre_pytest += f" && {firefox_check}"
+
+    command = docker_exec_args + [
+        "skyportal-web-1",
+        "/bin/bash",
+        "-c",
+        f"{pre_pytest} && python -m pytest -v -s {' '.join(container_paths)}",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
         sys.exit(1)

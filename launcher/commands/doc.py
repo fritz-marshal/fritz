@@ -80,7 +80,6 @@ def doc(yes: bool = False, upload: bool = False):
     env.update({"PYTHONPATH": "."})
 
     from baselayer.app.app_server import handlers as baselayer_handlers
-
     from skyportal import openapi
     from skyportal.app_server import skyportal_handlers
     from skyportal.app_server_fritz import fritz_handlers
