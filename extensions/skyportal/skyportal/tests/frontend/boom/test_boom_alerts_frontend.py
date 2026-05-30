@@ -18,6 +18,7 @@ bare `element.click()` trips on.
 import time
 
 import pytest
+from selenium.common.exceptions import StaleElementReferenceException
 
 from skyportal.tests import api
 
@@ -109,9 +110,23 @@ def test_save_alert_as_source(driver, boom_seed_oid, public_group, super_admin_t
     ensures there is at least one selectable group in the dialog.
     """
     driver.get(f"/alerts/ZTF/{boom_seed_oid}")
-    driver.click_xpath(
-        f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']", timeout=30
-    )
+    # Let the detail page settle before interacting. It re-renders several
+    # times as photometry/cutouts load asynchronously, and
+    # wait_for_xpath_to_be_clickable can capture the save button mid-render
+    # and then raise StaleElementReferenceException when the re-check finds
+    # it detached. Waiting for the OID landmark (as test_alert_detail_page
+    # _loads does) lets the initial data-load churn finish; the retry loop
+    # absorbs any residual staleness.
+    driver.wait_for_xpath(f"//*[contains(text(),'{boom_seed_oid}')]", 30)
+    save_button_xpath = f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']"
+    for attempt in range(3):
+        try:
+            driver.click_xpath(save_button_xpath, timeout=30)
+            break
+        except StaleElementReferenceException:
+            if attempt == 2:
+                raise
+            time.sleep(1)
     # Dialog title (SaveAlertButton.jsx:206).
     driver.wait_for_xpath("//*[contains(text(),'Select one or more groups')]", 10)
     # Click the group's label text rather than the raw checkbox input.
