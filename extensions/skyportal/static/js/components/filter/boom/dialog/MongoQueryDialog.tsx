@@ -1001,89 +1001,104 @@ const MongoQueryDialog = () => {
                                 >
                                   {Object.entries(row)
                                     .filter(([key]) => key !== "_id")
-                                    .map(([key, value]: any, cellIndex: number) => {
-                                      const cellKey = `${rowIndex}-${cellIndex}`;
-                                      const isJsonExpanded =
-                                        expandedCells.has(cellKey);
-                                      const hasJsonContent =
-                                        typeof value === "object";
-                                      const isObjectId =
-                                        key === "objectId" &&
-                                        typeof value === "string";
+                                    .map(
+                                      (
+                                        [key, value]: any,
+                                        cellIndex: number,
+                                      ) => {
+                                        const cellKey = `${rowIndex}-${cellIndex}`;
+                                        const isJsonExpanded =
+                                          expandedCells.has(cellKey);
+                                        const hasJsonContent =
+                                          typeof value === "object";
+                                        const isObjectId =
+                                          key === "objectId" &&
+                                          typeof value === "string";
 
-                                      return (
-                                        <TableCell
-                                          key={cellIndex}
-                                          sx={{
-                                            verticalAlign: "top",
-                                            minWidth: hasJsonContent
-                                              ? isJsonExpanded
-                                                ? 300
-                                                : 150
-                                              : 100,
-                                            maxWidth: hasJsonContent
-                                              ? isJsonExpanded
-                                                ? 600
-                                                : 300
-                                              : 200,
-                                            width: hasJsonContent
-                                              ? isJsonExpanded
-                                                ? "auto"
-                                                : "auto"
-                                              : "auto",
-                                            padding: 1,
-                                            borderRight: "1px solid",
-                                            borderColor: "divider",
-                                            transition: "all 0.3s ease",
-                                            overflow: "visible",
-                                            height: "auto",
-                                            minHeight: "fit-content",
-                                          }}
-                                        >
-                                          {hasJsonContent ? (
-                                            <Box
-                                              sx={{
-                                                minWidth: isJsonExpanded
-                                                  ? 250
-                                                  : 150,
-                                                maxWidth: isJsonExpanded
-                                                  ? 550
-                                                  : 350,
-                                                width: "100%",
-                                                minHeight: "fit-content",
-                                                height: "auto",
-                                                overflow: "visible",
-                                                "& .react-json-view": {
-                                                  height: "auto !important",
+                                        return (
+                                          <TableCell
+                                            key={cellIndex}
+                                            sx={{
+                                              verticalAlign: "top",
+                                              minWidth: hasJsonContent
+                                                ? isJsonExpanded
+                                                  ? 300
+                                                  : 150
+                                                : 100,
+                                              maxWidth: hasJsonContent
+                                                ? isJsonExpanded
+                                                  ? 600
+                                                  : 300
+                                                : 200,
+                                              width: hasJsonContent
+                                                ? isJsonExpanded
+                                                  ? "auto"
+                                                  : "auto"
+                                                : "auto",
+                                              padding: 1,
+                                              borderRight: "1px solid",
+                                              borderColor: "divider",
+                                              transition: "all 0.3s ease",
+                                              overflow: "visible",
+                                              height: "auto",
+                                              minHeight: "fit-content",
+                                            }}
+                                          >
+                                            {hasJsonContent ? (
+                                              <Box
+                                                sx={{
+                                                  minWidth: isJsonExpanded
+                                                    ? 250
+                                                    : 150,
+                                                  maxWidth: isJsonExpanded
+                                                    ? 550
+                                                    : 350,
+                                                  width: "100%",
                                                   minHeight: "fit-content",
-                                                },
-                                              }}
-                                            >
-                                              <ReactJson
-                                                src={value}
-                                                name={false}
-                                                collapsed={
-                                                  key === "annotations"
-                                                    ? false
-                                                    : !isJsonExpanded
-                                                }
-                                                displayDataTypes={false}
-                                                displayObjectSize={false}
-                                                enableClipboard={false}
-                                                style={{
                                                   height: "auto",
-                                                  minHeight: "fit-content",
-                                                  lineHeight: "1.4",
-                                                  fontSize: "12px",
+                                                  overflow: "visible",
+                                                  "& .react-json-view": {
+                                                    height: "auto !important",
+                                                    minHeight: "fit-content",
+                                                  },
                                                 }}
-                                              />
-                                            </Box>
-                                          ) : isObjectId ? (
-                                            <Link
-                                              href={`https://babamul.caltech.edu/objects/${filter_stream.toUpperCase()}/${value}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                            >
+                                              >
+                                                <ReactJson
+                                                  src={value}
+                                                  name={false}
+                                                  collapsed={
+                                                    key === "annotations"
+                                                      ? false
+                                                      : !isJsonExpanded
+                                                  }
+                                                  displayDataTypes={false}
+                                                  displayObjectSize={false}
+                                                  enableClipboard={false}
+                                                  style={{
+                                                    height: "auto",
+                                                    minHeight: "fit-content",
+                                                    lineHeight: "1.4",
+                                                    fontSize: "12px",
+                                                  }}
+                                                />
+                                              </Box>
+                                            ) : isObjectId ? (
+                                              <Link
+                                                href={`https://babamul.caltech.edu/objects/${filter_stream.toUpperCase()}/${value}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <Typography
+                                                  variant="body2"
+                                                  sx={{
+                                                    fontFamily: "monospace",
+                                                    wordBreak: "break-word",
+                                                  }}
+                                                >
+                                                  {String(value)}
+                                                </Typography>
+                                              </Link>
+                                            ) : (
                                               <Typography
                                                 variant="body2"
                                                 sx={{
@@ -1093,21 +1108,11 @@ const MongoQueryDialog = () => {
                                               >
                                                 {String(value)}
                                               </Typography>
-                                            </Link>
-                                          ) : (
-                                            <Typography
-                                              variant="body2"
-                                              sx={{
-                                                fontFamily: "monospace",
-                                                wordBreak: "break-word",
-                                              }}
-                                            >
-                                              {String(value)}
-                                            </Typography>
-                                          )}
-                                        </TableCell>
-                                      );
-                                    })}
+                                            )}
+                                          </TableCell>
+                                        );
+                                      },
+                                    )}
                                 </TableRow>
                               ))}
                           </TableBody>

@@ -163,7 +163,10 @@ const Filter = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid {...({ item: true, sm: 12, md: 12 } as any)} sx={{ overflow: "visible" }}>
+        <Grid
+          {...({ item: true, sm: 12, md: 12 } as any)}
+          sx={{ overflow: "visible" }}
+        >
           {group && <FilterPlugins group={group} />}
         </Grid>
       </Grid>

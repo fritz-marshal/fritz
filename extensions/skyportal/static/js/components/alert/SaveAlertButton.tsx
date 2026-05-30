@@ -41,7 +41,9 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
   ).filter((g: any) => !g.single_user_group);
 
   const currentGroupIds =
-    source?.id === alert.id ? (source?.groups?.map((g: any) => g.id) ?? []) : [];
+    source?.id === alert.id
+      ? (source?.groups?.map((g: any) => g.id) ?? [])
+      : [];
   const unsavedGroups = groups?.filter(
     (g: any) => !currentGroupIds.includes(g.id),
   );
@@ -195,7 +197,9 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
                   {options.map((option, index) => (
                     <MenuItem
                       key={option}
-                      {...({ name: `buttonMenuOption${alert.id}_${option}` } as any)}
+                      {...({
+                        name: `buttonMenuOption${alert.id}_${option}`,
+                      } as any)}
                       selected={index === selectedIndex}
                       onClick={(event) => handleMenuItemClick(event, index)}
                     >

@@ -227,8 +227,7 @@ const Archive = () => {
   } = useForm();
   const { handleSubmit: handleSubmitForm } = useForm();
 
-  const [catalogNamesLoadError, setCatalogNamesLoadError] =
-    React.useState("");
+  const [catalogNamesLoadError, setCatalogNamesLoadError] = React.useState("");
   const [catalogOptions, setCatalogOptions] = React.useState<any[]>([]);
   const [selectedCatalog, setSelectedCatalog] = useState<any>();
 
@@ -371,20 +370,20 @@ const Archive = () => {
           ),
         );
       }
-      dispatch(archiveActions.fetchZTFLightCurves({ lc_id, catalog } as any)).then(
-        (response: any) => {
-          if (response.status === "error") {
-            dispatch(showNotification(response.message, "error"));
-          } else if (response?.data?.length === 1) {
-            dispatch(
-              archiveActions.fetchNearestSources({
-                ra: response.data[0]?.ra,
-                dec: response.data[0]?.dec,
-              }),
-            );
-          }
-        },
-      );
+      dispatch(
+        archiveActions.fetchZTFLightCurves({ lc_id, catalog } as any),
+      ).then((response: any) => {
+        if (response.status === "error") {
+          dispatch(showNotification(response.message, "error"));
+        } else if (response?.data?.length === 1) {
+          dispatch(
+            archiveActions.fetchNearestSources({
+              ra: response.data[0]?.ra,
+              dec: response.data[0]?.dec,
+            }),
+          );
+        }
+      });
     } else if (ra.length && dec.length && radius.length && catalog) {
       if (ra?.length) {
         if (
@@ -511,9 +510,7 @@ const Archive = () => {
 
     payload.group_ids = groupIDs;
 
-    const result: any = await dispatch(
-      archiveActions.saveLightCurves(payload),
-    );
+    const result: any = await dispatch(archiveActions.saveLightCurves(payload));
     if (result.status === "success") {
       dispatch(showNotification("Successfully saved data"));
       handleSaveDialogClose();
@@ -771,376 +768,383 @@ const Archive = () => {
   return (
     <>
       <div>
+        <Grid
+          container
+          direction="row"
+          justifyContent="flex-start"
+          alignItems="flex-start"
+          spacing={1}
+        >
           <Grid
-            container
-            direction="row"
-            justifyContent="flex-start"
-            alignItems="flex-start"
-            spacing={1}
+            {...({ item: true, xs: 12, lg: 10 } as any)}
+            className={classes.grid_item_table}
           >
-            <Grid {...({ item: true, xs: 12, lg: 10 } as any)} className={classes.grid_item_table}>
-              <Paper elevation={1}>
-                <div className={classes.maindiv}>
-                  <div className={classes.accordionDetails}>
-                    {queryInProgress ? (
-                      <CircularProgress />
-                    ) : (
-                      <StyledDataGrid
-                        autoHeight
-                        title="ZTF Light Curves"
-                        rows={displayRows}
-                        columns={columns}
-                        getRowId={(row: any) => row._id}
-                        getRowHeight={(params: any) =>
-                          params.model.__detail ? "auto" : null
-                        }
-                        checkboxSelection
-                        disableRowSelectionOnClick
-                        isRowSelectable={(params: any) => !params.row.__detail}
-                        rowSelectionModel={rowSelectionModel}
-                        onRowSelectionModelChange={(model: any) =>
-                          setRowSelectionModel(model)
-                        }
-                        pageSizeOptions={[10, 25, 50, 100]}
-                        initialState={{
-                          pagination: {
-                            paginationModel: { pageSize: 10, page: 0 },
-                          },
-                          sorting: {
-                            sortModel: [{ field: "_id", sort: "desc" }],
-                          },
-                        }}
-                        slots={{ toolbar: CustomToolbar }}
-                        showToolbar
+            <Paper elevation={1}>
+              <div className={classes.maindiv}>
+                <div className={classes.accordionDetails}>
+                  {queryInProgress ? (
+                    <CircularProgress />
+                  ) : (
+                    <StyledDataGrid
+                      autoHeight
+                      title="ZTF Light Curves"
+                      rows={displayRows}
+                      columns={columns}
+                      getRowId={(row: any) => row._id}
+                      getRowHeight={(params: any) =>
+                        params.model.__detail ? "auto" : null
+                      }
+                      checkboxSelection
+                      disableRowSelectionOnClick
+                      isRowSelectable={(params: any) => !params.row.__detail}
+                      rowSelectionModel={rowSelectionModel}
+                      onRowSelectionModelChange={(model: any) =>
+                        setRowSelectionModel(model)
+                      }
+                      pageSizeOptions={[10, 25, 50, 100]}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 10, page: 0 },
+                        },
+                        sorting: {
+                          sortModel: [{ field: "_id", sort: "desc" }],
+                        },
+                      }}
+                      slots={{ toolbar: CustomToolbar }}
+                      showToolbar
+                    />
+                  )}
+                </div>
+              </div>
+            </Paper>
+          </Grid>
+          <Grid
+            {...({ item: true, xs: 12, lg: 2 } as any)}
+            className={classes.grid_item_search_box}
+          >
+            <Card className={classes.root}>
+              <form onSubmit={handleSubmitForm(submitSearch)}>
+                <CardContent className={classes.cardContent}>
+                  <FormControl required className={classes.selectEmpty}>
+                    <InputLabel
+                      {...({
+                        name: "alert-stream-select-required-label",
+                      } as any)}
+                    >
+                      Catalog
+                    </InputLabel>
+                    <Controller
+                      name="catalog"
+                      control={control}
+                      defaultValue={selectedCatalog || catalogOptions[0]}
+                      rules={{ required: true }}
+                      render={({ field: { onChange, value } }: any) => (
+                        <Select value={value} onChange={onChange}>
+                          {catalogOptions?.map((catalogName: any) => (
+                            <MenuItem key={catalogName} value={catalogName}>
+                              {catalogName}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      )}
+                    />
+                    <FormHelperText>Required</FormHelperText>
+                  </FormControl>
+                  <Controller
+                    render={({ field: { onChange, value } }: any) => (
+                      <TextField
+                        margin="dense"
+                        name="lc_id"
+                        label="LC ID (optional)"
+                        fullWidth
+                        inputRef={register("lc_id", { required: false }) as any}
+                        value={value}
+                        onChange={onChange}
                       />
                     )}
-                  </div>
-                </div>
-              </Paper>
-            </Grid>
-            <Grid {...({ item: true, xs: 12, lg: 2 } as any)} className={classes.grid_item_search_box}>
-              <Card className={classes.root}>
-                <form onSubmit={handleSubmitForm(submitSearch)}>
-                  <CardContent className={classes.cardContent}>
-                    <FormControl required className={classes.selectEmpty}>
-                      <InputLabel {...({ name: "alert-stream-select-required-label" } as any)}>
-                        Catalog
-                      </InputLabel>
-                      <Controller
-                        name="catalog"
-                        control={control}
-                        defaultValue={selectedCatalog || catalogOptions[0]}
-                        rules={{ required: true }}
-                        render={({ field: { onChange, value } }: any) => (
-                          <Select value={value} onChange={onChange}>
-                            {catalogOptions?.map((catalogName: any) => (
-                              <MenuItem key={catalogName} value={catalogName}>
-                                {catalogName}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        )}
+                    name="lc_id"
+                    control={control}
+                  />
+                  <Controller
+                    render={({ field: { onChange, value } }: any) => (
+                      <TextField
+                        margin="dense"
+                        name="ra"
+                        label="RA [deg, HH:MM:SS, HHhMMmSSs]"
+                        fullWidth
+                        inputRef={register("ra", { required: false }) as any}
+                        value={value}
+                        onChange={onChange}
                       />
-                      <FormHelperText>Required</FormHelperText>
-                    </FormControl>
+                    )}
+                    name="ra"
+                    control={control}
+                  />
+                  <Controller
+                    render={({ field: { onChange, value } }: any) => (
+                      <TextField
+                        margin="dense"
+                        name="dec"
+                        label="Dec [deg, DD:MM:SS, DDdMMmSSs]"
+                        fullWidth
+                        inputRef={register("dec", { required: false }) as any}
+                        value={value}
+                        onChange={onChange}
+                      />
+                    )}
+                    name="dec"
+                    control={control}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
+                    }}
+                  >
                     <Controller
                       render={({ field: { onChange, value } }: any) => (
                         <TextField
                           margin="dense"
-                          name="lc_id"
-                          label="LC ID (optional)"
+                          name="radius"
+                          label="Radius"
                           fullWidth
-                          inputRef={register("lc_id", { required: false }) as any}
+                          inputRef={
+                            register("radius", { required: false }) as any
+                          }
                           value={value}
                           onChange={onChange}
                         />
                       )}
-                      name="lc_id"
+                      name="radius"
                       control={control}
                     />
                     <Controller
+                      name="radius_unit"
+                      control={control}
+                      rules={{ required: true }}
                       render={({ field: { onChange, value } }: any) => (
-                        <TextField
-                          margin="dense"
-                          name="ra"
-                          label="RA [deg, HH:MM:SS, HHhMMmSSs]"
-                          fullWidth
-                          inputRef={register("ra", { required: false }) as any}
+                        <Select
                           value={value}
                           onChange={onChange}
-                        />
-                      )}
-                      name="ra"
-                      control={control}
-                    />
-                    <Controller
-                      render={({ field: { onChange, value } }: any) => (
-                        <TextField
+                          defaultValue="arcsec"
+                          inputRef={
+                            register("radius_unit", {
+                              required: true,
+                            }) as any
+                          }
                           margin="dense"
-                          name="dec"
-                          label="Dec [deg, DD:MM:SS, DDdMMmSSs]"
                           fullWidth
-                          inputRef={register("dec", { required: false }) as any}
-                          value={value}
-                          onChange={onChange}
+                          style={{
+                            height: "3.5rem",
+                            marginTop: "8px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <MenuItem value="arcsec">arcsec</MenuItem>
+                          <MenuItem value="arcmin">arcmin</MenuItem>
+                          <MenuItem value="deg">deg</MenuItem>
+                          <MenuItem value="rad">rad</MenuItem>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+                <CardActions className={classes.cardActions}>
+                  <div className={classes.wrapperRoot}>
+                    <div className={classes.wrapper}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        color="primary"
+                        disabled={queryInProgress}
+                      >
+                        Search
+                      </Button>
+                      {queryInProgress && (
+                        <CircularProgress
+                          size={24}
+                          color="secondary"
+                          className={classes.buttonProgress}
                         />
                       )}
-                      name="dec"
-                      control={control}
-                    />
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        gap: "0.5rem",
+                      <IconButton
+                        aria-label="help"
+                        size="small"
+                        onClick={handleClickSearchHelp}
+                        className={classes.helpButton}
+                      >
+                        <HelpOutlineIcon />
+                      </IconButton>
+                      <StyledEngineProvider injectFirst>
+                        <ThemeProvider theme={getMuiPopoverTheme()}>
+                          <Popover
+                            id={searchHelpId}
+                            open={searchHelpOpen}
+                            anchorEl={searchHeaderAnchor}
+                            onClose={handleCloseSearchHelp}
+                            anchorOrigin={{
+                              vertical: "top",
+                              horizontal: "right",
+                            }}
+                            transformOrigin={{
+                              vertical: "top",
+                              horizontal: "left",
+                            }}
+                          >
+                            <Typography className={classes.typography}>
+                              Maximum search radius is 2 degrees.
+                              <br />
+                              At most 1,000 nearest sources (to the requested
+                              position) will be returned.
+                            </Typography>
+                          </Popover>
+                        </ThemeProvider>
+                      </StyledEngineProvider>
+                    </div>
+                  </div>
+                </CardActions>
+              </form>
+            </Card>
+          </Grid>
+        </Grid>
+        <Dialog
+          fullScreen={fullScreen}
+          open={saveDialogOpen}
+          onClose={handleSaveDialogClose}
+          aria-labelledby="responsive-dialog-title"
+        >
+          <form onSubmit={handleSubmit2(onSubmitSave)}>
+            <DialogTitle id="responsive-dialog-title">
+              Save selected data to Fritz
+            </DialogTitle>
+            <DialogContent dividers>
+              <DialogContentText>
+                Post photometry data to source:
+              </DialogContentText>
+              <FormControl required>
+                <Controller
+                  name="obj_id"
+                  {...({ color: "primary" } as any)}
+                  render={({ field: { onChange } }: any) => (
+                    <RadioGroup
+                      color="primary"
+                      onChange={(event: any) => {
+                        onChange(event);
+                        if (event.target.value === "Create new source") {
+                          setSaveNewSource(true);
+                        } else {
+                          setSaveNewSource(false);
+                        }
                       }}
                     >
+                      {/* display list of nearby saved sources: */}
+                      {nearestSources != null &&
+                        nearestSources.length > 0 &&
+                        nearestSources?.map((source: any) => (
+                          <FormControlLabel
+                            key={source.id}
+                            value={source.id}
+                            control={<Radio />}
+                            label={
+                              <Chip
+                                size="small"
+                                label={`${source.id} (found within 5" from search position)`}
+                                onDelete={() =>
+                                  window.open(`/source/${source.id}`, "_blank")
+                                }
+                                deleteIcon={<OpenInNewIcon />}
+                                color="primary"
+                              />
+                            }
+                          />
+                        ))}
+                      <FormControlLabel
+                        value="Create new source"
+                        control={<Radio />}
+                        label="Create new source"
+                      />
+                    </RadioGroup>
+                  )}
+                  defaultValue="Create new source"
+                  control={control2}
+                  rules={{ required: true }}
+                />
+              </FormControl>
+              <div>
+                {saveNewSource && (
+                  <div>
+                    <div>
+                      <DialogContentText>Source name</DialogContentText>
+                    </div>
+                    <div>
                       <Controller
                         render={({ field: { onChange, value } }: any) => (
                           <TextField
-                            margin="dense"
-                            name="radius"
-                            label="Radius"
-                            fullWidth
-                            inputRef={register("radius", { required: false }) as any}
-                            value={value}
+                            size="small"
+                            label="name"
+                            name="name"
                             onChange={onChange}
+                            value={value}
                           />
                         )}
-                        name="radius"
-                        control={control}
-                      />
-                      <Controller
-                        name="radius_unit"
-                        control={control}
-                        rules={{ required: true }}
-                        render={({ field: { onChange, value } }: any) => (
-                          <Select
-                            value={value}
-                            onChange={onChange}
-                            defaultValue="arcsec"
-                            inputRef={register("radius_unit", {
-                              required: true,
-                            }) as any}
-                            margin="dense"
-                            fullWidth
-                            style={{
-                              height: "3.5rem",
-                              marginTop: "8px",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            <MenuItem value="arcsec">arcsec</MenuItem>
-                            <MenuItem value="arcmin">arcmin</MenuItem>
-                            <MenuItem value="deg">deg</MenuItem>
-                            <MenuItem value="rad">rad</MenuItem>
-                          </Select>
-                        )}
-                      />
-                    </div>
-                  </CardContent>
-                  <CardActions className={classes.cardActions}>
-                    <div className={classes.wrapperRoot}>
-                      <div className={classes.wrapper}>
-                        <Button
-                          type="submit"
-                          variant="contained"
-                          color="primary"
-                          disabled={queryInProgress}
-                        >
-                          Search
-                        </Button>
-                        {queryInProgress && (
-                          <CircularProgress
-                            size={24}
-                            color="secondary"
-                            className={classes.buttonProgress}
-                          />
-                        )}
-                        <IconButton
-                          aria-label="help"
-                          size="small"
-                          onClick={handleClickSearchHelp}
-                          className={classes.helpButton}
-                        >
-                          <HelpOutlineIcon />
-                        </IconButton>
-                        <StyledEngineProvider injectFirst>
-                          <ThemeProvider theme={getMuiPopoverTheme()}>
-                            <Popover
-                              id={searchHelpId}
-                              open={searchHelpOpen}
-                              anchorEl={searchHeaderAnchor}
-                              onClose={handleCloseSearchHelp}
-                              anchorOrigin={{
-                                vertical: "top",
-                                horizontal: "right",
-                              }}
-                              transformOrigin={{
-                                vertical: "top",
-                                horizontal: "left",
-                              }}
-                            >
-                              <Typography className={classes.typography}>
-                                Maximum search radius is 2 degrees.
-                                <br />
-                                At most 1,000 nearest sources (to the requested
-                                position) will be returned.
-                              </Typography>
-                            </Popover>
-                          </ThemeProvider>
-                        </StyledEngineProvider>
-                      </div>
-                    </div>
-                  </CardActions>
-                </form>
-              </Card>
-            </Grid>
-          </Grid>
-          <Dialog
-            fullScreen={fullScreen}
-            open={saveDialogOpen}
-            onClose={handleSaveDialogClose}
-            aria-labelledby="responsive-dialog-title"
-          >
-            <form onSubmit={handleSubmit2(onSubmitSave)}>
-              <DialogTitle id="responsive-dialog-title">
-                Save selected data to Fritz
-              </DialogTitle>
-              <DialogContent dividers>
-                <DialogContentText>
-                  Post photometry data to source:
-                </DialogContentText>
-                <FormControl required>
-                  <Controller
-                    name="obj_id"
-                    {...({ color: "primary" } as any)}
-                    render={({ field: { onChange } }: any) => (
-                      <RadioGroup
-                        color="primary"
-                        onChange={(event: any) => {
-                          onChange(event);
-                          if (event.target.value === "Create new source") {
-                            setSaveNewSource(true);
-                          } else {
-                            setSaveNewSource(false);
-                          }
-                        }}
-                      >
-                        {/* display list of nearby saved sources: */}
-                        {nearestSources != null &&
-                          nearestSources.length > 0 &&
-                          nearestSources?.map((source: any) => (
-                            <FormControlLabel
-                              key={source.id}
-                              value={source.id}
-                              control={<Radio />}
-                              label={
-                                <Chip
-                                  size="small"
-                                  label={`${source.id} (found within 5" from search position)`}
-                                  onDelete={() =>
-                                    window.open(
-                                      `/source/${source.id}`,
-                                      "_blank",
-                                    )
-                                  }
-                                  deleteIcon={<OpenInNewIcon />}
-                                  color="primary"
-                                />
-                              }
-                            />
-                          ))}
-                        <FormControlLabel
-                          value="Create new source"
-                          control={<Radio />}
-                          label="Create new source"
-                        />
-                      </RadioGroup>
-                    )}
-                    defaultValue="Create new source"
-                    control={control2}
-                    rules={{ required: true }}
-                  />
-                </FormControl>
-                <div>
-                  {saveNewSource && (
-                    <div>
-                      <div>
-                        <DialogContentText>Source name</DialogContentText>
-                      </div>
-                      <div>
-                        <Controller
-                          render={({ field: { onChange, value } }: any) => (
-                            <TextField
-                              size="small"
-                              label="name"
-                              name="name"
-                              onChange={onChange}
-                              value={value}
-                            />
-                          )}
-                          name="name"
-                          control={control2}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <DialogContentText className={classes.marginTop}>
-                  Select groups to save new source to:
-                </DialogContentText>
-                {saveNewSource && errors.group_ids && (
-                  <FormValidationError message="Select at least one group." />
-                )}
-                {userGroups.map((userGroup: any, idx: number) => (
-                  <FormControlLabel
-                    key={userGroup.id}
-                    control={
-                      <Controller
-                        name={`group_ids[${idx}]`}
+                        name="name"
                         control={control2}
-                        rules={{ validate: validateGroups }}
-                        defaultValue={false}
-                        render={({ field: { onChange, value } }: any) => (
-                          <Checkbox
-                            color="primary"
-                            disabled={!saveNewSource}
-                            checked={value}
-                            onChange={onChange}
-                          />
-                        )}
                       />
-                    }
-                    label={userGroup.name}
-                  />
-                ))}
-              </DialogContent>
-              <DialogActions>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  className={classes.search_button}
-                  type="submit"
-                  data-testid="save-dialog-submit"
-                  onClick={() => onSubmitSave()}
-                  disabled={isSubmitting}
-                >
-                  Save
-                </Button>
-                <Button
-                  autoFocus
-                  onClick={handleSaveDialogClose}
-                  color="primary"
-                >
-                  Dismiss
-                </Button>
-              </DialogActions>
-            </form>
-          </Dialog>
-        </div>
-      </>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogContentText className={classes.marginTop}>
+                Select groups to save new source to:
+              </DialogContentText>
+              {saveNewSource && errors.group_ids && (
+                <FormValidationError message="Select at least one group." />
+              )}
+              {userGroups.map((userGroup: any, idx: number) => (
+                <FormControlLabel
+                  key={userGroup.id}
+                  control={
+                    <Controller
+                      name={`group_ids[${idx}]`}
+                      control={control2}
+                      rules={{ validate: validateGroups }}
+                      defaultValue={false}
+                      render={({ field: { onChange, value } }: any) => (
+                        <Checkbox
+                          color="primary"
+                          disabled={!saveNewSource}
+                          checked={value}
+                          onChange={onChange}
+                        />
+                      )}
+                    />
+                  }
+                  label={userGroup.name}
+                />
+              ))}
+            </DialogContent>
+            <DialogActions>
+              <Button
+                variant="contained"
+                color="primary"
+                className={classes.search_button}
+                type="submit"
+                data-testid="save-dialog-submit"
+                onClick={() => onSubmitSave()}
+                disabled={isSubmitting}
+              >
+                Save
+              </Button>
+              <Button autoFocus onClick={handleSaveDialogClose} color="primary">
+                Dismiss
+              </Button>
+            </DialogActions>
+          </form>
+        </Dialog>
+      </div>
+    </>
   );
 };
 

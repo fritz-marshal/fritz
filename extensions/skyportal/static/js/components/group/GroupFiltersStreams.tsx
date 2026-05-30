@@ -58,9 +58,8 @@ const GroupFiltersStreams = ({
 }: GroupFiltersStreamsProps) => {
   const [addFilterDialogOpen, setAddFilterDialogOpen] = useState(false);
   const [addStreamOpen, setAddStreamOpen] = useState(false);
-  const [panelStreamsExpanded, setPanelStreamsExpanded] = useState<any>(
-    "panel-streams",
-  );
+  const [panelStreamsExpanded, setPanelStreamsExpanded] =
+    useState<any>("panel-streams");
   const [editingFilterId, setEditingFilterId] = useState<any>(null);
   const [editNameInput, setEditNameInput] = useState("");
   const dispatch = useAppDispatch();
@@ -228,7 +227,10 @@ const GroupFiltersStreams = ({
                             </ListItemSecondaryAction>
                           </ListItem>
                         ) : (
-                          <ListItem {...({ button: true } as any)} key={filter.id}>
+                          <ListItem
+                            {...({ button: true } as any)}
+                            key={filter.id}
+                          >
                             <Link
                               to={`/filter/${filter.id}`}
                               className={classes.filterLink}
@@ -324,7 +326,9 @@ const GroupFiltersStreams = ({
           </DialogTitle>
           <DialogContent dividers>
             <FormControl required className={classes.selectEmpty}>
-              <InputLabel {...({ name: "alert-stream-select-required-label" } as any)}>
+              <InputLabel
+                {...({ name: "alert-stream-select-required-label" } as any)}
+              >
                 Alert stream
               </InputLabel>
               <Controller
@@ -401,10 +405,12 @@ const GroupFiltersStreams = ({
                   label="Filter Name"
                   type="text"
                   fullWidth
-                  inputRef={register("filter_name", {
-                    required: true,
-                    minLength: 3,
-                  }) as any}
+                  inputRef={
+                    register("filter_name", {
+                      required: true,
+                      minLength: 3,
+                    }) as any
+                  }
                   onChange={onChange}
                   value={value}
                 />
@@ -413,7 +419,9 @@ const GroupFiltersStreams = ({
               control={control}
             />
             <FormControl required className={classes.selectEmpty}>
-              <InputLabel {...({ name: "alert-stream-select-required-label" } as any)}>
+              <InputLabel
+                {...({ name: "alert-stream-select-required-label" } as any)}
+              >
                 Alert stream
               </InputLabel>
               {(errors as any).filter_stream_id && (

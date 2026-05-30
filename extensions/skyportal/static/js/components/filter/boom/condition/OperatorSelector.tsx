@@ -137,9 +137,7 @@ const OperatorSelector = ({
     customSwitchCases,
   } = useConditionContext();
 
-  const schema = useAppSelector(
-    (state: any) => state.filter_modules?.schema,
-  );
+  const schema = useAppSelector((state: any) => state.filter_modules?.schema);
   const fieldOptions = flattenFieldOptions(schema);
 
   // Check if this is a list variable
@@ -265,9 +263,7 @@ const ListVariableOperator = ({
 }: ListVariableOperatorProps) => {
   const { customVariables, fieldOptionsList, customListVariables } =
     useConditionContext();
-  const schema = useAppSelector(
-    (state: any) => state.filter_modules?.schema,
-  );
+  const schema = useAppSelector((state: any) => state.filter_modules?.schema);
   const fieldOptions = flattenFieldOptions(schema);
 
   const handleOperatorChange = useCallback(

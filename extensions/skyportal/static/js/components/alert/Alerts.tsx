@@ -265,19 +265,25 @@ const Alerts = () => {
     const objectIdMatchesSurvey = !inferredSurvey || inferredSurvey === survey;
 
     if (objectId && objectIdMatchesSurvey) {
-      dispatch(alertsActions.fetchAlerts({ survey, object_id: objectId } as any));
+      dispatch(
+        alertsActions.fetchAlerts({ survey, object_id: objectId } as any),
+      );
       reset({ object_id: objectId, instrument: survey.toLowerCase() });
     } else if (!Number.isNaN(ra) && !Number.isNaN(dec)) {
-      if (
-        !["arcsec", "arcmin", "deg", "rad"].includes(radius_unit as any)
-      ) {
+      if (!["arcsec", "arcmin", "deg", "rad"].includes(radius_unit as any)) {
         radius_unit = "arcsec";
       }
       if (Number.isNaN(radius)) {
         radius = 3.0;
       }
       dispatch(
-        alertsActions.fetchAlerts({ survey, ra, dec, radius, radius_unit } as any),
+        alertsActions.fetchAlerts({
+          survey,
+          ra,
+          dec,
+          radius,
+          radius_unit,
+        } as any),
       );
       reset({ ra, dec, radius, radius_unit, instrument: survey.toLowerCase() });
     }
@@ -662,8 +668,7 @@ const Alerts = () => {
     }
   });
 
-  const getRowHeight = (params: any) =>
-    params.model.__detail ? "auto" : null;
+  const getRowHeight = (params: any) => (params.model.__detail ? "auto" : null);
 
   const CustomToolbar = () => (
     <GridToolbarContainer>
@@ -845,7 +850,10 @@ const Alerts = () => {
           alignItems="flex-start"
           spacing={1}
         >
-          <Grid {...({ item: true, xs: 12, lg: 10 } as any)} className={classes.grid_item_table}>
+          <Grid
+            {...({ item: true, xs: 12, lg: 10 } as any)}
+            className={classes.grid_item_table}
+          >
             <Paper elevation={1}>
               <div className={(classes as any).maindiv}>
                 <div className={(classes as any).accordionDetails}>
@@ -895,16 +903,25 @@ const Alerts = () => {
               </div>
             </Paper>
           </Grid>
-          <Grid {...({ item: true, xs: 12, lg: 2 } as any)} className={classes.grid_item_search_box}>
+          <Grid
+            {...({ item: true, xs: 12, lg: 2 } as any)}
+            className={classes.grid_item_search_box}
+          >
             <Card className={classes.root}>
               <form onSubmit={handleSubmit(formSubmit)}>
                 <CardContent className={classes.cardContent}>
                   <FormControl required className={classes.selectEmpty}>
-                    <InputLabel {...({ name: "alert-stream-select-required-label" } as any)}>
+                    <InputLabel
+                      {...({
+                        name: "alert-stream-select-required-label",
+                      } as any)}
+                    >
                       Instrument
                     </InputLabel>
                     <Controller
-                      {...({ labelId: "alert-stream-select-required-label" } as any)}
+                      {...({
+                        labelId: "alert-stream-select-required-label",
+                      } as any)}
                       name="instrument"
                       control={control}
                       rules={{ required: true }}
@@ -1001,7 +1018,9 @@ const Alerts = () => {
                       control={control}
                     />
                     <Controller
-                      {...({ labelId: "radius-unit-select-required-label" } as any)}
+                      {...({
+                        labelId: "radius-unit-select-required-label",
+                      } as any)}
                       name="radius_unit"
                       control={control}
                       rules={{ required: true }}

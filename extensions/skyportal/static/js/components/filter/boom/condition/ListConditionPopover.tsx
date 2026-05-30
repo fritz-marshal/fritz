@@ -527,96 +527,100 @@ const ListConditionPopover = ({
                       </Typography>
                     </Box>
 
-                    {fields.map(([fieldName, expression]: any, index: number) => {
-                      // Try to find the arithmetic variable details
-                      const arithmeticVar = customVariables?.find(
-                        (v: any) => v.name === expression,
-                      );
+                    {fields.map(
+                      ([fieldName, expression]: any, index: number) => {
+                        // Try to find the arithmetic variable details
+                        const arithmeticVar = customVariables?.find(
+                          (v: any) => v.name === expression,
+                        );
 
-                      return (
-                        <Box
-                          key={fieldName}
-                          sx={{
-                            p: 1.5,
-                            mb: index < fields.length - 1 ? 2 : 0,
-                            bgcolor: "grey.50",
-                            borderRadius: 1,
-                            border: "1px solid",
-                            borderColor: "grey.200",
-                          }}
-                        >
+                        return (
                           <Box
+                            key={fieldName}
                             sx={{
-                              display: "flex",
-                              alignItems: "baseline",
-                              mb: 1,
+                              p: 1.5,
+                              mb: index < fields.length - 1 ? 2 : 0,
+                              bgcolor: "grey.50",
+                              borderRadius: 1,
+                              border: "1px solid",
+                              borderColor: "grey.200",
                             }}
                           >
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 600, mr: 1 }}
-                            >
-                              Field:
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontFamily: "monospace",
-                                color: "success.main",
-                              }}
-                            >
-                              {fieldName}
-                            </Typography>
-                          </Box>
-
-                          <Box sx={{ display: "flex", alignItems: "baseline" }}>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 600, mr: 1 }}
-                            >
-                              Expression:
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontFamily: "monospace",
-                                color: "info.main",
-                              }}
-                            >
-                              {expression}
-                            </Typography>
-                          </Box>
-
-                          {arithmeticVar && (
                             <Box
                               sx={{
-                                mt: 2,
-                                pt: 2,
-                                borderTop: "1px solid",
-                                borderColor: "grey.300",
+                                display: "flex",
+                                alignItems: "baseline",
+                                mb: 1,
                               }}
                             >
                               <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ display: "block", mb: 0.5 }}
+                                variant="body2"
+                                sx={{ fontWeight: 600, mr: 1 }}
                               >
-                                Formula:
+                                Field:
                               </Typography>
                               <Typography
                                 variant="body2"
                                 sx={{
                                   fontFamily: "monospace",
-                                  fontSize: "0.85rem",
+                                  color: "success.main",
                                 }}
                               >
-                                {arithmeticVar.variable}
+                                {fieldName}
                               </Typography>
                             </Box>
-                          )}
-                        </Box>
-                      );
-                    })}
+
+                            <Box
+                              sx={{ display: "flex", alignItems: "baseline" }}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 600, mr: 1 }}
+                              >
+                                Expression:
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontFamily: "monospace",
+                                  color: "info.main",
+                                }}
+                              >
+                                {expression}
+                              </Typography>
+                            </Box>
+
+                            {arithmeticVar && (
+                              <Box
+                                sx={{
+                                  mt: 2,
+                                  pt: 2,
+                                  borderTop: "1px solid",
+                                  borderColor: "grey.300",
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ display: "block", mb: 0.5 }}
+                                >
+                                  Formula:
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    fontFamily: "monospace",
+                                    fontSize: "0.85rem",
+                                  }}
+                                >
+                                  {arithmeticVar.variable}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                      },
+                    )}
 
                     <Typography
                       variant="caption"

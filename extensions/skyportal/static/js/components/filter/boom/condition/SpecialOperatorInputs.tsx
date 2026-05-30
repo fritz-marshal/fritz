@@ -81,7 +81,9 @@ const SpecialOperatorInputs = ({
     );
   }
 
-  if ((mongoOperatorTypes as any)[conditionOrBlock.operator] === "array_single") {
+  if (
+    (mongoOperatorTypes as any)[conditionOrBlock.operator] === "array_single"
+  ) {
     return (
       <TextField
         size="small"
@@ -111,7 +113,9 @@ const SpecialOperatorInputs = ({
     );
   }
 
-  if ((mongoOperatorTypes as any)[conditionOrBlock.operator] === "array_number") {
+  if (
+    (mongoOperatorTypes as any)[conditionOrBlock.operator] === "array_number"
+  ) {
     return (
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <TextField

@@ -165,7 +165,10 @@ const MapAnnotationsDialog = ({
                       ),
                     );
                   }}
-                  options={subFields.map((sf: any) => ({ label: sf, name: sf }))}
+                  options={subFields.map((sf: any) => ({
+                    label: sf,
+                    name: sf,
+                  }))}
                   isOptionEqualToValue={(option: any, value: any) =>
                     option.name === value?.name
                   }

@@ -69,9 +69,7 @@ const ConditionalValueBuilder = ({
   fieldOptionsList = [],
 }: ConditionalValueBuilderProps) => {
   // Get schema from Redux and flatten to field options
-  const schema = useAppSelector(
-    (state: any) => state.filter_modules?.schema,
-  );
+  const schema = useAppSelector((state: any) => state.filter_modules?.schema);
   const currentStream = useAppSelector(
     (state: any) => state.boom_filter_v.stream?.name,
   );

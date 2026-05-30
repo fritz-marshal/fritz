@@ -91,9 +91,7 @@ const SourceAnnotationButtonPlugins = ({
   source,
 }: SourceAnnotationButtonPluginsProps) => {
   const dispatch = useAppDispatch();
-  const catalogNames = useAppSelector(
-    (state) => (state as any).catalog_names,
-  );
+  const catalogNames = useAppSelector((state) => (state as any).catalog_names);
 
   useEffect(() => {
     const fetchCatalogNames = () => {

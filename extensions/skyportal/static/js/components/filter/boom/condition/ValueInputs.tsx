@@ -505,9 +505,7 @@ const ValueInput = ({
   createDefaultCondition,
   createDefaultBlock,
 }: ValueInputProps) => {
-  const schema = useAppSelector(
-    (state: any) => state.filter_modules?.schema,
-  );
+  const schema = useAppSelector((state: any) => state.filter_modules?.schema);
   const fieldOptions = flattenFieldOptions(schema);
 
   const {

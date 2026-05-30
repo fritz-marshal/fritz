@@ -124,9 +124,7 @@ const ConditionComponentInner = ({
   const [listPopoverAnchor, setListPopoverAnchor] = useState<any>(null);
   const [switchPopoverAnchor, setSwitchPopoverAnchor] = useState<any>(null);
   const [equationAnchor, setEquationAnchor] = useState<any>(null);
-  const schema = useAppSelector(
-    (state: any) => state.filter_modules?.schema,
-  );
+  const schema = useAppSelector((state: any) => state.filter_modules?.schema);
   const currentStream = useAppSelector(
     (state: any) => state.boom_filter_v.stream?.name,
   );

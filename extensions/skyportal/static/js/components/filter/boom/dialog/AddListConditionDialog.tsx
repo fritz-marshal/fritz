@@ -698,7 +698,9 @@ const AddListConditionDialog = () => {
     }
 
     // Check if an arithmetic variable with the same name already exists
-    if (customVariables?.some((v: any) => v.name === form.conditionName.trim())) {
+    if (
+      customVariables?.some((v: any) => v.name === form.conditionName.trim())
+    ) {
       setError(
         `A variable with the name "${form.conditionName.trim()}" already exists. Please choose a different name.`,
       );

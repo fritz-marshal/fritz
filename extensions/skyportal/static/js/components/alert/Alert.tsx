@@ -64,7 +64,8 @@ const getCandid = (alert: any) => {
 
 const getJd = (alert: any) => alert?.candidate?.jd;
 
-const getRa = (alert: any) => alert?.candidate?.ra ?? alert?.candidate?.coord_ra;
+const getRa = (alert: any) =>
+  alert?.candidate?.ra ?? alert?.candidate?.coord_ra;
 const getDec = (alert: any) =>
   alert?.candidate?.dec ?? alert?.candidate?.coord_dec;
 
@@ -215,14 +216,14 @@ const AlertPhotometryPlot = ({
         origin: "alert",
       }),
     );
-    const nonDetections = (
-      object_data[objectId].prv_nondetections || []
-    ).map((d: any) => ({
-      ...d,
-      magpsf: null,
-      sigmapsf: null,
-      origin: "alert",
-    }));
+    const nonDetections = (object_data[objectId].prv_nondetections || []).map(
+      (d: any) => ({
+        ...d,
+        magpsf: null,
+        sigmapsf: null,
+        origin: "alert",
+      }),
+    );
     photometry = detections.concat(nonDetections);
 
     const fp_hists = showForcedPhotometry
@@ -336,9 +337,7 @@ interface CatalogTableProps {
 
 const CatalogTable = ({ entries }: CatalogTableProps) => {
   const flat = entries.map(flattenEntry);
-  const allKeys = Array.from(
-    new Set(flat.flatMap((e: any) => Object.keys(e))),
-  );
+  const allKeys = Array.from(new Set(flat.flatMap((e: any) => Object.keys(e))));
   const priority = PRIORITY_COLS.filter((c) => allKeys.includes(c));
   const rest = allKeys.filter((c) => !PRIORITY_COLS.includes(c)).sort();
   const columns = [...priority, ...rest];

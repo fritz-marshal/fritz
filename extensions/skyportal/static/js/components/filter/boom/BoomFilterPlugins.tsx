@@ -395,7 +395,9 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
                               }
                               filter={filter_v}
                               setInlineNewVersion={setInlineNewVersion}
-                              setShowAnnotationBuilder={setShowAnnotationBuilder}
+                              setShowAnnotationBuilder={
+                                setShowAnnotationBuilder
+                              }
                             />
                           </Box>
                         </>

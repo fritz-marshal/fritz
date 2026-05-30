@@ -575,7 +575,11 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
     dispatch(filterVersionActions.fetchFilterVersion(fid));
   };
 
-  const onSubmitSaveAutoFollowupPayload = async ({ formData }: { formData: any }) => {
+  const onSubmitSaveAutoFollowupPayload = async ({
+    formData,
+  }: {
+    formData: any;
+  }) => {
     const newAutoFollowup = {
       ...filter_v.auto_followup,
       payload: formData || {},
@@ -975,8 +979,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                               text={JSON.stringify(
                                 JSON.parse(
                                   filter_v.fv.filter(
-                                    (fv: any) =>
-                                      fv.fid === filter_v.active_fid,
+                                    (fv: any) => fv.fid === filter_v.active_fid,
                                   )[0].pipeline,
                                 ),
                                 null,
@@ -1272,8 +1275,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                               className={(classes as any).SelectItem}
                             >
                               {(users || []).find(
-                                (user: any) =>
-                                  user.id === group_user.user_id,
+                                (user: any) => user.id === group_user.user_id,
                               )?.username || "Loading..."}
                             </MenuItem>
                           ))}
@@ -1495,7 +1497,9 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                                 }
                                 liveValidate
                                 // customValidate={validate}
-                                onSubmit={onSubmitSaveAutoFollowupPayload as any}
+                                onSubmit={
+                                  onSubmitSaveAutoFollowupPayload as any
+                                }
                                 // disabled={isSubmitting}
                               />
                             </DialogContent>
@@ -1581,7 +1585,9 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                         Radius (arcsec) to apply constraints
                       </InputLabel>
                       <TextField
-                        {...({ labelId: "auto_followup_constraints_radius" } as any)}
+                        {...({
+                          labelId: "auto_followup_constraints_radius",
+                        } as any)}
                         className={classes.formControl}
                         disabled={!filter_v.active}
                         id="auto_followup_constraints_radius"
