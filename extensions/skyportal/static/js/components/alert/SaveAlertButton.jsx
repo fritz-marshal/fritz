@@ -36,7 +36,7 @@ const SaveAlertButton = ({ alert, userGroups }) => {
   );
 
   const currentGroupIds =
-    source?.id === alert.id ? source?.groups?.map((g) => g.id) ?? [] : [];
+    source?.id === alert.id ? (source?.groups?.map((g) => g.id) ?? []) : [];
   const unsavedGroups = groups?.filter((g) => !currentGroupIds.includes(g.id));
 
   const {
