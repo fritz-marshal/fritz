@@ -33,6 +33,7 @@ import { useForm, Controller } from "react-hook-form";
 import Paper from "@mui/material/Paper";
 import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import {
   GridToolbarContainer,
   GridToolbarColumnsButton,
@@ -291,8 +292,8 @@ const Alerts = () => {
     return {
       objectId: alert?.objectId,
       candid: isLSST
-        ? alert?.diaSourceId ?? alert?.candid ?? alert?._id
-        : alert?.candid ?? alert?.candidate?.candid ?? alert?._id,
+        ? (alert?.diaSourceId ?? alert?.candid ?? alert?._id)
+        : (alert?.candid ?? alert?.candidate?.candid ?? alert?._id),
       jd: alert?.candidate?.jd,
       ra: alert?.candidate?.ra ?? alert?.candidate?.coord_ra,
       dec: alert?.candidate?.dec ?? alert?.candidate?.coord_dec,
