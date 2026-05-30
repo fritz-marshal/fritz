@@ -4,12 +4,6 @@ import { useNavigate, Link } from "react-router-dom";
 
 import Button from "@mui/material/Button";
 import PropTypes from "prop-types";
-import {
-  useTheme,
-  createTheme,
-  ThemeProvider,
-  StyledEngineProvider,
-} from "@mui/material/styles";
 import { makeStyles } from "tss-react/mui";
 import Grid from "@mui/material/Grid";
 import Accordion from "@mui/material/Accordion";
@@ -40,8 +34,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
-import MUIDataTable from "mui-datatables";
-
+import StyledDataGrid from "../StyledDataGrid";
 import SaveAlertButton from "./SaveAlertButton";
 import ThumbnailList from "../thumbnail/ThumbnailList";
 import SharePage from "../SharePage";
@@ -95,69 +88,97 @@ const buildRow = (alert, survey) => ({
 
 // ── Column definitions ────────────────────────────────────────────────────────
 
-const fmt = (decimals) => (v) => (v != null ? v.toFixed(decimals) : "—");
+const fmt = (decimals) => (params) =>
+  params.value != null ? params.value.toFixed(decimals) : "—";
 
 const buildColumns = (survey) => {
   const isLSST = survey === "LSST";
 
   const columns = [
     {
-      name: "candid",
-      label: isLSST ? "diaSourceId" : "candid",
-      options: { filter: false, sort: true, sortDescFirst: true },
+      field: "candid",
+      headerName: isLSST ? "diaSourceId" : "candid",
+      flex: 1,
+      minWidth: 120,
+      filterable: false,
+      sortable: true,
+      sortingOrder: ["desc", "asc"],
     },
     {
-      name: "jd",
-      label: isLSST ? "MJD" : "JD",
-      options: {
-        filter: false,
-        sort: true,
-        sortDescFirst: true,
-        customBodyRender: fmt(5),
-      },
-    },
-    { name: "band", label: "band", options: { filter: true, sort: true } },
-    {
-      name: "magpsf",
-      label: "magpsf",
-      options: { filter: false, sort: true, customBodyRender: fmt(3) },
+      field: "jd",
+      headerName: isLSST ? "MJD" : "JD",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      sortable: true,
+      sortingOrder: ["desc", "asc"],
+      renderCell: fmt(5),
     },
     {
-      name: "sigmapsf",
-      label: "sigmapsf",
-      options: { filter: false, sort: true, customBodyRender: fmt(3) },
+      field: "band",
+      headerName: "band",
+      flex: 1,
+      minWidth: 80,
+      filterable: true,
+      sortable: true,
     },
     {
-      name: "isdiffpos",
-      label: "isdiffpos",
-      options: {
-        filter: true,
-        sort: true,
-        customBodyRender: (v) => (v != null ? String(v) : "—"),
-      },
+      field: "magpsf",
+      headerName: "magpsf",
+      flex: 1,
+      minWidth: 90,
+      filterable: false,
+      sortable: true,
+      renderCell: fmt(3),
     },
     {
-      name: "drb",
-      label: isLSST ? "reliability" : "drb",
-      options: {
-        filter: false,
-        sort: true,
-        sortDescFirst: true,
-        customBodyRender: fmt(5),
-      },
+      field: "sigmapsf",
+      headerName: "sigmapsf",
+      flex: 1,
+      minWidth: 90,
+      filterable: false,
+      sortable: true,
+      renderCell: fmt(3),
     },
     {
-      name: "snr",
-      label: "snr",
-      options: { filter: false, sort: true, customBodyRender: fmt(2) },
+      field: "isdiffpos",
+      headerName: "isdiffpos",
+      flex: 1,
+      minWidth: 90,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) =>
+        params.value != null ? String(params.value) : "—",
+    },
+    {
+      field: "drb",
+      headerName: isLSST ? "reliability" : "drb",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      sortable: true,
+      sortingOrder: ["desc", "asc"],
+      renderCell: fmt(5),
+    },
+    {
+      field: "snr",
+      headerName: "snr",
+      flex: 1,
+      minWidth: 80,
+      filterable: false,
+      sortable: true,
+      renderCell: fmt(2),
     },
   ];
 
   if (survey === "ZTF") {
     columns.push({
-      name: "programid",
-      label: "programid",
-      options: { filter: true, sort: true },
+      field: "programid",
+      headerName: "programid",
+      flex: 1,
+      minWidth: 100,
+      filterable: true,
+      sortable: true,
     });
   }
 
@@ -451,21 +472,6 @@ function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
 }
 
-const getMuiTheme = (theme) =>
-  createTheme({
-    components: {
-      MUIDataTableBodyCell: {
-        styleOverrides: {
-          root: {
-            padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
-              0.25,
-            )} ${theme.spacing(1)}`,
-          },
-        },
-      },
-    },
-  });
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 const Alert = ({ route }) => {
@@ -475,7 +481,6 @@ const Alert = ({ route }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { classes } = useStyles();
-  const theme = useTheme();
   const [savedSource, setSavedSource] = useState(false);
   const [fetchedDuplicates, setFetchedDuplicates] = useState(false);
 
@@ -657,12 +662,6 @@ const Alert = ({ route }) => {
         { type: "sub", id: 2, public_url: cutoutDataUris.sub },
       ]
     : [];
-
-  const tableOptions = {
-    selectableRows: "none",
-    elevation: 1,
-    sortOrder: { name: "jd", direction: "desc" },
-  };
 
   // ── Loading / error states ─────────────────────────────────────────────────
   if (!boom_alert_data || boom_alert_data[objectId] == null) {
@@ -897,16 +896,22 @@ const Alert = ({ route }) => {
 
       {/* ── Alert history table ──────────────────────────────────────────── */}
       <Grid item xs={12}>
-        <StyledEngineProvider injectFirst>
-          <ThemeProvider theme={getMuiTheme(theme)}>
-            <MUIDataTable
-              data={rows}
-              columns={columns}
-              options={tableOptions}
-              title="Alerts"
-            />
-          </ThemeProvider>
-        </StyledEngineProvider>
+        <Paper elevation={1}>
+          <Typography variant="h6" style={{ padding: "0.5rem" }}>
+            Alerts
+          </Typography>
+          <StyledDataGrid
+            autoHeight
+            title="Alerts"
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.candid}
+            initialState={{
+              sorting: { sortModel: [{ field: "jd", sort: "desc" }] },
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+          />
+        </Paper>
       </Grid>
 
       {/* ── Cross-matches ────────────────────────────────────────────────── */}
