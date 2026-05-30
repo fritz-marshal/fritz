@@ -21,3 +21,5 @@ repos:
         pass_filenames: true
         exclude: nb|.ipynb_checkpoints|data|dev|letsencrypt|logs|dask-worker-space|__init__.py
         args: [--prose-wrap=preserve]
+        additional_dependencies:
+          - prettier@3.8.3

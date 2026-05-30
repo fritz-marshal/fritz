@@ -15,6 +15,8 @@ import Select from "@mui/material/Select";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import SaveIcon from "@mui/icons-material/Save";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import IconButton from "@mui/material/IconButton";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -26,25 +28,22 @@ import Chip from "@mui/material/Chip";
 
 import Grid from "@mui/material/Grid";
 
-import {
-  createTheme,
-  ThemeProvider,
-  StyledEngineProvider,
-  useTheme,
-  adaptV4Theme,
-} from "@mui/material/styles";
 import { makeStyles } from "tss-react/mui";
 import { useForm, Controller } from "react-hook-form";
 import Paper from "@mui/material/Paper";
-import MUIDataTable from "mui-datatables";
 import CircularProgress from "@mui/material/CircularProgress";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import {
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+} from "@mui/x-data-grid";
 
 import { useDispatch, useSelector } from "react-redux";
 
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
-
 import { showNotification } from "baselayer/components/Notifications";
+
+import StyledDataGrid from "../StyledDataGrid";
 
 import Button from "../Button";
 import ThumbnailList from "../thumbnail/ThumbnailList";
@@ -67,22 +66,6 @@ function inferSurvey(objectId) {
   if (/^\d{15,}$/.test(objectId)) return "LSST";
   return null;
 }
-
-const getMuiTheme = (theme) =>
-  createTheme(
-    adaptV4Theme({
-      palette: theme.palette,
-      overrides: {
-        MUIDataTableBodyCell: {
-          root: {
-            padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
-              0.25,
-            )} ${theme.spacing(1)}`,
-          },
-        },
-      },
-    }),
-  );
 
 const useStyles = makeStyles()((theme) => ({
   root: {
@@ -240,7 +223,6 @@ CutoutTriplet.propTypes = {
 const Alerts = () => {
   const dispatch = useDispatch();
   const { classes } = useStyles();
-  const theme = useTheme();
 
   const [searchParams] = useSearchParams();
 
@@ -258,6 +240,10 @@ const Alerts = () => {
   const [rowsToSave, setRowsToSave] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [saving, setSaving] = useState(false);
+  // Object IDs of the rows currently selected via the DataGrid checkboxes.
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
+  // candids of the rows whose cutout-triplet pull-out panel is expanded.
+  const [openedRows, setOpenedRows] = useState([]);
 
   useEffect(() => {
     const objectId = searchParams.get("objectId");
@@ -306,8 +292,8 @@ const Alerts = () => {
     return {
       objectId: alert?.objectId,
       candid: isLSST
-        ? alert?.diaSourceId ?? alert?.candid ?? alert?._id
-        : alert?.candid ?? alert?.candidate?.candid ?? alert?._id,
+        ? (alert?.diaSourceId ?? alert?.candid ?? alert?._id)
+        : (alert?.candid ?? alert?.candidate?.candid ?? alert?._id),
       jd: alert?.candidate?.jd,
       ra: alert?.candidate?.ra ?? alert?.candidate?.coord_ra,
       dec: alert?.candidate?.dec ?? alert?.candidate?.coord_dec,
@@ -371,8 +357,8 @@ const Alerts = () => {
     }
   };
 
-  const handleSaveDialogOpen = async (selectedRows) => {
-    setRowsToSave(selectedRows);
+  const handleSaveDialogOpen = async (objectIds) => {
+    setRowsToSave(objectIds);
     setSaveDialogOpen(true);
   };
 
@@ -380,9 +366,7 @@ const Alerts = () => {
     setSaving(true);
     const { instrument } = getValues();
     const survey = (instrument || "ztf").toUpperCase();
-    const objectIds = rowsToSave.data.map(
-      (rowToSave) => rows[rowToSave.dataIndex]?.objectId,
-    );
+    const objectIds = rowsToSave;
     objectIds.forEach((objectId) => {
       const payload = {
         group_ids: selectedGroups,
@@ -412,22 +396,52 @@ const Alerts = () => {
     setSaveDialogOpen(false);
   };
 
-  // This is just passed to MUI datatables options -- not meant to be instantiated directly.
-  const renderPullOutRow = (rowData, rowMeta) => {
-    const colSpan = rowData?.length + 1;
-    const rowObj = rows[rowMeta.dataIndex];
-    return (
-      <TableRow data-testid={`alertRow_${rowObj.candid}`}>
-        <TableCell
-          style={{ paddingBottom: 0, paddingTop: 0 }}
-          colSpan={colSpan}
-        >
+  // DataGrid row id: the candid uniquely identifies an alert (and, in grouped
+  // mode, the single latest alert per objectId). Synthetic detail rows append
+  // "__detail" to their parent's candid.
+  const getRowId = (row) =>
+    row.__detail ? `${row.candid}__detail` : row.candid;
+
+  const toggleExpand = (candid) =>
+    setOpenedRows((prev) =>
+      prev.includes(candid)
+        ? prev.filter((c) => c !== candid)
+        : [...prev, candid],
+    );
+
+  // Map each selectable row id (candid) to its objectId so the bulk-save action
+  // can recover the object ids from the selection model.
+  const objectIdByRowId = {};
+  rows.forEach((row) => {
+    objectIdByRowId[row.candid] = row.objectId;
+  });
+
+  const isLSST = dataSurvey === "LSST";
+
+  const compactHeaderClass = "alerts-compact-cell";
+
+  const expandColumn = {
+    field: "__expand",
+    headerName: "",
+    width: 56,
+    sortable: false,
+    filterable: false,
+    hideable: false,
+    disableColumnMenu: true,
+    // For a synthetic detail row, span the full width of the grid; otherwise a
+    // single cell holding the expand toggle.
+    colSpan: (value, row) => (row.__detail ? 100 : 1),
+    renderCell: (params) => {
+      if (params.row.__detail) {
+        const rowObj = params.row.__source;
+        return (
           <Grid
             container
             direction="row"
             spacing={3}
             justifyContent="center"
             alignItems="center"
+            data-testid={`alertRow_${rowObj.candid}`}
           >
             <Grid item>
               <CutoutTriplet
@@ -436,64 +450,31 @@ const Alerts = () => {
               />
             </Grid>
           </Grid>
-        </TableCell>
-      </TableRow>
-    );
-  };
-
-  const CustomToolbar = () => (
-    <div>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={groupByObj}
-            onChange={() => setGroupByObj(!groupByObj)}
-            name="groupAlerts"
-            color="primary"
-          />
-        }
-        label="Group by Object ID"
-      />
-    </div>
-  );
-
-  const options = {
-    // isRowSelectable: groupByObj,
-    selectableRows: groupByObj ? "multiple" : "none",
-    customToolbarSelect: (selectedRows) => (
-      <IconButton
-        className={classes.buttonSave}
-        aria-label="save"
-        onClick={() => {
-          handleSaveDialogOpen(selectedRows);
-        }}
-        size="large"
-      >
-        <SaveIcon />
-      </IconButton>
-    ),
-    expandableRows: true,
-    expandableRowsOnClick: true,
-    renderExpandableRow: renderPullOutRow,
-    elevation: 1,
-    sortOrder: {
-      name:
-        groupByObj && getValues().ra && getValues().dec ? "separation" : "jd",
-      direction:
-        groupByObj && getValues().ra && getValues().dec ? "asc" : "desc",
+        );
+      }
+      const expanded = openedRows.includes(params.row.candid);
+      return (
+        <IconButton
+          id="expandable-button"
+          size="small"
+          aria-label="expand row"
+          onClick={() => toggleExpand(params.row.candid)}
+        >
+          {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+        </IconButton>
+      );
     },
-    // additional buttons
-    customToolbar: CustomToolbar,
   };
 
   const objectIdColumn = {
-    name: "objectId",
-    label: "Object ID",
-    options: {
-      filter: true,
-      sort: true,
-      sortDescFirst: true,
-      customBodyRender: (value) => (
+    field: "objectId",
+    headerName: "Object ID",
+    flex: 1,
+    minWidth: 130,
+    sortingOrder: ["desc", "asc", null],
+    renderCell: (params) => {
+      const value = params.value;
+      return (
         <Link
           to={`/alerts/${(
             inferSurvey(value) || dataSurvey
@@ -506,146 +487,128 @@ const Alerts = () => {
             {value}
           </Button>
         </Link>
-      ),
+      );
     },
   };
 
-  const candidHiddenColumn = {
-    name: "candid",
-    label: dataSurvey === "LSST" ? "diaSourceId" : "candid",
-    options: { filter: false, display: false, sort: true },
+  const candidColumn = {
+    field: "candid",
+    headerName: dataSurvey === "LSST" ? "diaSourceId" : "candid",
+    flex: 1,
+    minWidth: 120,
+    filterable: false,
   };
 
   const positionColumns = [
     {
-      name: "ra",
-      label: "R.A.",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => value?.toFixed(5),
-      },
+      field: "ra",
+      headerName: "R.A.",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      renderCell: (params) => params.value?.toFixed(5),
     },
     {
-      name: "dec",
-      label: "Decl.",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => value?.toFixed(6),
-      },
+      field: "dec",
+      headerName: "Decl.",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      renderCell: (params) => params.value?.toFixed(6),
     },
   ];
 
   const separationColumn = {
-    name: "separation",
-    label: "Separation",
-    options: {
-      filter: false,
-      sort: true,
-      customBodyRender: (value) => `${value.toFixed(2)}"`,
-    },
+    field: "separation",
+    headerName: "Separation",
+    flex: 1,
+    minWidth: 110,
+    filterable: false,
+    renderCell: (params) =>
+      params.value != null ? `${params.value.toFixed(2)}"` : "",
   };
 
-  const isLSST = dataSurvey === "LSST";
-
-  const compactHeaderProps = { style: { padding: "4px 4px 4px 4px" } };
-  const mlScoreColumn = (name, label) => ({
-    name,
-    label,
-    options: {
-      filter: false,
-      sort: true,
-      setCellHeaderProps: () => compactHeaderProps,
-      setCellProps: () => compactHeaderProps,
-      customBodyRender: (value) => value?.toFixed(2),
-    },
+  const mlScoreColumn = (field, headerName) => ({
+    field,
+    headerName,
+    flex: 1,
+    minWidth: 90,
+    filterable: false,
+    headerClassName: compactHeaderClass,
+    cellClassName: compactHeaderClass,
+    renderCell: (params) => params.value?.toFixed(2),
   });
 
   const surveyColumns = [
     {
-      name: "jd",
-      label: isLSST ? "MJD" : "JD",
-      options: {
-        filter: false,
-        sort: true,
-        sortDescFirst: true,
-        customBodyRender: (value) => value?.toFixed(5),
-      },
+      field: "jd",
+      headerName: isLSST ? "MJD" : "JD",
+      flex: 1,
+      minWidth: 110,
+      filterable: false,
+      sortingOrder: ["desc", "asc", null],
+      renderCell: (params) => params.value?.toFixed(5),
     },
     ...positionColumns,
     {
-      name: "band",
-      label: "band",
-      options: {
-        filter: true,
-        sort: true,
-        setCellHeaderProps: () => compactHeaderProps,
+      field: "band",
+      headerName: "band",
+      flex: 1,
+      minWidth: 80,
+      headerClassName: compactHeaderClass,
+    },
+    {
+      field: "magpsf",
+      headerName: "magpsf",
+      flex: 1,
+      minWidth: 130,
+      filterable: false,
+      cellClassName: "alerts-nowrap-cell",
+      renderCell: (params) => {
+        const mag = params.row.magpsf;
+        const sigma = params.row.sigmapsf;
+        if (mag == null) return "—";
+        return sigma != null
+          ? `${mag.toFixed(3)} ± ${sigma.toFixed(3)}`
+          : mag.toFixed(3);
       },
     },
     {
-      name: "magpsf",
-      label: "magpsf",
-      options: {
-        filter: false,
-        sort: true,
-        setCellProps: () => ({ style: { whiteSpace: "nowrap" } }),
-        customBodyRenderLite: (dataIndex) => {
-          const mag = rows[dataIndex]?.magpsf;
-          const sigma = rows[dataIndex]?.sigmapsf;
-          if (mag == null) return "—";
-          return sigma != null
-            ? `${mag.toFixed(3)} ± ${sigma.toFixed(3)}`
-            : mag.toFixed(3);
-        },
-      },
+      field: "snr",
+      headerName: "snr",
+      flex: 1,
+      minWidth: 80,
+      filterable: false,
+      headerClassName: compactHeaderClass,
+      cellClassName: compactHeaderClass,
+      renderCell: (params) => params.value?.toFixed(2),
     },
     {
-      name: "sigmapsf",
-      label: "sigmapsf",
-      options: { display: false, filter: false, sort: false },
+      field: "isdiffpos",
+      headerName: "isdiffpos",
+      flex: 1,
+      minWidth: 100,
+      renderCell: (params) =>
+        params.value != null ? String(params.value) : "—",
     },
     {
-      name: "snr",
-      label: "snr",
-      options: {
-        filter: false,
-        sort: true,
-        setCellHeaderProps: () => compactHeaderProps,
-        setCellProps: () => compactHeaderProps,
-        customBodyRender: (value) => value?.toFixed(2),
-      },
-    },
-    {
-      name: "isdiffpos",
-      label: "isdiffpos",
-      options: {
-        filter: true,
-        sort: true,
-        customBodyRender: (v) => (v != null ? String(v) : "—"),
-      },
-    },
-    {
-      name: "drb",
-      label: isLSST ? "reliability" : "drb",
-      options: {
-        filter: false,
-        sort: true,
-        setCellHeaderProps: () => compactHeaderProps,
-        setCellProps: () => compactHeaderProps,
-        customBodyRender: (value) => value?.toFixed(2),
-      },
+      field: "drb",
+      headerName: isLSST ? "reliability" : "drb",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      headerClassName: compactHeaderClass,
+      cellClassName: compactHeaderClass,
+      renderCell: (params) => params.value?.toFixed(2),
     },
     ...(!isLSST
       ? [
           {
-            name: "programid",
-            label: "programid",
-            options: {
-              filter: true,
-              sort: true,
-              setCellHeaderProps: () => compactHeaderProps,
-            },
+            field: "programid",
+            headerName: "programid",
+            flex: 1,
+            minWidth: 100,
+            headerClassName: compactHeaderClass,
           },
           mlScoreColumn("acai_h", "acai_h"),
           mlScoreColumn("acai_n", "acai_n"),
@@ -657,15 +620,85 @@ const Alerts = () => {
       : []),
   ];
 
-  const columns = [objectIdColumn, candidHiddenColumn, ...surveyColumns];
+  const columns = [
+    expandColumn,
+    objectIdColumn,
+    candidColumn,
+    ...surveyColumns,
+  ];
 
   if (groupByObj) {
     const { ra, dec, object_id } = getValues();
     if (ra && dec && !object_id) {
-      // insert separation after the dec column (index 4: objectId, candid, jd, ra, dec)
-      columns.splice(5, 0, separationColumn);
+      // insert separation after the dec column
+      // (index 5: __expand, objectId, candid, jd, ra, dec)
+      columns.splice(6, 0, separationColumn);
     }
   }
+
+  // sigmapsf is folded into the magpsf cell, so it is never shown as its own
+  // column (matches the old display:false). candid stays visible as before.
+  const columnVisibilityModel = { sigmapsf: false };
+
+  // Default sort: separation ascending in positional grouped mode, otherwise
+  // most-recent (jd) first.
+  const useSeparationSort = groupByObj && getValues().ra && getValues().dec;
+  const sortModel = [
+    useSeparationSort
+      ? { field: "separation", sort: "asc" }
+      : { field: "jd", sort: "desc" },
+  ];
+
+  // Interleave a synthetic full-width detail row after each expanded alert so
+  // the cutout-triplet pull-out renders inline (DataGrid community edition has
+  // no native master-detail). getRowHeight lets those rows size to content.
+  const displayRows = [];
+  rows.forEach((row) => {
+    displayRows.push(row);
+    if (openedRows.includes(row.candid)) {
+      displayRows.push({ candid: row.candid, __detail: true, __source: row });
+    }
+  });
+
+  const getRowHeight = (params) => (params.model.__detail ? "auto" : null);
+
+  const CustomToolbar = () => (
+    <GridToolbarContainer>
+      <GridToolbarColumnsButton />
+      <FormControlLabel
+        control={
+          <Switch
+            checked={groupByObj}
+            onChange={() => setGroupByObj(!groupByObj)}
+            name="groupAlerts"
+            color="primary"
+          />
+        }
+        label="Group by Object ID"
+      />
+      {groupByObj && selectedRowIds.length > 0 && (
+        <Tooltip title="Save selected alerts as sources">
+          <IconButton
+            aria-label="save"
+            data-testid="save-selected-alerts-button"
+            onClick={() => {
+              const objectIds = Array.from(
+                new Set(
+                  selectedRowIds
+                    .map((rowId) => objectIdByRowId[rowId])
+                    .filter(Boolean),
+                ),
+              );
+              handleSaveDialogOpen(objectIds);
+            }}
+            size="large"
+          >
+            <SaveIcon />
+          </IconButton>
+        </Tooltip>
+      )}
+    </GridToolbarContainer>
+  );
 
   const formSubmit = async () => {
     let { object_id, ra, dec, radius, radius_unit, instrument } = getValues();
@@ -813,24 +846,48 @@ const Alerts = () => {
             <Paper elevation={1}>
               <div className={classes.maindiv}>
                 <div className={classes.accordionDetails}>
-                  <StyledEngineProvider injectFirst>
-                    <ThemeProvider theme={getMuiTheme(theme)}>
-                      {queryInProgress ? (
-                        <CircularProgress />
-                      ) : (
-                        <MUIDataTable
-                          title={
-                            groupByObj
-                              ? "Alerts (grouped by Object ID)"
-                              : "Alerts"
-                          }
-                          data={rows}
-                          columns={columns}
-                          options={options}
-                        />
-                      )}
-                    </ThemeProvider>
-                  </StyledEngineProvider>
+                  <Typography variant="h6" style={{ padding: "0.5rem" }}>
+                    {groupByObj ? "Alerts (grouped by Object ID)" : "Alerts"}
+                  </Typography>
+                  {queryInProgress ? (
+                    <CircularProgress />
+                  ) : (
+                    <StyledDataGrid
+                      autoHeight
+                      rows={displayRows}
+                      columns={columns}
+                      getRowId={getRowId}
+                      getRowHeight={getRowHeight}
+                      columnVisibilityModel={columnVisibilityModel}
+                      sortModel={sortModel}
+                      checkboxSelection={groupByObj}
+                      isRowSelectable={(params) => !params.row.__detail}
+                      rowSelectionModel={{
+                        type: "include",
+                        ids: new Set(selectedRowIds),
+                      }}
+                      onRowSelectionModelChange={(model) =>
+                        setSelectedRowIds(Array.from(model.ids))
+                      }
+                      // Keep all columns mounted so the detail row's colSpan
+                      // works (column virtualization conflicts with colSpan).
+                      columnBufferPx={3000}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                      initialState={{
+                        pagination: { paginationModel: { pageSize: 10 } },
+                      }}
+                      slots={{ toolbar: CustomToolbar }}
+                      showToolbar
+                      sx={{
+                        "& .alerts-compact-cell": {
+                          padding: "4px 4px 4px 4px",
+                        },
+                        "& .alerts-nowrap-cell": {
+                          whiteSpace: "nowrap",
+                        },
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </Paper>
@@ -1011,11 +1068,8 @@ const Alerts = () => {
                 width: "100%",
               }}
             >
-              {(rowsToSave.data || []).map((row) => (
-                <Chip
-                  key={row.dataIndex}
-                  label={`${rows[row.dataIndex]?.objectId}`}
-                />
+              {(rowsToSave || []).map((objectId) => (
+                <Chip key={objectId} label={`${objectId}`} />
               ))}
             </div>
             <DialogContentText className={classes.marginTop}>

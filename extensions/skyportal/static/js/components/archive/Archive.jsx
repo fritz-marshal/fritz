@@ -1,8 +1,7 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import MUIDataTable from "mui-datatables";
 
 import {
   createTheme,
@@ -12,6 +11,10 @@ import {
   adaptV4Theme,
 } from "@mui/material/styles";
 import { makeStyles } from "tss-react/mui";
+import {
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+} from "@mui/x-data-grid";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -31,6 +34,8 @@ import Grid from "@mui/material/Grid";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import MenuItem from "@mui/material/MenuItem";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import Paper from "@mui/material/Paper";
@@ -39,13 +44,12 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import SaveIcon from "@mui/icons-material/Save";
 import Select from "@mui/material/Select";
-import TableCell from "@mui/material/TableCell";
-import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
 import { showNotification } from "baselayer/components/Notifications";
+import StyledDataGrid from "../StyledDataGrid";
 import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
 import * as archiveActions from "../../ducks/kowalski_archive";
@@ -54,22 +58,6 @@ import { checkSource } from "../../ducks/source";
 function isString(x) {
   return Object.prototype.toString.call(x) === "[object String]";
 }
-
-const getMuiTheme = (theme) =>
-  createTheme(
-    adaptV4Theme({
-      palette: theme.palette,
-      overrides: {
-        MUIDataTableBodyCell: {
-          root: {
-            padding: `${theme.spacing(0.25)} 0px ${theme.spacing(
-              0.25,
-            )} ${theme.spacing(1)}`,
-          },
-        },
-      },
-    }),
-  );
 
 const getMuiPopoverTheme = () =>
   createTheme(
@@ -242,6 +230,14 @@ const Archive = () => {
   const [searchHeaderAnchor, setSearchHeaderAnchor] = useState(null);
   const searchHelpOpen = Boolean(searchHeaderAnchor);
   const searchHelpId = searchHelpOpen ? "simple-popover" : undefined;
+
+  // DataGrid multi-row selection (v8 model: { type, ids: Set }).
+  const [rowSelectionModel, setRowSelectionModel] = useState({
+    type: "include",
+    ids: new Set(),
+  });
+  // IDs of rows whose expandable light-curve plot is open.
+  const [openedRows, setOpenedRows] = useState([]);
 
   useEffect(() => {
     const fetchCatalogNames = async () => {
@@ -447,7 +443,7 @@ const Archive = () => {
 
   const handleSaveDialogOpen = async (selectedRows) => {
     setRowsToSave(selectedRows);
-    const row = rows[selectedRows.data[0].dataIndex];
+    const row = selectedRows[0];
     dispatch(archiveActions.fetchNearestSources({ ra: row.ra, dec: row.dec }));
     setSaveDialogOpen(true);
   };
@@ -474,7 +470,7 @@ const Archive = () => {
 
     if (saveNewSource) {
       let data = null;
-      const row = rows[rowsToSave.data[0].dataIndex];
+      const row = rowsToSave[0];
       data = await dispatch(
         checkSource(objID, { ra: row.ra, dec: row.dec, nameOnly: true }),
       );
@@ -490,9 +486,7 @@ const Archive = () => {
       (groupId, index) => data2.group_ids[index],
     );
     // IDs of selected light curves
-    const lightCurveIDs = rowsToSave.data.map(
-      (rowToSave) => rows[rowToSave.dataIndex]._id,
-    );
+    const lightCurveIDs = rowsToSave.map((rowToSave) => rowToSave._id);
 
     const payload = {
       obj_id: objID,
@@ -531,162 +525,209 @@ const Archive = () => {
     rows = ztf_light_curves.map((a) => makeRow(a));
   }
 
-  // This is just passed to MUI datatables options -- not meant to be instantiated directly.
-  const renderPullOutRow = (rowData, rowMeta) => {
-    const colSpan = rowData.length + 1;
-
-    const ZTFLightCurveId = ztf_light_curves[rowMeta.dataIndex]._id;
-    const ZTFLightCurveFilterId = ztf_light_curves[rowMeta.dataIndex].filter;
-    const ZTFLightCurveData = ztf_light_curves[rowMeta.dataIndex].data.map(
-      (obj) => ({ ...obj, filter: ZTFLightCurveFilterId }),
+  const toggleExpand = (id) => {
+    setOpenedRows((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+  };
+
+  // Render the expandable light-curve plot for a detail row. The detail row
+  // carries the full light curve object (with its `.data` samples) in
+  // `row.__source`; the summary rows only carry the table columns.
+  const renderPullOutRow = (lightCurve) => {
+    const ZTFLightCurveFilterId = lightCurve.filter;
+    const ZTFLightCurveData = (lightCurve.data || []).map((obj) => ({
+      ...obj,
+      filter: ZTFLightCurveFilterId,
+    }));
     const colorScale = {
       domain: [ZTFLightCurveFilterId],
       range: [ZTFLightCurveColors[ZTFLightCurveFilterId]],
     };
 
     return (
-      <TableRow data-testid={`ZTFLightCurveRow_${ZTFLightCurveId}`}>
-        <TableCell
-          style={{ paddingBottom: 0, paddingTop: 0 }}
-          colSpan={colSpan}
-        >
-          <Grid
-            container
-            direction="row"
-            spacing={2}
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Grid item>
-              {ZTFLightCurveData.length && (
-                <Suspense fallback={<CircularProgress color="secondary" />}>
-                  <VegaPlotZTFArchive
-                    data={ZTFLightCurveData}
-                    colorScale={colorScale}
-                  />
-                </Suspense>
-              )}
-            </Grid>
-          </Grid>
-        </TableCell>
-      </TableRow>
-    );
-  };
-
-  const options = {
-    selectableRows: "multiple",
-    customToolbarSelect: (selectedRows) => (
-      <IconButton
-        className={classes.buttonSave}
-        aria-label="save"
-        onClick={() => {
-          handleSaveDialogOpen(selectedRows);
-        }}
-        size="large"
+      <div
+        data-testid={`ZTFLightCurveRow_${lightCurve._id}`}
+        style={{ width: "100%", paddingBottom: 0, paddingTop: 0 }}
       >
-        <SaveIcon />
-      </IconButton>
-    ),
-    expandableRows: true,
-    expandableRowsOnClick: true,
-    renderExpandableRow: renderPullOutRow,
-    elevation: 1,
-    sortOrder: {
-      name: "_id",
-      direction: "desc",
-    },
+        <Grid
+          container
+          direction="row"
+          spacing={2}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <Grid item>
+            {ZTFLightCurveData.length && (
+              <Suspense fallback={<CircularProgress color="secondary" />}>
+                <VegaPlotZTFArchive
+                  data={ZTFLightCurveData}
+                  colorScale={colorScale}
+                />
+              </Suspense>
+            )}
+          </Grid>
+        </Grid>
+      </div>
+    );
   };
 
   const columns = [
     {
-      name: "_id",
-      label: "_id",
-      options: {
-        filter: true,
-        sort: true,
-        sortDescFirst: true,
+      field: "__expand",
+      headerName: "",
+      width: 56,
+      sortable: false,
+      filterable: false,
+      hideable: false,
+      disableColumnMenu: true,
+      colSpan: (value, row) => (row.__detail ? 100 : 1),
+      renderCell: (params) => {
+        if (params.row.__detail) {
+          return renderPullOutRow(params.row.__source);
+        }
+        const expanded = openedRows.includes(params.row._id);
+        return (
+          <IconButton
+            id="expandable-button"
+            size="small"
+            aria-label="expand row"
+            onClick={() => toggleExpand(params.row._id)}
+          >
+            {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+          </IconButton>
+        );
       },
     },
     {
-      name: "ra",
-      label: "R.A.",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => ra_to_hours(value, ":"),
-      },
+      field: "_id",
+      headerName: "_id",
+      flex: 1,
+      minWidth: 120,
+      sortingOrder: ["desc", "asc", null],
     },
     {
-      name: "dec",
-      label: "Decl.",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => dec_to_dms(value, ":"),
-      },
+      field: "ra",
+      headerName: "R.A.",
+      flex: 1,
+      minWidth: 110,
+      filterable: false,
+      renderCell: (params) => ra_to_hours(params.value, ":"),
     },
     {
-      name: "filter",
-      label: "filter",
-      options: {
-        filter: true,
-        sort: true,
-      },
+      field: "dec",
+      headerName: "Decl.",
+      flex: 1,
+      minWidth: 110,
+      filterable: false,
+      renderCell: (params) => dec_to_dms(params.value, ":"),
     },
     {
-      name: "meanmag",
-      label: "meanmag",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => value.toFixed(3),
-      },
+      field: "filter",
+      headerName: "filter",
+      flex: 1,
+      minWidth: 80,
     },
     {
-      name: "vonneumannratio",
-      label: "vonneumannratio",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => value.toFixed(3),
-      },
+      field: "meanmag",
+      headerName: "meanmag",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      renderCell: (params) => params.value.toFixed(3),
     },
     {
-      name: "refchi",
-      label: "refchi",
-      options: {
-        filter: false,
-        sort: true,
-      },
+      field: "vonneumannratio",
+      headerName: "vonneumannratio",
+      flex: 1,
+      minWidth: 140,
+      filterable: false,
+      renderCell: (params) => params.value.toFixed(3),
     },
     {
-      name: "refmag",
-      label: "refmag",
-      options: {
-        filter: false,
-        sort: true,
-      },
+      field: "refchi",
+      headerName: "refchi",
+      flex: 1,
+      minWidth: 90,
+      filterable: false,
     },
     {
-      name: "refmagerr",
-      label: "refmagerr",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => (value ? value.toFixed(5) : value),
-      },
+      field: "refmag",
+      headerName: "refmag",
+      flex: 1,
+      minWidth: 90,
+      filterable: false,
     },
     {
-      name: "iqr",
-      label: "iqr",
-      options: {
-        filter: false,
-        sort: true,
-        customBodyRender: (value) => (value ? value.toFixed(5) : value),
-      },
+      field: "refmagerr",
+      headerName: "refmagerr",
+      flex: 1,
+      minWidth: 100,
+      filterable: false,
+      renderCell: (params) =>
+        params.value ? params.value.toFixed(5) : params.value,
+    },
+    {
+      field: "iqr",
+      headerName: "iqr",
+      flex: 1,
+      minWidth: 90,
+      filterable: false,
+      renderCell: (params) =>
+        params.value ? params.value.toFixed(5) : params.value,
     },
   ];
+
+  // Build the display rows, injecting a detail row (with the full light curve)
+  // after each summary row whose plot is expanded.
+  const lightCurveById = {};
+  if (Array.isArray(ztf_light_curves)) {
+    ztf_light_curves.forEach((lc) => {
+      lightCurveById[lc._id] = lc;
+    });
+  }
+  const displayRows = [];
+  rows.forEach((row) => {
+    displayRows.push(row);
+    if (openedRows.includes(row._id)) {
+      displayRows.push({
+        _id: `${row._id}__detail`,
+        __detail: true,
+        __source: lightCurveById[row._id],
+      });
+    }
+  });
+
+  // Save action lives in the toolbar; enabled when rows are selected. Mirrors
+  // the old customToolbarSelect SaveIcon from the previous table library.
+  const CustomToolbar = useMemo(
+    () =>
+      function ArchiveTableToolbar() {
+        return (
+          <GridToolbarContainer>
+            <GridToolbarColumnsButton />
+            <IconButton
+              className={classes.buttonSave}
+              aria-label="save"
+              disabled={rowSelectionModel.ids.size === 0}
+              onClick={() => {
+                const selected = rows.filter((row) =>
+                  rowSelectionModel.ids.has(row._id),
+                );
+                if (selected.length) {
+                  handleSaveDialogOpen(selected);
+                }
+              }}
+              size="large"
+            >
+              <SaveIcon />
+            </IconButton>
+          </GridToolbarContainer>
+        );
+      },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowSelectionModel, rows],
+  );
 
   if (!catalogOptions) {
     return (
@@ -721,20 +762,38 @@ const Archive = () => {
               <Paper elevation={1}>
                 <div className={classes.maindiv}>
                   <div className={classes.accordionDetails}>
-                    <StyledEngineProvider injectFirst>
-                      <ThemeProvider theme={getMuiTheme(theme)}>
-                        {queryInProgress ? (
-                          <CircularProgress />
-                        ) : (
-                          <MUIDataTable
-                            title="ZTF Light Curves"
-                            data={rows}
-                            columns={columns}
-                            options={options}
-                          />
-                        )}
-                      </ThemeProvider>
-                    </StyledEngineProvider>
+                    {queryInProgress ? (
+                      <CircularProgress />
+                    ) : (
+                      <StyledDataGrid
+                        autoHeight
+                        title="ZTF Light Curves"
+                        rows={displayRows}
+                        columns={columns}
+                        getRowId={(row) => row._id}
+                        getRowHeight={(params) =>
+                          params.model.__detail ? "auto" : null
+                        }
+                        checkboxSelection
+                        disableRowSelectionOnClick
+                        isRowSelectable={(params) => !params.row.__detail}
+                        rowSelectionModel={rowSelectionModel}
+                        onRowSelectionModelChange={(model) =>
+                          setRowSelectionModel(model)
+                        }
+                        pageSizeOptions={[10, 25, 50, 100]}
+                        initialState={{
+                          pagination: {
+                            paginationModel: { pageSize: 10, page: 0 },
+                          },
+                          sorting: {
+                            sortModel: [{ field: "_id", sort: "desc" }],
+                          },
+                        }}
+                        slots={{ toolbar: CustomToolbar }}
+                        showToolbar
+                      />
+                    )}
                   </div>
                 </div>
               </Paper>
