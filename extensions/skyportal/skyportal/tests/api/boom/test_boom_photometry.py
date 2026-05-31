@@ -33,7 +33,18 @@ ingested (in sync it shares BOOM's session and the ordering is moot).
 import uuid
 
 from skyportal.handlers.api.photometry import add_external_photometry
+from skyportal.models import DBSession
 from skyportal.tests import api
+
+
+def _ingest(payload, user):
+    """Call the sync add_external_photometry the way BOOM does, but pass an
+    explicit session. add_external_photometry only closes the session it opened
+    itself (parent_session is None); passing the shared scoped session avoids
+    closing it, which would otherwise detach the test's fixture objects
+    (super_admin_user, ztf_camera, ...) and break a second call / teardown."""
+    add_external_photometry(payload, user, DBSession())
+
 
 # Matches BOOM's ZP_PER_SURVEY["ZTF"] in main.py: photometry is submitted in
 # flux space with this zeropoint.
@@ -98,7 +109,7 @@ def test_ingest_photometry_main_object(
 
     payload = _boom_photometry_payload(obj_id, ztf_camera.id, [public_group.id])
     # sync call; see the module docstring for the async (#6140) update.
-    add_external_photometry(payload, super_admin_user)
+    _ingest(payload, super_admin_user)
 
     photometry = _get_photometry(obj_id, upload_data_token)
     assert len(photometry) == 3
@@ -134,7 +145,7 @@ def test_ingest_photometry_match_object(
         match_obj_id, ztf_camera.id, [public_group.id], ra=120.0, dec=10.0
     )
     # sync call; see the module docstring for the async (#6140) update.
-    add_external_photometry(payload, super_admin_user)
+    _ingest(payload, super_admin_user)
 
     photometry = _get_photometry(match_obj_id, upload_data_token)
     assert len(photometry) == 3
@@ -150,8 +161,8 @@ def test_ingest_photometry_is_idempotent(
     _create_source(obj_id, upload_data_token, public_group.id)
 
     payload = _boom_photometry_payload(obj_id, ztf_camera.id, [public_group.id])
-    add_external_photometry(payload, super_admin_user)
-    add_external_photometry(payload, super_admin_user)
+    _ingest(payload, super_admin_user)
+    _ingest(payload, super_admin_user)
 
     photometry = _get_photometry(obj_id, upload_data_token)
     assert len(photometry) == 3

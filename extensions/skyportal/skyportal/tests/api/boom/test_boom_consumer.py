@@ -58,45 +58,64 @@ BOOM_FILTER_ID = 424242  # arbitrary BOOM-side filter id used in the maps below
 ZTF_ZP = 23.9  # matches BOOM's ZP_PER_SURVEY["ZTF"]
 
 
-def _load_boom_module():
-    """Import the deployed BOOM plugin (services/boom/main.py) or return None.
-
-    Tries the configured external-services path first, then common fallbacks.
-    Any failure (not deployed, missing deps, etc.) yields None so callers skip.
-    """
-    candidate_paths = []
+def _candidate_boom_paths():
+    paths = []
     try:
         from baselayer.app.env import load_env
 
         _, cfg = load_env()
         for base in cfg.get("services.paths") or []:
-            candidate_paths.append(os.path.join(base, "boom", "main.py"))
+            paths.append(os.path.join(base, "boom", "main.py"))
     except Exception:
         pass
-    candidate_paths += ["services/boom/main.py", "/skyportal/services/boom/main.py"]
+    paths += [
+        "services/boom/main.py",
+        "/skyportal/services/boom/main.py",
+        os.path.join(os.getcwd(), "services", "boom", "main.py"),
+    ]
+    # de-dup, preserve order
+    seen, unique = set(), []
+    for p in paths:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+    return unique
 
+
+def _load_boom_module():
+    """Import the deployed BOOM plugin (services/boom/main.py).
+
+    Returns ``(module, reason)``: on success ``(module, None)``; on failure
+    ``(None, reason)`` where ``reason`` explains *why* (paths searched and not
+    found, or the import exception) so the skip is diagnostic rather than silent.
+    """
+    candidate_paths = _candidate_boom_paths()
+    found = None
     for path in candidate_paths:
-        if not os.path.exists(path):
-            continue
-        try:
-            spec = importlib.util.spec_from_file_location("boom_plugin_main", path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-        except Exception:
-            return None
-        if hasattr(module, "process_record"):
-            return module
-    return None
+        if os.path.exists(path):
+            found = path
+            break
+    if found is None:
+        return None, f"boom main.py not found; searched: {candidate_paths}"
+    try:
+        spec = importlib.util.spec_from_file_location("boom_plugin_main", found)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception as e:
+        return None, f"found {found} but import failed: {type(e).__name__}: {e}"
+    if not hasattr(module, "process_record"):
+        return None, (
+            f"imported {found} but it has no process_record "
+            "(deployed BOOM predates the testability refactor?)"
+        )
+    return module, None
 
 
 @pytest.fixture(scope="module")
 def boom_module():
-    module = _load_boom_module()
+    module, reason = _load_boom_module()
     if module is None:
-        pytest.skip(
-            "Deployed BOOM plugin with process_record not importable; "
-            "set services.external.boom.rev to the refactored branch."
-        )
+        pytest.skip(f"Deployed BOOM plugin not usable: {reason}")
     return module
 
 
