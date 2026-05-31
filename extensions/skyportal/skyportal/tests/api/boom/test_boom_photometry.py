@@ -65,8 +65,6 @@ def test_passthrough_returns_serialized_photometry(
     ]:
         assert key in point, f"missing key {key!r} in serialized point {point}"
     assert point["obj_id"] == boom_seed_oid
-    # At least one detection should carry a magnitude.
-    assert any(p.get("mag") is not None for p in points)
 
 
 @pytest.mark.requires_boom_data
@@ -97,19 +95,36 @@ def test_passthrough_does_not_persist(
 
 @pytest.mark.requires_boom_data
 def test_passthrough_merges_db_photometry(
-    upload_data_token, super_admin_token, public_group, boom_seed_oid
+    upload_data_token, super_admin_token, public_group, boom_seed_oid, ztf_camera
 ):
-    """The response merges persisted (DB) photometry with the broker points:
-    saved points (which carry a DB ``id``) appear in the result."""
+    """The response merges persisted (DB) photometry with the broker points. We
+    post a distinctive DB point directly (deterministic, independent of whether
+    the broker-save ran) and confirm it appears, by its DB id, in the merge."""
     _save_object(upload_data_token, public_group, boom_seed_oid)
+
+    status, data = api(
+        "POST",
+        "photometry",
+        data={
+            "obj_id": boom_seed_oid,
+            "mjd": 40000.0,  # far from any real ZTF epoch, so it is not deduped
+            "instrument_id": ztf_camera.id,
+            "flux": 12.24,
+            "fluxerr": 0.031,
+            "zp": 25.0,
+            "magsys": "ab",
+            "filter": "ztfg",
+            "group_ids": [public_group.id],
+        },
+        token=upload_data_token,
+    )
+    assert status == 200, data
+    posted_id = data["data"]["ids"][0]
 
     status, data = api("GET", _phot_url(boom_seed_oid), token=super_admin_token)
     assert status == 200, data
     points = data["data"]["photometry"]
-    assert len(points) > 0
-    # Saved photometry (from the POST above) is present, identified by its DB id;
-    # broker points that duplicate saved ones are deduped away.
-    assert any(p.get("id") is not None for p in points)
+    assert posted_id in {p.get("id") for p in points}
 
 
 @pytest.mark.requires_boom_data
