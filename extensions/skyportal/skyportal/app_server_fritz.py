@@ -10,6 +10,7 @@ from skyportal.handlers.api.boom import (
     BoomFilterHandler,
     BoomFilterModulesHandler,
     BoomObjectHandler,
+    BoomPhotometryHandler,
     BoomRunFilterHandler,
 )
 from skyportal.handlers.api.kowalski import (
@@ -31,6 +32,12 @@ fritz_handlers = [
     (r"/api/boom/filter_modules(/.*)?", BoomFilterModulesHandler),
     (r"/api/boom/run_filter", BoomRunFilterHandler),
     (r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/alerts", BoomAlertHandler),
+    # Ephemeral photometry passthrough — registered before the object route so
+    # the more specific `/photometry` path is matched first.
+    (
+        r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/objects/([0-9A-Za-z-_\.\+]+)/photometry",
+        BoomPhotometryHandler,
+    ),
     (
         r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/objects/([0-9A-Za-z-_\.\+]+)",
         BoomObjectHandler,

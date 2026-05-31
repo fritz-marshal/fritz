@@ -505,6 +505,13 @@ skyportal:
     user: skyportal
     password: password
 
+  # To serve the source page's photometry from the broker-canonical passthrough
+  # (saved DB photometry merged with on-demand BOOM photometry), set:
+  #   photometry_display_endpoint: "/api/boom/surveys/ZTF/objects/{id}/photometry"
+  # Left unset by default: it changes every source page's photometry fetch and
+  # requires BOOM to be reliably available, so enable it deliberately per
+  # deployment once that holds.
+
   ports:
     facility_queue: 64510
     notification_queue: 64610
