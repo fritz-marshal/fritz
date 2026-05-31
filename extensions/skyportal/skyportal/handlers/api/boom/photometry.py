@@ -25,12 +25,13 @@ import asyncio
 import traceback
 
 import requests
+from sqlalchemy.orm import joinedload, load_only
 
 from baselayer.app.access import auth_or_token
 from baselayer.log import make_log
 from skyportal.utils.valkey_cache import get_cache
 
-from ....models import DBSession, Group, Photometry, Stream
+from ....models import DBSession, Group, Instrument, Photometry, Stream
 from ...base import BaseHandler
 from ..photometry import serialize, standardize_photometry_data
 from .object import (
@@ -40,6 +41,7 @@ from .object import (
 )
 from .photometry_cache import (
     filter_groups_by_streams,
+    merge_photometry_points,
     photometry_key,
     scope_hash,
     variant_hash,
@@ -176,18 +178,53 @@ async def serialized_broker_points(groups, session, outsys="ab", fmt="mag"):
     return points
 
 
+async def db_photometry_points(object_id, user, session, outsys="ab", fmt="mag"):
+    """Serialize the object's persisted, access-controlled photometry, using the
+    same ``serialize()`` the standard photometry endpoint uses so DB and broker
+    points share one shape. Eager-loads the relationships ``serialize()`` reads
+    (instrument, groups) to avoid lazy loads under the async session.
+    """
+    stmt = (
+        Photometry.select(user)
+        .where(Photometry.obj_id == object_id)
+        .options(
+            joinedload(Photometry.instrument).load_only(Instrument.name),
+            joinedload(Photometry.groups).load_only(
+                Group.id, Group.name, Group.nickname, Group.single_user_group
+            ),
+        )
+    )
+    phot = (await session.scalars(stmt)).unique().all()
+    return [
+        serialize(
+            p,
+            outsys,
+            fmt,
+            created_at=False,
+            groups=True,
+            annotations=False,
+            owner=False,
+            stream=False,
+            validation=False,
+        )
+        for p in phot
+    ]
+
+
 class BoomPhotometryHandler(BaseHandler):
     @auth_or_token
     @boom_available
     async def get(self, survey, object_id):
         """
         ---
-        summary: Ephemeral photometry passthrough for an object from Boom
+        summary: Display photometry for an object (DB + on-demand broker)
         description: |
-          Fetch an object's photometry on demand from the broker and return it
-          for display, without persisting it to the database. Backed by a Valkey
-          read-through cache keyed by the object and the requester's access
-          scope.
+          Return an object's photometry for display: the persisted,
+          access-controlled photometry from the database merged with photometry
+          fetched on demand from the broker (deduped by instrument/filter/mjd,
+          so the broker only augments saved points). The broker half is held in
+          a Valkey read-through cache keyed by the object and the requester's
+          access scope, and is never written to the database.
         tags:
           - photometry
           - boom
@@ -221,6 +258,7 @@ class BoomPhotometryHandler(BaseHandler):
         survey = str(survey)
         object_id = str(object_id)
         fmt = self.get_query_argument("format", "mag")
+        outsys = self.get_query_argument("magsys", "ab")
 
         cache = get_cache()
         user = self.associated_user_object
@@ -253,40 +291,39 @@ class BoomPhotometryHandler(BaseHandler):
             key = photometry_key(
                 object_id,
                 scope_hash(user_id, group_ids, stream_ids, is_admin),
-                variant_hash({"format": fmt}),
+                variant_hash({"format": fmt, "magsys": outsys}),
             )
 
-            cached = await cache.get_json(key)
-            if cached is not None:
-                return self.success(
-                    data={"obj_id": object_id, "photometry": cached, "cached": True}
-                )
+            # Broker half — cached per scope. On a miss, fetch on demand off the
+            # IO loop, scope-filter, serialize (no Postgres write), and cache.
+            broker_points = await cache.get_json(key)
+            if broker_points is None:
+                loop = asyncio.get_event_loop()
+                try:
+                    groups = await loop.run_in_executor(
+                        None, _fetch_photometry_groups, survey, object_id
+                    )
+                except Exception:
+                    log(f"passthrough fetch failed for {survey}/{object_id}")
+                    return self.error(f"failure: {traceback.format_exc()}")
 
-            # Miss: fetch off the IO loop (blocking broker query + sync session).
-            loop = asyncio.get_event_loop()
-            try:
-                groups = await loop.run_in_executor(
-                    None, _fetch_photometry_groups, survey, object_id
-                )
-            except Exception:
-                log(f"passthrough fetch failed for {survey}/{object_id}")
-                return self.error(f"failure: {traceback.format_exc()}")
+                # No broker data for the object is fine — we still return the DB
+                # photometry below.
+                kept = filter_groups_by_streams(groups or {}, stream_ids, is_admin)
+                try:
+                    broker_points = await serialized_broker_points(
+                        kept, session, outsys=outsys, fmt=fmt
+                    )
+                except Exception:
+                    log(f"passthrough serialize failed for {survey}/{object_id}")
+                    return self.error(f"failure: {traceback.format_exc()}")
+                await cache.set_json(key, broker_points)
 
-            if groups is None:
-                return self.error(
-                    f"No photometry found for object {object_id} in survey {survey}"
-                )
+            # DB half — always live and access-controlled. Merge so the broker
+            # only augments saved photometry (deduped by instrument/filter/mjd).
+            db_points = await db_photometry_points(
+                object_id, user, session, outsys=outsys, fmt=fmt
+            )
+            merged = merge_photometry_points(db_points, broker_points)
 
-            # Drop points the requester may not see BEFORE serializing/caching, so
-            # the cached payload is already scope-correct for this scope_hash.
-            kept = filter_groups_by_streams(groups, stream_ids, is_admin)
-            try:
-                points = await serialized_broker_points(kept, session, fmt=fmt)
-            except Exception:
-                log(f"passthrough serialize failed for {survey}/{object_id}")
-                return self.error(f"failure: {traceback.format_exc()}")
-
-        await cache.set_json(key, points)
-        return self.success(
-            data={"obj_id": object_id, "photometry": points, "cached": False}
-        )
+        return self.success(data={"obj_id": object_id, "photometry": merged})

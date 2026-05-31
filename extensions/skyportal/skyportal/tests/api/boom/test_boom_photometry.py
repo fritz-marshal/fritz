@@ -96,6 +96,26 @@ def test_passthrough_does_not_persist(
 
 
 @pytest.mark.requires_boom_data
-def test_passthrough_unknown_object_errors(upload_data_token):
+def test_passthrough_merges_db_photometry(
+    upload_data_token, super_admin_token, public_group, boom_seed_oid
+):
+    """The response merges persisted (DB) photometry with the broker points:
+    saved points (which carry a DB ``id``) appear in the result."""
+    _save_object(upload_data_token, public_group, boom_seed_oid)
+
+    status, data = api("GET", _phot_url(boom_seed_oid), token=super_admin_token)
+    assert status == 200, data
+    points = data["data"]["photometry"]
+    assert len(points) > 0
+    # Saved photometry (from the POST above) is present, identified by its DB id;
+    # broker points that duplicate saved ones are deduped away.
+    assert any(p.get("id") is not None for p in points)
+
+
+@pytest.mark.requires_boom_data
+def test_passthrough_unknown_object_is_empty(upload_data_token):
+    """An object unknown to both the broker and the DB yields an empty list
+    (not an error) — there is simply no photometry to show."""
     status, data = api("GET", _phot_url(UNKNOWN_OID), token=upload_data_token)
-    assert status == 400
+    assert status == 200, data
+    assert data["data"]["photometry"] == []

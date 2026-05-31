@@ -9,6 +9,7 @@ fetch/cache path is exercised by the API integration tests.
 from skyportal.handlers.api.boom.photometry_cache import (
     filter_groups_by_streams,
     groups_to_points,
+    merge_photometry_points,
     obj_prefix,
     photometry_key,
     scope_hash,
@@ -104,6 +105,37 @@ def test_groups_to_points_shape():
     }
     # stream_ids are visibility gating, not display data — never in the payload.
     assert "stream_ids" not in points[0]
+
+
+def test_merge_broker_augments_db_and_dedups():
+    """DB points are authoritative; a broker point matching a DB point on
+    (instrument, filter, mjd) is dropped, broker-only points are appended."""
+    db = [
+        {"instrument_id": 1, "filter": "ztfg", "mjd": 59000.0, "id": 5},
+        {"instrument_id": 1, "filter": "ztfr", "mjd": 59001.0, "id": 6},
+    ]
+    broker = [
+        # duplicate of the first DB point (float noise on mjd) -> dropped
+        {"instrument_id": 1, "filter": "ztfg", "mjd": 59000.0000001, "id": None},
+        # genuinely new broker point -> kept
+        {"instrument_id": 1, "filter": "ztfg", "mjd": 59002.5, "id": None},
+    ]
+    merged = merge_photometry_points(db, broker)
+    assert len(merged) == 3
+    # the two DB points are preserved with their ids
+    assert [p for p in merged if p.get("id") is not None] == db
+    # exactly the new broker point was appended
+    appended = [p for p in merged if p.get("id") is None]
+    assert len(appended) == 1
+    assert appended[0]["mjd"] == 59002.5
+
+
+def test_merge_empty_halves():
+    assert merge_photometry_points([], []) == []
+    only_broker = [{"instrument_id": 1, "filter": "ztfg", "mjd": 1.0, "id": None}]
+    assert merge_photometry_points([], only_broker) == only_broker
+    only_db = [{"instrument_id": 1, "filter": "ztfg", "mjd": 1.0, "id": 5}]
+    assert merge_photometry_points(only_db, []) == only_db
 
 
 def test_key_matches_obj_prefix_for_invalidation():

@@ -96,6 +96,35 @@ def filter_groups_by_streams(groups, accessible_stream_ids, is_admin=False):
 _POINT_FIELDS = ("mjd", "flux", "fluxerr", "filter", "zp", "magsys", "ra", "dec")
 
 
+def _dedup_key(point):
+    """Identity of a photometry point for merge deduplication: the same
+    observation across the DB and the broker shares (instrument, filter, mjd).
+    mjd is rounded to absorb float noise (1e-6 day ~= 0.09 s)."""
+    mjd = point.get("mjd")
+    return (
+        point.get("instrument_id"),
+        point.get("filter"),
+        round(mjd, 6) if mjd is not None else None,
+    )
+
+
+def merge_photometry_points(db_points, broker_points):
+    """Union persisted (DB) photometry with on-demand broker photometry for
+    display.
+
+    The DB is authoritative: a broker point that matches a DB point on
+    (instrument_id, filter, mjd) is dropped, so the broker only *augments* the
+    DB with points not yet saved. DB points keep their identity (e.g. ``id``,
+    groups); broker-only points are appended.
+    """
+    seen = {_dedup_key(p) for p in db_points}
+    merged = list(db_points)
+    for point in broker_points:
+        if _dedup_key(point) not in seen:
+            merged.append(point)
+    return merged
+
+
 def groups_to_points(groups):
     """Flatten per-(survey, programid) groups into a flat list of photometry
     points. Each point carries the transform's SkyPortal-unit fields plus the
