@@ -25,7 +25,6 @@ import asyncio
 import traceback
 
 import requests
-import sqlalchemy as sa
 
 from baselayer.app.access import auth_or_token
 from baselayer.log import make_log
@@ -101,9 +100,7 @@ def _fetch_photometry_groups(survey, object_id):
         timeout=30,
     )
     if response.status_code != 200:
-        raise RuntimeError(
-            f"BOOM query failed: {response.status_code} {response.text}"
-        )
+        raise RuntimeError(f"BOOM query failed: {response.status_code} {response.text}")
     payload = response.json()
     if not payload.get("data"):
         return None
@@ -129,14 +126,10 @@ class BoomPhotometryHandler(BaseHandler):
             return user.id, [], [], True
         async with self.AsyncSession() as session:
             group_ids = (
-                await session.scalars(
-                    Group.select(user).with_only_columns(Group.id)
-                )
+                await session.scalars(Group.select(user).with_only_columns(Group.id))
             ).all()
             stream_ids = (
-                await session.scalars(
-                    Stream.select(user).with_only_columns(Stream.id)
-                )
+                await session.scalars(Stream.select(user).with_only_columns(Stream.id))
             ).all()
         return user.id, list(group_ids), list(stream_ids), is_admin
 
