@@ -32,6 +32,7 @@ from baselayer.log import make_log
 from skyportal.utils.valkey_cache import get_cache
 
 from ....models import DBSession, Group, Instrument, Photometry, Stream
+from ....utils.parse import str_to_bool
 from ...base import BaseHandler
 from ..photometry import serialize, standardize_photometry_data
 from .object import (
@@ -249,7 +250,9 @@ class BoomPhotometryHandler(BaseHandler):
                     - type: object
                       properties:
                         data:
-                          type: object
+                          type: array
+                          items:
+                            type: object
           400:
             content:
               application/json:
@@ -259,6 +262,11 @@ class BoomPhotometryHandler(BaseHandler):
         object_id = str(object_id)
         fmt = self.get_query_argument("format", "mag")
         outsys = self.get_query_argument("magsys", "ab")
+        # ?refresh=true bypasses a cached broker payload and re-fetches from the
+        # broker (then re-caches) — for a user-initiated photometry refresh.
+        refresh = str_to_bool(
+            self.get_query_argument("refresh", "false"), default=False
+        )
 
         cache = get_cache()
         user = self.associated_user_object
@@ -295,29 +303,31 @@ class BoomPhotometryHandler(BaseHandler):
             )
 
             # Broker half — cached per scope. On a miss, fetch on demand off the
-            # IO loop, scope-filter, serialize (no Postgres write), and cache.
-            broker_points = await cache.get_json(key)
+            # IO loop, scope-filter, serialize (no Postgres write), and cache. A
+            # broker failure degrades to DB-only (the source page still shows
+            # saved photometry) rather than erroring — this endpoint backs the
+            # source-page lightcurve, so it must not go down with the broker.
+            broker_points = None if refresh else await cache.get_json(key)
             if broker_points is None:
+                broker_points = []
                 loop = asyncio.get_event_loop()
                 try:
                     groups = await loop.run_in_executor(
                         None, _fetch_photometry_groups, survey, object_id
                     )
-                except Exception:
-                    log(f"passthrough fetch failed for {survey}/{object_id}")
-                    return self.error(f"failure: {traceback.format_exc()}")
-
-                # No broker data for the object is fine — we still return the DB
-                # photometry below.
-                kept = filter_groups_by_streams(groups or {}, stream_ids, is_admin)
-                try:
+                    # No broker data for the object is fine — DB points still
+                    # come back below.
+                    kept = filter_groups_by_streams(groups or {}, stream_ids, is_admin)
                     broker_points = await serialized_broker_points(
                         kept, session, outsys=outsys, fmt=fmt
                     )
+                    await cache.set_json(key, broker_points)
                 except Exception:
-                    log(f"passthrough serialize failed for {survey}/{object_id}")
-                    return self.error(f"failure: {traceback.format_exc()}")
-                await cache.set_json(key, broker_points)
+                    log(
+                        f"passthrough broker fetch failed for {survey}/{object_id}; "
+                        f"serving DB photometry only: {traceback.format_exc()}"
+                    )
+                    broker_points = []
 
             # DB half — always live and access-controlled. Merge so the broker
             # only augments saved photometry (deduped by instrument/filter/mjd).
@@ -326,4 +336,7 @@ class BoomPhotometryHandler(BaseHandler):
             )
             merged = merge_photometry_points(db_points, broker_points)
 
-        return self.success(data={"obj_id": object_id, "photometry": merged})
+        # Return a bare list of points — the same response shape as
+        # GET /sources/{id}/photometry — so this endpoint is a drop-in for the
+        # source-page photometry fetch.
+        return self.success(data=merged)

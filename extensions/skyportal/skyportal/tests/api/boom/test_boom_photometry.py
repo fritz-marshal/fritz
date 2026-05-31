@@ -46,9 +46,8 @@ def test_passthrough_returns_serialized_photometry(
     assert status == 200, data
     assert data["status"] == "success"
 
-    payload = data["data"]
-    assert payload["obj_id"] == boom_seed_oid
-    points = payload["photometry"]
+    # Bare list of points, same response shape as GET /sources/{id}/photometry.
+    points = data["data"]
     assert isinstance(points, list)
     assert len(points) > 0
 
@@ -123,8 +122,22 @@ def test_passthrough_merges_db_photometry(
 
     status, data = api("GET", _phot_url(boom_seed_oid), token=super_admin_token)
     assert status == 200, data
-    points = data["data"]["photometry"]
+    points = data["data"]
     assert posted_id in {p.get("id") for p in points}
+
+
+@pytest.mark.requires_boom_data
+def test_passthrough_refresh_returns_photometry(
+    upload_data_token, super_admin_token, public_group, boom_seed_oid
+):
+    """?refresh=true bypasses the cached broker payload and still returns a
+    valid merged photometry list."""
+    _save_object(upload_data_token, public_group, boom_seed_oid)
+    status, data = api(
+        "GET", f"{_phot_url(boom_seed_oid)}?refresh=true", token=super_admin_token
+    )
+    assert status == 200, data
+    assert isinstance(data["data"], list)
 
 
 @pytest.mark.requires_boom_data
@@ -133,4 +146,4 @@ def test_passthrough_unknown_object_is_empty(upload_data_token):
     (not an error) — there is simply no photometry to show."""
     status, data = api("GET", _phot_url(UNKNOWN_OID), token=upload_data_token)
     assert status == 200, data
-    assert data["data"]["photometry"] == []
+    assert data["data"] == []
