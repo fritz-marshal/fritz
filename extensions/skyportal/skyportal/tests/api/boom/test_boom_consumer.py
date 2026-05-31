@@ -209,6 +209,27 @@ def _count(session, model, obj_id):
     )
 
 
+def _run_process_record(boom_module, record, maps, user):
+    """Run process_record on the shared scoped session WITHOUT closing it.
+
+    A ``with DBSession() as session:`` block closes the scoped session on exit,
+    which detaches the test's fixture objects (super_admin_user, ztf_camera,
+    ...) and breaks both a second call and fixture teardown. process_record and
+    add_external_photometry only close sessions they open themselves, so passing
+    the shared session and leaving it open is safe.
+    """
+    boom_filters, programid2streamid, survey2instrumentid = maps
+    boom_module.process_record(
+        record,
+        DBSession(),
+        boom_filters=boom_filters,
+        programid2streamid=programid2streamid,
+        survey2instrumentid=survey2instrumentid,
+        user=user,
+        boom_client=None,
+    )
+
+
 def test_process_record_main_object(
     boom_module,
     super_admin_user,
@@ -220,34 +241,23 @@ def test_process_record_main_object(
     """A passing filter creates the Obj + Candidate + Annotation and ingests
     the main object's photometry (detections + a non-detection)."""
     obj_id = f"ZTF_boomproc_{uuid.uuid4().hex[:8]}"
-    boom_filters, programid2streamid, survey2instrumentid = _maps(
-        public_filter, public_group, public_stream, ztf_camera
-    )
+    maps = _maps(public_filter, public_group, public_stream, ztf_camera)
     record = _record(obj_id, candid=10_000_001)
 
-    with DBSession() as session:
-        boom_module.process_record(
-            record,
-            session,
-            boom_filters=boom_filters,
-            programid2streamid=programid2streamid,
-            survey2instrumentid=survey2instrumentid,
-            user=super_admin_user,
-            boom_client=None,
-        )
+    _run_process_record(boom_module, record, maps, super_admin_user)
 
-    with DBSession() as session:
-        assert session.scalar(sa.select(Obj).where(Obj.id == obj_id)) is not None
-        assert _count(session, Candidate, obj_id) == 1
-        assert _count(session, Annotation, obj_id) == 1
+    session = DBSession()
+    assert session.scalar(sa.select(Obj).where(Obj.id == obj_id)) is not None
+    assert _count(session, Candidate, obj_id) == 1
+    assert _count(session, Annotation, obj_id) == 1
 
-        phot = session.scalars(
-            sa.select(Photometry).where(Photometry.obj_id == obj_id)
-        ).all()
-        assert len(phot) == 3
-        # the sub-threshold point is stored as a non-detection (flux is None/NaN)
-        n_nondet = sum(1 for p in phot if p.flux is None or p.flux != p.flux)
-        assert n_nondet == 1
+    phot = session.scalars(
+        sa.select(Photometry).where(Photometry.obj_id == obj_id)
+    ).all()
+    assert len(phot) == 3
+    # the sub-threshold point is stored as a non-detection (flux is None/NaN)
+    n_nondet = sum(1 for p in phot if p.flux is None or p.flux != p.flux)
+    assert n_nondet == 1
 
 
 def test_process_record_is_idempotent(
@@ -262,26 +272,15 @@ def test_process_record_is_idempotent(
     candidates or photometry: the IntegrityError guard rejects the duplicate
     candidate and add_external_photometry's duplicates='update' dedups rows."""
     obj_id = f"ZTF_boomidem_{uuid.uuid4().hex[:8]}"
-    boom_filters, programid2streamid, survey2instrumentid = _maps(
-        public_filter, public_group, public_stream, ztf_camera
-    )
+    maps = _maps(public_filter, public_group, public_stream, ztf_camera)
     record = _record(obj_id, candid=10_000_002)
 
     for _ in range(2):
-        with DBSession() as session:
-            boom_module.process_record(
-                record,
-                session,
-                boom_filters=boom_filters,
-                programid2streamid=programid2streamid,
-                survey2instrumentid=survey2instrumentid,
-                user=super_admin_user,
-                boom_client=None,
-            )
+        _run_process_record(boom_module, record, maps, super_admin_user)
 
-    with DBSession() as session:
-        assert _count(session, Candidate, obj_id) == 1
-        assert _count(session, Photometry, obj_id) == 3
+    session = DBSession()
+    assert _count(session, Candidate, obj_id) == 1
+    assert _count(session, Photometry, obj_id) == 3
 
 
 def test_process_record_match_object(
@@ -299,9 +298,7 @@ def test_process_record_match_object(
     """
     main_obj_id = f"LSST_boommain_{uuid.uuid4().hex[:8]}"
     match_obj_id = f"ZTF_boommatch_{uuid.uuid4().hex[:8]}"
-    boom_filters, programid2streamid, survey2instrumentid = _maps(
-        public_filter, public_group, public_stream, ztf_camera
-    )
+    maps = _maps(public_filter, public_group, public_stream, ztf_camera)
     # main object is LSST (so the ZTF match isn't skipped as same-survey) and
     # carries no photometry (keeps the test to a single instrument/stream map);
     # the match carries the ZTF photometry.
@@ -320,39 +317,30 @@ def test_process_record_match_object(
         },
     )
 
-    with DBSession() as session:
-        boom_module.process_record(
-            record,
-            session,
-            boom_filters=boom_filters,
-            programid2streamid=programid2streamid,
-            survey2instrumentid=survey2instrumentid,
-            user=super_admin_user,
-            boom_client=None,  # cutout fetch is best-effort; None is tolerated
+    _run_process_record(boom_module, record, maps, super_admin_user)
+
+    session = DBSession()
+    # the match object exists and got its photometry
+    assert session.scalar(sa.select(Obj).where(Obj.id == match_obj_id)) is not None
+    assert _count(session, Photometry, match_obj_id) == 3
+
+    # both objects are associated under one SuperObj
+    if ObjToSuperObj is not None:
+        super_ids_main = set(
+            session.scalars(
+                sa.select(ObjToSuperObj.super_obj_id).where(
+                    ObjToSuperObj.obj_id == main_obj_id
+                )
+            ).all()
         )
-
-    with DBSession() as session:
-        # the match object exists and got its photometry
-        assert session.scalar(sa.select(Obj).where(Obj.id == match_obj_id)) is not None
-        assert _count(session, Photometry, match_obj_id) == 3
-
-        # both objects are associated under one SuperObj
-        if ObjToSuperObj is not None:
-            super_ids_main = set(
-                session.scalars(
-                    sa.select(ObjToSuperObj.super_obj_id).where(
-                        ObjToSuperObj.obj_id == main_obj_id
-                    )
-                ).all()
-            )
-            super_ids_match = set(
-                session.scalars(
-                    sa.select(ObjToSuperObj.super_obj_id).where(
-                        ObjToSuperObj.obj_id == match_obj_id
-                    )
-                ).all()
-            )
-            assert super_ids_main, "main object not associated to a SuperObj"
-            assert super_ids_main == super_ids_match, (
-                "main and match objects are not under the same SuperObj"
-            )
+        super_ids_match = set(
+            session.scalars(
+                sa.select(ObjToSuperObj.super_obj_id).where(
+                    ObjToSuperObj.obj_id == match_obj_id
+                )
+            ).all()
+        )
+        assert super_ids_main, "main object not associated to a SuperObj"
+        assert super_ids_main == super_ids_match, (
+            "main and match objects are not under the same SuperObj"
+        )

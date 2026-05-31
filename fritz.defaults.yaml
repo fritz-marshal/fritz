@@ -581,10 +581,12 @@ skyportal:
       - dask
     external:
       boom:
-        repo: https://github.com/Theodlz/boom-skyportal-plugin.git
-        # Temporary: point at the testability-refactor branch (PR #9) so the
-        # deployed plugin exposes process_record for the consumer tests.
-        # Revert to `main` once that PR merges.
+        # Temporary: the testability-refactor branch (PR #9) lives on the
+        # mcoughlin fork, not Theodlz, so we clone the fork to get
+        # process_record for the consumer tests. Revert to
+        # https://github.com/Theodlz/boom-skyportal-plugin.git @ main once #9
+        # merges.
+        repo: https://github.com/mcoughlin/boom-skyportal-plugin.git
         rev: testability
         params:
           kafka:
