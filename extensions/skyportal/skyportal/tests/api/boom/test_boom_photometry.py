@@ -31,13 +31,18 @@ def _save_object(token, public_group, oid):
 
 @pytest.mark.requires_boom_data
 def test_passthrough_returns_serialized_photometry(
-    upload_data_token, public_group, boom_seed_oid
+    upload_data_token, super_admin_token, public_group, boom_seed_oid
 ):
     """The passthrough returns on-demand broker photometry in SkyPortal's own
-    serialized shape (same keys as GET /sources/{id}/photometry)."""
+    serialized shape (same keys as GET /sources/{id}/photometry).
+
+    Fetched as an admin so scope filtering is bypassed and points are present;
+    the stream-based scope filtering itself is covered by the unit tests in
+    test_boom_photometry_cache.py.
+    """
     _save_object(upload_data_token, public_group, boom_seed_oid)
 
-    status, data = api("GET", _phot_url(boom_seed_oid), token=upload_data_token)
+    status, data = api("GET", _phot_url(boom_seed_oid), token=super_admin_token)
     assert status == 200, data
     assert data["status"] == "success"
 
@@ -78,7 +83,9 @@ def test_passthrough_does_not_persist(
     assert status == 200
     n_before = len(before["data"])
 
-    status, _ = api("GET", _phot_url(boom_seed_oid), token=upload_data_token)
+    # Fetch as admin so broker points are actually serialized (scope filtering
+    # bypassed) — then confirm that producing them wrote nothing to Postgres.
+    status, _ = api("GET", _phot_url(boom_seed_oid), token=super_admin_token)
     assert status == 200
 
     status, after = api(
