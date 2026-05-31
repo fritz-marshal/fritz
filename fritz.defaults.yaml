@@ -582,7 +582,10 @@ skyportal:
     external:
       boom:
         repo: https://github.com/Theodlz/boom-skyportal-plugin.git
-        rev: main
+        # Temporary: point at the testability-refactor branch (PR #9) so the
+        # deployed plugin exposes process_record for the consumer tests.
+        # Revert to `main` once that PR merges.
+        rev: testability
         params:
           kafka:
             host: kafka-1
