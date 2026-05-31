@@ -30,8 +30,9 @@ from baselayer.app.access import auth_or_token
 from baselayer.log import make_log
 from skyportal.utils.valkey_cache import get_cache
 
-from ....models import DBSession, Group, Stream
+from ....models import DBSession, Group, Photometry, Stream
 from ...base import BaseHandler
+from ..photometry import serialize, standardize_photometry_data
 from .object import (
     build_photometry_groups,
     make_programid2stream_mapper,
@@ -39,12 +40,26 @@ from .object import (
 )
 from .photometry_cache import (
     filter_groups_by_streams,
-    groups_to_points,
     photometry_key,
     scope_hash,
     variant_hash,
 )
 from .utils import boom_available, boom_token, boom_url
+
+# Group keys that form a PhotFluxFlexible payload for standardize_photometry_data
+# (everything except stream_ids, which gates visibility, not serialization).
+_PAYLOAD_KEYS = (
+    "obj_id",
+    "instrument_id",
+    "mjd",
+    "flux",
+    "fluxerr",
+    "filter",
+    "zp",
+    "magsys",
+    "ra",
+    "dec",
+)
 
 log = make_log("api/boom/photometry")
 
@@ -110,29 +125,58 @@ def _fetch_photometry_groups(survey, object_id):
     )
 
 
+async def serialized_broker_points(groups, session, outsys="ab", fmt="mag"):
+    """Turn scope-filtered broker groups into points in SkyPortal's photometry
+    serialization shape, WITHOUT persisting.
+
+    Each group is a PhotFluxFlexible payload; we run it through the same
+    ``standardize_photometry_data`` the DB-write path uses (so the flux /
+    zeropoint / magsys conversions are byte-for-byte identical), build
+    *transient* (non-persisted) ``Photometry`` objects from the standardized
+    rows, and serialize them with the same ``serialize()`` used by
+    ``GET /sources/{id}/photometry``. This guarantees broker points are
+    shape-identical to DB points, so the two can be merged for display.
+    """
+    points = []
+    for group in groups.values():
+        payload = {k: group[k] for k in _PAYLOAD_KEYS if k in group}
+        df, instrument_cache = await standardize_photometry_data(payload, session)
+        for row in df.to_dict("records"):
+            phot = Photometry(
+                obj_id=row["obj_id"],
+                instrument_id=row["instrument_id"],
+                mjd=row["mjd"],
+                filter=row["filter"],
+                ra=row.get("ra"),
+                dec=row.get("dec"),
+                ra_unc=row.get("ra_unc"),
+                dec_unc=row.get("dec_unc"),
+                flux=row.get("standardized_flux"),
+                fluxerr=row.get("standardized_fluxerr"),
+                origin=row.get("origin"),
+            )
+            # serialize() reads phot.instrument.name; attach the already-loaded
+            # instrument from the standardize cache so it needs no DB round-trip.
+            instrument = instrument_cache.get(row["instrument_id"])
+            if instrument is not None:
+                phot.instrument = instrument
+            points.append(
+                serialize(
+                    phot,
+                    outsys,
+                    fmt,
+                    created_at=False,
+                    groups=False,
+                    annotations=False,
+                    owner=False,
+                    stream=False,
+                    validation=False,
+                )
+            )
+    return points
+
+
 class BoomPhotometryHandler(BaseHandler):
-    async def _requester_scope(self):
-        """Resolve the access scope that gates which photometry this requester
-        may see: (user_id, accessible_group_ids, accessible_stream_ids, is_admin).
-
-        Admins bypass row-level filtering, so their group/stream sets are
-        irrelevant (and collapse to a shared cache bucket). Uses explicit
-        access-controlled selects under the async session to avoid lazy
-        relationship loads.
-        """
-        user = self.associated_user_object
-        is_admin = user.is_admin
-        if is_admin:
-            return user.id, [], [], True
-        async with self.AsyncSession() as session:
-            group_ids = (
-                await session.scalars(Group.select(user).with_only_columns(Group.id))
-            ).all()
-            stream_ids = (
-                await session.scalars(Stream.select(user).with_only_columns(Stream.id))
-            ).all()
-        return user.id, list(group_ids), list(stream_ids), is_admin
-
     @auth_or_token
     @boom_available
     async def get(self, survey, object_id):
@@ -176,40 +220,71 @@ class BoomPhotometryHandler(BaseHandler):
         """
         survey = str(survey)
         object_id = str(object_id)
+        fmt = self.get_query_argument("format", "mag")
 
         cache = get_cache()
-        user_id, group_ids, stream_ids, is_admin = await self._requester_scope()
-        key = photometry_key(
-            object_id,
-            scope_hash(user_id, group_ids, stream_ids, is_admin),
-            variant_hash({"format": self.get_query_argument("format", "mag")}),
-        )
+        user = self.associated_user_object
 
-        cached = await cache.get_json(key)
-        if cached is not None:
-            return self.success(
-                data={"obj_id": object_id, "photometry": cached, "cached": True}
+        async with self.AsyncSession() as session:
+            # Access scope: the (user, accessible groups, accessible streams)
+            # tuple that gates which photometry is visible — part of the cache
+            # key, and used to scope-filter broker points before caching. Admins
+            # bypass row-level filtering and share one bucket. Explicit selects
+            # avoid lazy relationship loads under the async session.
+            if user.is_admin:
+                user_id, group_ids, stream_ids, is_admin = user.id, [], [], True
+            else:
+                group_ids = list(
+                    (
+                        await session.scalars(
+                            Group.select(user).with_only_columns(Group.id)
+                        )
+                    ).all()
+                )
+                stream_ids = list(
+                    (
+                        await session.scalars(
+                            Stream.select(user).with_only_columns(Stream.id)
+                        )
+                    ).all()
+                )
+                user_id, is_admin = user.id, False
+
+            key = photometry_key(
+                object_id,
+                scope_hash(user_id, group_ids, stream_ids, is_admin),
+                variant_hash({"format": fmt}),
             )
 
-        # Miss: fetch + transform off the IO loop (blocking broker query).
-        loop = asyncio.get_event_loop()
-        try:
-            groups = await loop.run_in_executor(
-                None, _fetch_photometry_groups, survey, object_id
-            )
-        except Exception:
-            log(f"passthrough fetch failed for {survey}/{object_id}")
-            return self.error(f"failure: {traceback.format_exc()}")
+            cached = await cache.get_json(key)
+            if cached is not None:
+                return self.success(
+                    data={"obj_id": object_id, "photometry": cached, "cached": True}
+                )
 
-        if groups is None:
-            return self.error(
-                f"No photometry found for object {object_id} in survey {survey}"
-            )
+            # Miss: fetch off the IO loop (blocking broker query + sync session).
+            loop = asyncio.get_event_loop()
+            try:
+                groups = await loop.run_in_executor(
+                    None, _fetch_photometry_groups, survey, object_id
+                )
+            except Exception:
+                log(f"passthrough fetch failed for {survey}/{object_id}")
+                return self.error(f"failure: {traceback.format_exc()}")
 
-        # Drop points the requester may not see BEFORE caching, so the cached
-        # payload is already scope-correct for this scope_hash.
-        kept = filter_groups_by_streams(groups, stream_ids, is_admin)
-        points = groups_to_points(kept)
+            if groups is None:
+                return self.error(
+                    f"No photometry found for object {object_id} in survey {survey}"
+                )
+
+            # Drop points the requester may not see BEFORE serializing/caching, so
+            # the cached payload is already scope-correct for this scope_hash.
+            kept = filter_groups_by_streams(groups, stream_ids, is_admin)
+            try:
+                points = await serialized_broker_points(kept, session, fmt=fmt)
+            except Exception:
+                log(f"passthrough serialize failed for {survey}/{object_id}")
+                return self.error(f"failure: {traceback.format_exc()}")
 
         await cache.set_json(key, points)
         return self.success(
