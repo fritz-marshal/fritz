@@ -25,13 +25,15 @@ import asyncio
 import traceback
 
 import requests
+import sqlalchemy as sa
 from sqlalchemy.orm import joinedload, load_only
 
+from baselayer.app import models as baselayer_models
 from baselayer.app.access import auth_or_token
 from baselayer.log import make_log
 from skyportal.utils.valkey_cache import get_cache
 
-from ....models import DBSession, Group, Instrument, Photometry, Stream
+from ....models import DBSession, Group, Instrument, Photometry, PhotStat, Stream
 from ....utils.parse import str_to_bool
 from ...base import BaseHandler
 from ..photometry import serialize, standardize_photometry_data
@@ -128,19 +130,14 @@ def _fetch_photometry_groups(survey, object_id):
     )
 
 
-async def serialized_broker_points(groups, session, outsys="ab", fmt="mag"):
-    """Turn scope-filtered broker groups into points in SkyPortal's photometry
-    serialization shape, WITHOUT persisting.
-
-    Each group is a PhotFluxFlexible payload; we run it through the same
-    ``standardize_photometry_data`` the DB-write path uses (so the flux /
-    zeropoint / magsys conversions are byte-for-byte identical), build
-    *transient* (non-persisted) ``Photometry`` objects from the standardized
-    rows, and serialize them with the same ``serialize()`` used by
-    ``GET /sources/{id}/photometry``. This guarantees broker points are
-    shape-identical to DB points, so the two can be merged for display.
+async def transient_photometry(groups, session):
+    """Build *transient* (non-persisted) ``Photometry`` objects from broker
+    groups, running each group through the same ``standardize_photometry_data``
+    the DB-write path uses so the flux / zeropoint / magsys conversions are
+    byte-for-byte identical. Shared by the serialized display points and the
+    cache-update PhotStat recompute.
     """
-    points = []
+    phots = []
     for group in groups.values():
         payload = {k: group[k] for k in _PAYLOAD_KEYS if k in group}
         df, instrument_cache = await standardize_photometry_data(payload, session)
@@ -158,25 +155,82 @@ async def serialized_broker_points(groups, session, outsys="ab", fmt="mag"):
                 fluxerr=row.get("standardized_fluxerr"),
                 origin=row.get("origin"),
             )
-            # serialize() reads phot.instrument.name; attach the already-loaded
+            # serialize()/PhotStat read phot.instrument; attach the already-loaded
             # instrument from the standardize cache so it needs no DB round-trip.
             instrument = instrument_cache.get(row["instrument_id"])
             if instrument is not None:
                 phot.instrument = instrument
-            points.append(
-                serialize(
-                    phot,
-                    outsys,
-                    fmt,
-                    created_at=False,
-                    groups=False,
-                    annotations=False,
-                    owner=False,
-                    stream=False,
-                    validation=False,
-                )
+            phots.append(phot)
+    return phots
+
+
+async def serialized_broker_points(groups, session, outsys="ab", fmt="mag"):
+    """Serialize transient broker Photometry into SkyPortal's photometry display
+    shape (the same ``serialize()`` used by ``GET /sources/{id}/photometry``), so
+    broker points are shape-identical to DB points and the two can be merged.
+    """
+    return [
+        serialize(
+            phot,
+            outsys,
+            fmt,
+            created_at=False,
+            groups=False,
+            annotations=False,
+            owner=False,
+            stream=False,
+            validation=False,
+        )
+        for phot in await transient_photometry(groups, session)
+    ]
+
+
+async def update_phot_stat_from_broker(object_id, groups):
+    """Recompute the object's PhotStat from DB ∪ all broker photometry and
+    persist the summary (never the bulk photometry).
+
+    Fire-and-forget from the read path: it opens its own session, logs and
+    swallows any error, and must never affect the photometry response. Built
+    from the *full, unfiltered* broker set so the per-object aggregate is
+    viewer-independent (it does not depend on the requester's stream access).
+    Broker points already saved are deduped out (by instrument/filter/mjd) so
+    they are not double-counted against the DB rows.
+    """
+    try:
+        async with baselayer_models.async_plain_session_factory() as session:
+            broker_phot = await transient_photometry(groups, session)
+            db_phot = list(
+                (
+                    await session.scalars(
+                        sa.select(Photometry).where(Photometry.obj_id == object_id)
+                    )
+                ).all()
             )
-    return points
+            seen = {
+                (p.instrument_id, p.filter, round(p.mjd, 6))
+                for p in db_phot
+                if p.mjd is not None
+            }
+            merged = db_phot + [
+                p
+                for p in broker_phot
+                if p.mjd is None
+                or (p.instrument_id, p.filter, round(p.mjd, 6)) not in seen
+            ]
+            if not merged:
+                return
+            phot_stat = (
+                await session.scalars(
+                    sa.select(PhotStat).where(PhotStat.obj_id == object_id)
+                )
+            ).first()
+            if phot_stat is None:
+                phot_stat = PhotStat(obj_id=object_id)
+                session.add(phot_stat)
+            phot_stat.full_update(merged)
+            await session.commit()
+    except Exception:
+        log(f"phot_stat broker update failed for {object_id}: {traceback.format_exc()}")
 
 
 async def db_photometry_points(object_id, user, session, outsys="ab", fmt="mag"):
@@ -322,6 +376,13 @@ class BoomPhotometryHandler(BaseHandler):
                         kept, session, outsys=outsys, fmt=fmt
                     )
                     await cache.set_json(key, broker_points)
+                    # Fresh broker data in hand: refresh the object's PhotStat
+                    # summary (from the full DB ∪ broker set) so listings/scanning
+                    # reflect it. Fire-and-forget — never blocks or fails the read.
+                    if groups:
+                        asyncio.ensure_future(
+                            update_phot_stat_from_broker(object_id, groups)
+                        )
                 except Exception:
                     log(
                         f"passthrough broker fetch failed for {survey}/{object_id}; "

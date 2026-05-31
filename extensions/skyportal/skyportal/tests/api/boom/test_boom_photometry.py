@@ -5,6 +5,8 @@ These need a live BOOM (seeded mongo) and run in the Fritz integration CI job;
 they auto-skip locally when no BOOM seed is present (see the boom conftest).
 """
 
+import time
+
 import pytest
 
 from skyportal.tests import api
@@ -138,6 +140,33 @@ def test_passthrough_refresh_returns_photometry(
     )
     assert status == 200, data
     assert isinstance(data["data"], list)
+
+
+@pytest.mark.requires_boom_data
+def test_passthrough_populates_phot_stat(
+    upload_data_token, super_admin_token, public_group, boom_seed_oid
+):
+    """A passthrough fetch fires a (fire-and-forget) PhotStat recompute over the
+    full DB + broker photometry, so listings/scanning reflect broker data. We
+    poll because the update runs in the background after the response returns."""
+    _save_object(upload_data_token, public_group, boom_seed_oid)
+
+    status, _ = api(
+        "GET", f"{_phot_url(boom_seed_oid)}?refresh=true", token=super_admin_token
+    )
+    assert status == 200
+
+    last = None
+    for _ in range(30):
+        status, data = api(
+            "GET", f"sources/{boom_seed_oid}/phot_stat", token=super_admin_token
+        )
+        if status == 200 and (data["data"].get("num_det_global") or 0) > 0:
+            assert data["data"]["last_detected_mjd"] is not None
+            return
+        last = (status, data)
+        time.sleep(1)
+    pytest.fail(f"PhotStat not populated after passthrough; last={last}")
 
 
 @pytest.mark.requires_boom_data
