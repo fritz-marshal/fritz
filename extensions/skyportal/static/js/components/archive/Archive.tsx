@@ -1099,7 +1099,7 @@ const Archive = () => {
               <DialogContentText className={classes.marginTop}>
                 Select groups to save new source to:
               </DialogContentText>
-              {saveNewSource && errors.group_ids && (
+              {saveNewSource && errors["group_ids"] && (
                 <FormValidationError message="Select at least one group." />
               )}
               {userGroups.map((userGroup: any, idx: number) => (

@@ -171,7 +171,7 @@ const PipelineViewer = ({
           >
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {pipeline.map((stage: any, index: number) => {
-                const stageName = Object.keys(stage)[0];
+                const stageName = Object.keys(stage)[0] ?? "";
                 const stageContent = stage[stageName];
                 const description =
                   STAGE_DESCRIPTIONS[stageName] || "MongoDB aggregation stage";
