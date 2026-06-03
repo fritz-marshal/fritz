@@ -7,8 +7,8 @@ interface SaveBlockComponentProps {
   setSaveName: (...a: any[]) => void;
   setSaveError: (...a: any[]) => void;
   setFilters: (...a: any[]) => void;
-  isCustomBlock?: boolean;
-  isCollapsed?: boolean;
+  isCustomBlock?: boolean | undefined;
+  isCollapsed?: boolean | undefined;
   block: any;
 }
 

@@ -298,9 +298,9 @@ const MongoQueryDialog = () => {
 
   const isDateRangeValid = () => {
     const formState = getValues();
-    if (formState.startDate && formState.endDate) {
-      const startDate = new Date(formState.startDate);
-      const endDate = new Date(formState.endDate);
+    if (formState["startDate"] && formState["endDate"]) {
+      const startDate = new Date(formState["startDate"]);
+      const endDate = new Date(formState["endDate"]);
 
       // Check if start date is before end date
       if (startDate > endDate) {

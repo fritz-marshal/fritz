@@ -221,7 +221,7 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
         <DialogTitle>Select one or more groups:</DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmitGroupSelectSave)}>
-            {errors.group_ids && (
+            {errors["group_ids"] && (
               <FormValidationError message="Select at least one group." />
             )}
             {unsavedGroups.map((unsavedGroup: any, idx: number) => (
