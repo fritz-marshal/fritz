@@ -82,11 +82,6 @@ skyportal:
       look_back_days: 7
 
     hermes:
-      endpoint: https://hermes.lco.global/api/v0
-      topic: hermes.test
-      token:
-
-    hermes:
       endpoint: https://hermes.lco.global/api/v0  # Base URL of the Hermes API
       token:  # Hermes API token for authentication (required to publish messages)
       topic: hermes.test  # Kafka topic used to publish outgoing SkyPortal alerts to Hermes
