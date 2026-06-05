@@ -24,6 +24,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+          # Pull the skyportal-data submodule's LFS payload (SFD dust maps and
+          # sncosmo SED models); bandpasses/spectra are plain git.
+          lfs: true
 
       - uses: actions/setup-python@v6
         with:
@@ -48,25 +51,9 @@ jobs:
             ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
 
-      # caching dustmap & sncosmo files is dependent on their corresponding
-      # python package versions, so we use that as the cache key
-      - uses: actions/cache@v5
-        with:
-          path: |
-            persistentdata/dustmap/sfd
-          key: ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
-            ${{ runner.os }}-dustmap-
-
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ~/.astropy/cache/sncosmo/bandpasses
-          key: ${{ runner.os }}-sncosmo-${{ hashFiles('**/skyportal/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-sncosmo-${{ hashFiles('**/skyportal/pyproject.toml') }}
-            ${{ runner.os }}-sncosmo-
+      # The SFD dust maps and sncosmo SED models are now vendored in the
+      # skyportal-data submodule (misc.dustmap_folder / sncosmo_data_folder) and
+      # pulled via `lfs: true` above, so no separate download cache is needed.
 
       - name: Install system dependencies
         run: |
