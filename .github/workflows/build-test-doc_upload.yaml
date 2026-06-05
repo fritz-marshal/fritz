@@ -39,14 +39,20 @@ jobs:
         with:
           node-version: 22
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: skyportal/package.json
+
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v1
 
       - uses: actions/cache@v5
         with:
           path: |
-            ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package.json') }}
+            ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('skyportal/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       # caching dustmap & sncosmo files is dependent on their corresponding
       # python package versions, so we use that as the cache key
