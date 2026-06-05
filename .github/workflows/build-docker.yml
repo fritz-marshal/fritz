@@ -30,10 +30,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          # skyportal-data (SFD dust maps + sncosmo models) is vendored as plain
+          # git blobs in the submodule and baked into the image by the recursive
+          # checkout, so it's present without a runtime fetch.
           submodules: recursive
-          # Bake the skyportal-data submodule's LFS payload (SFD dust maps and
-          # sncosmo SED models) into the image instead of fetching at runtime.
-          lfs: true
           fetch-depth: 0
 
       - uses: actions/setup-python@v6

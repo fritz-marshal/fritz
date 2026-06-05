@@ -26,10 +26,9 @@ jobs:
       - name: Checkout fritz
         uses: actions/checkout@v6
         with:
+          # skyportal-data (SFD dust maps + sncosmo models) is vendored as plain
+          # git blobs in the submodule, so a recursive checkout pulls it in.
           submodules: recursive
-          # Pull the skyportal-data submodule's LFS payload (SFD dust maps and
-          # sncosmo SED models); bandpasses/spectra are plain git.
-          lfs: true
 
       - name: Checkout boom (sibling working dir)
         uses: actions/checkout@v6
