@@ -117,7 +117,7 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
   const { fid } = useParams();
   const loadedId = useAppSelector((state: any) => state.boom_filter_v?.id);
 
-  const { users } = useAppSelector((state) => state.users);
+  const { users } = useAppSelector((state) => state["users"]);
   const allGroups = useAppSelector((state) => state.groups.all);
   const userAccessibleGroups = useAppSelector(
     (state) => state.groups.userAccessible,

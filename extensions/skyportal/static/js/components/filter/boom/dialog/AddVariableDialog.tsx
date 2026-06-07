@@ -93,8 +93,9 @@ const convertDivisionToFraction = (str: string): string => {
     const divisionMatch = result.match(/(.*?)([^\\]|^)\/([^\/].*)/);
     if (divisionMatch && !result.includes("\\frac")) {
       const beforeDiv =
-        divisionMatch[1] + (divisionMatch[2] === "^" ? "" : divisionMatch[2]);
-      const afterDiv = divisionMatch[3];
+        (divisionMatch[1] ?? "") +
+        (divisionMatch[2] === "^" ? "" : (divisionMatch[2] ?? ""));
+      const afterDiv = divisionMatch[3] ?? "";
 
       // Extract the immediate operands around the division
       const numerator = extractOperand(beforeDiv, true);

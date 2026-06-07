@@ -58,7 +58,7 @@ interface ConditionalValueBuilderProps {
   onChange?: (...a: any[]) => void;
   defaultCondition: (...a: any[]) => any;
   defaultBlock: (...a: any[]) => any;
-  fieldOptionsList?: any[];
+  fieldOptionsList?: any[] | undefined;
 }
 
 const ConditionalValueBuilder = ({

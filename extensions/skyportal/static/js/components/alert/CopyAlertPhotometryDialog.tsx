@@ -89,7 +89,7 @@ const CopyAlertPhotometryDialog = ({
         <DialogTitle>Copy photometry to selected groups:</DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
-            {(errors.inviteGroupIds || errors.unsaveGroupIds) && (
+            {(errors["inviteGroupIds"] || errors["unsaveGroupIds"]) && (
               <FormValidationError message="Select at least one group." />
             )}
             {!!savedGroups.length && (

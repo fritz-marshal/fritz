@@ -650,7 +650,8 @@ const Alerts = () => {
 
   // Default sort: separation ascending in positional grouped mode, otherwise
   // most-recent (jd) first.
-  const useSeparationSort = groupByObj && getValues().ra && getValues().dec;
+  const useSeparationSort =
+    groupByObj && getValues()["ra"] && getValues()["dec"];
   const sortModel: any[] = [
     useSeparationSort
       ? { field: "separation", sort: "asc" }
