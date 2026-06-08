@@ -33,7 +33,7 @@ def test_alerts_page_loads(page):
             "'abcdefghijklmnopqrstuvwxyz'),'ztf') or "
             "contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
             "'abcdefghijklmnopqrstuvwxyz'),'lsst')]"
-        ).first
+        ).locator("visible=true").first
     ).to_be_visible()
 
 
@@ -53,7 +53,7 @@ def test_alert_detail_page_loads(page, boom_seed_oid):
     we assert the heading or another landmark containing the OID."""
     page.goto(f"/alerts/ZTF/{boom_seed_oid}")
     expect(
-        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").first
+        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").locator("visible=true").first
     ).to_be_visible()
 
 
@@ -63,7 +63,7 @@ def test_alerts_search_results_for_seed_oid(page, boom_seed_oid):
     one row references it."""
     page.goto(f"/alerts?survey=ZTF&objectId={boom_seed_oid}")
     expect(
-        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").first
+        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").locator("visible=true").first
     ).to_be_visible()
 
 
@@ -75,9 +75,12 @@ def test_open_alert_from_table(page, boom_seed_oid):
     target='_blank', so it opens a new page in the browser context.
     """
     page.goto(f"/alerts?survey=ZTF&objectId={boom_seed_oid}")
-    # Row link uses data-testid={objectId} (Alerts.jsx:502).
+    # Row link uses data-testid={objectId} (Alerts.jsx:502). Wait for it to be
+    # visible before clicking so the search results have finished rendering.
+    row_link = page.locator(f"//*[@data-testid='{boom_seed_oid}']").first
+    expect(row_link).to_be_visible(timeout=30000)
     with page.context.expect_page() as new_page_info:
-        page.locator(f"//*[@data-testid='{boom_seed_oid}']").first.click()
+        row_link.click()
     new_page = new_page_info.value
     try:
         # SaveAlertButton has data-testid=saveAlertButton_{alert.id} where
@@ -106,7 +109,7 @@ def test_save_alert_as_source(page, boom_seed_oid, public_group, super_admin_tok
     # landmark lets the initial data-load churn finish (Playwright re-resolves
     # the locator on each action, so no manual stale-element retry is needed).
     expect(
-        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").first
+        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").locator("visible=true").first
     ).to_be_visible(timeout=30000)
     page.locator(f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']").first.click()
     # Dialog title (SaveAlertButton.jsx:206).
