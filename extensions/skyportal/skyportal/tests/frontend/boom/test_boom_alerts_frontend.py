@@ -33,7 +33,9 @@ def test_alerts_page_loads(page):
             "'abcdefghijklmnopqrstuvwxyz'),'ztf') or "
             "contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
             "'abcdefghijklmnopqrstuvwxyz'),'lsst')]"
-        ).locator("visible=true").first
+        )
+        .locator("visible=true")
+        .first
     ).to_be_visible()
 
 
@@ -53,7 +55,9 @@ def test_alert_detail_page_loads(page, boom_seed_oid):
     we assert the heading or another landmark containing the OID."""
     page.goto(f"/alerts/ZTF/{boom_seed_oid}")
     expect(
-        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").locator("visible=true").first
+        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]")
+        .locator("visible=true")
+        .first
     ).to_be_visible()
 
 
@@ -63,7 +67,9 @@ def test_alerts_search_results_for_seed_oid(page, boom_seed_oid):
     one row references it."""
     page.goto(f"/alerts?survey=ZTF&objectId={boom_seed_oid}")
     expect(
-        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").locator("visible=true").first
+        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]")
+        .locator("visible=true")
+        .first
     ).to_be_visible()
 
 
@@ -109,7 +115,9 @@ def test_save_alert_as_source(page, boom_seed_oid, public_group, super_admin_tok
     # landmark lets the initial data-load churn finish (Playwright re-resolves
     # the locator on each action, so no manual stale-element retry is needed).
     expect(
-        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]").locator("visible=true").first
+        page.locator(f"//*[contains(text(),'{boom_seed_oid}')]")
+        .locator("visible=true")
+        .first
     ).to_be_visible(timeout=30000)
     page.locator(f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']").first.click()
     # Dialog title (SaveAlertButton.jsx:206).
