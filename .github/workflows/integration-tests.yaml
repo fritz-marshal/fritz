@@ -132,6 +132,8 @@ jobs:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
                 BOOM_KAFKA__CONSUMER__LSST__SERVER: broker:29092
+                BOOM_KAFKA__CONSUMER__LSST__USERNAME: ${BOOM_KAFKA__CONSUMER__LSST__USERNAME}
+                BOOM_KAFKA__CONSUMER__LSST__PASSWORD: ${BOOM_KAFKA__CONSUMER__LSST__PASSWORD}
             scheduler-lsst:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
