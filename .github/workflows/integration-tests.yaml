@@ -111,6 +111,11 @@ jobs:
                 - /app/kafka_consumer
                 - ztf
                 - "20240617"
+            consumer-ztf-partnership:
+               environment:
+                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                 BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
             scheduler-ztf:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
