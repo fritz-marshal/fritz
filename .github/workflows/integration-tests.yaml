@@ -159,6 +159,7 @@ jobs:
           BOOM_KAFKA__CONSUMER__LSST__GROUP_ID: boom-lsst-consumer-group
           BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
           BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
+          BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
           # Filter activation validation: boom's default reference_night is
           # 2026-03-16, but our seed dataset is 2024-06-17. Without this
           # override, POST /filters returns 400 because no alerts exist on
