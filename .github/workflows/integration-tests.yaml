@@ -97,7 +97,7 @@ jobs:
                 # matching too many alerts in a small (~100-alert) seed.
                 BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "${BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT}"
                 BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "${BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE}"
-            consumer-ztf:
+            consumer-ztf-public:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
@@ -111,6 +111,16 @@ jobs:
                 - /app/kafka_consumer
                 - ztf
                 - "20240617"
+            consumer-ztf-partnership:
+               environment:
+                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                 BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
+            consumer-ztf-caltech:
+               environment:
+                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                 BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
             scheduler-ztf:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
@@ -121,6 +131,9 @@ jobs:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                BOOM_KAFKA__CONSUMER__LSST__SERVER: broker:29092
+                BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
+                BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
             scheduler-lsst:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
@@ -146,9 +159,11 @@ jobs:
           KAFKA_ADMIN_PASSWORD: ci-kafka-admin
           KAFKA_READONLY_PASSWORD: ci-kafka-readonly
           BOOM_KAFKA__CONSUMER__ZTF__GROUP_ID: boom-ztf-consumer-group
+          BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
           BOOM_KAFKA__CONSUMER__LSST__GROUP_ID: boom-lsst-consumer-group
           BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
           BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
+          BOOM_KAFKA__CONSUMER__LSST__SERVER: broker:29092
           # Filter activation validation: boom's default reference_night is
           # 2026-03-16, but our seed dataset is 2024-06-17. Without this
           # override, POST /filters returns 400 because no alerts exist on

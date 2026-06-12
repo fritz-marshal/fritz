@@ -17,12 +17,13 @@ import { useForm, Controller } from "react-hook-form";
 
 import { showNotification } from "baselayer/components/Notifications";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import { useAppDispatch } from "../../types/hooks";
 
 import FormValidationError from "../FormValidationError";
 
 import * as alertActions from "../../ducks/boom_alert";
-import * as sourceActions from "../../ducks/source";
+import { useLazyGetSourceQuery } from "../../ducks/source";
+import { useGetGroupsQuery } from "../../ducks/groups";
 
 interface SaveAlertButtonProps {
   alert: any;
@@ -34,11 +35,13 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
   // Dialog logic:
 
   const dispatch = useAppDispatch();
+  const [triggerGetSource, getSourceResult] = useLazyGetSourceQuery();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const source = useAppSelector((state) => (state as any).source);
-  const groups = (
-    useAppSelector((state) => (state as any).groups.all) || []
-  ).filter((g: any) => !g.single_user_group);
+  // RTK Query: read results from the query hooks (no more redux slices).
+  const source: any = getSourceResult.data;
+  const groups = (useGetGroupsQuery().data?.all ?? []).filter(
+    (g: any) => !g.single_user_group,
+  );
 
   const currentGroupIds =
     source?.id === alert.id
@@ -107,7 +110,7 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
       setIsSubmitting(false);
       setDialogOpen(false);
       reset();
-      await dispatch(sourceActions.fetchSource(alert.id));
+      triggerGetSource(alert.id);
     }
   };
 
