@@ -22,7 +22,7 @@ import { useAppDispatch, useAppSelector } from "../../types/hooks";
 import FormValidationError from "../FormValidationError";
 
 import * as alertActions from "../../ducks/boom_alert";
-import * as sourceActions from "../../ducks/source";
+import { useLazyGetSourceQuery } from "../../ducks/source";
 
 interface SaveAlertButtonProps {
   alert: any;
@@ -34,6 +34,7 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
   // Dialog logic:
 
   const dispatch = useAppDispatch();
+  const [triggerGetSource] = useLazyGetSourceQuery();
   const [dialogOpen, setDialogOpen] = useState(false);
   const source = useAppSelector((state) => (state as any).source);
   const groups = (
@@ -107,7 +108,7 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
       setIsSubmitting(false);
       setDialogOpen(false);
       reset();
-      await dispatch(sourceActions.fetchSource(alert.id));
+      triggerGetSource(alert.id);
     }
   };
 
