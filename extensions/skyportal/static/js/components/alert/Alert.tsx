@@ -43,6 +43,7 @@ import {
   useLazyGetSourceQuery,
 } from "../../ducks/source";
 import { useLazyFetchSourcesQuery } from "../../ducks/sources";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
 
 // ── Survey inference ──────────────────────────────────────────────────────────
@@ -498,15 +499,14 @@ const Alert = ({ route }: AlertProps) => {
   const [fetchedDuplicates, setFetchedDuplicates] = useState(false);
 
   const [triggerCheckSource] = useLazyCheckSourceQuery();
-  const [triggerGetSource] = useLazyGetSourceQuery();
-  const [triggerFetchSources] = useLazyFetchSourcesQuery();
+  const [triggerGetSource, getSourceResult] = useLazyGetSourceQuery();
+  const [triggerFetchSources, fetchSourcesResult] = useLazyFetchSourcesQuery();
 
-  const sources = useAppSelector((state) => (state as any).sources.latest);
-  const source = useAppSelector((state) => (state as any).source);
-  const loadedSourceId = useAppSelector((state) => (state as any)?.source?.id);
-  const userAccessibleGroups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  // RTK Query: read results from the query hooks (no more redux slices).
+  const sources: any = fetchSourcesResult.data;
+  const source: any = getSourceResult.data;
+  const loadedSourceId = getSourceResult.data?.id;
+  const userAccessibleGroups = useGetGroupsQuery().data?.userAccessible ?? [];
   const userAccessibleGroupIds = useMemo(
     () => userAccessibleGroups?.map((a: any) => a.id),
     [userAccessibleGroups],
