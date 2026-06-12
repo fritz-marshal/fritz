@@ -39,7 +39,7 @@ import { ra_to_hours, dec_to_dms } from "../../units";
 
 import * as Actions from "../../ducks/boom_alert";
 import {
-  useLazyCheckSourceQuery,
+  useCheckSourceMutation,
   useLazyGetSourceQuery,
 } from "../../ducks/source";
 import { useLazyFetchSourcesQuery } from "../../ducks/sources";
@@ -498,7 +498,7 @@ const Alert = ({ route }: AlertProps) => {
   const [savedSource, setSavedSource] = useState(false);
   const [fetchedDuplicates, setFetchedDuplicates] = useState(false);
 
-  const [triggerCheckSource] = useLazyCheckSourceQuery();
+  const [triggerCheckSource] = useCheckSourceMutation();
   const [triggerGetSource, getSourceResult] = useLazyGetSourceQuery();
   const [triggerFetchSources, fetchSourcesResult] = useLazyFetchSourcesQuery();
 
