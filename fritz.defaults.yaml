@@ -526,11 +526,6 @@ skyportal:
     notification_queue: 64610
     thumbnail_queue: 64910
     tns_retrieval_queue: 64810
-    # queue-microservice ports required by newer SkyPortal (read at import time);
-    # mirror skyportal/config.yaml.defaults so the merged config has them.
-    facility_queue: 64510
-    observation_plan_queue: 64710
-    sharing_service_submission_queue: 64812
 
   hosts:
     # Hostnames the application uses to reach its internal microservices. These
