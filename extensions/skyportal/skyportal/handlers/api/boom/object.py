@@ -12,6 +12,7 @@ from baselayer.log import make_log
 
 from ....models import (
     Group,
+    GroupUser,
     Instrument,
     Obj,
     ObjToSuperObj,
@@ -415,9 +416,15 @@ class BoomObjectHandler(BaseHandler):
 
         async with self.AsyncSession() as session:
             if not self.associated_user_object.is_admin:
-                accessible_groups = [
-                    g.id for g in self.associated_user_object.accessible_groups
-                ]
+                # accessible_groups -> user.groups is a lazy relationship that
+                # raises greenlet_spawn under async; query membership directly.
+                accessible_groups = (
+                    await session.scalars(
+                        sa.select(GroupUser.group_id).where(
+                            GroupUser.user_id == self.associated_user_object.id
+                        )
+                    )
+                ).all()
                 if not all(gid in accessible_groups for gid in group_ids):
                     return self.error(
                         "You do not have access to all the groups provided in `group_ids`."

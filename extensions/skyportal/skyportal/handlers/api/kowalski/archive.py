@@ -521,14 +521,12 @@ class ScopeFeaturesHandler(BaseHandler):
                         f'Cannot find source with id "{obj_id}". ', status=403
                     )
 
-                group_ids = [g.id for g in self.current_user.accessible_groups]
+                # accessible_groups is lazy/sync under async; Group.select(user)
+                # is the async access-controlled equivalent (same set of groups).
                 groups = (
-                    await session.scalars(
-                        Group.select(session.user_or_token).where(
-                            Group.id.in_(group_ids)
-                        )
-                    )
+                    await session.scalars(Group.select(session.user_or_token))
                 ).all()
+                group_ids = [g.id for g in groups]
 
                 if {g.id for g in groups} != set(group_ids):
                     return self.error(

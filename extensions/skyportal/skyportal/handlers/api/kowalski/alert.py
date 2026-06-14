@@ -34,8 +34,10 @@ from skyportal.utils.calculations import great_circle_distance
 
 from ....models import (
     Group,
+    GroupUser,
     Instrument,
     Obj,
+    Role,
     Source,
     Stream,
     User,
@@ -231,10 +233,17 @@ async def post_alert(
     """
 
     photometry_ids = []
+    # Eager-load every relationship this function reads off `user` (streams for
+    # the program-id selector; acls/roles/role.acls so is_admin/permissions work)
+    # — lazy access would raise greenlet_spawn under async.
     user = await session.scalar(
         sa.select(User)
         .where(User.id == user_id)
-        .options(selectinload(User.streams))  # iterated below; eager-load for async
+        .options(
+            selectinload(User.streams),
+            selectinload(User.acls),
+            selectinload(User.roles).selectinload(Role.acls),
+        )
     )
 
     if program_id_selector is None:
@@ -424,8 +433,17 @@ async def post_alert(
 
     schema = Obj.__schema__()
 
-    user_group_ids = [g.id for g in user.groups]
-    user_accessible_group_ids = [g.id for g in user.accessible_groups]
+    # user.groups / user.accessible_groups are lazy (and accessible_groups' admin
+    # branch does a sync Group.query.all()) — query them async-safely instead.
+    user_group_ids = (
+        await session.scalars(
+            sa.select(GroupUser.group_id).where(GroupUser.user_id == user.id)
+        )
+    ).all()
+    if user.is_admin:
+        user_accessible_group_ids = (await session.scalars(sa.select(Group.id))).all()
+    else:
+        user_accessible_group_ids = user_group_ids
     if not user_group_ids:
         raise AttributeError(
             "You must belong to one or more groups before you can add sources."

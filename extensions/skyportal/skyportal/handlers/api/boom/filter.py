@@ -1,6 +1,6 @@
 import requests
 from marshmallow.exceptions import ValidationError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
 from baselayer.app.access import auth_or_token, permissions
@@ -120,9 +120,9 @@ class BoomFilterHandler(BaseHandler):
                         f"Invalid filter_id: {filter_id}. Must be an integer."
                     )
                 f = await session.scalar(
-                    Filter.select(session.user_or_token, mode="update").where(
-                        Filter.id == filter_id
-                    )
+                    Filter.select(session.user_or_token, mode="update")
+                    .where(Filter.id == filter_id)
+                    .options(selectinload(Filter.stream))  # f.stream read below
                 )
 
                 if f is None:
