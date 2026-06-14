@@ -19,7 +19,7 @@ _, cfg = load_env()
 class BoomFilterHandler(BaseHandler):
     @auth_or_token
     @boom_available
-    def get(self, filter_id):
+    async def get(self, filter_id):
         """
         ---
         summary: Get a filter
@@ -47,9 +47,9 @@ class BoomFilterHandler(BaseHandler):
         except ValueError:
             return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             if filter_id is not None:
-                f = session.scalar(
+                f = await session.scalar(
                     Filter.select(
                         session.user_or_token, options=[joinedload(Filter.stream)]
                     ).where(Filter.id == filter_id)
@@ -76,12 +76,14 @@ class BoomFilterHandler(BaseHandler):
 
                 return self.success(data=f)
 
-            filters = session.scalars(Filter.select(session.user_or_token)).all()
+            filters = (
+                await session.scalars(Filter.select(session.user_or_token))
+            ).all()
             return self.success(data=filters)
 
     @permissions(["Upload data"])
     @boom_available
-    def post(self, filter_id=None):
+    async def post(self, filter_id=None):
         """
         ---
         summary: Create a new filter
@@ -109,7 +111,7 @@ class BoomFilterHandler(BaseHandler):
                               description: New filter ID
         """
         data = self.get_json()
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             if filter_id is not None:
                 try:
                     filter_id = int(filter_id)
@@ -117,7 +119,7 @@ class BoomFilterHandler(BaseHandler):
                     return self.error(
                         f"Invalid filter_id: {filter_id}. Must be an integer."
                     )
-                f = session.scalar(
+                f = await session.scalar(
                     Filter.select(session.user_or_token, mode="update").where(
                         Filter.id == filter_id
                     )
@@ -209,12 +211,12 @@ class BoomFilterHandler(BaseHandler):
                         }
                     )
                     flag_modified(f, "altdata")
-                    session.commit()
+                    await session.commit()
                     return self.success(data={"id": f.id})
 
                 for k in data:
                     setattr(f, k, data[k])
-                session.commit()
+                await session.commit()
                 return self.success(data={"id": f.id})
 
             schema = Filter.__schema__()
@@ -226,12 +228,12 @@ class BoomFilterHandler(BaseHandler):
                 )
 
             session.add(fil)
-            session.commit()
+            await session.commit()
             return self.success(data={"id": fil.id})
 
     @permissions(["Upload data"])
     @boom_available
-    def patch(self, filter_id):
+    async def patch(self, filter_id):
         """
         ---
         summary: Update a filter
@@ -263,8 +265,8 @@ class BoomFilterHandler(BaseHandler):
         except ValueError:
             return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
 
-        with self.Session() as session:
-            f = session.scalar(
+        async with self.AsyncSession() as session:
+            f = await session.scalar(
                 Filter.select(session.user_or_token, mode="update").where(
                     Filter.id == filter_id
                 )
@@ -304,12 +306,12 @@ class BoomFilterHandler(BaseHandler):
                 f.altdata["autoFollowup"] = data["autoFollowup"]
                 flag_modified(f, "altdata")
 
-            session.commit()
+            await session.commit()
             return self.success()
 
     @permissions(["Upload data"])
     @boom_available
-    def delete(self, filter_id):
+    async def delete(self, filter_id):
         """
         ---
         summary: Delete a filter
@@ -333,14 +335,16 @@ class BoomFilterHandler(BaseHandler):
         except ValueError:
             return self.error(f"Invalid filter_id: {filter_id}. Must be an integer.")
 
-        with self.Session() as session:
-            f = session.scalars(
-                Filter.select(session.user_or_token, mode="delete").where(
-                    Filter.id == filter_id
+        async with self.AsyncSession() as session:
+            f = (
+                await session.scalars(
+                    Filter.select(session.user_or_token, mode="delete").where(
+                        Filter.id == filter_id
+                    )
                 )
             ).first()
             if f is None:
                 return self.error(f"Cannot find a filter with ID: {filter_id}.")
-            session.delete(f)
-            session.commit()
+            await session.delete(f)
+            await session.commit()
             return self.success()

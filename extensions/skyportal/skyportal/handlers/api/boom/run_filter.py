@@ -16,7 +16,7 @@ _, cfg = load_env()
 class BoomRunFilterHandler(BaseHandler):
     @auth_or_token
     @boom_available
-    def post(self):
+    async def post(self):
         data = self.get_json()
 
         filter_id = data.get("filter_id", None)
@@ -71,8 +71,8 @@ class BoomRunFilterHandler(BaseHandler):
             if limit <= 0:
                 return self.error("`limit` must be a positive integer.")
 
-        with self.Session() as session:
-            f = session.scalar(
+        async with self.AsyncSession() as session:
+            f = await session.scalar(
                 Filter.select(session.user_or_token, mode="read").where(
                     Filter.id == filter_id
                 )

@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 
 import numpy as np
@@ -10,7 +11,6 @@ from baselayer.app.flow import Flow
 from baselayer.log import make_log
 
 from ....models import (
-    DBSession,
     Group,
     Instrument,
     Obj,
@@ -39,10 +39,17 @@ ZP_PER_SURVEY = {"LSST": 8.9, "ZTF": 23.9}
 
 
 def fetch_and_add_thumbnails(obj_id, survey, headers, obj_internal_key=None):
-    with DBSession() as session:
-        try:
-            existing_thumbnails = session.scalars(
-                sa.select(Thumbnail).where(Thumbnail.obj_id == obj_id)
+    # Dispatched via run_async into an executor thread (sync). The DB work uses
+    # an async session (post_thumbnail is async-only on this branch), so drive it
+    # with asyncio.run inside this thread.
+    async def _work():
+        from baselayer.app.models import async_plain_session_factory
+
+        async with async_plain_session_factory() as session:
+            existing_thumbnails = (
+                await session.scalars(
+                    sa.select(Thumbnail).where(Thumbnail.obj_id == obj_id)
+                )
             ).all()
             existing_thumbnail_types = {t.type for t in existing_thumbnails}
             if all(t in existing_thumbnail_types for t in ["new", "ref", "sub"]):
@@ -63,11 +70,14 @@ def fetch_and_add_thumbnails(obj_id, survey, headers, obj_internal_key=None):
                 log(f"No cutout data found for object {obj_id} in survey {survey}")
                 return
             cutout_data["objectId"] = obj_id
-            add_thumbnails(cutout_data, survey, session)
-            session.commit()
-        except Exception as e:
-            log(f"Failed to fetch or add thumbnails for obj_id {obj_id}: {e}")
-            traceback.print_exc()
+            await add_thumbnails(cutout_data, survey, session)
+            await session.commit()
+
+    try:
+        asyncio.run(_work())
+    except Exception as e:
+        log(f"Failed to fetch or add thumbnails for obj_id {obj_id}: {e}")
+        traceback.print_exc()
 
     if obj_internal_key is not None:
         try:
@@ -81,8 +91,8 @@ def fetch_and_add_thumbnails(obj_id, survey, headers, obj_internal_key=None):
             log(f"Failed to send notification: {e}")
 
 
-def make_programid2stream_mapper(session: Session):
-    streams = session.scalars(sa.select(Stream)).all()
+async def make_programid2stream_mapper(session: Session):
+    streams = (await session.scalars(sa.select(Stream))).all()
     mapper = {}
     for stream in streams:
         altdata = stream.altdata
@@ -99,13 +109,13 @@ def make_programid2stream_mapper(session: Session):
     return mapper
 
 
-def make_survey2instrumentid(session: Session):
-    ztf_instrument_id = session.scalar(
+async def make_survey2instrumentid(session: Session):
+    ztf_instrument_id = await session.scalar(
         sa.select(Instrument.id).where(Instrument.name == "ZTF")
     )
     if ztf_instrument_id is None:
         raise ValueError("Instrument ZTF not found in the database")
-    lsst_instrument_id = session.scalar(
+    lsst_instrument_id = await session.scalar(
         sa.select(Instrument.id).where(Instrument.name == "LSST")
     )
     if lsst_instrument_id is None:
@@ -113,7 +123,7 @@ def make_survey2instrumentid(session: Session):
     return {"ZTF": ztf_instrument_id, "LSST": lsst_instrument_id}
 
 
-def process_photometry(
+async def process_photometry(
     object_id, survey, data, survey2instrumentid, programid2streamid, user, session
 ):
     instrument_id = survey2instrumentid.get(survey)
@@ -177,7 +187,7 @@ def process_photometry(
             photometry_data[key]["dec"].append(phot.get("dec"))
 
     for key, data in photometry_data.items():
-        add_external_photometry(data, user, session)
+        await add_external_photometry(data, user, session)
 
 
 class BoomObjectHandler(BaseHandler):
@@ -377,7 +387,7 @@ class BoomObjectHandler(BaseHandler):
 
     @permissions(["Upload data"])
     @boom_available
-    def post(self, survey, object_id):
+    async def post(self, survey, object_id):
         """
         ---
         summary: Import an alert from Boom for a given survey and object ID
@@ -403,7 +413,7 @@ class BoomObjectHandler(BaseHandler):
                 "Invalid `group_ids` parameter. Must be a list of integers."
             )
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             if not self.associated_user_object.is_admin:
                 accessible_groups = [
                     g.id for g in self.associated_user_object.accessible_groups
@@ -413,8 +423,8 @@ class BoomObjectHandler(BaseHandler):
                         "You do not have access to all the groups provided in `group_ids`."
                     )
 
-            groups = session.scalars(
-                sa.select(Group).where(Group.id.in_(group_ids))
+            groups = (
+                await session.scalars(sa.select(Group).where(Group.id.in_(group_ids)))
             ).all()
             if len(groups) != len(group_ids):
                 existing_group_ids = {g.id for g in groups}
@@ -425,12 +435,12 @@ class BoomObjectHandler(BaseHandler):
                     f"The following group IDs do not exist (or are not accessible): {missing_group_ids}"
                 )
 
-            user = session.scalar(sa.select(User).where(User.id == 1))
+            user = await session.scalar(sa.select(User).where(User.id == 1))
             if user is None:
                 log("User with id 1 not found in the database")
                 return self.error("Internal error: admin user not found")
-            survey2instrumentid = make_survey2instrumentid(session)
-            programid2streamid = make_programid2stream_mapper(session)
+            survey2instrumentid = await make_survey2instrumentid(session)
+            programid2streamid = await make_programid2stream_mapper(session)
 
             url = f"{boom_url}/queries/pipeline"
             headers = {"Authorization": f"Bearer {boom_token}"}
@@ -477,7 +487,7 @@ class BoomObjectHandler(BaseHandler):
 
             data = response.json()["data"][0]
 
-            obj = session.scalar(sa.select(Obj).where(Obj.id == data["objectId"]))
+            obj = await session.scalar(sa.select(Obj).where(Obj.id == data["objectId"]))
             if not obj:
                 obj = Obj(
                     id=data["objectId"],
@@ -496,9 +506,11 @@ class BoomObjectHandler(BaseHandler):
                         )
                     )
             else:
-                existing_sources = session.scalars(
-                    sa.select(Source).where(
-                        Source.obj_id == obj.id, Source.group_id.in_(group_ids)
+                existing_sources = (
+                    await session.scalars(
+                        sa.select(Source).where(
+                            Source.obj_id == obj.id, Source.group_id.in_(group_ids)
+                        )
                     )
                 ).all()
                 existing_group_ids = {s.group_id for s in existing_sources}
@@ -510,7 +522,7 @@ class BoomObjectHandler(BaseHandler):
                         )
                     )
 
-            process_photometry(
+            await process_photometry(
                 object_id,
                 survey,
                 data,
@@ -546,7 +558,7 @@ class BoomObjectHandler(BaseHandler):
                 other_data = other_response.json().get("data", {})
                 if object_id in other_data and len(other_data[object_id]) > 0:
                     other_alert = other_data[object_id][0]
-                    existing_obj = session.scalar(
+                    existing_obj = await session.scalar(
                         sa.select(Obj).where(Obj.id == other_alert["_id"])
                     )
                     if not existing_obj:
@@ -569,7 +581,7 @@ class BoomObjectHandler(BaseHandler):
                             origin="BOOM",
                         )
                         session.add(other_obj)
-                    process_photometry(
+                    await process_photometry(
                         other_alert["_id"],
                         other_survey,
                         other_alert,
@@ -579,17 +591,19 @@ class BoomObjectHandler(BaseHandler):
                         session,
                     )
 
-                    existing_associations = session.scalars(
-                        sa.select(ObjToSuperObj).where(
-                            ObjToSuperObj.obj_id.in_(
-                                [data["objectId"], other_alert["_id"]]
+                    existing_associations = (
+                        await session.scalars(
+                            sa.select(ObjToSuperObj).where(
+                                ObjToSuperObj.obj_id.in_(
+                                    [data["objectId"], other_alert["_id"]]
+                                )
                             )
                         )
                     ).all()
                     if len(existing_associations) == 0:
                         superobj = SuperObj()
                         session.add(superobj)
-                        session.flush()
+                        await session.flush()
                         session.add_all(
                             [
                                 ObjToSuperObj(
@@ -601,7 +615,7 @@ class BoomObjectHandler(BaseHandler):
                             ]
                         )
 
-            session.commit()
+            await session.commit()
 
             obj_internal_key = obj.internal_key
             other_obj_id, other_obj_internal_key = None, None

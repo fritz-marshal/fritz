@@ -25,6 +25,7 @@ from astropy.visualization import (
 )
 from marshmallow.exceptions import ValidationError
 from penquins import Kowalski
+from sqlalchemy.orm import selectinload
 
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
@@ -46,6 +47,18 @@ from ..thumbnail import post_thumbnail
 
 env, cfg = load_env()
 log = make_log("alert")
+
+
+async def _load_user_streams(session, user_id):
+    """Load a user's Streams via the async `session`.
+
+    The auth user (`self.associated_user_object`) is detached and its `streams`
+    relationship is lazy, so iterating it directly raises MissingGreenlet under
+    async; re-load the user with the relationship eagerly populated instead.
+    """
+    user = await session.get(User, user_id, options=[selectinload(User.streams)])
+    return user.streams if user is not None else []
+
 
 try:
     if platform.uname()[0] == "Darwin":
@@ -187,7 +200,7 @@ def make_thumbnails(query: dict, kowalski: Kowalski) -> dict:
         raise ValueError("Failed to fetch data for thumbnails from Kowalski")
 
 
-def post_alert(
+async def post_alert(
     object_id,
     group_ids,
     user_id,
@@ -218,7 +231,11 @@ def post_alert(
     """
 
     photometry_ids = []
-    user = session.scalar(sa.select(User).where(User.id == user_id))
+    user = await session.scalar(
+        sa.select(User)
+        .where(User.id == user_id)
+        .options(selectinload(User.streams))  # iterated below; eager-load for async
+    )
 
     if program_id_selector is None:
         if user.is_admin:
@@ -239,15 +256,17 @@ def post_alert(
     else:
         save_to_diff_object = True
 
-    obj = session.scalars(Obj.select(user).where(Obj.id == obj_id_to_save)).first()
+    obj = (
+        await session.scalars(Obj.select(user).where(Obj.id == obj_id_to_save))
+    ).first()
     if obj is None and save_to_diff_object:
         raise ValueError(f"Object {obj_id_to_save} does not exist")
     if obj is None:
         obj_already_exists = False
     else:
         obj_already_exists = True
-    instrument = session.scalars(
-        Instrument.select(user).where(Instrument.name == "ZTF")
+    instrument = (
+        await session.scalars(Instrument.select(user).where(Instrument.name == "ZTF"))
     ).first()
 
     query = {
@@ -364,7 +383,7 @@ def post_alert(
         # we want to verify that the obj and the alert are within 2 arcsec
         ra_latest, dec_latest = (
             full_alert_data[0]["candidate"]["ra"],
-            full_alert_data["candidate"]["dec"],
+            full_alert_data[0]["candidate"]["dec"],
         )
         dist = great_circle_distance(obj.ra, obj.dec, ra_latest, dec_latest)
         if dist > 2 / 3600:
@@ -448,7 +467,9 @@ def post_alert(
                 f"Invalid/missing parameters: {e.normalized_messages()}"
             )
 
-    groups = session.scalars(Group.select(user).where(Group.id.in_(group_ids))).all()
+    groups = (
+        await session.scalars(Group.select(user).where(Group.id.in_(group_ids)))
+    ).all()
     if not groups:
         raise AttributeError(
             "Invalid group_ids field. Please specify at least "
@@ -459,9 +480,11 @@ def post_alert(
 
     if not thumbnails_only:
         for group in groups:
-            source = session.scalars(
-                Source.select(user).where(
-                    Source.obj_id == obj_id_to_save, Source.group_id == group.id
+            source = (
+                await session.scalars(
+                    Source.select(user).where(
+                        Source.obj_id == obj_id_to_save, Source.group_id == group.id
+                    )
                 )
             ).first()
             if source is not None:
@@ -475,7 +498,7 @@ def post_alert(
                         saved_by_id=user.id,
                     )
                 )
-        session.commit()
+        await session.commit()
 
         # post photometry
         ztf_filters = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
@@ -500,7 +523,7 @@ def post_alert(
         df = df.loc[mask_good_diffmaglim]
 
         ztf_program_id_to_stream_id = {}
-        streams = session.scalars(Stream.select(session.user_or_token)).all()
+        streams = (await session.scalars(Stream.select(session.user_or_token))).all()
         if streams is None:
             raise ValueError("Failed to get programid to stream_id mapping")
         for stream in streams:
@@ -581,7 +604,9 @@ def post_alert(
                 "stream_ids": df_stream["stream_ids"].tolist(),
             }
             try:
-                photometry_ids, _ = add_external_photometry(photometry, user)
+                photometry_ids, _ = await add_external_photometry(
+                    photometry, user, session
+                )
             except Exception as e:
                 log(
                     f"Failed to post photometry of {object_id} to group_ids {group_ids}: {e}",
@@ -638,7 +663,7 @@ def post_alert(
         if thumbnails is not None:
             for ttype, thumb in thumbnails.items():
                 try:
-                    thumbnail_id = post_thumbnail(thumb, user_id, session)
+                    thumbnail_id = await post_thumbnail(thumb, user_id, session)
                     thumbnail_ids.append(thumbnail_id)
                 except Exception as e:
                     log(
@@ -958,11 +983,13 @@ class AlertHandler(BaseHandler):
         # allow access to public data only by default
         program_id_selector = {1}
 
-        # using self.Session() should attach the
+        # using self.AsyncSession() should attach the
         # associated_user_object to the current session
         # so it can lazy load things like streams
-        with self.Session():
-            for stream in self.associated_user_object.streams:
+        async with self.AsyncSession() as session:
+            for stream in await _load_user_streams(
+                session, self.associated_user_object.id
+            ):
                 if "ztf" in stream.name.lower():
                     program_id_selector.update(set(stream.altdata.get("selector", [])))
 
@@ -1061,7 +1088,7 @@ class AlertHandler(BaseHandler):
 
     @permissions(["Upload data"])
     @kowalski_available
-    def post(self, objectId):
+    async def post(self, objectId):
         """
         ---
         summary: Save ZTF objectId from Kowalski as source in SkyPortal
@@ -1116,11 +1143,13 @@ class AlertHandler(BaseHandler):
         if group_ids is None and not thumbnails_only:
             return self.error("Missing required `group_ids` parameter.")
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             # allow access to public data only by default
             program_id_selector = {1}
 
-            for stream in self.associated_user_object.streams:
+            for stream in await _load_user_streams(
+                session, self.associated_user_object.id
+            ):
                 if "ztf" in stream.name.lower():
                     program_id_selector.update(set(stream.altdata.get("selector", [])))
 
@@ -1128,7 +1157,7 @@ class AlertHandler(BaseHandler):
 
             used_latest = False
             try:
-                _, _, used_latest = post_alert(
+                _, _, used_latest = await post_alert(
                     objectId,
                     group_ids,
                     self.associated_user_object.id,
@@ -1152,7 +1181,7 @@ class AlertHandler(BaseHandler):
 class AlertAuxHandler(BaseHandler):
     @auth_or_token
     @kowalski_available
-    def get(self, object_id: str = None):
+    async def get(self, object_id: str = None):
         """
         ---
         single:
@@ -1196,8 +1225,10 @@ class AlertAuxHandler(BaseHandler):
         """
         # allow access to public data only by default
         selector = {1}
-        with self.Session():
-            for stream in self.associated_user_object.streams:
+        async with self.AsyncSession() as session:
+            for stream in await _load_user_streams(
+                session, self.associated_user_object.id
+            ):
                 if "ztf" in stream.name.lower():
                     selector.update(set(stream.altdata.get("selector", [])))
 
@@ -1502,8 +1533,10 @@ class AlertCutoutHandler(BaseHandler):
         """
         # allow access to public data only by default
         selector = {1}
-        with self.Session():
-            for stream in self.associated_user_object.streams:
+        async with self.AsyncSession() as session:
+            for stream in await _load_user_streams(
+                session, self.associated_user_object.id
+            ):
                 if "ztf" in stream.name.lower():
                     selector.update(set(stream.altdata.get("selector", [])))
 
@@ -1681,8 +1714,10 @@ class AlertTripletsHandler(BaseHandler):
         """
         # allow access to public data only by default
         selector = {1}
-        with self.Session():
-            for stream in self.associated_user_object.streams:
+        async with self.AsyncSession() as session:
+            for stream in await _load_user_streams(
+                session, self.associated_user_object.id
+            ):
                 if "ztf" in stream.name.lower():
                     selector.update(set(stream.altdata.get("selector", [])))
 
