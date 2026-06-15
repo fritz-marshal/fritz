@@ -532,6 +532,11 @@ class BoomObjectHandler(BaseHandler):
                         )
                     )
 
+            # Persist the Obj before process_photometry: the app runs with
+            # autoflush=False, and add_external_photometry validates that obj_id
+            # already exists ("Invalid object ID" otherwise).
+            await session.flush()
+
             await process_photometry(
                 object_id,
                 survey,
@@ -591,6 +596,9 @@ class BoomObjectHandler(BaseHandler):
                             origin="BOOM",
                         )
                         session.add(other_obj)
+                    # Same as above: flush so the cross-survey Obj exists before
+                    # add_external_photometry validates its obj_id.
+                    await session.flush()
                     await process_photometry(
                         other_alert["_id"],
                         other_survey,
