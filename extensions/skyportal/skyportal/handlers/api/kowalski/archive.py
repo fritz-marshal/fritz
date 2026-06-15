@@ -521,18 +521,12 @@ class ScopeFeaturesHandler(BaseHandler):
                         f'Cannot find source with id "{obj_id}". ', status=403
                     )
 
+                # Annotation is shared with the user's accessible groups.
                 # accessible_groups is lazy/sync under async; Group.select(user)
-                # is the async access-controlled equivalent (same set of groups).
+                # is the async access-controlled equivalent.
                 groups = (
                     await session.scalars(Group.select(session.user_or_token))
                 ).all()
-                group_ids = [g.id for g in groups]
-
-                if {g.id for g in groups} != set(group_ids):
-                    return self.error(
-                        f"Cannot find one or more groups with IDs: {group_ids}.",
-                        status=403,
-                    )
 
                 author = self.associated_user_object
 
