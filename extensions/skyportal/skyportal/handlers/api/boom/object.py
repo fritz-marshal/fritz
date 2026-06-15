@@ -163,7 +163,6 @@ async def process_photometry(
                     "dec": [],
                 }
 
-            photometry_data[key]["mjd"].append(phot["jd"] - 2400000.5)
             flux = phot.get("psfFlux", None)
             flux_err = phot.get("psfFluxErr", None)
             if flux_err is None:
@@ -177,6 +176,10 @@ async def process_photometry(
                     and abs(flux) / flux_err <= 3
                 ):
                     flux = np.nan
+            # Append mjd here (not before the flux_err guard above) so skipped
+            # rows — e.g. non-detections with no psfFluxErr — don't leave mjd
+            # longer than the other arrays, which breaks standardize_photometry_data.
+            photometry_data[key]["mjd"].append(phot["jd"] - 2400000.5)
             photometry_data[key]["flux"].append(flux)
             photometry_data[key]["fluxerr"].append(flux_err)
             photometry_data[key]["filter"].append(

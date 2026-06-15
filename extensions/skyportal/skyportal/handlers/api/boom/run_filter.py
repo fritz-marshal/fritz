@@ -1,4 +1,5 @@
 import requests
+from sqlalchemy.orm import selectinload
 
 from baselayer.app.access import auth_or_token
 from baselayer.app.env import load_env
@@ -73,9 +74,9 @@ class BoomRunFilterHandler(BaseHandler):
 
         async with self.AsyncSession() as session:
             f = await session.scalar(
-                Filter.select(session.user_or_token, mode="read").where(
-                    Filter.id == filter_id
-                )
+                Filter.select(session.user_or_token, mode="read")
+                .where(Filter.id == filter_id)
+                .options(selectinload(Filter.stream))  # f.stream.altdata read below
             )
             if f is None:
                 return self.error("Filter not found", status=404)
