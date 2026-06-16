@@ -1,6 +1,6 @@
 """Frontend test fixtures for BOOM integration tests.
 
-These tests use skyportal's session-scoped `driver` fixture (defined in
+These tests use skyportal's session-scoped Playwright `page` fixture (defined in
 skyportal/tests/test_util.py and re-exported via skyportal/tests/conftest.py)
 to drive a headless Firefox against the running fritz/skyportal app.
 

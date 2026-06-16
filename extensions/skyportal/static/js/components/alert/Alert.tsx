@@ -38,8 +38,12 @@ import withRouter from "../withRouter";
 import { ra_to_hours, dec_to_dms } from "../../units";
 
 import * as Actions from "../../ducks/boom_alert";
-import { checkSource, fetchSource } from "../../ducks/source";
-import { fetchSources } from "../../ducks/sources";
+import {
+  useCheckSourceMutation,
+  useLazyGetSourceQuery,
+} from "../../ducks/source";
+import { useLazyFetchSourcesQuery } from "../../ducks/sources";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
 
 // ── Survey inference ──────────────────────────────────────────────────────────
@@ -494,12 +498,15 @@ const Alert = ({ route }: AlertProps) => {
   const [savedSource, setSavedSource] = useState(false);
   const [fetchedDuplicates, setFetchedDuplicates] = useState(false);
 
-  const sources = useAppSelector((state) => (state as any).sources.latest);
-  const source = useAppSelector((state) => (state as any).source);
-  const loadedSourceId = useAppSelector((state) => (state as any)?.source?.id);
-  const userAccessibleGroups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  const [triggerCheckSource] = useCheckSourceMutation();
+  const [triggerGetSource, getSourceResult] = useLazyGetSourceQuery();
+  const [triggerFetchSources, fetchSourcesResult] = useLazyFetchSourcesQuery();
+
+  // RTK Query: read results from the query hooks (no more redux slices).
+  const sources: any = fetchSourcesResult.data;
+  const source: any = getSourceResult.data;
+  const loadedSourceId = getSourceResult.data?.id;
+  const userAccessibleGroups = useGetGroupsQuery().data?.userAccessible ?? [];
   const userAccessibleGroupIds = useMemo(
     () => userAccessibleGroups?.map((a: any) => a.id),
     [userAccessibleGroups],
@@ -575,25 +582,25 @@ const Alert = ({ route }: AlertProps) => {
 
   // ── Source existence check ──────────────────────────────────────────────────
   useEffect(() => {
-    const fetchExistingSource = () => {
-      dispatch(checkSource(objectId, { nameOnly: true })).then(
-        (response: any) => {
-          if (
-            response.status === "success" &&
-            response.data?.source_exists === true
-          ) {
-            setSavedSource(true);
-            dispatch(fetchSource(objectId));
-          } else {
-            setSavedSource(false);
-          }
-        },
-      );
+    const fetchExistingSource = async () => {
+      const result = await triggerCheckSource({
+        id: objectId,
+        params: { nameOnly: true },
+      });
+      if (
+        result.data?.status === "success" &&
+        result.data?.data?.source_exists === true
+      ) {
+        setSavedSource(true);
+        triggerGetSource(objectId);
+      } else {
+        setSavedSource(false);
+      }
     };
     if (objectId !== loadedSourceId) {
       fetchExistingSource();
     }
-  }, [dispatch, objectId]);
+  }, [objectId]);
 
   // ── Alert data fetch ────────────────────────────────────────────────────────
   const isCached =
@@ -632,11 +639,8 @@ const Alert = ({ route }: AlertProps) => {
       const ra = getRa(lastAlert);
       const dec = getDec(lastAlert);
       if (ra != null && dec != null) {
-        dispatch(fetchSources({ ra, dec, radius: 2 / 3600 })).then(
-          (response: any) => {
-            if (response.status === "success") setFetchedDuplicates(true);
-          },
-        );
+        const result = await triggerFetchSources({ ra, dec, radius: 2 / 3600 });
+        if (result.data?.status === "success") setFetchedDuplicates(true);
       }
     };
 

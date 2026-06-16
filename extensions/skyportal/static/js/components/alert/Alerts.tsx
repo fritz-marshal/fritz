@@ -53,6 +53,7 @@ import { greatCircleDistance } from "../../utils";
 
 import * as alertActions from "../../ducks/boom_alert";
 import * as alertsActions from "../../ducks/boom_alerts";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
 
 function isString(x: any) {
@@ -226,9 +227,8 @@ const Alerts = () => {
   const { alerts, queryInProgress } = useAppSelector(
     (state) => (state as any).alerts,
   );
-  const groups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  // RTK Query: groups come from the query hook (no more redux slice).
+  const groups = useGetGroupsQuery().data?.userAccessible ?? [];
 
   // save alerts to SP in bulk (by objectID)
   const [selectedSurvey, setSelectedSurvey] = useState("ZTF");
