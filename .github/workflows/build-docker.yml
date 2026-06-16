@@ -30,6 +30,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          # skyportal-data (SFD dust maps + sncosmo models) is vendored as plain
+          # git blobs in the submodule and baked into the image by the recursive
+          # checkout, so it's present without a runtime fetch.
           submodules: recursive
           fetch-depth: 0
 
