@@ -54,11 +54,11 @@ except ImportError:  # pragma: no cover
     ObjToSuperObj = None
 
 
-BOOM_FILTER_ID = 424242  # arbitrary BOOM-side filter id used in the maps below
+BOOM_FILTER_ID = "00000000-0000-0000-0000-000000424242"  # arbitrary BOOM-side filter id (UUID, as in prod)
 ZTF_ZP = 23.9  # matches BOOM's ZP_PER_SURVEY["ZTF"]
 
 
-def _candidate_boom_paths():
+def _boom_plugin_paths():
     paths = []
     try:
         from baselayer.app.env import load_env
@@ -89,14 +89,14 @@ def _load_boom_module():
     ``(None, reason)`` where ``reason`` explains *why* (paths searched and not
     found, or the import exception) so the skip is diagnostic rather than silent.
     """
-    candidate_paths = _candidate_boom_paths()
+    search_paths = _boom_plugin_paths()
     found = None
-    for path in candidate_paths:
+    for path in search_paths:
         if os.path.exists(path):
             found = path
             break
     if found is None:
-        return None, f"boom main.py not found; searched: {candidate_paths}"
+        return None, f"boom main.py not found; searched: {search_paths}"
     try:
         spec = importlib.util.spec_from_file_location("boom_plugin_main", found)
         module = importlib.util.module_from_spec(spec)
