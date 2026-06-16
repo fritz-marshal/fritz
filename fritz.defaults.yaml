@@ -606,7 +606,7 @@ skyportal:
       - dask
     external:
       boom:
-        repo: https://github.com/Theodlz/boom-skyportal-plugin.git
+        repo: https://github.com/fritz-marshal/boom-skyportal-plugin.git
         rev: main
         params:
           kafka:
