@@ -5,45 +5,38 @@ consumer performs in ``ingest_photometry_array``
 (boom-skyportal-plugin/main.py): for each ``(survey, programid)`` chunk it
 builds a flux-space payload (parallel ``mjd``/``flux``/``fluxerr``/``filter``/
 ``zp``/``magsys``/``ra``/``dec``/``origin`` arrays) and hands it to
-``skyportal.handlers.api.photometry.add_external_photometry``.
+``skyportal.handlers.api.photometry.commit_external_photometry`` (the
+sync→async bridge over ``add_external_photometry``).
 
 Unlike the other BOOM tests in this directory, these do NOT hit the live BOOM
 API / mongo (no ``requires_boom_data``): they drive the photometry write
 directly with a BOOM-shaped payload, so they run without a seeded broker.
 
-NOTE — sync vs async
---------------------
-These call the *synchronous* ``add_external_photometry(json, user)`` directly,
-matching the currently-pinned skyportal (it opens its own session when none is
-passed). Once skyportal PR #6140 lands — ``add_external_photometry`` becomes a
-coroutine and the ``commit_external_photometry`` bridge is added, and BOOM
-switches to it — update the calls below to::
-
-    import asyncio
-    from skyportal.handlers.api.photometry import commit_external_photometry
-
-    asyncio.run(commit_external_photometry(payload, super_admin_user.id))
-
-At that point ``test_ingest_photometry_match_object`` becomes the regression
-guard for the separate-session visibility fix: the bridge runs in its own
-session, so the match ``Obj`` must be committed before its photometry is
-ingested (in sync it shares BOOM's session and the ordering is moot).
+NOTE — async ingestion
+----------------------
+skyportal #6140 made ``add_external_photometry`` a coroutine and added the
+``commit_external_photometry`` bridge (opens its own async session, re-loads
+the user by id, writes, commits). These tests drive that bridge via
+``asyncio.run`` — matching the BOOM plugin's ``flush_photometry``.
+``test_ingest_photometry_match_object`` is the regression guard for the
+separate-session visibility fix: the bridge runs in its own session, so an
+``Obj`` must be committed before its photometry is ingested.
 """
 
+import asyncio
 import uuid
 
-from skyportal.handlers.api.photometry import add_external_photometry
-from skyportal.models import DBSession
+from skyportal.handlers.api.photometry import commit_external_photometry
 from skyportal.tests import api
 
 
 def _ingest(payload, user):
-    """Call the sync add_external_photometry the way BOOM does, but pass an
-    explicit session. add_external_photometry only closes the session it opened
-    itself (parent_session is None); passing the shared scoped session avoids
-    closing it, which would otherwise detach the test's fixture objects
-    (super_admin_user, ztf_camera, ...) and break a second call / teardown."""
-    add_external_photometry(payload, user, DBSession())
+    """Drive the SkyPortal photometry write the way the BOOM plugin does. Since
+    skyportal #6140 ``add_external_photometry`` is a coroutine, so we go through
+    the ``commit_external_photometry`` bridge (opens its own async session,
+    re-loads the user by id, writes, commits) via ``asyncio.run`` — matching the
+    plugin's ``flush_photometry``."""
+    asyncio.run(commit_external_photometry(payload, user.id))
 
 
 # Matches BOOM's ZP_PER_SURVEY["ZTF"] in main.py: photometry is submitted in
