@@ -4,9 +4,8 @@ import Paper from "@mui/material/Paper";
 import { makeStyles } from "tss-react/mui";
 import CircularProgress from "@mui/material/CircularProgress";
 
-import { useAppSelector } from "../../types/hooks";
-
 import { useGetFilterQuery } from "../../ducks/filter";
+import { useGetGroupsQuery } from "../../ducks/groups";
 
 import BoomFilterPlugins from "./boom/BoomFilterPlugins";
 import KowalskiFilterPlugins from "./kowalski/KowalskiFilterPlugins";
@@ -68,7 +67,8 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
     }
   }, [fid, filter]);
 
-  const allGroups = useAppSelector((state) => (state as any).groups.all);
+  const { data: groupsData } = useGetGroupsQuery();
+  const allGroups = groupsData?.all;
 
   const groupLookUp: Record<string, any> = {};
 

@@ -25,6 +25,7 @@ import { showNotification } from "baselayer/components/Notifications";
 
 import { useAppDispatch, useAppSelector } from "../../../types/hooks";
 import * as filterActions from "../../../ducks/boom_filter";
+import { useGetGroupsQuery } from "../../../ducks/groups";
 
 interface BoomFilterPluginsProps {
   group: any;
@@ -110,18 +111,14 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
 
   const theme = useTheme();
 
-  const profile = useAppSelector((state) => state.profile);
-
   const filter_v = useAppSelector((state: any) => state.boom_filter_v);
 
   const { fid } = useParams();
   const loadedId = useAppSelector((state: any) => state.boom_filter_v?.id);
 
-  const { users } = useAppSelector((state) => state["users"]);
-  const allGroups = useAppSelector((state) => state.groups.all);
-  const userAccessibleGroups = useAppSelector(
-    (state) => state.groups.userAccessible,
-  );
+  const { data: groupsData } = useGetGroupsQuery();
+  const allGroups = groupsData?.all;
+  const userAccessibleGroups = groupsData?.userAccessible;
 
   const groupLookUp: Record<string, any> = {};
 

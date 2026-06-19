@@ -9,12 +9,13 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 
 import { showNotification } from "baselayer/components/Notifications";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import { useAppDispatch } from "../../types/hooks";
 
 import Button from "../Button";
 import FormValidationError from "../FormValidationError";
 
 import { saveAlertAsSource } from "../../ducks/boom_alert";
+import { useGetGroupsQuery } from "../../ducks/groups";
 
 interface CopyAlertPhotometryDialogProps {
   alert: any;
@@ -33,9 +34,8 @@ const CopyAlertPhotometryDialog = ({
 }: CopyAlertPhotometryDialogProps) => {
   const dispatch = useAppDispatch();
 
-  const groups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  const { data: groupsData } = useGetGroupsQuery();
+  const groups = groupsData?.userAccessible;
 
   const {
     handleSubmit,
