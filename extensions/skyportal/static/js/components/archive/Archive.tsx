@@ -53,6 +53,7 @@ import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
 import * as archiveActions from "../../ducks/kowalski_archive";
 import { checkSource } from "../../ducks/source";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { useAppDispatch, useAppSelector } from "../../types/hooks";
 
 function isString(x: any) {
@@ -200,12 +201,9 @@ const Archive = () => {
   const nearestSources = useAppSelector(
     (state) => (state as any).nearest_sources?.sources,
   );
-  const userGroups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
-  const userGroupIds = useAppSelector((state) =>
-    (state as any).groups.userAccessible?.map((a: any) => a.id),
-  );
+  const { data: groupsData } = useGetGroupsQuery();
+  const userGroups = groupsData?.userAccessible;
+  const userGroupIds = groupsData?.userAccessible?.map((a: any) => a.id);
   const catalogNames = useAppSelector(
     (state) => (state as any).kowalski_catalog_names,
   );

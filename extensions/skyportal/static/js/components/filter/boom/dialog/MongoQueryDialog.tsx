@@ -48,6 +48,7 @@ import {
   runBoomTestFilter,
   clearBoomFilter,
 } from "../../../../ducks/boom_run_filter";
+import { useGetProfileQuery } from "../../../../ducks/profile";
 import PipelineViewer from "./PipelineViewer";
 import FullscreenResultsDialog from "./FullscreenResultsDialog";
 
@@ -149,7 +150,8 @@ const MongoQueryDialog = () => {
   );
 
   const dispatch = useAppDispatch();
-  const { useAMPM } = useAppSelector((state: any) => state.profile.preferences);
+  const { data: profile } = useGetProfileQuery();
+  const { useAMPM } = profile?.preferences ?? {};
 
   const [copySuccess, setCopySuccess] = useState(false);
   const [displayResults, setDisplayResults] = useState<{ data?: any[] }>({

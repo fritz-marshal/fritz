@@ -42,8 +42,15 @@ import { showNotification } from "baselayer/components/Notifications";
 
 import { useAppDispatch, useAppSelector } from "../../../types/hooks";
 import * as filterVersionActions from "../../../ducks/kowalski_filter";
-import * as allocationActions from "../../../ducks/allocations";
-import * as instrumentsActions from "../../../ducks/instruments";
+import { useGetFilterQuery } from "../../../ducks/filter";
+import { useGetGroupsQuery } from "../../../ducks/groups";
+import { useGetProfileQuery } from "../../../ducks/profile";
+import { useGetUsersQuery } from "../../../ducks/users";
+import { useGetAllocationsApiClassnameQuery } from "../../../ducks/allocations";
+import {
+  useGetInstrumentsQuery,
+  useGetInstrumentFormsQuery,
+} from "../../../ducks/instruments";
 
 const useStyles = makeStyles()((theme) => ({
   pre: {
@@ -130,37 +137,25 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
   const theme = useTheme();
   const darkTheme = theme.palette.mode === "dark";
 
-  const profile = useAppSelector((state: any) => state.profile);
+  const { data: profile } = useGetProfileQuery();
 
-  const filter = useAppSelector((state: any) => state.filter);
   const filter_v = useAppSelector((state: any) => state.kowalski_filter_v);
   const { fid } = useParams();
-  const loadedId = useAppSelector((state: any) => state.filter?.id);
+  const { data: filter } = useGetFilterQuery(fid ?? "", {
+    skip: !fid,
+  }) as any;
+  const loadedId = filter?.id;
 
-  const { users } = useAppSelector((state: any) => state.users);
+  const { data: usersData } = useGetUsersQuery();
+  const { users } = usersData ?? {};
 
-  const allGroups = useAppSelector((state: any) => state.groups.all);
-  const userAccessibleGroups = useAppSelector(
-    (state: any) => state.groups.userAccessible,
-  );
-  const { allocationListApiClassname } = useAppSelector(
-    (state: any) => state.allocations,
-  );
-  const { instrumentList, instrumentFormParams } = useAppSelector(
-    (state: any) => state.instruments,
-  );
-
-  useEffect(() => {
-    if (!instrumentList || instrumentList.length === 0) {
-      dispatch(instrumentsActions.fetchInstruments());
-    }
-    if (
-      !allocationListApiClassname ||
-      allocationListApiClassname.length === 0
-    ) {
-      dispatch(allocationActions.fetchAllocationsApiClassname());
-    }
-  }, [dispatch]);
+  const { data: groupsData } = useGetGroupsQuery();
+  const allGroups = groupsData?.all;
+  const userAccessibleGroups = groupsData?.userAccessible;
+  const { data: allocationListApiClassname } =
+    useGetAllocationsApiClassnameQuery();
+  const { data: instrumentList } = useGetInstrumentsQuery();
+  const { data: instrumentFormParams } = useGetInstrumentFormsQuery();
 
   const groupLookUp: Record<string, any> = {};
 
