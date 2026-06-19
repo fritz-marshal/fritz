@@ -1,5 +1,4 @@
 import requests
-from sqlalchemy.orm import selectinload
 
 from baselayer.app.access import auth_or_token
 from baselayer.app.env import load_env
@@ -17,7 +16,7 @@ _, cfg = load_env()
 class BoomRunFilterHandler(BaseHandler):
     @auth_or_token
     @boom_available
-    async def post(self):
+    def post(self):
         data = self.get_json()
 
         filter_id = data.get("filter_id", None)
@@ -72,11 +71,11 @@ class BoomRunFilterHandler(BaseHandler):
             if limit <= 0:
                 return self.error("`limit` must be a positive integer.")
 
-        async with self.AsyncSession() as session:
-            f = await session.scalar(
-                Filter.select(session.user_or_token, mode="read")
-                .where(Filter.id == filter_id)
-                .options(selectinload(Filter.stream))  # f.stream.altdata read below
+        with self.Session() as session:
+            f = session.scalar(
+                Filter.select(session.user_or_token, mode="read").where(
+                    Filter.id == filter_id
+                )
             )
             if f is None:
                 return self.error("Filter not found", status=404)

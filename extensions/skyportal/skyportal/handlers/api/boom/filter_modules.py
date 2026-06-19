@@ -39,7 +39,7 @@ queryDbName = get_db_name()
 class BoomFilterModulesHandler(BaseHandler):
     @auth_or_token
     @boom_available
-    async def get(self):
+    def get(self):
         if uri is None or queryDbName is None:
             return self.error("Database configuration is missing or invalid.")
 
@@ -65,7 +65,7 @@ class BoomFilterModulesHandler(BaseHandler):
                     )
                 try:
                     result = result.json()["data"]
-                except (KeyError, ValueError):
+                except (KeyError, ValueError) as e:
                     return self.error(
                         f"Invalid JSON response from Boom API: {result.text}"
                     )
@@ -81,7 +81,7 @@ class BoomFilterModulesHandler(BaseHandler):
 
     @auth_or_token
     @boom_available
-    async def post(self, name):
+    def post(self, name):
         # Handle POST requests for boom filter modules
         if uri is None or queryDbName is None:
             return self.error("Database configuration is missing or invalid.")
@@ -160,7 +160,7 @@ class BoomFilterModulesHandler(BaseHandler):
 
     @auth_or_token
     @boom_available
-    async def put(self, name):
+    def put(self, name):
         # Handle PUT requests for updating boom filter modules
         if uri is None or queryDbName is None:
             return self.error("Database configuration is missing or invalid.")

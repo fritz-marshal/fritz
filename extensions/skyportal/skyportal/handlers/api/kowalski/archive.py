@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from penquins import Kowalski
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
 
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
@@ -18,19 +17,8 @@ from ....models import (
     Obj,
     Source,
     Stream,
-    User,
 )
 from ...base import BaseHandler
-
-
-async def _load_user_streams(session, user_id):
-    """Load a user's Streams via the async ``session`` (the auth user is
-    detached and its lazy ``streams`` relationship can't be iterated under
-    async; re-load the user with the relationship eagerly populated)."""
-    user = await session.get(User, user_id, options=[selectinload(User.streams)])
-    return user.streams if user is not None else []
-
-
 from ..photometry import add_external_photometry
 from ..source import post_source
 
@@ -157,7 +145,7 @@ def make_photometry(light_curves: list, drop_flagged: bool = False):
 
 class ArchiveCatalogsHandler(BaseHandler):
     @auth_or_token
-    async def get(self):
+    def get(self):
         """
         ---
         summary: Retrieve available catalog names from Kowalski
@@ -197,7 +185,7 @@ class ArchiveCatalogsHandler(BaseHandler):
 
 class CrossMatchHandler(BaseHandler):
     @auth_or_token
-    async def get(self):
+    def get(self):
         """
         ---
         summary: Retrieve data from available catalogs in Kowalski by position
@@ -375,7 +363,7 @@ class CrossMatchHandler(BaseHandler):
 
 class ScopeFeaturesHandler(BaseHandler):
     @auth_or_token
-    async def post(self):
+    def post(self):
         """
         ---
         summary: Retrieve archival SCoPe features by position, post as annotation
@@ -510,23 +498,25 @@ class ScopeFeaturesHandler(BaseHandler):
                 },
             }
 
-            async with self.AsyncSession() as session:
-                obj = (
-                    await session.scalars(
-                        Obj.select(session.user_or_token).where(Obj.id == obj_id)
-                    )
+            with self.Session() as session:
+                obj = session.scalars(
+                    Obj.select(session.user_or_token).where(Obj.id == obj_id)
                 ).first()
                 if obj is None:
                     return self.error(
                         f'Cannot find source with id "{obj_id}". ', status=403
                     )
 
-                # Annotation is shared with the user's accessible groups.
-                # accessible_groups is lazy/sync under async; Group.select(user)
-                # is the async access-controlled equivalent.
-                groups = (
-                    await session.scalars(Group.select(session.user_or_token))
+                group_ids = [g.id for g in self.current_user.accessible_groups]
+                groups = session.scalars(
+                    Group.select(session.user_or_token).where(Group.id.in_(group_ids))
                 ).all()
+
+                if {g.id for g in groups} != set(group_ids):
+                    return self.error(
+                        f"Cannot find one or more groups with IDs: {group_ids}.",
+                        status=403,
+                    )
 
                 author = self.associated_user_object
 
@@ -628,7 +618,7 @@ class ScopeFeaturesHandler(BaseHandler):
                 session.add(annotation)
 
                 try:
-                    await session.commit()
+                    session.commit()
                 except IntegrityError:
                     return self.error("Annotation already posted.")
 
@@ -641,7 +631,7 @@ class ScopeFeaturesHandler(BaseHandler):
 
 class ArchiveHandler(BaseHandler):
     @auth_or_token
-    async def get(self, lc_id=None):
+    def get(self, lc_id=None):
         """
         ---
         summary: Retrieve archival light curve data by position
@@ -719,10 +709,8 @@ class ArchiveHandler(BaseHandler):
             # allow access to public data only by default
             program_id_selector = {1}
 
-            async with self.AsyncSession() as session:
-                for stream in await _load_user_streams(
-                    session, self.associated_user_object.id
-                ):
+            with self.Session():
+                for stream in self.associated_user_object.streams:
                     if "ztf" in stream.name.lower():
                         program_id_selector.update(
                             set(stream.altdata.get("selector", []))
@@ -878,7 +866,7 @@ class ArchiveHandler(BaseHandler):
             return self.error(f"Could not get light curves: {e}")
 
     @permissions(["Upload data"])
-    async def post(self):
+    def post(self):
         """
         ---
         description: Post ZTF light curve data from a Kowalski instance to SkyPortal
@@ -960,10 +948,8 @@ class ArchiveHandler(BaseHandler):
 
         # allow access to public data only by default
         program_id_selector = {1}
-        async with self.AsyncSession() as session:
-            for stream in await _load_user_streams(
-                session, self.associated_user_object.id
-            ):
+        with self.Session():
+            for stream in self.associated_user_object.streams:
                 if "ztf" in stream.name.lower():
                     program_id_selector.update(set(stream.altdata.get("selector", [])))
         program_id_selector = list(program_id_selector)
@@ -1036,7 +1022,7 @@ class ArchiveHandler(BaseHandler):
             name=token_name,
         )
 
-        async with self.AsyncSession() as session:
+        with self.Session() as session:
             try:
                 ra_mean = float(
                     np.mean(
@@ -1062,12 +1048,8 @@ class ArchiveHandler(BaseHandler):
                     obj_id = radec_to_iau_name(ra_mean, dec_mean, prefix="ZTFJ")
 
                 # create new source, reset obj_id
-                sources = (
-                    await session.scalars(
-                        Source.select(session.user_or_token).where(
-                            Source.obj_id == obj_id
-                        )
-                    )
+                sources = session.scalars(
+                    Source.select(session.user_or_token).where(Source.obj_id == obj_id)
                 ).all()
                 num_sources = len(sources)
                 is_source = num_sources > 0
@@ -1090,11 +1072,9 @@ class ArchiveHandler(BaseHandler):
                 df_photometry = make_photometry(light_curves, drop_flagged=True)
 
                 # ZTF instrument id:
-                ztf_instrument = (
-                    await session.scalars(
-                        Instrument.select(session.user_or_token).where(
-                            Instrument.name == "ZTF"
-                        )
+                ztf_instrument = session.scalars(
+                    Instrument.select(session.user_or_token).where(
+                        Instrument.name == "ZTF"
                     )
                 ).first()
                 if ztf_instrument is None:
@@ -1116,9 +1096,7 @@ class ArchiveHandler(BaseHandler):
 
                 # handle data access permissions
                 ztf_program_id_to_stream_id = {}
-                streams = (
-                    await session.scalars(Stream.select(session.user_or_token))
-                ).all()
+                streams = session.scalars(Stream.select(session.user_or_token)).all()
                 if streams is None:
                     return self.error("Failed to get programid to stream_id mapping")
                 for stream in streams:
@@ -1136,9 +1114,7 @@ class ArchiveHandler(BaseHandler):
                 photometry["stream_ids"] = df_photometry["stream_ids"].tolist()
 
                 if len(photometry.get("mag", ())) > 0:
-                    await add_external_photometry(
-                        photometry, self.associated_user_object, session
-                    )
+                    add_external_photometry(photometry, self.associated_user_object)
 
             finally:
                 # always attempt deleting the temporary token

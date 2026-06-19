@@ -61,12 +61,7 @@ def doc(yes: bool = False, upload: bool = False):
     :param upload: Upload documentation to GitHub
     """
     check_config(yes=yes)
-    # Write fritz's SkyPortal config as `config.yaml` (a user override) rather
-    # than overwriting skyportal's `config.yaml.defaults`. load_env then merges
-    # it ON TOP of skyportal's own config.yaml.defaults, so new upstream keys
-    # (e.g. newly-added ports) are inherited instead of being dropped — matching
-    # how the running app loads its config.
-    for destination in ("config.yaml",):
+    for destination in ("config.yaml.defaults",):
         subprocess.run(
             [
                 "cp",

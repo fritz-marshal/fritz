@@ -426,10 +426,7 @@ jobs:
       - name: Dump skyportal logs on failure
         if: failure()
         run: |
-          # Large tail: API-test tracebacks run early and scroll off a small window.
-          docker logs skyportal-web-1 --tail=8000 || true
-          echo "===== filtered: handler errors / tracebacks ====="
-          docker logs skyportal-web-1 2>&1 | grep -iE "Traceback|Error response returned|Unable to post|greenlet|MissingGreenlet" | tail -200 || true
+          docker logs skyportal-web-1 --tail=500 || true
 
       - name: Dump boom logs on failure
         if: failure()
