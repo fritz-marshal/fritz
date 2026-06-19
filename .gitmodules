@@ -1,4 +1,3 @@
 [submodule "skyportal"]
 	path = skyportal
 	url = https://github.com/skyportal/skyportal.git
-	branch = main

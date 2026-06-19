@@ -24,7 +24,7 @@ jobs:
           path: |
             ~/.cache
             ~/.local
-            ~/.bun/install/cache
+            ~/.npm
           key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
 
       - name: Checkout

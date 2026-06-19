@@ -1,7 +1,5 @@
 import base64
-import functools
 import gzip
-import inspect
 import io
 import traceback
 from datetime import datetime, timedelta
@@ -27,10 +25,10 @@ log = make_log("app/boom-utils")
 # ── Shared thumbnail helpers ─────────────────────────────────────────────────
 # Imported lazily to avoid a circular-import at module load time (post_thumbnail
 # lives in handlers/api/thumbnail which ultimately imports app models).
-async def _post_thumbnail(thumbnail_dict, user_id, session):
+def _post_thumbnail(thumbnail_dict, user_id, session):
     from ..thumbnail import post_thumbnail
 
-    await post_thumbnail(thumbnail_dict, user_id=user_id, session=session)
+    post_thumbnail(thumbnail_dict, user_id=user_id, session=session)
 
 
 thumbnail_types = [
@@ -124,7 +122,7 @@ def make_thumbnail(obj_id, cutout_data, cutout_type, thumbnail_type, survey):
     }
 
 
-async def add_thumbnails(alert, survey, session):
+def add_thumbnails(alert, survey, session):
     for cutout_type, thumbnail_type in thumbnail_types:
         if cutout_type not in alert:
             log(f"Cutout key {cutout_type} not found in alert")
@@ -141,7 +139,7 @@ async def add_thumbnails(alert, survey, session):
             traceback.print_exc()
             log(f"Failed to create thumbnail for cutout type {cutout_type}: {e}")
             continue
-        await _post_thumbnail(thumbnail, user_id=1, session=session)
+        _post_thumbnail(thumbnail, user_id=1, session=session)
 
 
 _, cfg = load_env()
@@ -203,37 +201,21 @@ def get_boom_token():
 boom_token, boom_token_expires_at = get_boom_token()
 
 
-def _refresh_boom_token():
-    global boom_url
-    global boom_credentials
-    if boom_url is None or boom_credentials is None:
-        raise ValueError("Boom is not available")
-    global boom_token
-    global boom_token_expires_at
-    if boom_token is None or (
-        boom_token_expires_at is not None
-        and boom_token_expires_at < datetime.utcnow() + timedelta(seconds=1800)
-    ):
-        boom_token, boom_token_expires_at = get_boom_token()
-    if boom_token is None:
-        raise ValueError("Boom is not available")
-
-
 def boom_available(func):
-    # Preserve the coroutine-ness of async handlers so baselayer's
-    # auth_or_token/permissions decorators take their async path.
-    if inspect.iscoroutinefunction(func):
-
-        @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            _refresh_boom_token()
-            return await func(*args, **kwargs)
-
-        return async_wrapper
-
-    @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        _refresh_boom_token()
+        global boom_url
+        global boom_credentials
+        if boom_url is None or boom_credentials is None:
+            raise ValueError("Boom is not available")
+        global boom_token
+        global boom_token_expires_at
+        if boom_token is None or (
+            boom_token_expires_at is not None
+            and boom_token_expires_at < datetime.utcnow() + timedelta(seconds=1800)
+        ):
+            boom_token, boom_token_expires_at = get_boom_token()
+        if boom_token is None:
+            raise ValueError("Boom is not available")
         return func(*args, **kwargs)
 
     return wrapper

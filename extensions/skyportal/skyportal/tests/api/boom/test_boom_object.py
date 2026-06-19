@@ -111,13 +111,13 @@ def test_post_object_happy_path(upload_data_token, public_group, boom_seed_oid):
         data={"group_ids": [public_group.id]},
         token=upload_data_token,
     )
-    assert status == 200, data
+    assert status == 200
     assert data["status"] == "success"
     assert data["data"]["objectId"] == boom_seed_oid
     assert data["data"]["survey"] == SURVEY
 
     # The Obj should now exist in SkyPortal.
     status, src = api("GET", f"sources/{boom_seed_oid}", token=upload_data_token)
-    assert status == 200, src
+    assert status == 200
     assert src["status"] == "success"
     assert src["data"]["id"] == boom_seed_oid
