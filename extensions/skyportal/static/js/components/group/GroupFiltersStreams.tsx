@@ -32,14 +32,21 @@ import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import { showNotification } from "baselayer/components/Notifications";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import { useAppDispatch } from "../../types/hooks";
 
 import FormValidationError from "../FormValidationError";
 import Button from "../Button";
 
-import * as filterActions from "../../ducks/filter";
-import * as groupActions from "../../ducks/group";
-import * as streamsActions from "../../ducks/streams";
+import {
+  useAddGroupFilterMutation,
+  useDeleteGroupFilterMutation,
+  useUpdateFilterNameMutation,
+} from "../../ducks/filter";
+import { groupApi } from "../../ducks/group";
+import {
+  useGetStreamsQuery,
+  useAddGroupStreamMutation,
+} from "../../ducks/streams";
 
 interface GroupFiltersStreamsProps {
   group: any;
@@ -63,7 +70,11 @@ const GroupFiltersStreams = ({
   const [editingFilterId, setEditingFilterId] = useState<any>(null);
   const [editNameInput, setEditNameInput] = useState("");
   const dispatch = useAppDispatch();
-  const streams = useAppSelector((state) => (state as any).streams);
+  const { data: streams } = useGetStreamsQuery();
+  const [addGroupFilter] = useAddGroupFilterMutation();
+  const [deleteGroupFilter] = useDeleteGroupFilterMutation();
+  const [addGroupStream] = useAddGroupStreamMutation();
+  const [updateFilterName] = useUpdateFilterNameMutation();
 
   const {
     register,
@@ -98,32 +109,32 @@ const GroupFiltersStreams = ({
 
   // add filter to group
   const onSubmitAddFilter = async (data: any) => {
-    const result: any = await dispatch(
-      filterActions.addGroupFilter({
+    try {
+      await addGroupFilter({
         name: data.filter_name,
         group_id: group.id,
         stream_id: data.filter_stream_id,
-      }),
-    );
-    if (result.status === "success") {
+      }).unwrap();
       dispatch(showNotification("Added filter to group"));
-      dispatch(groupActions.fetchGroup(group.id));
+      dispatch(groupApi.util.invalidateTags([{ type: "Group", id: group.id }]));
       handleAddFilterDialogClose();
+    } catch {
+      // error notification handled by the base query
     }
   };
 
   // add stream to group
   const onSubmitAddStream = async (data: any) => {
-    const result: any = await dispatch(
-      streamsActions.addGroupStream({
+    try {
+      await addGroupStream({
         group_id: group.id,
         stream_id: data.stream_id,
-      }),
-    );
-    if (result.status === "success") {
+      }).unwrap();
       dispatch(showNotification("Added stream to group"));
-      dispatch(groupActions.fetchGroup(group.id));
+      dispatch(groupApi.util.invalidateTags([{ type: "Group", id: group.id }]));
       setAddStreamOpen(false);
+    } catch {
+      // error notification handled by the base query
     }
   };
 
@@ -143,15 +154,15 @@ const GroupFiltersStreams = ({
       dispatch(showNotification("Filter name cannot be empty.", "error"));
       return;
     }
-    const result: any = await dispatch(
-      (filterActions as any).updateFilterName({
+    try {
+      await updateFilterName({
         filter_id: editingFilterId,
         name: trimmed,
-      }),
-    );
-    if (result.status === "success") {
+      }).unwrap();
       dispatch(showNotification("Filter name updated."));
-      dispatch(groupActions.fetchGroup(group.id));
+      dispatch(groupApi.util.invalidateTags([{ type: "Group", id: group.id }]));
+    } catch {
+      // error notification handled by the base query
     }
     setEditingFilterId(null);
     setEditNameInput("");
@@ -164,7 +175,7 @@ const GroupFiltersStreams = ({
 
   return (
     <>
-      {streams?.length > 0 && (
+      {(streams?.length ?? 0) > 0 && (
         <Accordion
           expanded={panelStreamsExpanded === "panel-streams"}
           onChange={handlePanelStreamsChange("panel-streams")}
@@ -255,19 +266,23 @@ const GroupFiltersStreams = ({
                                   edge="end"
                                   aria-label="delete"
                                   onClick={async () => {
-                                    const result: any = await dispatch(
-                                      filterActions.deleteGroupFilter({
+                                    try {
+                                      await deleteGroupFilter({
                                         filter_id: filter.id,
-                                      }),
-                                    );
-                                    if (result.status === "success") {
+                                      }).unwrap();
                                       dispatch(
                                         showNotification(
                                           "Deleted filter from group",
                                         ),
                                       );
+                                    } catch {
+                                      // error notification handled by the base query
                                     }
-                                    dispatch(groupActions.fetchGroup(group.id));
+                                    dispatch(
+                                      groupApi.util.invalidateTags([
+                                        { type: "Group", id: group.id },
+                                      ]),
+                                    );
                                   }}
                                   size="large"
                                 >
@@ -289,8 +304,8 @@ const GroupFiltersStreams = ({
             <div>
               {/* only Super admins can add streams to groups */}
               {currentUser.permissions.includes("System admin") &&
-                streams?.length > 0 &&
-                group?.streams?.length < streams?.length && (
+                (streams?.length ?? 0) > 0 &&
+                (group?.streams?.length ?? 0) < (streams?.length ?? 0) && (
                   <Button
                     primary
                     className={classes.button_add}
