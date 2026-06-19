@@ -60,34 +60,46 @@ const config = (env, argv) => {
     },
     module: {
       rules: [
+        // Transform JS/TS with rspack's built-in Rust/SWC loader instead of
+        // babel-loader, matching SkyPortal's rspack.config.js. SWC needs an
+        // explicit parser per syntax, so this is split into two rules (TS/TSX
+        // and JS/JSX). Type *checking* remains a separate `tsc --noEmit` step
+        // (npm run typecheck); SWC only strips types during bundling.
+        //
+        // `jsc.target: "es5"` reproduces what @babel/preset-env emitted here:
+        // with no `targets`/browserslist configured, preset-env lowers all
+        // ES2015+ down to ES5. Matching that target keeps runtime behavior
+        // identical (e.g. `const`/`let` lower to hoisted `var`).
+        //
+        // `transform.react.runtime: "automatic"` matches the tsconfig
+        // setting "jsx": "react-jsx", so `import React from "react"` is not
+        // required in JSX/TSX files.
         {
-          test: /\.(js|jsx|ts|tsx)?$/,
-          loader: "babel-loader",
+          // TypeScript / TSX
+          test: /\.tsx?$/,
+          loader: "builtin:swc-loader",
           include: /static\/js/,
           exclude: /node_modules/,
           options: {
-            presets: [
-              "@babel/preset-env",
-              // Use the automatic JSX runtime so `import React from "react"`
-              // is no longer required in every JSX file. Matches the tsconfig
-              // setting "jsx": "react-jsx" and SkyPortal's rspack.config.js
-              // (the .tsx files we ship via extensions/skyportal/ no longer
-              // import React, so the classic runtime would emit
-              // `React.createElement(...)` calls that aren't in scope at run
-              // time — surfaces as `ReferenceError: React is not defined`).
-              ["@babel/preset-react", { runtime: "automatic" }],
-              // Strips TS types during bundling. Type *checking* is a separate
-              // `tsc --noEmit` step (npm run typecheck), so a type error fails
-              // CI without blocking local bundling.
-              "@babel/preset-typescript",
-            ],
-            plugins: [
-              "@babel/plugin-transform-async-to-generator",
-              "@babel/plugin-transform-arrow-functions",
-              "@babel/plugin-transform-class-properties",
-              "@babel/plugin-transform-object-rest-spread",
-            ],
-            compact: false,
+            jsc: {
+              parser: { syntax: "typescript", tsx: true },
+              transform: { react: { runtime: "automatic" } },
+              target: "es5",
+            },
+          },
+        },
+        {
+          // JavaScript / JSX
+          test: /\.jsx?$/,
+          loader: "builtin:swc-loader",
+          include: /static\/js/,
+          exclude: /node_modules/,
+          options: {
+            jsc: {
+              parser: { syntax: "ecmascript", jsx: true },
+              transform: { react: { runtime: "automatic" } },
+              target: "es5",
+            },
           },
         },
         // Enable CSS Modules for Skyportal
