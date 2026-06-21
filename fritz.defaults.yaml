@@ -624,8 +624,6 @@ skyportal:
             port: 4000
             username: admin
             password: adminsecret
-      # fiesta light-curve fitting on OSG/OSPool. Needs htcondor in the image
-      # (pyproject optional-dep "osg") + an OSG SciToken at htcondor.scitoken_path.
       osg:
         repo: https://github.com/skyportal/osg-skyportal-plugin.git
         rev: main
@@ -636,8 +634,8 @@ skyportal:
           htcondor:
             collector: "cm-2.ospool.osg-htc.org, cm-1.ospool.osg-htc.org"
             schedd: ap41.uw.osg-htc.org
-            scitoken_path: /secrets/scitokens/osg.use # mount the SciToken here
-            project_name: CHANGEME_OSG_PROJECT # your OSPool project (e.g. UMN_Coughlin)
+            scitoken_path: /secrets/scitokens/osg.use
+            project_name: CHANGEME_OSG_PROJECT
             spool: true
             keepalive: true
           defaults:
@@ -647,7 +645,7 @@ skyportal:
             max_runtime_seconds: 3600
             singularity_image: /cvmfs/singularity.opensciencegrid.org/michaelwcoughlin/fiesta:latest
             use_wrapper: true
-            cpu_requirements: "(has_avx == True)" # jaxlib needs AVX
+            cpu_requirements: "(has_avx == True)"
           poller:
             interval_seconds: 60
           batch:
@@ -662,7 +660,7 @@ skyportal:
             output_prefix: osdf:///ospool/ap41/data/CHANGEME_USER/fiesta-output
             write_token_path: /secrets/scitokens/osg.use
           auth:
-            incoming_bearer_token: CHANGEME_SHARED_SECRET # SkyPortal sends this
+            incoming_bearer_token: CHANGEME_SHARED_SECRET
 
   misc:
     days_to_keep_unsaved_candidates: 7

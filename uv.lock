@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.12.*"
 
 [[package]]
@@ -192,6 +192,7 @@ docs = [
 ]
 ext = [
     { name = "cramjam" },
+    { name = "htcondor" },
     { name = "penquins" },
     { name = "pymongo" },
 ]
@@ -227,6 +228,7 @@ docs = [
 ]
 ext = [
     { name = "cramjam", specifier = ">=2.11.0" },
+    { name = "htcondor", specifier = ">=24.0" },
     { name = "penquins", specifier = ">=2.4.1" },
     { name = "pymongo", specifier = ">=4.7.2" },
 ]
@@ -246,6 +248,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250, upload-time = "2025-04-24T03:35:25.427Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
+]
+
+[[package]]
+name = "htcondor"
+version = "25.11.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/eb/f2f8387f16be10f6bbd92a4b2b2d44c8b29c732bedf5bbe60e14b6e0a30e/htcondor-25.11.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:5f5a2951acb37bc7554af8ee377fa5ed507eca4e31c219643019b59150ff325b", size = 51114270, upload-time = "2026-06-11T14:29:28.452Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/01/219e1047d40cc2254a5a8b791c5c7d26bbf336f7f9b3ebdad57f4d762b4a/htcondor-25.11.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:32b95deb53bb0129983d9e341b22d96241da830f6acdf61c4594815df2c38193", size = 52552026, upload-time = "2026-06-11T14:29:31.297Z" },
 ]
 
 [[package]]
