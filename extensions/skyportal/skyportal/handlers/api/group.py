@@ -1,15 +1,12 @@
 import sqlalchemy as sa
 from marshmallow.exceptions import ValidationError
 from sqlalchemy import or_
-from sqlalchemy.orm import selectinload
 
 from baselayer.app.access import AccessError, auth_or_token, permissions
 from baselayer.app.env import load_env
-from baselayer.app.models import RoleACL, UserACL, UserRole
 from baselayer.log import make_log
 
 from ...models import (
-    Filter,
     Group,
     GroupStream,
     GroupUser,
@@ -25,47 +22,17 @@ from ..base import BaseHandler
 _, cfg = load_env()
 
 
-async def has_admin_access_for_group(user, group_id, session):
-    """Async variant of has_admin_access_for_group. Looks up the user's
-    permission set via an explicit query (instead of touching the lazy
-    ``user.permissions`` property) so it works under an async session.
-    """
-    groupuser = await session.scalar(
+def has_admin_access_for_group(user, group_id, session):
+    groupuser = session.scalar(
         GroupUser.select(user).where(
             GroupUser.group_id == group_id, GroupUser.user_id == user.id
         )
     )
-    if groupuser is not None and groupuser.admin:
-        return True
-    direct = sa.select(UserACL.acl_id).where(UserACL.user_id == user.id)
-    via_role = (
-        sa.select(RoleACL.acl_id)
-        .join(UserRole, UserRole.role_id == RoleACL.role_id)
-        .where(UserRole.user_id == user.id)
-    )
-    combined = sa.union(direct, via_role).subquery()
-    sysadmin_like = await session.scalar(
-        sa.select(sa.func.count())
-        .select_from(combined)
-        .where(combined.c.acl_id.in_({"System admin", "Manage groups", "Manage_users"}))
-    )
-    return bool(sysadmin_like)
-
-
-async def _user_is_system_admin(user_id, session):
-    direct = sa.select(UserACL.acl_id).where(UserACL.user_id == user_id)
-    via_role = (
-        sa.select(RoleACL.acl_id)
-        .join(UserRole, UserRole.role_id == RoleACL.role_id)
-        .where(UserRole.user_id == user_id)
-    )
-    combined = sa.union(direct, via_role).subquery()
-    count = await session.scalar(
-        sa.select(sa.func.count())
-        .select_from(combined)
-        .where(combined.c.acl_id == "System admin")
-    )
-    return bool(count)
+    return len(
+        {"System admin", "Manage groups", "Manage_users"}.intersection(
+            set(user.permissions)
+        )
+    ) > 0 or (groupuser is not None and groupuser.admin)
 
 
 log = make_log("api/group")
@@ -73,7 +40,7 @@ log = make_log("api/group")
 
 class GroupHandler(BaseHandler):
     @auth_or_token
-    async def get(self, group_id: int | None = None):
+    def get(self, group_id: int | None = None):
         """
         ---
         single:
@@ -104,15 +71,7 @@ class GroupHandler(BaseHandler):
                       - type: object
                         properties:
                           data:
-                            allOf:
-                              - $ref: '#/components/schemas/Group'
-                              - type: object
-                                properties:
-                                  users:
-                                    type: array
-                                    items:
-                                      $ref: '#/components/schemas/User'
-                                    description: List of group users
+                            $ref: '#/components/schemas/Group'
             400:
               content:
                 application/json:
@@ -173,22 +132,11 @@ class GroupHandler(BaseHandler):
                   schema: Error
         """
 
-        if group_id is not None:
-            try:
-                group_id = int(group_id)
-            except (TypeError, ValueError):
-                return self.error(f"Invalid group_id: {group_id}")
-        async with self.AsyncSession() as session:
+        with self.Session() as session:
             if group_id is not None:
-                group = await session.scalar(
-                    Group.select(session.user_or_token)
-                    .options(
-                        selectinload(Group.group_users).selectinload(GroupUser.user),
-                        selectinload(Group.streams),
-                        selectinload(Group.filters),
-                    )
-                    .where(Group.id == group_id)
-                )
+                group = session.scalars(
+                    Group.select(session.user_or_token).where(Group.id == group_id)
+                ).first()
                 if group is None:
                     return self.error(f"Cannot find Group with id {group_id}")
                 include_group_users = self.get_query_argument("includeGroupUsers", True)
@@ -213,19 +161,22 @@ class GroupHandler(BaseHandler):
                     else None
                 )
 
-                streams = list(group.streams)
-                filters = list(group.filters)
+                streams = group.streams
+                filters = group.filters
 
                 group = group.to_dict()
 
                 if users is not None:
                     group["users"] = users
 
+                # grab streams:
                 group["streams"] = streams
+
                 group["filters"] = filters
                 try:
-                    # commit to surface any access-control errors picked up on flush
-                    await session.commit()
+                    # grab filters:
+                    # this is in a try-except in case of deletions
+                    session.commit()
                     group["filters"] = filters
                 except AccessError as e:
                     log(f"Insufficient filter permissions: {e}.")
@@ -234,68 +185,40 @@ class GroupHandler(BaseHandler):
 
             group_name = self.get_query_argument("name", None)
             if group_name is not None:
-                result = await session.scalars(
+                groups = session.scalars(
                     Group.select(session.user_or_token).where(Group.name == group_name)
-                )
-                return self.success(data=result.unique().all())
+                ).all()
+                return self.success(data=groups)
 
             include_single_user_groups = self.get_query_argument(
                 "includeSingleUserGroups", False
             )
-
-            user_id = self.associated_user_object.id
-
-            # user_groups = groups the user is a direct member of
-            user_groups_stmt = (
-                sa.select(Group)
-                .join(GroupUser, GroupUser.group_id == Group.id)
-                .where(GroupUser.user_id == user_id)
+            info = {}
+            info["user_groups"] = sorted(
+                self.current_user.groups, key=lambda g: g.name.lower()
             )
-            user_groups_result = await session.scalars(user_groups_stmt)
-            user_groups = sorted(
-                user_groups_result.unique().all(), key=lambda g: g.name.lower()
+            info["user_accessible_groups"] = sorted(
+                (
+                    g
+                    for g in self.current_user.accessible_groups
+                    if not g.single_user_group
+                ),
+                key=lambda g: g.name.lower(),
             )
-
-            # user_accessible_groups: all for sysadmin, member groups otherwise
-            is_sysadmin = await _user_is_system_admin(user_id, session)
-            if is_sysadmin:
-                accessible_stmt = sa.select(Group).where(
-                    Group.single_user_group.is_(False)
-                )
-            else:
-                accessible_stmt = (
-                    sa.select(Group)
-                    .join(GroupUser, GroupUser.group_id == Group.id)
-                    .where(
-                        GroupUser.user_id == user_id,
-                        Group.single_user_group.is_(False),
-                    )
-                )
-            accessible_result = await session.scalars(accessible_stmt)
-            user_accessible_groups = sorted(
-                accessible_result.unique().all(), key=lambda g: g.name.lower()
-            )
-
             all_groups_query = Group.select(session.user_or_token)
             if not include_single_user_groups:
                 all_groups_query = all_groups_query.where(
                     Group.single_user_group.is_(False)
                 )
-            all_groups_result = await session.scalars(all_groups_query)
-            all_groups = sorted(
-                all_groups_result.unique().all(), key=lambda g: g.name.lower()
+            info["all_groups"] = sorted(
+                session.scalars(all_groups_query).unique().all(),
+                key=lambda g: g.name.lower(),
             )
 
-            return self.success(
-                data={
-                    "user_groups": user_groups,
-                    "user_accessible_groups": user_accessible_groups,
-                    "all_groups": all_groups,
-                }
-            )
+            return self.success(data=info)
 
     @permissions(["Upload data"])
-    async def post(self):
+    def post(self):
         """
         ---
         summary: Create a new group
@@ -346,20 +269,18 @@ class GroupHandler(BaseHandler):
                 "Invalid group_admins field; unable to parse all items to int"
             )
 
-        async with self.AsyncSession() as session:
-            group_admins_result = await session.scalars(
+        with self.Session() as session:
+            group_admins = session.scalars(
                 User.select(self.current_user).where(User.id.in_(group_admin_ids))
-            )
-            group_admins = list(group_admins_result.unique().all())
-            current_user_id = self.associated_user_object.id
-            if current_user_id not in [u.id for u in group_admins] and not isinstance(
-                self.current_user, Token
-            ):
-                group_admins.append(self.associated_user_object)
+            ).all()
+            if self.current_user.id not in [
+                u.id for u in group_admins
+            ] and not isinstance(self.current_user, Token):
+                group_admins.append(self.current_user)
 
-            existing_group = await session.scalar(
+            existing_group = session.scalars(
                 Group.select(session.user_or_token).where(Group.name == data["name"])
-            )
+            ).first()
             if existing_group is not None:
                 return self.error(
                     f"Group with name {data['name']} already exists. Please select a new one."
@@ -372,18 +293,19 @@ class GroupHandler(BaseHandler):
             )
 
             session.add(g)
-            await session.flush()  # populate g.id
 
             for user in group_admins:
-                # Avoid cascade conflict by linking via foreign key, not by
-                # attaching the detached user instance.
-                session.add(GroupUser(group_id=g.id, user_id=user.id, admin=True))
+                session.merge(user)
 
-            await session.commit()
+            session.add_all(
+                [GroupUser(group=g, user=user, admin=True) for user in group_admins]
+            )
+
+            session.commit()
             return self.success(data={"id": g.id})
 
     @permissions(["Upload data"])
-    async def put(self, group_id: int):
+    def put(self, group_id: int):
         """
         ---
         summary: Update a group
@@ -416,19 +338,16 @@ class GroupHandler(BaseHandler):
                 schema: Error
         """
 
-        try:
-            group_id = int(group_id)
-        except (TypeError, ValueError):
-            return self.error(f"Invalid group_id: {group_id}")
         data = self.get_json()
         data["id"] = group_id
 
-        async with self.AsyncSession() as session:
-            group = await session.scalar(
+        with self.Session() as session:
+            # permission check
+            group = session.scalars(
                 Group.select(session.user_or_token, mode="update").where(
                     Group.id == group_id
                 )
-            )
+            ).first()
             if group is None:
                 return self.error(f"Cannot find Group with id {group_id}")
             schema = Group.__schema__()
@@ -443,11 +362,11 @@ class GroupHandler(BaseHandler):
             for k in data:
                 setattr(group, k, data[k])
 
-            await session.commit()
+            session.commit()
             return self.success(action="skyportal/FETCH_GROUPS")
 
     @permissions(["Upload data"])
-    async def delete(self, group_id: int):
+    def delete(self, group_id: int):
         """
         ---
         summary: Delete a group
@@ -467,24 +386,21 @@ class GroupHandler(BaseHandler):
                 schema: Success
         """
 
-        try:
-            group_id = int(group_id)
-        except (TypeError, ValueError):
-            return self.error(f"Invalid group_id: {group_id}")
-        async with self.AsyncSession() as session:
-            group = await session.scalar(
+        with self.Session() as session:
+            # permission check
+            group = session.scalars(
                 Group.select(session.user_or_token, mode="delete").where(
                     Group.id == group_id
                 )
-            )
+            ).first()
             if group is None:
                 return self.error(
                     f"Cannot find Group with id {group_id}",
                     status=403,
                 )
 
-            await session.delete(group)
-            await session.commit()
+            session.delete(group)
+            session.commit()
             self.push_all(
                 action="skyportal/REFRESH_GROUP", payload={"group_id": int(group_id)}
             )
@@ -493,7 +409,7 @@ class GroupHandler(BaseHandler):
 
 class GroupUserHandler(BaseHandler):
     @permissions(["Upload data"])
-    async def post(self, group_id: int, *ignored_args):
+    def post(self, group_id: int, *ignored_args):
         """
         ---
         summary: Add a group user
@@ -533,17 +449,7 @@ class GroupUserHandler(BaseHandler):
                     - type: object
                       properties:
                         data:
-                          type: object
-                          properties:
-                            group_id:
-                              type: integer
-                              description: Group ID
-                            user_id:
-                              type: integer
-                              description: User ID
-                            admin:
-                              type: boolean
-                              description: Boolean indicating whether user is group admin
+                          $ref: '#/components/schemas/GroupUser'
         """
 
         data = self.get_json()
@@ -566,13 +472,10 @@ class GroupUserHandler(BaseHandler):
             return self.error(
                 "Invalid (non-boolean) value provided for parameter `canSave`"
             )
-        try:
-            group_id = int(group_id)
-        except (TypeError, ValueError):
-            return self.error(f"Invalid group_id: {group_id}")
+        group_id = int(group_id)
 
-        async with self.AsyncSession() as session:
-            group = await session.scalar(
+        with self.Session() as session:
+            group = session.scalar(
                 Group.select(session.user_or_token, mode="update").where(
                     Group.id == group_id
                 )
@@ -584,7 +487,7 @@ class GroupUserHandler(BaseHandler):
                     f"Cannot add users to group {group_id}. It is a single user group."
                 )
 
-            user = await session.scalar(
+            user = session.scalar(
                 User.select(session.user_or_token).where(User.id == user_id)
             )
             if user is None:
@@ -594,7 +497,7 @@ class GroupUserHandler(BaseHandler):
             # (avoid lazy `group.streams`/`user.streams`, whose access-controlled
             # load raises AccessError for a requester lacking read access to a
             # stream — same pattern as GroupStreamHandler.post below).
-            missing_stream_id = await session.scalar(
+            missing_stream_id = session.scalars(
                 sa.select(GroupStream.stream_id)
                 .where(
                     GroupStream.group_id == group_id,
@@ -615,11 +518,12 @@ class GroupUserHandler(BaseHandler):
                     status=403,
                 )
 
-            gu = await session.scalar(
+            # Add user to group
+            gu = session.scalars(
                 GroupUser.select(session.user_or_token)
                 .where(GroupUser.group_id == group_id)
                 .where(GroupUser.user_id == user_id)
-            )
+            ).first()
             if gu is not None:
                 return self.error(
                     f"User {user_id} is already a member of group {group_id}."
@@ -632,12 +536,12 @@ class GroupUserHandler(BaseHandler):
             )
             session.add(
                 UserNotification(
-                    user_id=user.id,
+                    user=user,
                     text=f"You've been added to group *{group.name}*",
                     url=f"/group/{group.id}",
                 )
             )
-            await session.commit()
+            session.commit()
             self.flow.push(user.id, "skyportal/FETCH_NOTIFICATIONS", {})
 
             self.push_all(
@@ -648,7 +552,7 @@ class GroupUserHandler(BaseHandler):
             )
 
     @permissions(["Upload data"])
-    async def patch(self, group_id: int, *ignored_args):
+    def patch(self, group_id: int, *ignored_args):
         """
         ---
         summary: Update a group user
@@ -697,21 +601,21 @@ class GroupUserHandler(BaseHandler):
         data = self.get_json()
         try:
             group_id = int(group_id)
-        except (TypeError, ValueError):
+        except ValueError:
             return self.error("Invalid group ID")
 
         user_id = data.get("userID")
         try:
             user_id = int(user_id)
-        except (TypeError, ValueError):
+        except ValueError:
             return self.error("Invalid userID parameter")
 
-        async with self.AsyncSession() as session:
-            groupuser = await session.scalar(
+        with self.Session() as session:
+            groupuser = session.scalars(
                 GroupUser.select(session.user_or_token, mode="update")
                 .where(GroupUser.group_id == group_id)
                 .where(GroupUser.user_id == user_id)
-            )
+            ).first()
 
             if groupuser is None:
                 return self.error(
@@ -734,11 +638,11 @@ class GroupUserHandler(BaseHandler):
                 )
             groupuser.admin = admin
             groupuser.can_save = can_save
-            await session.commit()
+            session.commit()
             return self.success()
 
     @auth_or_token
-    async def delete(self, group_id: int, user_id: int):
+    def delete(self, group_id: int, user_id: int):
         """
         ---
         summary: Delete a group user
@@ -766,35 +670,21 @@ class GroupUserHandler(BaseHandler):
 
         try:
             user_id = int(user_id)
-            group_id = int(group_id)
-        except (TypeError, ValueError):
-            return self.error(f"Invalid group_id/user_id: {group_id}/{user_id}")
-
-        async with self.AsyncSession() as session:
-            # FIXME: GroupUser.delete's access control excludes single-user
-            # groups, but the async verify path doesn't enforce it yet
-            # (CustomUserAccessControl.select_accessible_rows projects columns
-            # out of subquery scope in baselayer). Enforce explicitly here
-            # until the baselayer select_accessible_rows fix lands.
-            group = await session.scalar(
-                Group.select(session.user_or_token).where(Group.id == group_id)
-            )
-            if group is not None and group.single_user_group:
-                return self.error(
-                    "Cannot remove a user from their single user group.", status=403
-                )
-
-            gu = await session.scalar(
+        except ValueError:
+            return self.error("Invalid user_id; unable to parse to integer")
+        with self.Session() as session:
+            gu = session.scalars(
                 GroupUser.select(session.user_or_token, mode="delete")
                 .where(GroupUser.group_id == group_id)
                 .where(GroupUser.user_id == user_id)
-            )
+            ).first()
             if gu is None:
                 return self.error("GroupUser does not exist.", status=403)
 
-            await session.delete(gu)
+            session.delete(gu)
+            # Check for delete permissions
             try:
-                await session.commit()
+                session.commit()
             except AccessError as e:
                 return self.error(f"Insufficient group permissions: {e}.", status=403)
 
@@ -808,7 +698,7 @@ class GroupUserHandler(BaseHandler):
 
 class GroupUsersFromOtherGroupsHandler(BaseHandler):
     @permissions(["Upload data"])
-    async def post(self, group_id: int, *ignored_args):
+    def post(self, group_id: int, *ignored_args):
         """
         ---
         summary: Add users from other group(s)
@@ -847,11 +737,6 @@ class GroupUsersFromOtherGroupsHandler(BaseHandler):
                         data:
                           $ref: '#/components/schemas/GroupUser'
         """
-        try:
-            group_id = int(group_id)
-        except (TypeError, ValueError):
-            return self.error("Invalid group_id parameter: must be an integer")
-
         data = self.get_json()
 
         from_group_ids = data.get("fromGroupIDs")
@@ -863,50 +748,50 @@ class GroupUsersFromOtherGroupsHandler(BaseHandler):
                 "must be an array of integers."
             )
 
-        async with self.AsyncSession() as session:
-            group = await session.scalar(
+        with self.Session() as session:
+            group = session.scalars(
                 Group.select(self.current_user).where(Group.id == group_id)
-            )
+            ).first()
             if group is None:
                 return self.error("Cannot access group with given ID.")
 
-            from_groups_result = await session.scalars(
+            from_groups = session.scalars(
                 Group.select(self.current_user).where(Group.id.in_(from_group_ids))
-            )
-            from_groups = from_groups_result.unique().all()
+            ).all()
             if set(from_group_ids) != {g.id for g in from_groups}:
                 return self.error(
                     "Cannot access one or more groups with given by fromGroupIDs."
                 )
 
-            # Fetch user IDs in the from-groups via SQL (don't use lazy
-            # `from_group.users`).
-            user_ids_result = await session.scalars(
-                sa.select(GroupUser.user_id)
-                .where(GroupUser.group_id.in_(from_group_ids))
-                .distinct()
-            )
-            user_ids = set(user_ids_result.all())
+            user_ids = set()
+            for from_group in from_groups:
+                for user in from_group.users:
+                    user_ids.add(user.id)
 
             for user_id in user_ids:
-                gu = await session.scalar(
+                # Add user to group
+                gu = session.scalars(
                     sa.select(GroupUser)
                     .where(GroupUser.group_id == group_id)
                     .where(GroupUser.user_id == user_id)
-                )
+                ).first()
+                user = session.scalars(
+                    sa.select(User).where(User.id == user_id)
+                ).first()
                 if gu is None:
                     session.add(
                         GroupUser(group_id=group_id, user_id=user_id, admin=False)
                     )
                     session.add(
                         UserNotification(
+                            user=user,
                             user_id=user_id,
                             text=f"You've been added to group *{group.name}*",
                             url=f"/group/{group.id}",
                         )
                     )
 
-            await session.commit()
+            session.commit()
 
         self.push_all(action="skyportal/REFRESH_GROUP", payload={"group_id": group_id})
         for user_id in user_ids:
@@ -916,7 +801,7 @@ class GroupUsersFromOtherGroupsHandler(BaseHandler):
 
 class GroupStreamHandler(BaseHandler):
     @permissions(["Upload data"])
-    async def post(self, group_id: int, *ignored_args):
+    def post(self, group_id: int, *ignored_args):
         """
         ---
         summary: Add alert stream to group
@@ -950,32 +835,21 @@ class GroupStreamHandler(BaseHandler):
                     - type: object
                       properties:
                         data:
-                          type: object
-                          properties:
-                            group_id:
-                              type: integer
-                              description: Group ID
-                            stream_id:
-                              type: integer
-                              description: Stream ID
+                          $ref: '#/components/schemas/GroupStream'
         """
         data = self.get_json()
-        try:
-            group_id = int(group_id)
-        except (TypeError, ValueError):
-            return self.error(f"Invalid group_id: {group_id}")
         stream_id = data.get("stream_id")
         try:
             stream_id = int(stream_id)
         except (TypeError, ValueError):
             return self.error(f"Invalid stream_id: {stream_id}")
 
-        async with self.AsyncSession() as session:
-            group = await session.scalar(
+        with self.Session() as session:
+            group = session.scalars(
                 Group.select(session.user_or_token, mode="update").where(
                     Group.id == group_id
                 )
-            )
+            ).first()
             if group is None:
                 return self.error(f"Group with ID {group_id} not accessible")
             if group.single_user_group:
@@ -983,40 +857,27 @@ class GroupStreamHandler(BaseHandler):
                     f"Cannot add users to group {group_id}. It is a single user group."
                 )
 
-            # Validate every group member has access to the stream via SQL
-            # (avoid lazy `group.users`/`user.streams`).
-            missing_count = await session.scalar(
-                sa.select(sa.func.count())
-                .select_from(GroupUser)
-                .where(
-                    GroupUser.group_id == group_id,
-                    ~sa.exists().where(
-                        sa.and_(
-                            StreamUser.user_id == GroupUser.user_id,
-                            StreamUser.stream_id == stream_id,
-                        )
-                    ),
-                )
-            )
-            if missing_count and missing_count > 0:
-                return self.error(
-                    f"Not all users have stream access with ID {stream_id}",
-                    status=403,
-                )
+            for user in group.users:
+                user_streams = [stream.id for stream in user.streams]
+                if stream_id not in user_streams:
+                    return self.error(
+                        f"Not all users have stream access with ID {stream_id}",
+                        status=403,
+                    )
 
-            gs = await session.scalar(
+            # Add new GroupStream
+            gs = session.scalars(
                 GroupStream.select(session.user_or_token).where(
-                    GroupStream.group_id == group_id,
-                    GroupStream.stream_id == stream_id,
+                    GroupStream.group_id == group_id, GroupStream.stream_id == stream_id
                 )
-            )
+            ).first()
             if gs is None:
                 session.add(GroupStream(group_id=group_id, stream_id=stream_id))
             else:
                 return self.error(
                     "Specified stream is already associated with this group."
                 )
-            await session.commit()
+            session.commit()
 
             self.push_all(
                 action="skyportal/REFRESH_GROUP", payload={"group_id": group_id}
@@ -1024,7 +885,7 @@ class GroupStreamHandler(BaseHandler):
             return self.success(data={"group_id": group_id, "stream_id": stream_id})
 
     @permissions(["Upload data"])
-    async def delete(self, group_id: int, stream_id: int):
+    def delete(self, group_id: int, stream_id: int):
         """
         ---
         summary: Delete alert stream from group
@@ -1049,47 +910,34 @@ class GroupStreamHandler(BaseHandler):
               application/json:
                 schema: Success
         """
+
         try:
             group_id = int(group_id)
             stream_id = int(stream_id)
         except (TypeError, ValueError):
             return self.error(f"Invalid group_id/stream_id: {group_id}/{stream_id}")
 
-        async with self.AsyncSession() as session:
-            # FIXME: GroupStream.delete excludes streams still operated on by a
-            # group filter, but the async verify path doesn't enforce that
-            # CustomUserAccessControl predicate yet (out-of-scope columns in
-            # baselayer select_accessible_rows). Enforce explicitly until the
-            # baselayer fix lands.
-            actively_filtered = await session.scalar(
-                Filter.select(session.user_or_token)
-                .where(Filter.group_id == group_id)
-                .where(Filter.stream_id == stream_id)
-            )
-            if actively_filtered is not None:
-                return self.error(f"No stream IDs with ID {stream_id} accessible")
-
-            groupstreams_result = await session.scalars(
+        with self.Session() as session:
+            groupstreams = session.scalars(
                 GroupStream.select(session.user_or_token, mode="delete")
                 .where(GroupStream.group_id == group_id)
                 .where(GroupStream.stream_id == stream_id)
-            )
-            groupstreams = groupstreams_result.all()
+            ).all()
             if len(groupstreams) == 0:
                 return self.error(f"No stream IDs with ID {stream_id} accessible")
             for gs in groupstreams:
-                await session.delete(gs)
+                session.delete(gs)
 
-            await session.commit()
+            session.commit()
             self.push_all(
-                action="skyportal/REFRESH_GROUP", payload={"group_id": group_id}
+                action="skyportal/REFRESH_GROUP", payload={"group_id": int(group_id)}
             )
             return self.success()
 
 
 class ObjGroupsHandler(BaseHandler):
     @auth_or_token
-    async def get(self, obj_id: str):
+    def get(self, obj_id: str):
         """
         ---
         summary: Get an object's groups
@@ -1114,10 +962,10 @@ class ObjGroupsHandler(BaseHandler):
                 schema: Error
         """
 
-        async with self.AsyncSession() as session:
-            s = await session.scalar(
+        with self.Session() as session:
+            s = session.scalars(
                 Obj.select(session.user_or_token).where(Obj.id == obj_id)
-            )
+            ).first()
             if s is None:
                 return self.error("Source not found", status=404)
 
@@ -1126,8 +974,9 @@ class ObjGroupsHandler(BaseHandler):
                 Group.select(session.user_or_token)
                 .join(Source)
                 .where(Source.obj_id == source_info["id"])
-                .where(or_(Source.requested.is_(True), Source.active.is_(True)))
             )
-            result = await session.scalars(query)
-            groups = [g.to_dict() for g in result.unique().all()]
+            query = query.where(
+                or_(Source.requested.is_(True), Source.active.is_(True))
+            )
+            groups = [g.to_dict() for g in session.scalars(query).unique().all()]
             return self.success(data=groups)
