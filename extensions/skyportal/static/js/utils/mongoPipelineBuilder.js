@@ -3380,15 +3380,16 @@ const convertSchemaFieldCondition = (
       return { [field]: { $lt: processedValue } };
     case "$lte":
       return { [field]: { $lte: processedValue } };
-    case "$in":
-      // For $in, ensure processedValue is an array
+    case "$in": {
+      const inArray = Array.isArray(processedValue)
+        ? processedValue
+        : [processedValue];
       return {
         [field]: {
-          $in: Array.isArray(processedValue)
-            ? processedValue
-            : [processedValue],
+          $in: inArray.map(parseNumberIfNeeded),
         },
       };
+    }
     case "$lengthGt":
     case "length >":
       return { $expr: { $gt: [{ $size: `$${field}` }, processedValue] } };

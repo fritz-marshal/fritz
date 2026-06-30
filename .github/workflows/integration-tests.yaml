@@ -138,6 +138,15 @@ jobs:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+            consumer-winter:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
+            scheduler-winter:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
           EOF
 
       - name: Bring up boom stack
@@ -172,6 +181,8 @@ jobs:
           # Allow up to 100% match rate so the validation test passes even
           # if our filter matches every seeded alert.
           BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "100"
+          BOOM_KAFKA__CONSUMER__WINTER__GROUP_ID: boom-winter-consumer-group
+          BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
         run: |
           docker compose -p boom \
             -f docker-compose.yaml \
