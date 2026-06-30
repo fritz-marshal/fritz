@@ -12,7 +12,7 @@ from .group import has_admin_access_for_group
 
 class FilterHandler(BaseHandler):
     @auth_or_token
-    def get(self, filter_id=None):
+    async def get(self, filter_id=None):
         """
         ---
         single:
@@ -56,23 +56,27 @@ class FilterHandler(BaseHandler):
                 filter_id = int(filter_id)
             except (TypeError, ValueError):
                 return self.error(f"Invalid filter_id: {filter_id}")
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             if filter_id is not None:
-                f = session.scalars(
-                    Filter.select(
-                        session.user_or_token, options=[joinedload(Filter.stream)]
-                    ).where(Filter.id == filter_id)
+                f = (
+                    await session.scalars(
+                        Filter.select(
+                            session.user_or_token, options=[joinedload(Filter.stream)]
+                        ).where(Filter.id == filter_id)
+                    )
                 ).first()
                 if f is None:
                     return self.error(f"Cannot find a filter with ID: {filter_id}.")
 
                 return self.success(data=f)
 
-            filters = session.scalars(Filter.select(session.user_or_token)).all()
+            filters = (
+                await session.scalars(Filter.select(session.user_or_token))
+            ).all()
             return self.success(data=filters)
 
     @permissions(["Upload data"])
-    def post(self):
+    async def post(self):
         """
         ---
         summary: Create a new filter
@@ -100,7 +104,7 @@ class FilterHandler(BaseHandler):
                               description: New filter ID
         """
         data = self.get_json()
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             schema = Filter.__schema__()
             try:
                 fil = schema.load(data)
@@ -109,11 +113,11 @@ class FilterHandler(BaseHandler):
                     f"Invalid/missing parameters: {e.normalized_messages()}"
                 )
             session.add(fil)
-            session.commit()
+            await session.commit()
             return self.success(data={"id": fil.id})
 
     @permissions(["Upload data"])
-    def patch(self, filter_id):
+    async def patch(self, filter_id):
         """
         ---
         summary: Update a filter
@@ -144,16 +148,18 @@ class FilterHandler(BaseHandler):
             filter_id = int(filter_id)
         except (TypeError, ValueError):
             return self.error(f"Invalid filter_id: {filter_id}")
-        with self.Session() as session:
-            f = session.scalars(
-                Filter.select(session.user_or_token, mode="update").where(
-                    Filter.id == filter_id
+        async with self.AsyncSession() as session:
+            f = (
+                await session.scalars(
+                    Filter.select(session.user_or_token, mode="update").where(
+                        Filter.id == filter_id
+                    )
                 )
             ).first()
             if f is None:
                 return self.error(f"Cannot find a filter with ID: {filter_id}.")
 
-            if not has_admin_access_for_group(
+            if not await has_admin_access_for_group(
                 self.associated_user_object, f.group_id, session
             ):
                 return self.error(
@@ -208,11 +214,11 @@ class FilterHandler(BaseHandler):
             for k in data:
                 setattr(f, k, data[k])
 
-            session.commit()
+            await session.commit()
             return self.success()
 
     @permissions(["Upload data"])
-    def delete(self, filter_id):
+    async def delete(self, filter_id):
         """
         ---
         summary: Delete a filter
@@ -236,14 +242,16 @@ class FilterHandler(BaseHandler):
             filter_id = int(filter_id)
         except (TypeError, ValueError):
             return self.error(f"Invalid filter_id: {filter_id}")
-        with self.Session() as session:
-            f = session.scalars(
-                Filter.select(session.user_or_token, mode="delete").where(
-                    Filter.id == filter_id
+        async with self.AsyncSession() as session:
+            f = (
+                await session.scalars(
+                    Filter.select(session.user_or_token, mode="delete").where(
+                        Filter.id == filter_id
+                    )
                 )
             ).first()
             if f is None:
                 return self.error(f"Cannot find a filter with ID: {filter_id}.")
-            session.delete(f)
-            session.commit()
+            await session.delete(f)
+            await session.commit()
             return self.success()
