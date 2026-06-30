@@ -110,18 +110,16 @@ class StatsHandler(BaseHandler):
 
         data = {}
 
-        # This query is done in raw session as it directly executes
-        # sql, which is unsupported by the self.Session() syntax
         async with self.AsyncSession() as session:
-            data["Number of photometry (approx)"] = list(
+            photometry_count_row = (
                 await session.execute(
                     sa.text(
                         "SELECT reltuples::bigint FROM pg_catalog.pg_class WHERE relname = 'photometry'"
                     )
                 )
-            )[0][0]
+            ).first()
+            data["Number of photometry (approx)"] = photometry_count_row[0]
 
-        async with self.AsyncSession() as session:
             data["Number of candidates"] = await session.scalar(
                 sa.select(sa.func.count()).select_from(Candidate)
             )

@@ -12,7 +12,7 @@ from .group import has_admin_access_for_group
 
 class FilterHandler(BaseHandler):
     @auth_or_token
-    async def get(self, filter_id=None):
+    async def get(self, filter_id: int | None = None):
         """
         ---
         single:
@@ -51,29 +51,20 @@ class FilterHandler(BaseHandler):
                   schema: Error
         """
 
-        if filter_id is not None:
-            try:
-                filter_id = int(filter_id)
-            except (TypeError, ValueError):
-                return self.error(f"Invalid filter_id: {filter_id}")
         async with self.AsyncSession() as session:
             if filter_id is not None:
-                f = (
-                    await session.scalars(
-                        Filter.select(
-                            session.user_or_token, options=[joinedload(Filter.stream)]
-                        ).where(Filter.id == filter_id)
-                    )
-                ).first()
+                f = await session.scalar(
+                    Filter.select(
+                        session.user_or_token, options=[joinedload(Filter.stream)]
+                    ).where(Filter.id == filter_id)
+                )
                 if f is None:
                     return self.error(f"Cannot find a filter with ID: {filter_id}.")
 
                 return self.success(data=f)
 
-            filters = (
-                await session.scalars(Filter.select(session.user_or_token))
-            ).all()
-            return self.success(data=filters)
+            list_result = await session.scalars(Filter.select(session.user_or_token))
+            return self.success(data=list_result.all())
 
     @permissions(["Upload data"])
     async def post(self):
@@ -117,7 +108,7 @@ class FilterHandler(BaseHandler):
             return self.success(data={"id": fil.id})
 
     @permissions(["Upload data"])
-    async def patch(self, filter_id):
+    async def patch(self, filter_id: int):
         """
         ---
         summary: Update a filter
@@ -149,13 +140,11 @@ class FilterHandler(BaseHandler):
         except (TypeError, ValueError):
             return self.error(f"Invalid filter_id: {filter_id}")
         async with self.AsyncSession() as session:
-            f = (
-                await session.scalars(
-                    Filter.select(session.user_or_token, mode="update").where(
-                        Filter.id == filter_id
-                    )
+            f = await session.scalar(
+                Filter.select(session.user_or_token, mode="update").where(
+                    Filter.id == filter_id
                 )
-            ).first()
+            )
             if f is None:
                 return self.error(f"Cannot find a filter with ID: {filter_id}.")
 
@@ -218,7 +207,7 @@ class FilterHandler(BaseHandler):
             return self.success()
 
     @permissions(["Upload data"])
-    async def delete(self, filter_id):
+    async def delete(self, filter_id: int):
         """
         ---
         summary: Delete a filter
@@ -243,13 +232,11 @@ class FilterHandler(BaseHandler):
         except (TypeError, ValueError):
             return self.error(f"Invalid filter_id: {filter_id}")
         async with self.AsyncSession() as session:
-            f = (
-                await session.scalars(
-                    Filter.select(session.user_or_token, mode="delete").where(
-                        Filter.id == filter_id
-                    )
+            f = await session.scalar(
+                Filter.select(session.user_or_token, mode="delete").where(
+                    Filter.id == filter_id
                 )
-            ).first()
+            )
             if f is None:
                 return self.error(f"Cannot find a filter with ID: {filter_id}.")
             await session.delete(f)
