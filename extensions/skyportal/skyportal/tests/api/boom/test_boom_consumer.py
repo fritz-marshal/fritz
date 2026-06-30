@@ -120,7 +120,13 @@ def boom_module():
 
 
 def _group_dict(group):
-    return {"name": group.name, "nickname": getattr(group, "nickname", None)}
+    # Mirror Group.to_dict() (what make_boom_filters builds in production): the
+    # consumer looks up the annotation's group via filt["group"]["id"].
+    return {
+        "id": group.id,
+        "name": group.name,
+        "nickname": getattr(group, "nickname", None),
+    }
 
 
 def _maps(public_filter, public_group, public_stream, ztf_camera):
