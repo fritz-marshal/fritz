@@ -172,6 +172,7 @@ jobs:
           # Allow up to 100% match rate so the validation test passes even
           # if our filter matches every seeded alert.
           BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "100"
+          BOOM_KAFKA__CONSUMER__WINTER__GROUP_ID: boom-winter-consumer-group
         run: |
           docker compose -p boom \
             -f docker-compose.yaml \
