@@ -56,9 +56,16 @@ async def _load_user_streams(session, user_id):
 
     The auth user (`self.associated_user_object`) is detached and its `streams`
     relationship is lazy, so iterating it directly raises MissingGreenlet under
-    async; re-load the user with the relationship eagerly populated instead.
+    async. Re-load via ``select(...).options(selectinload(...))`` rather than
+    ``session.get(..., options=...)``: on an identity-map hit (the auth layer has
+    usually already loaded the user into this session) ``get`` silently ignores
+    the loader options, leaving ``streams`` unpopulated and lazy again — which is
+    what raised MissingGreenlet at the ``user.streams`` access. This mirrors the
+    working pattern in ``post_alert``.
     """
-    user = await session.get(User, user_id, options=[selectinload(User.streams)])
+    user = await session.scalar(
+        sa.select(User).where(User.id == user_id).options(selectinload(User.streams))
+    )
     return user.streams if user is not None else []
 
 
