@@ -23,6 +23,19 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Reclaim disk before the boom+fritz stacks fill the runner
+      # ("No space left on device").
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
       - name: Checkout fritz
         uses: actions/checkout@v6
         with:
