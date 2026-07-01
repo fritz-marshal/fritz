@@ -23,12 +23,8 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      # The fritz+boom integration job is unusually disk-heavy for a
-      # standard runner (~14 GB free): it pulls the boom stack (mongo,
-      # kafka, rust api), builds the fritz image, runs the SkyPortal
-      # stack, and finally apt-installs Firefox into the container. Runs
-      # have hit "No space left on device" mid-job. Reclaim the ~20-30 GB
-      # of preinstalled toolchains this job never touches before we start.
+      # Reclaim disk before the boom+fritz stacks fill the runner
+      # ("No space left on device").
       - name: Free up disk space
         uses: jlumbroso/free-disk-space@main
         with:
