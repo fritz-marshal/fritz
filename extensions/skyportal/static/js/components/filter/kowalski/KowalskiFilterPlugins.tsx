@@ -29,7 +29,7 @@ import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import FileCopyIcon from "@mui/icons-material/FileCopy";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import TextField from "@mui/material/TextField";
@@ -909,7 +909,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                     </AppBar>
                     <Paper className={classes.paperDiv}>
                       <Grid container spacing={2}>
-                        <Grid item xs={6} {...({ align: "center" } as any)}>
+                        <Grid size={6} sx={{ textAlign: "center" }}>
                           <FormControl className={classes.formControl}>
                             <Select
                               labelId="fv-diff-label"
@@ -952,7 +952,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                             </CopyToClipboard>
                           )}
                         </Grid>
-                        <Grid item xs={6} {...({ align: "center" } as any)}>
+                        <Grid size={6} sx={{ textAlign: "center" }}>
                           <Typography
                             className={classes.big_font}
                             color="textSecondary"
@@ -991,7 +991,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                             </CopyToClipboard>
                           </Typography>
                         </Grid>
-                        <Grid {...({ item: true } as any)} xs={12}>
+                        <Grid size={12}>
                           <ReactDiffViewer
                             newValue={JSON.stringify(
                               JSON.parse(

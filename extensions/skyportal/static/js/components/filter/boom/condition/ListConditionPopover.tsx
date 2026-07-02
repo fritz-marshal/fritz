@@ -930,9 +930,7 @@ const ListConditionPopover = ({
           // Prevent aria-hidden on the root when focus is inside
           "aria-hidden": false,
         } as any,
-      }}
-      PaperProps={
-        {
+        paper: {
           style: {
             minWidth: 500,
             maxWidth: 1000,
@@ -950,8 +948,8 @@ const ListConditionPopover = ({
           "aria-labelledby": "list-condition-popover-title",
           // Prevent aria-hidden on the paper when focus is inside
           "aria-hidden": false,
-        } as any
-      }
+        } as any,
+      }}
     >
       <div
         ref={popoverRef}

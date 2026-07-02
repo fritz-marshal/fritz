@@ -180,8 +180,10 @@ const ChipArrayInput = ({
                 },
               },
             }}
-            InputProps={{
-              disableUnderline: true,
+            slotProps={{
+              input: {
+                disableUnderline: true,
+              },
             }}
           />
         </Box>

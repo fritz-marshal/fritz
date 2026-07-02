@@ -30,7 +30,7 @@ import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
 import Grid from "@mui/material/Grid";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -569,7 +569,7 @@ const Archive = () => {
           justifyContent="center"
           alignItems="center"
         >
-          <Grid {...({ item: true } as any)}>
+          <Grid>
             {ZTFLightCurveData.length && (
               <Suspense fallback={<CircularProgress color="secondary" />}>
                 <VegaPlotZTFArchive
@@ -773,10 +773,7 @@ const Archive = () => {
           alignItems="flex-start"
           spacing={1}
         >
-          <Grid
-            {...({ item: true, xs: 12, lg: 10 } as any)}
-            className={classes.grid_item_table}
-          >
+          <Grid size={{ xs: 12, lg: 10 }} className={classes.grid_item_table}>
             <Paper elevation={1}>
               <div className={classes.maindiv}>
                 <div className={classes.accordionDetails}>
@@ -817,7 +814,7 @@ const Archive = () => {
             </Paper>
           </Grid>
           <Grid
-            {...({ item: true, xs: 12, lg: 2 } as any)}
+            size={{ xs: 12, lg: 2 }}
             className={classes.grid_item_search_box}
           >
             <Card className={classes.root}>

@@ -121,7 +121,7 @@ const Filter = () => {
       </Typography>
 
       <Grid container spacing={2} sx={{ overflow: "visible" }}>
-        <Grid {...({ item: true, sm: 12, md: 12 } as any)}>
+        <Grid size={{ sm: 12, md: 12 }}>
           <Card className={classes.root}>
             <CardContent>
               {group && stream && (
@@ -140,10 +140,7 @@ const Filter = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid
-          {...({ item: true, sm: 12, md: 12 } as any)}
-          sx={{ overflow: "visible" }}
-        >
+        <Grid size={{ sm: 12, md: 12 }} sx={{ overflow: "visible" }}>
           {group && <FilterPlugins group={group} />}
         </Grid>
       </Grid>

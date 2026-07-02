@@ -727,8 +727,8 @@ const MongoQueryDialog = () => {
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { minHeight: "500px", maxHeight: "90vh" },
+        slotProps={{
+          paper: { sx: { minHeight: "500px", maxHeight: "90vh" } },
         }}
       >
         <DialogTitle

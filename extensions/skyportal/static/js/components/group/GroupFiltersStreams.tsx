@@ -209,8 +209,10 @@ const GroupFiltersStreams = ({
                               }
                               size="small"
                               variant="outlined"
-                              inputProps={{
-                                "data-testid": "filter-name-input",
+                              slotProps={{
+                                htmlInput: {
+                                  "data-testid": "filter-name-input",
+                                },
                               }}
                               onKeyDown={(e: any) => {
                                 if (e.key === "Enter") handleSaveRename();

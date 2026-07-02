@@ -277,7 +277,7 @@ const AlertPhotometryPlot = ({
             checked={showUpperLimits}
             onChange={() => setShowUpperLimits((v) => !v)}
             name="showUpperLimits"
-            inputProps={{ "aria-label": "show upper limits" }}
+            slotProps={{ input: { "aria-label": "show upper limits" } }}
           />
           <div>Upper limits</div>
         </div>
@@ -292,7 +292,7 @@ const AlertPhotometryPlot = ({
             checked={showForcedPhotometry}
             onChange={() => setShowForcedPhotometry((v) => !v)}
             name="showForcedPhotometry"
-            inputProps={{ "aria-label": "show forced photometry" }}
+            slotProps={{ input: { "aria-label": "show forced photometry" } }}
           />
           <div>Forced photometry</div>
         </div>
@@ -719,11 +719,11 @@ const Alert = ({ route }: AlertProps) => {
   return (
     <Grid container spacing={2}>
       {/* ── Header card ─────────────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Paper>
           <Grid container spacing={0} style={{ paddingBottom: "1rem" }}>
             {/* Left: metadata, save button */}
-            <Grid {...({ item: true, xs: 12, lg: 6 } as any)}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <div
                 style={{
                   padding: "0.5rem 1rem 0 1rem",
@@ -872,7 +872,7 @@ const Alert = ({ route }: AlertProps) => {
             </Grid>
 
             {/* Right: thumbnails + cutout save panel */}
-            <Grid {...({ item: true, xs: 12, lg: 6 } as any)}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               {candid !== null && (
                 <div
                   style={{
@@ -906,7 +906,7 @@ const Alert = ({ route }: AlertProps) => {
       </Grid>
 
       {/* ── Photometry plot ──────────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Suspense fallback={<CircularProgress color="secondary" />}>
           <Paper
             style={{
@@ -922,7 +922,7 @@ const Alert = ({ route }: AlertProps) => {
       </Grid>
 
       {/* ── Alert history table ──────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Paper elevation={1}>
           <Typography variant="h6" style={{ padding: "0.5rem" }}>
             Alerts
@@ -942,7 +942,7 @@ const Alert = ({ route }: AlertProps) => {
       </Grid>
 
       {/* ── Cross-matches ────────────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Accordion
           expanded={panelXMatchExpanded}
           onChange={handlePanelXMatchChange(true)}
