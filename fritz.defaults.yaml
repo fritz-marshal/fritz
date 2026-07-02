@@ -630,6 +630,43 @@ skyportal:
             port: 4000
             username: admin
             password: adminsecret
+      osg:
+        repo: https://github.com/skyportal/osg-skyportal-plugin.git
+        rev: main
+        params:
+          listener:
+            host: 0.0.0.0
+            port: 7100
+          htcondor:
+            collector: "cm-2.ospool.osg-htc.org, cm-1.ospool.osg-htc.org"
+            schedd: ap41.uw.osg-htc.org
+            scitoken_path: /secrets/scitokens/osg.use
+            project_name: CHANGEME_OSG_PROJECT
+            spool: true
+            keepalive: true
+          defaults:
+            request_cpus: 1
+            request_memory: 4096 # MB
+            request_disk: 1024 # MB
+            max_runtime_seconds: 3600
+            singularity_image: /cvmfs/singularity.opensciencegrid.org/michaelwcoughlin/fiesta:latest
+            use_wrapper: true
+            cpu_requirements: "(has_avx == True)"
+          poller:
+            interval_seconds: 60
+          batch:
+            enabled: true
+            max_size: 50
+            window_seconds: 30
+          caps:
+            max_concurrent_total: 600
+            max_concurrent_per_analysis: 600
+            max_concurrent_per_resource_per_analysis: 8
+          osdf:
+            output_prefix: osdf:///ospool/ap41/data/CHANGEME_USER/fiesta-output
+            write_token_path: /secrets/scitokens/osg.use
+          auth:
+            incoming_bearer_token: CHANGEME_SHARED_SECRET
 
   misc:
     days_to_keep_unsaved_candidates: 7

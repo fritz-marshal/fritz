@@ -34,6 +34,7 @@ ext = [
     "cramjam>=2.11.0",
     "penquins>=2.4.1",
     "pymongo>=4.7.2",
+    "htcondor>=24.0",
 ]
 
 [tool.ruff]
