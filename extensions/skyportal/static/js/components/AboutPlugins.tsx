@@ -261,7 +261,11 @@ archivePrefix = {arXiv},
         <>
           <Typography variant="h5">Recent Changelog</Typography>
           <Paper {...({ mt: 1 } as any)} className={classes.gitlogPaper}>
-            <Box p={1}>
+            <Box
+              sx={{
+                p: 1,
+              }}
+            >
               <div>
                 See all pull requests for{" "}
                 <a href="https://github.com/fritz-marshal/fritz/pulls">Fritz</a>
