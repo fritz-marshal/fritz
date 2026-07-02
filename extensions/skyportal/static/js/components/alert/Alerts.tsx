@@ -451,7 +451,7 @@ const Alerts = () => {
             alignItems="center"
             data-testid={`alertRow_${rowObj.candid}`}
           >
-            <Grid {...({ item: true } as any)}>
+            <Grid>
               <CutoutTriplet
                 rowObj={rowObj}
                 survey={inferSurvey(rowObj.objectId) || dataSurvey}
@@ -851,10 +851,7 @@ const Alerts = () => {
           alignItems="flex-start"
           spacing={1}
         >
-          <Grid
-            {...({ item: true, xs: 12, lg: 10 } as any)}
-            className={classes.grid_item_table}
-          >
+          <Grid size={{ xs: 12, lg: 10 }} className={classes.grid_item_table}>
             <Paper elevation={1}>
               <div className={(classes as any).maindiv}>
                 <div className={(classes as any).accordionDetails}>
@@ -905,7 +902,7 @@ const Alerts = () => {
             </Paper>
           </Grid>
           <Grid
-            {...({ item: true, xs: 12, lg: 2 } as any)}
+            size={{ xs: 12, lg: 2 }}
             className={classes.grid_item_search_box}
           >
             <Card className={classes.root}>

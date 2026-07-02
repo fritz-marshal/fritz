@@ -248,7 +248,7 @@ const MapAnnotationsDialog = ({
                     }}
                     size="small"
                     sx={{ width: 100 }}
-                    inputProps={{ min: 0, max: 10 }}
+                    slotProps={{ htmlInput: { min: 0, max: 10 } }}
                   />
                 )}
                 <IconButton

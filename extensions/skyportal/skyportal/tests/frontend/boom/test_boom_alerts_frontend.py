@@ -119,11 +119,27 @@ def test_save_alert_as_source(page, boom_seed_oid, public_group, super_admin_tok
         .locator("visible=true")
         .first
     ).to_be_visible(timeout=30000)
-    page.locator(f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']").first.click()
+    # The detail page re-renders several times as photometry/cutouts load, so a
+    # click that lands mid-render can be dropped before the dialog opens. Wait
+    # for the button to settle, then retry the click until the dialog appears.
+    save_button = page.locator(
+        f"//*[@data-testid='saveAlertButton_{boom_seed_oid}']"
+    ).first
+    expect(save_button).to_be_visible(timeout=30000)
     # Dialog title (SaveAlertButton.jsx:206).
-    expect(
-        page.locator("//*[contains(text(),'Select one or more groups')]").first
-    ).to_be_visible()
+    dialog_title = page.locator(
+        "//*[contains(text(),'Select one or more groups')]"
+    ).first
+    for _ in range(5):
+        save_button.click()
+        try:
+            expect(dialog_title).to_be_visible(timeout=5000)
+            break
+        except AssertionError:
+            continue
+    else:
+        # Surface a clear failure if the dialog never opened.
+        expect(dialog_title).to_be_visible(timeout=5000)
     # Click the group's label text rather than the raw checkbox input: the
     # MUI <input> is visibility:hidden (only the SVG icon shows), so a direct
     # click misses the hit area / fires an event React Hook Form ignores.

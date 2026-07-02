@@ -76,7 +76,7 @@ const SpecialOperatorInputs = ({
           )
         }
         style={{ minWidth: 120, maxWidth: 150 }}
-        inputProps={{ min: 0, max: 10 }}
+        slotProps={{ htmlInput: { min: 0, max: 10 } }}
       />
     );
   }

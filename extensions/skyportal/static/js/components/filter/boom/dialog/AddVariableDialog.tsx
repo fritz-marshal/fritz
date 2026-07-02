@@ -984,7 +984,7 @@ const AddVariableDialog = () => {
       maxWidth="md"
       fullWidth
       disableRestoreFocus={false}
-      PaperProps={{ sx: { minHeight: "420px", maxHeight: "80vh" } }}
+      slotProps={{ paper: { sx: { minHeight: "420px", maxHeight: "80vh" } } }}
     >
       <DialogTitle
         sx={{
@@ -1023,10 +1023,12 @@ const AddVariableDialog = () => {
             size="small"
             autoComplete="off"
             data-form-type="other"
-            inputProps={{
-              "data-lpignore": "true",
-              "data-form-type": "other",
-              autoComplete: "off",
+            slotProps={{
+              htmlInput: {
+                "data-lpignore": "true",
+                "data-form-type": "other",
+                autoComplete: "off",
+              },
             }}
           />
         </Box>
@@ -1048,8 +1050,10 @@ const AddVariableDialog = () => {
               placeholder="Start typing your expression..."
               size="small"
               autoComplete="off"
-              inputProps={{
-                style: { fontFamily: "monospace", fontSize: "14px" },
+              slotProps={{
+                htmlInput: {
+                  style: { fontFamily: "monospace", fontSize: "14px" },
+                },
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {

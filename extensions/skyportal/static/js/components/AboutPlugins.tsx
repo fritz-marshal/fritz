@@ -260,12 +260,8 @@ archivePrefix = {arXiv},
       {gitlog && (
         <>
           <Typography variant="h5">Recent Changelog</Typography>
-          <Paper {...({ mt: 1 } as any)} className={classes.gitlogPaper}>
-            <Box
-              sx={{
-                p: 1,
-              }}
-            >
+          <Paper sx={{ mt: 1 }} className={classes.gitlogPaper}>
+            <Box sx={{ p: 1 }}>
               <div>
                 See all pull requests for{" "}
                 <a href="https://github.com/fritz-marshal/fritz/pulls">Fritz</a>
