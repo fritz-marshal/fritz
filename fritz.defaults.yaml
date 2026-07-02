@@ -187,7 +187,7 @@ skyportal:
       - path: "/services"
         component: analysis/AnalysisServicePage
       - path: "/analysis_requests"
-      component: analysis/AnalysisRequestPage
+        component: analysis/AnalysisRequestPage
       - path: "/recurring_apis"
         component: RecurringAPIPage
       - path: "/shifts"
