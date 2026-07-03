@@ -18,8 +18,6 @@ import Paper from "@mui/material/Paper";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 
-import { showNotification } from "baselayer/components/Notifications";
-
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -199,7 +197,6 @@ interface AlertPhotometryPlotProps {
 const AlertPhotometryPlot = ({
   objectId,
   jd = null,
-  survey,
 }: AlertPhotometryPlotProps) => {
   const object_data = useAppSelector(
     (state) => (state as any).boom_object_data,
@@ -302,7 +299,7 @@ const AlertPhotometryPlot = ({
           value={forcedPhotometrySNR}
           size="small"
           onChange={(e) => setForcedPhotometrySNR(e.target.value)}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       </div>
     </div>
@@ -547,32 +544,6 @@ const Alert = ({ route }: AlertProps) => {
     (panel: any) => (_: any, isExpanded: boolean) =>
       setPanelXMatchExpanded(isExpanded ? panel : false);
 
-  const [cutoutWhich, setCutoutWhich] = useState("last");
-  const [cutoutCandid, setCutoutCandid] = useState("");
-  const [cutoutSaving, setCutoutSaving] = useState(false);
-
-  const handleSaveCutouts = async () => {
-    setCutoutSaving(true);
-    const result: any = await dispatch(
-      Actions.updateCutouts({
-        survey,
-        objectId,
-        candid: cutoutCandid || undefined,
-        which: cutoutCandid ? undefined : cutoutWhich,
-      } as any),
-    );
-    if (result.status === "success") {
-      dispatch(
-        showNotification("Cutouts saved to source successfully.", "info"),
-      );
-    } else {
-      dispatch(
-        showNotification(result.message || "Failed to save cutouts.", "error"),
-      );
-    }
-    setCutoutSaving(false);
-  };
-
   const boom_alert_data = useAppSelector(
     (state) => (state as any).boom_alert_data,
   );
@@ -640,7 +611,7 @@ const Alert = ({ route }: AlertProps) => {
       const dec = getDec(lastAlert);
       if (ra != null && dec != null) {
         const result = await triggerFetchSources({ ra, dec, radius: 2 / 3600 });
-        if (result.data?.status === "success") setFetchedDuplicates(true);
+        if (result.data?.["status"] === "success") setFetchedDuplicates(true);
       }
     };
 

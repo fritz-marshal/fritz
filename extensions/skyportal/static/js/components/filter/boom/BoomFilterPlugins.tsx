@@ -28,7 +28,9 @@ import * as filterActions from "../../../ducks/boom_filter";
 import { useGetGroupsQuery } from "../../../ducks/groups";
 
 interface BoomFilterPluginsProps {
-  group: any;
+  // Unused by the implementation (groups come from useGetGroupsQuery); optional
+  // so the component can mount from a route without a group prop.
+  group?: any;
 }
 
 const useStyles = makeStyles()((theme) => ({
