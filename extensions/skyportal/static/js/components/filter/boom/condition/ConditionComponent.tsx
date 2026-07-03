@@ -1,8 +1,5 @@
-import React, { useState } from "react";
-import {
-  useConditionContext,
-  useCurrentBuilder,
-} from "../../../../hooks/useContexts";
+import { useState } from "react";
+import { useCurrentBuilder } from "../../../../hooks/useContexts";
 import { Box, IconButton } from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
 import { useAppSelector } from "../../../../types/hooks";

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Dialog,
   DialogTitle,
@@ -26,8 +25,6 @@ const SaveBlockDialogMenu = () => {
     setCollapsedBlocks,
     setFilters,
     localFiltersUpdater,
-    customVariables,
-    customListVariables,
   } = useCurrentBuilder();
 
   const dispatch = useAppDispatch();

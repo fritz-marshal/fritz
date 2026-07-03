@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Box, MenuItem, Select, FormControl } from "@mui/material";
 import AutocompleteFields from "./AutocompleteFields";
 import { getFieldOptionsWithVariable } from "../../../../utils/conditionHelpers";

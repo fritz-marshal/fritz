@@ -1,4 +1,3 @@
-import React from "react";
 import { Popover, Box, Typography, Paper, Chip } from "@mui/material";
 import BlockComponent from "../block/BlockComponent";
 

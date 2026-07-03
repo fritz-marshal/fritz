@@ -104,7 +104,7 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
-const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
+const BoomFilterPlugins = ({}: BoomFilterPluginsProps) => {
   const { classes } = useStyles();
   const dispatch = useAppDispatch();
   const { handleSubmit, setValue, control } = useForm();
@@ -118,7 +118,6 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
 
   const { data: groupsData } = useGetGroupsQuery();
   const allGroups = groupsData?.all;
-  const userAccessibleGroups = groupsData?.userAccessible;
 
   const groupLookUp: Record<string, any> = {};
 
@@ -129,7 +128,7 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
   const [panelboomExpanded, setPanelboomExpanded] = useState<any>(true);
 
   const handlePanelboomChange =
-    (panel: any) => (event: any, isExpanded: any) => {
+    (panel: any) => (_event: any, isExpanded: any) => {
       setPanelboomExpanded(isExpanded ? panel : false);
     };
 
@@ -164,7 +163,6 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
   };
 
   // forms
-  const [setOpenNew] = React.useState<any>(false);
   const [inlineNewVersion, setInlineNewVersion] = React.useState(false);
   const [showAnnotationBuilder, setShowAnnotationBuilder] = useState(false);
 
@@ -311,7 +309,7 @@ const BoomFilterPlugins = ({ group }: BoomFilterPluginsProps) => {
                     onSubmit={handleSubmit(onSubmitSaveFilterVersion)}
                   >
                     <Controller
-                      render={({ field: { onChange, value } }) => (
+                      render={() => (
                         <>
                           <Box
                             sx={{

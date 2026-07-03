@@ -69,7 +69,7 @@ const AnnotationBuilderContent = ({
   const [mapDialogFieldId, setMapDialogFieldId] = useState<any>(null);
   const [mapProjectionFields, setMapProjectionFields] = useState<any[]>([]);
   const [openEquationIds, setOpenEquationIds] = useState<any[]>([]);
-  const [selectedChip, setSelectedChip] = useState<any>(null);
+  const [, setSelectedChip] = useState<any>(null);
   const [equationAnchor, setEquationAnchor] = useState<any>(null);
 
   // Initialize annotation filters if empty
@@ -197,149 +197,12 @@ const AnnotationBuilderContent = ({
     );
   };
 
-  const generateProjectionStage = () => {
-    const projection: any = {};
-    const annotations: any = {};
-    const availableFields = getFieldOptions();
-
-    projection.objectId = 1;
-
-    const definedFields = new Set();
-    projectionFields.forEach((field: any) => {
-      if (!field.fieldName || field.fieldName === "objectId") return;
-      definedFields.add(field.outputName || field.fieldName);
-    });
-
-    projectionFields.forEach((field: any) => {
-      if (!field.fieldName || field.fieldName === "objectId") return;
-      const outputName = field.outputName || field.fieldName;
-
-      if (outputName.includes(".")) {
-        const parentField = outputName.split(".")[0];
-        if (definedFields.has(parentField)) return;
-      }
-
-      if (field.type === "map" && field.mapSaved && field.mapMongoMapQuery) {
-        annotations[field.mapOutputFieldName || outputName] =
-          field.mapMongoMapQuery;
-        return;
-      }
-
-      const fieldOption = availableFields.find(
-        (opt: any) => opt.name === field.fieldName,
-      );
-      const isArithmeticVar = fieldOption?.isVariable;
-      let expression = fieldOption?.expression;
-      if (expression && typeof expression === "object" && expression.value) {
-        expression = expression.value;
-      }
-
-      const getFieldExpr = () => {
-        if (isArithmeticVar && expression) {
-          if (typeof expression === "string") {
-            try {
-              return JSON.parse(expression);
-            } catch {
-              try {
-                return new Function(`return (${expression})`)();
-              } catch {
-                return expression;
-              }
-            }
-          }
-          return expression;
-        }
-        return `$${field.fieldName}`;
-      };
-
-      if (
-        ["sum", "avg", "min", "max"].includes(field.type) &&
-        field.aggregationOutputType === "round"
-      ) {
-        const aggExpr = field.subField
-          ? { [`$${field.type}`]: `$${field.fieldName}.${field.subField}` }
-          : { [`$${field.type}`]: getFieldExpr() };
-        annotations[outputName] = { $round: [aggExpr, field.roundDecimals] };
-        return;
-      }
-
-      switch (field.type) {
-        case "include":
-          annotations[outputName] = getFieldExpr();
-          break;
-        case "exclude":
-          annotations[outputName] = 0;
-          break;
-        case "round":
-          annotations[outputName] = {
-            $round: [getFieldExpr(), field.roundDecimals],
-          };
-          break;
-        case "sum":
-          annotations[outputName] =
-            field.aggregationOutputType === "exclude"
-              ? 0
-              : field.subField
-                ? { $sum: `$${field.fieldName}.${field.subField}` }
-                : { $sum: getFieldExpr() };
-          break;
-        case "avg":
-          annotations[outputName] =
-            field.aggregationOutputType === "exclude"
-              ? 0
-              : field.subField
-                ? { $avg: `$${field.fieldName}.${field.subField}` }
-                : { $avg: getFieldExpr() };
-          break;
-        case "min":
-          annotations[outputName] =
-            field.aggregationOutputType === "exclude"
-              ? 0
-              : field.subField
-                ? { $min: `$${field.fieldName}.${field.subField}` }
-                : { $min: getFieldExpr() };
-          break;
-        case "max":
-          annotations[outputName] =
-            field.aggregationOutputType === "exclude"
-              ? 0
-              : field.subField
-                ? { $max: `$${field.fieldName}.${field.subField}` }
-                : { $max: getFieldExpr() };
-          break;
-        case "count":
-          annotations[outputName] = { $size: getFieldExpr() };
-          break;
-        default:
-          annotations[outputName] = getFieldExpr();
-      }
-    });
-
-    if (Object.keys(annotations).length > 0) {
-      projection.annotations = annotations;
-    }
-
-    return projection;
-  };
-
   const handleBackToFilters = () => {
     if (onBackToFilterBuilder) {
       onBackToFilterBuilder();
     } else {
       navigate("/");
     }
-  };
-
-  const toggleGroupCollapse = (groupName: any) => {
-    setCollapsedGroups((prev: any) => {
-      const newCollapsed = new Set(prev);
-      if (newCollapsed.has(groupName)) {
-        newCollapsed.delete(groupName);
-      } else {
-        newCollapsed.add(groupName);
-      }
-      return newCollapsed;
-    });
   };
 
   const availableFields = getFieldOptions();

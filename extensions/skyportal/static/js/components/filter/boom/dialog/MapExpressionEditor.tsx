@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -36,12 +36,10 @@ interface MapExpressionEditorProps {
 const MapExpressionEditor = ({
   mapFields,
   onMapFieldsChange,
-  arrayField,
-  subFieldOptions,
   customVariables = [],
 }: MapExpressionEditorProps) => {
   const [openEquationIds, setOpenEquationIds] = useState<any[]>([]);
-  const [selectedChip, setSelectedChip] = useState<any>(null);
+  const [, setSelectedChip] = useState<any>(null);
   const [equationAnchor, setEquationAnchor] = useState<any>(null);
 
   // Convert customVariables to fieldOptions format
@@ -114,7 +112,7 @@ const MapExpressionEditor = ({
                 variant="caption"
                 color="text.secondary"
                 gutterBottom
-                display="block"
+                sx={{ display: "block" }}
               >
                 Field Name
               </Typography>
@@ -134,7 +132,7 @@ const MapExpressionEditor = ({
                 variant="caption"
                 color="text.secondary"
                 gutterBottom
-                display="block"
+                sx={{ display: "block" }}
               >
                 Expression
               </Typography>

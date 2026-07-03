@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -9,18 +9,10 @@ import {
   Typography,
   TextField,
   Paper,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  Select,
-  MenuItem,
-  InputLabel,
-  Autocomplete,
   IconButton,
   Alert,
 } from "@mui/material";
-import { Info, Close as CloseIcon, ContentCopy } from "@mui/icons-material";
+import { Close as CloseIcon, ContentCopy } from "@mui/icons-material";
 import { v4 as uuidv4 } from "uuid";
 import { useCurrentBuilder } from "../../../../hooks/useContexts";
 import { postElement } from "../../../../ducks/boom_filter_modules";
@@ -251,14 +243,6 @@ const AddVariableDialog = () => {
       return [];
     }
 
-    // Don't show suggestions if the cursor is right after a complete field name
-    // and there's an operator or space following, OR if we're at the very end
-    const isAtEndOfCompleteField =
-      lastWord.length > 0 &&
-      (afterCursor.length === 0 || /^[\s+\-*/()=<>!&|,]/.test(afterCursor));
-
-    const suggestions: any[] = [];
-
     // Helper function to check if adding a suggestion would be meaningful
     const wouldChangeMeaningfully = (suggestionValue: string) => {
       const lastWordStart = beforeCursor.search(/[a-zA-Z._]*$/);
@@ -368,17 +352,6 @@ const AddVariableDialog = () => {
                   } else if (typeof itemField.type === "object") {
                     itemFieldType = itemField.type.type;
                   }
-
-                  // Check if this is a catalog/union structure (record inside a union)
-                  const isCatalogStructure =
-                    Array.isArray(itemField.type) &&
-                    itemField.type.some(
-                      (t: any) =>
-                        t !== "null" &&
-                        typeof t === "object" &&
-                        t.type === "record" &&
-                        t.fields,
-                    );
 
                   // Exclude booleans, arrays, and catalog structures from suggestions
                   if (
@@ -508,7 +481,7 @@ const AddVariableDialog = () => {
             recordField: any,
             parentPath: string,
             depth = 0,
-            bandMultiplier: any = null,
+            _bandMultiplier: any = null,
           ) => {
             if (depth > 5) return; // Prevent infinite recursion
 
@@ -1012,7 +985,11 @@ const AddVariableDialog = () => {
         {/* Context Selector */}
         {/* Variable Name */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+          <Typography
+            variant="subtitle2"
+            gutterBottom
+            sx={{ fontWeight: "bold" }}
+          >
             Variable Name
           </Typography>
           <TextField
@@ -1035,7 +1012,11 @@ const AddVariableDialog = () => {
 
         {/* Expression Builder */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+          <Typography
+            variant="subtitle2"
+            gutterBottom
+            sx={{ fontWeight: "bold" }}
+          >
             Expression
           </Typography>
           <Box sx={{ position: "relative" }}>
@@ -1166,7 +1147,10 @@ const AddVariableDialog = () => {
                                   : "secondary.800",
                         }}
                       >
-                        <Typography variant="caption" fontWeight="bold">
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: "bold" }}
+                        >
                           {suggestion.type}
                         </Typography>
                       </Box>
@@ -1196,7 +1180,7 @@ const AddVariableDialog = () => {
               mb: 1,
             }}
           >
-            <Typography variant="subtitle2" fontWeight="bold">
+            <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
               Preview
             </Typography>
             <Button
@@ -1228,7 +1212,6 @@ const AddVariableDialog = () => {
               onChange={() => {}}
               autoCommands="pi theta sqrt sum prod alpha beta gamma rho"
               autoOperatorNames="sin cos tan log ln exp abs"
-              style={{ minHeight: 60, fontSize: 32 }}
             />
           </Box>
         </Box>
