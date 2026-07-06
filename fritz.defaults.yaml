@@ -656,10 +656,13 @@ skyportal:
             max_concurrent_total: 600
             max_concurrent_per_analysis: 600
             max_concurrent_per_resource_per_analysis: 8
+          # No OSDF output staging (mirrors the proven NRP setup): condor spool +
+          # staging_dir bring the small Fiesta outputs back to the pod.
           osdf:
-            output_prefix: osdf:///ospool/ap41/data/CHANGEME_USER/fiesta-output
-            write_token_path: /secrets/scitokens/osg.use
+            output_prefix: null
+          staging_dir: /tmp/staging
           auth:
+            # Real value provided via the sops-managed config secret at deploy.
             incoming_bearer_token: CHANGEME_SHARED_SECRET
 
   misc:
