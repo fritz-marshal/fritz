@@ -526,6 +526,17 @@ skyportal:
     user: skyportal
     password: password
 
+    # Transaction-mode connection pooler (bundled pgbouncer, runs in the web
+    # container). host/port here are where the app reaches pgbouncer; the
+    # database.host/port above stay pointed at the real Postgres backend.
+    pooler:
+      enabled: true
+      host: localhost
+      port: 6432
+      pool_mode: transaction
+      default_pool_size: 25
+      max_client_conn: 1000
+
   ports:
     # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
     # migration_manager:

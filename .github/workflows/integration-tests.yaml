@@ -360,6 +360,18 @@ jobs:
           docker logs skyportal-web-1 --tail=200
           exit 1
 
+      # Connection pooling is enabled (database.pooler), so supervisord must be
+      # running the bundled pgbouncer in the web container. Assert it explicitly
+      # so a broken pooler (crash, auth, missing binary) fails loudly here
+      # rather than silently degrading behaviour downstream.
+      - name: Assert pgbouncer (connection pooler) is running
+        run: |
+          status=$(docker exec -i skyportal-web-1 /bin/bash -c \
+            "source .venv/bin/activate && python -m supervisor.supervisorctl \
+             -c baselayer/conf/supervisor/supervisor.conf status pgbouncer")
+          echo "$status"
+          echo "$status" | grep -q "RUNNING"
+
       # The skyportal-web-1 container starts the app via supervisor but
       # does NOT initialize the database schema or load seed data. Without
       # this step, the `users` table doesn't exist and skyportal's
