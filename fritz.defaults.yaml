@@ -531,7 +531,9 @@ skyportal:
     # database.host/port above stay pointed at the real Postgres backend.
     pooler:
       enabled: true
-      host: localhost
+      # IPv4 explicitly: pgbouncer listens on 127.0.0.1, and localhost can
+      # resolve to ::1 (IPv6), where it isn't listening.
+      host: 127.0.0.1
       port: 6432
       pool_mode: transaction
       # Sized for production concurrency; Cloud SQL max_connections is 600.
