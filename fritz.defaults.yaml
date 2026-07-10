@@ -534,7 +534,8 @@ skyportal:
       host: localhost
       port: 6432
       pool_mode: transaction
-      default_pool_size: 25
+      # Sized for production concurrency; Cloud SQL max_connections is 600.
+      default_pool_size: 100
       max_client_conn: 1000
 
   ports:
