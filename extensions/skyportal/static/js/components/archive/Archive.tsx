@@ -52,7 +52,7 @@ import StyledDataGrid from "../StyledDataGrid";
 import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
 import * as archiveActions from "../../ducks/kowalski_archive";
-import { checkSource } from "../../ducks/source";
+import { useCheckSourceMutation } from "../../ducks/source";
 import { useGetGroupsQuery } from "../../ducks/groups";
 import { useAppDispatch, useAppSelector } from "../../types/hooks";
 
@@ -192,6 +192,7 @@ const ZTFLightCurveColors: Record<number, string> = {
 
 const Archive = () => {
   const dispatch = useAppDispatch();
+  const [triggerCheckSource] = useCheckSourceMutation();
   const { classes } = useStyles();
   const theme = useTheme();
   const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
@@ -202,8 +203,8 @@ const Archive = () => {
     (state) => (state as any).nearest_sources?.sources,
   );
   const { data: groupsData } = useGetGroupsQuery();
-  const userGroups = groupsData?.userAccessible;
-  const userGroupIds = groupsData?.userAccessible?.map((a: any) => a.id);
+  const userGroups = groupsData?.userAccessible ?? [];
+  const userGroupIds = groupsData?.userAccessible?.map((a: any) => a.id) ?? [];
   const catalogNames = useAppSelector(
     (state) => (state as any).kowalski_catalog_names,
   );
@@ -481,13 +482,13 @@ const Archive = () => {
     }
 
     if (saveNewSource) {
-      let data: any = null;
       const row = rowsToSave[0];
-      data = await dispatch(
-        checkSource(objID, { ra: row.ra, dec: row.dec, nameOnly: true }),
-      );
-      if (data.data !== "A source of that name does not exist.") {
-        dispatch(showNotification(data.data, "error"));
+      const result = await triggerCheckSource({
+        id: objID,
+        params: { ra: row.ra, dec: row.dec, nameOnly: true },
+      });
+      if (result.data !== "A source of that name does not exist.") {
+        dispatch(showNotification(result.data, "error"));
         setIsSubmitting(false);
         return;
       }
@@ -495,7 +496,7 @@ const Archive = () => {
 
     // IDs of selected groups:
     const groupIDs = userGroupIds.filter(
-      (groupId: any, index: number) => data2.group_ids[index],
+      (_groupId: any, index: number) => data2.group_ids[index],
     );
     // IDs of selected light curves
     const lightCurveIDs = rowsToSave.map((rowToSave) => rowToSave._id);
@@ -566,8 +567,7 @@ const Archive = () => {
           container
           direction="row"
           spacing={2}
-          justifyContent="center"
-          alignItems="center"
+          sx={{ justifyContent: "center", alignItems: "center" }}
         >
           <Grid>
             {ZTFLightCurveData.length && (
@@ -593,7 +593,7 @@ const Archive = () => {
       filterable: false,
       hideable: false,
       disableColumnMenu: true,
-      colSpan: (value: any, row: any) => (row.__detail ? 100 : 1),
+      colSpan: (_value: any, row: any) => (row.__detail ? 100 : 1),
       renderCell: (params: any) => {
         if (params.row.__detail) {
           return renderPullOutRow(params.row.__source);
@@ -769,9 +769,8 @@ const Archive = () => {
         <Grid
           container
           direction="row"
-          justifyContent="flex-start"
-          alignItems="flex-start"
           spacing={1}
+          sx={{ justifyContent: "flex-start", alignItems: "flex-start" }}
         >
           <Grid size={{ xs: 12, lg: 10 }} className={classes.grid_item_table}>
             <Paper elevation={1}>

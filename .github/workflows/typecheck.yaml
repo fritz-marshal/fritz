@@ -1,0 +1,52 @@
+name: Type-check frontend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # recursive: skyportal (the submodule the fritz overlay patches) and its
+      # own baselayer submodule, which skyportal's tsconfig maps `baselayer/*` to.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.x"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: skyportal/package.json
+
+      # Mirrors the JS half of launcher/skyportal.py `patch()`: drop the fritz
+      # extension sources onto skyportal and merge the fritz-specific JS deps
+      # (package.fritz.json) into skyportal/package.json, so tsc sees the same
+      # merged tree the real build compiles.
+      - name: Apply fritz JS overlay onto skyportal
+        run: |
+          cp -r extensions/skyportal/static skyportal/
+          node -e '
+            const fs = require("fs");
+            const sp = JSON.parse(fs.readFileSync("skyportal/package.json"));
+            const fz = JSON.parse(fs.readFileSync("extensions/skyportal/package.fritz.json"));
+            sp.dependencies = { ...sp.dependencies, ...fz.dependencies };
+            fs.writeFileSync("skyportal/package.json", JSON.stringify(sp, null, 2));
+          '
+
+      - name: Install JS dependencies
+        run: cd skyportal && bun install
+
+      - name: Type-check (tsc --noEmit)
+        run: cd skyportal && bun run typecheck

@@ -1,4 +1,3 @@
-import React from "react";
 import embed from "vega-embed";
 
 // Consistent color palette for photometric bands across surveys

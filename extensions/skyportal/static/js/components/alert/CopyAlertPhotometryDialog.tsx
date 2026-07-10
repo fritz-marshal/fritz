@@ -1,4 +1,3 @@
-import React from "react";
 import { useForm, Controller } from "react-hook-form";
 
 import Dialog from "@mui/material/Dialog";
@@ -48,9 +47,8 @@ const CopyAlertPhotometryDialog = ({
 
   const currentGroupIds = duplicate.groups?.map((g: any) => g.id);
 
-  const savedGroups = groups?.filter((g: any) =>
-    currentGroupIds.includes(g.id),
-  );
+  const savedGroups =
+    groups?.filter((g: any) => currentGroupIds.includes(g.id)) ?? [];
 
   const validateGroups = () => {
     const formState: any = getValues();
@@ -63,7 +61,7 @@ const CopyAlertPhotometryDialog = ({
   const onSubmit = async (data: any) => {
     const savedGroupIds = savedGroups?.map((g: any) => g.id);
     const groupIds = savedGroupIds?.filter(
-      (ID: any, idx: number) => data.groupIds[idx],
+      (_ID: any, idx: number) => data.groupIds[idx],
     );
     data.group_ids = groupIds;
     data.copyToSource = duplicate.id;

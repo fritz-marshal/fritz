@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Button, Box, Typography } from "@mui/material";
 import {
   Code as CodeIcon,
@@ -86,7 +86,7 @@ const FilterBuilderContent = ({
     (state: any) => state.filter_modules?.schema,
   );
 
-  const [schema, setSchema] = useState<any>(null);
+  const [, setSchema] = useState<any>(null);
   const [fieldOptions, setFieldOptions] = useState<any[]>([]);
 
   // Helper function to create an empty filter with a default empty condition

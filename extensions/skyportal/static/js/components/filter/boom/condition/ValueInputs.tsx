@@ -1,4 +1,3 @@
-import React from "react";
 import { useConditionContext } from "../../../../hooks/useContexts";
 import {
   Button,
@@ -508,12 +507,8 @@ const ValueInput = ({
   const schema = useAppSelector((state: any) => state.filter_modules?.schema);
   const fieldOptions = flattenFieldOptions(schema);
 
-  const {
-    customListVariables,
-    customVariables,
-    customSwitchCases,
-    fieldOptionsList,
-  } = useConditionContext();
+  const { customListVariables, customVariables, fieldOptionsList } =
+    useConditionContext();
 
   // Check conditions that don't require context first
   if (shouldSkipValueInput(conditionOrBlock)) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../../../../types/hooks";
 import {
   Dialog,
@@ -7,7 +7,6 @@ import {
   DialogActions,
   Button,
   Box,
-  TextField,
   Typography,
   IconButton,
   Paper,
@@ -132,12 +131,6 @@ const AddSwitchDialog = () => {
       return "A switch case with this name already exists";
     }
     return "";
-  };
-
-  const handleNameChange = (e: any) => {
-    const newName = e.target.value;
-    setSwitchName(newName);
-    setNameError(validateName(newName));
   };
 
   const handleAddCase = () => {
@@ -346,7 +339,7 @@ const AddSwitchDialog = () => {
                 >
                   <ExpandMoreIcon />
                 </IconButton>
-                <Typography variant="subtitle2" fontWeight="600">
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   CASE {index + 1}
                 </Typography>
               </Box>

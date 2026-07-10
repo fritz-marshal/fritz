@@ -1,4 +1,3 @@
-import React from "react";
 import { Popover, Paper } from "@mui/material";
 import "katex/dist/katex.min.css";
 import Latex from "react-latex-next";

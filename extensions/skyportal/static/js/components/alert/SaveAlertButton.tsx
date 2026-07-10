@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -87,7 +87,7 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
     data.survey = alert.survey;
     const groupIDs = unsavedGroups.map((g: any) => g.id);
     const selectedGroupIDs = groupIDs.filter(
-      (ID: any, idx: number) => data.group_ids[idx],
+      (_ID: any, idx: number) => data.group_ids[idx],
     );
 
     data.payload = { candid: alert.candid, group_ids: selectedGroupIDs };
@@ -135,7 +135,7 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
     }
   };
 
-  const handleMenuItemClick = (event: any, index: number) => {
+  const handleMenuItemClick = (_event: any, index: number) => {
     setSelectedIndex(index);
     setSplitButtonMenuOpen(false);
   };

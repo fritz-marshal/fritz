@@ -189,7 +189,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
   const [panelKowalskiExpanded, setPanelKowalskiExpanded] = useState<any>(true);
 
   const handlePanelKowalskiChange =
-    (panel: any) => (event: any, isExpanded: boolean) => {
+    (panel: any) => (_event: any, isExpanded: boolean) => {
       setPanelKowalskiExpanded(isExpanded ? panel : false);
     };
 

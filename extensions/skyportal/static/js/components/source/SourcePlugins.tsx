@@ -34,8 +34,8 @@ const SourcePlugins = ({ source }: SourcePluginsProps) => {
         anchorEl={anchorElArchive}
         open={openArchive}
         onClose={() => setAnchorElArchive(null)}
-        MenuListProps={{
-          "aria-labelledby": "basic-button",
+        slotProps={{
+          list: { "aria-labelledby": "basic-button" },
         }}
       >
         <MenuItem>

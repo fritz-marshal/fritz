@@ -1,4 +1,3 @@
-import React from "react";
 import { Switch, FormControlLabel, TextField } from "@mui/material";
 import ChipArrayInput from "./ChipArrayInput";
 import { mongoOperatorTypes } from "../../../../constants/filterConstants";

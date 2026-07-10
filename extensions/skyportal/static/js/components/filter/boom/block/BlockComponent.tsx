@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Paper, Box } from "@mui/material";
 import {
   useFilterBuilder,
