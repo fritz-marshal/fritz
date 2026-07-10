@@ -143,13 +143,13 @@ skyportal:
       - path: "/run/:id"
         component: observing_run/RunSummary
       - path: "/allocations"
-        component: allocation/AllocationPage
+        component: allocation/AllocationList
       - path: "/allocation/:id"
-        component: allocation/AllocationSummary
+        component: allocation/Allocation
       - path: "/telescope/:id"
-        component: telescope/TelescopeSummary
+        component: telescope/Telescope
       - path: "/instrument/:id"
-        component: instrument/InstrumentSummary
+        component: instrument/Instrument
       - path: "/group_sources/:id"
         component: group/GroupSources
       - path: "/user_management"
@@ -179,9 +179,9 @@ skyportal:
       - path: "/gcn_events/:dateobs"
         component: gcn/GcnEventPage
       - path: "/telescopes"
-        component: telescope/TelescopePage
+        component: telescope/TelescopeList
       - path: "/instruments"
-        component: instrument/InstrumentPage
+        component: instrument/InstrumentList
       - path: "/mmadetectors"
         component: mma_detector/MMADetectorPage
       - path: "/services"
