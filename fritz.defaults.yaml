@@ -526,6 +526,17 @@ skyportal:
     user: skyportal
     password: password
 
+    # Transaction-mode connection pooler (bundled pgbouncer, runs in the web
+    # container). host/port here are where the app reaches pgbouncer; the
+    # database.host/port above stay pointed at the real Postgres backend.
+    pooler:
+      enabled: true
+      host: localhost
+      port: 6432
+      pool_mode: transaction
+      default_pool_size: 25
+      max_client_conn: 1000
+
   ports:
     # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
     # migration_manager:
@@ -630,6 +641,46 @@ skyportal:
             port: 4000
             username: admin
             password: adminsecret
+      osg:
+        repo: https://github.com/skyportal/osg-skyportal-plugin.git
+        rev: main
+        params:
+          listener:
+            host: 0.0.0.0
+            port: 7100
+          htcondor:
+            collector: "cm-2.ospool.osg-htc.org, cm-1.ospool.osg-htc.org"
+            schedd: ap41.uw.osg-htc.org
+            scitoken_path: /secrets/scitokens/osg.use
+            project_name: CHANGEME_OSG_PROJECT
+            spool: true
+            keepalive: true
+          defaults:
+            request_cpus: 1
+            request_memory: 4096 # MB
+            request_disk: 1024 # MB
+            max_runtime_seconds: 3600
+            singularity_image: /cvmfs/singularity.opensciencegrid.org/michaelwcoughlin/fiesta:latest
+            use_wrapper: true
+            cpu_requirements: "(has_avx == True)"
+          poller:
+            interval_seconds: 60
+          batch:
+            enabled: true
+            max_size: 50
+            window_seconds: 30
+          caps:
+            max_concurrent_total: 600
+            max_concurrent_per_analysis: 600
+            max_concurrent_per_resource_per_analysis: 8
+          # No OSDF output staging (mirrors the proven NRP setup): condor spool +
+          # staging_dir bring the small Fiesta outputs back to the pod.
+          osdf:
+            output_prefix: null
+          staging_dir: /tmp/staging
+          auth:
+            # Real value provided via the sops-managed config secret at deploy.
+            incoming_bearer_token: CHANGEME_SHARED_SECRET
 
   misc:
     days_to_keep_unsaved_candidates: 7
