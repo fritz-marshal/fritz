@@ -40,7 +40,7 @@ import {
 
 import { showNotification } from "baselayer/components/Notifications";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import { useAppDispatch } from "../../types/hooks";
 
 import StyledDataGrid from "../StyledDataGrid";
 
@@ -52,7 +52,7 @@ import { dms_to_dec, hours_to_ra } from "../../units";
 import { greatCircleDistance } from "../../utils";
 
 import * as alertActions from "../../ducks/boom_alert";
-import * as alertsActions from "../../ducks/boom_alerts";
+import { useLazyGetAlertsQuery } from "../../ducks/boom_alerts";
 import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
 
@@ -224,9 +224,10 @@ const Alerts = () => {
   const { register, handleSubmit, control, getValues, reset, setValue } =
     useForm();
 
-  const { alerts, queryInProgress } = useAppSelector(
-    (state) => (state as any).alerts,
-  );
+  const [
+    triggerGetAlerts,
+    { data: alerts = null, isFetching: queryInProgress },
+  ] = useLazyGetAlertsQuery();
   // RTK Query: groups come from the query hook (no more redux slice).
   const groups = useGetGroupsQuery().data?.userAccessible ?? [];
 
@@ -265,9 +266,7 @@ const Alerts = () => {
     const objectIdMatchesSurvey = !inferredSurvey || inferredSurvey === survey;
 
     if (objectId && objectIdMatchesSurvey) {
-      dispatch(
-        alertsActions.fetchAlerts({ survey, object_id: objectId } as any),
-      );
+      triggerGetAlerts({ survey, object_id: objectId } as any);
       reset({ object_id: objectId, instrument: survey.toLowerCase() });
     } else if (!Number.isNaN(ra) && !Number.isNaN(dec)) {
       if (!["arcsec", "arcmin", "deg", "rad"].includes(radius_unit as any)) {
@@ -276,15 +275,13 @@ const Alerts = () => {
       if (Number.isNaN(radius)) {
         radius = 3.0;
       }
-      dispatch(
-        alertsActions.fetchAlerts({
-          survey,
-          ra,
-          dec,
-          radius,
-          radius_unit,
-        } as any),
-      );
+      triggerGetAlerts({
+        survey,
+        ra,
+        dec,
+        radius,
+        radius_unit,
+      } as any);
       reset({ ra, dec, radius, radius_unit, instrument: survey.toLowerCase() });
     }
 
@@ -823,19 +820,15 @@ const Alerts = () => {
       }
       if (object_id?.indexOf(",") > -1) {
         const object_id_split = object_id.split(",");
-        dispatch(
-          alertsActions.fetchAlerts({
-            survey,
-            object_id: object_id_split,
-            ra,
-            dec,
-            radius,
-          }),
-        );
+        triggerGetAlerts({
+          survey,
+          object_id: object_id_split,
+          ra,
+          dec,
+          radius,
+        } as any);
       } else {
-        dispatch(
-          alertsActions.fetchAlerts({ survey, object_id, ra, dec, radius }),
-        );
+        triggerGetAlerts({ survey, object_id, ra, dec, radius } as any);
       }
     }
   };
