@@ -232,7 +232,7 @@ const Archive = () => {
   } = useForm();
   const { handleSubmit: handleSubmitForm } = useForm();
 
-  const [catalogNamesLoadError, setCatalogNamesLoadError] = React.useState("");
+  const [, setCatalogNamesLoadError] = React.useState("");
   const [catalogOptions, setCatalogOptions] = React.useState<any[]>([]);
   const [selectedCatalog, setSelectedCatalog] = useState<any>();
 

@@ -198,6 +198,7 @@ interface AlertPhotometryPlotProps {
 const AlertPhotometryPlot = ({
   objectId,
   jd = null,
+  survey,
 }: AlertPhotometryPlotProps) => {
   const { data: objectData } = useGetBoomObjectQuery(
     { survey, id: objectId },
