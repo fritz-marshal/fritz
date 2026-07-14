@@ -51,10 +51,15 @@ import { showNotification } from "baselayer/components/Notifications";
 import StyledDataGrid from "../StyledDataGrid";
 import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
-import * as archiveActions from "../../ducks/kowalski_archive";
+import {
+  useGetCatalogNamesQuery,
+  useLazyGetZTFLightCurvesQuery,
+  useLazyGetNearestSourcesQuery,
+  useSaveLightCurvesMutation,
+} from "../../ducks/kowalski_archive";
 import { useCheckSourceMutation } from "../../ducks/source";
 import { useGetGroupsQuery } from "../../ducks/groups";
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import { useAppDispatch } from "../../types/hooks";
 
 function isString(x: any) {
   return Object.prototype.toString.call(x) === "[object String]";
@@ -199,18 +204,19 @@ const Archive = () => {
 
   const [searchParams] = useSearchParams();
 
-  const nearestSources = useAppSelector(
-    (state) => (state as any).nearest_sources?.sources,
-  );
+  const [triggerNearestSources, { data: nearestSourcesData }] =
+    useLazyGetNearestSourcesQuery();
+  const nearestSources = (nearestSourcesData as any)?.sources;
   const { data: groupsData } = useGetGroupsQuery();
   const userGroups = groupsData?.userAccessible ?? [];
   const userGroupIds = groupsData?.userAccessible?.map((a: any) => a.id) ?? [];
-  const catalogNames = useAppSelector(
-    (state) => (state as any).kowalski_catalog_names,
-  );
-  const { lightCurves: ztf_light_curves, queryInProgress } = useAppSelector(
-    (state) => (state as any).ztf_light_curves,
-  );
+  const { data: catalogNames, isError: catalogNamesError } =
+    useGetCatalogNamesQuery();
+  const [
+    triggerZTFLightCurves,
+    { data: ztf_light_curves, isFetching: queryInProgress },
+  ] = useLazyGetZTFLightCurvesQuery();
+  const [saveLightCurves] = useSaveLightCurvesMutation();
 
   const {
     formState: { errors },
@@ -246,29 +252,27 @@ const Archive = () => {
   // IDs of rows whose expandable light-curve plot is open.
   const [openedRows, setOpenedRows] = useState<any[]>([]);
 
+  // catalogNames is fetched by useGetCatalogNamesQuery above.
   useEffect(() => {
-    const fetchCatalogNames = async () => {
-      const data: any = await dispatch(archiveActions.fetchCatalogNames());
-      if (data.status === "error") {
-        setCatalogNamesLoadError("Failed to fetch available catalog names.");
-        if (catalogNamesLoadError.length > 1) {
-          dispatch(showNotification(catalogNamesLoadError, "error"));
-        }
-      }
-    };
-    if (!catalogNames) {
-      fetchCatalogNames();
-    } else {
-      const ztf_lc_catalogs = Array.isArray(catalogNames)
-        ? catalogNames?.filter(
-            (name: any) => name.indexOf("ZTF_sources_202") !== -1,
-          )
-        : [];
-      // sort alphabetically descending
-      ztf_lc_catalogs.sort((a: any, b: any) => b.localeCompare(a));
-      setCatalogOptions(ztf_lc_catalogs);
+    if (catalogNamesError) {
+      setCatalogNamesLoadError("Failed to fetch available catalog names.");
+      dispatch(
+        showNotification("Failed to fetch available catalog names.", "error"),
+      );
     }
-  }, [catalogNames, dispatch, catalogNamesLoadError]);
+  }, [catalogNamesError, dispatch]);
+
+  useEffect(() => {
+    if (!catalogNames) return;
+    const ztf_lc_catalogs = Array.isArray(catalogNames)
+      ? catalogNames?.filter(
+          (name: any) => name.indexOf("ZTF_sources_202") !== -1,
+        )
+      : [];
+    // sort alphabetically descending
+    ztf_lc_catalogs.sort((a: any, b: any) => b.localeCompare(a));
+    setCatalogOptions(ztf_lc_catalogs);
+  }, [catalogNames]);
 
   useEffect(() => {
     const lc_id = parseInt(searchParams.get("lc_id") as any, 10);
@@ -321,7 +325,7 @@ const Archive = () => {
     });
 
     if (lc_id && catalog) {
-      dispatch(archiveActions.fetchZTFLightCurves({ lc_id, catalog } as any));
+      triggerZTFLightCurves({ lc_id, catalog } as any);
     } else if (ra && dec && radius && radius_unit && catalog) {
       switch (radius_unit) {
         case "arcmin":
@@ -336,9 +340,7 @@ const Archive = () => {
         default:
           break;
       }
-      dispatch(
-        archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius } as any),
-      );
+      triggerZTFLightCurves({ catalog, ra, dec, radius } as any);
     }
   }, [catalogNames, searchParams]);
 
@@ -369,20 +371,19 @@ const Archive = () => {
           ),
         );
       }
-      dispatch(
-        archiveActions.fetchZTFLightCurves({ lc_id, catalog } as any),
-      ).then((response: any) => {
-        if (response.status === "error") {
-          dispatch(showNotification(response.message, "error"));
-        } else if (response?.data?.length === 1) {
-          dispatch(
-            archiveActions.fetchNearestSources({
-              ra: response.data[0]?.ra,
-              dec: response.data[0]?.dec,
-            }),
-          );
-        }
-      });
+      triggerZTFLightCurves({ lc_id, catalog } as any)
+        .unwrap()
+        .then((data: any) => {
+          if (data?.length === 1) {
+            triggerNearestSources({
+              ra: data[0]?.ra,
+              dec: data[0]?.dec,
+            });
+          }
+        })
+        .catch(() => {
+          // error notification handled by the base query
+        });
     } else if (ra.length && dec.length && radius.length && catalog) {
       if (ra?.length) {
         if (
@@ -430,11 +431,9 @@ const Archive = () => {
       } else {
         radius = parseFloat(radius);
       }
-      dispatch(
-        archiveActions.fetchZTFLightCurves({ catalog, ra, dec, radius } as any),
-      );
+      triggerZTFLightCurves({ catalog, ra, dec, radius } as any);
       // also fetch nearest saved sources within 5 arcsec from requested position
-      dispatch(archiveActions.fetchNearestSources({ ra, dec }));
+      triggerNearestSources({ ra, dec });
     } else {
       dispatch(
         showNotification(
@@ -455,7 +454,7 @@ const Archive = () => {
   const handleSaveDialogOpen = async (selectedRows: any[]) => {
     setRowsToSave(selectedRows);
     const row = selectedRows[0];
-    dispatch(archiveActions.fetchNearestSources({ ra: row.ra, dec: row.dec }));
+    triggerNearestSources({ ra: row.ra, dec: row.dec });
     setSaveDialogOpen(true);
   };
 
@@ -509,10 +508,12 @@ const Archive = () => {
 
     payload.group_ids = groupIDs;
 
-    const result: any = await dispatch(archiveActions.saveLightCurves(payload));
-    if (result.status === "success") {
+    try {
+      await saveLightCurves(payload).unwrap();
       dispatch(showNotification("Successfully saved data"));
       handleSaveDialogClose();
+    } catch {
+      // error notification handled by the base query
     }
     setIsSubmitting(false);
   };

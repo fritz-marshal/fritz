@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 
@@ -6,8 +6,10 @@ import CircularProgress from "@mui/material/CircularProgress";
 
 import Button from "../Button";
 
-import * as archiveActions from "../../ducks/kowalski_archive";
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import {
+  useGetCatalogNamesQuery,
+  useFetchScopeFeaturesMutation,
+} from "../../ducks/kowalski_archive";
 
 interface PositionedMenuProps {
   handle: (item: any) => void;
@@ -90,17 +92,8 @@ interface SourceAnnotationButtonPluginsProps {
 const SourceAnnotationButtonPlugins = ({
   source,
 }: SourceAnnotationButtonPluginsProps) => {
-  const dispatch = useAppDispatch();
-  const catalogNames = useAppSelector((state) => (state as any).catalog_names);
-
-  useEffect(() => {
-    const fetchCatalogNames = () => {
-      dispatch(archiveActions.fetchCatalogNames());
-    };
-    if (!catalogNames) {
-      fetchCatalogNames();
-    }
-  }, [catalogNames, dispatch]);
+  const { data: catalogNames } = useGetCatalogNamesQuery();
+  const [fetchScopeFeatures] = useFetchScopeFeaturesMutation();
 
   const scope_catalogs: string[] = [];
   if (Array.isArray(catalogNames)) {
@@ -127,7 +120,7 @@ const SourceAnnotationButtonPlugins = ({
   ) => {
     setIsSubmittingAnnotationScopeFeatures(id);
     const catalog = `ZTF_source_features_${item}`;
-    await dispatch(archiveActions.fetchScopeFeatures({ id, ra, dec, catalog }));
+    await fetchScopeFeatures({ id, ra, dec, catalog });
     setIsSubmittingAnnotationScopeFeatures(null);
   };
 

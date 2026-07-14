@@ -13,7 +13,7 @@ import { useAppDispatch } from "../../types/hooks";
 import Button from "../Button";
 import FormValidationError from "../FormValidationError";
 
-import { saveAlertAsSource } from "../../ducks/boom_alert";
+import { useSaveAlertAsSourceMutation } from "../../ducks/boom_alert";
 import { useGetGroupsQuery } from "../../ducks/groups";
 
 interface CopyAlertPhotometryDialogProps {
@@ -32,6 +32,7 @@ const CopyAlertPhotometryDialog = ({
   closeDialog,
 }: CopyAlertPhotometryDialogProps) => {
   const dispatch = useAppDispatch();
+  const [saveAlertAsSource] = useSaveAlertAsSourceMutation();
 
   const { data: groupsData } = useGetGroupsQuery();
   const groups = groupsData?.userAccessible;
@@ -65,18 +66,18 @@ const CopyAlertPhotometryDialog = ({
     );
     data.group_ids = groupIds;
     data.copyToSource = duplicate.id;
-    const result: any = await dispatch(
-      saveAlertAsSource({
+    try {
+      await saveAlertAsSource({
         survey,
         id: alert.objectId,
         payload: data,
-      }),
-    );
-    if (result.status === "success") {
+      }).unwrap();
       dispatch(
         showNotification("Source photometry updated successfully", "info"),
       );
       reset();
+    } catch {
+      // error notification handled by the base query
     }
     closeDialog();
   };

@@ -51,7 +51,7 @@ import FormValidationError from "../FormValidationError";
 import { dms_to_dec, hours_to_ra } from "../../units";
 import { greatCircleDistance } from "../../utils";
 
-import * as alertActions from "../../ducks/boom_alert";
+import { useSaveAlertAsSourceMutation } from "../../ducks/boom_alert";
 import { useLazyGetAlertsQuery } from "../../ducks/boom_alerts";
 import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
@@ -228,6 +228,7 @@ const Alerts = () => {
     triggerGetAlerts,
     { data: alerts = null, isFetching: queryInProgress },
   ] = useLazyGetAlertsQuery();
+  const [saveAlertAsSource] = useSaveAlertAsSourceMutation();
   // RTK Query: groups come from the query hook (no more redux slice).
   const groups = useGetGroupsQuery().data?.userAccessible ?? [];
 
@@ -376,16 +377,16 @@ const Alerts = () => {
       const payload = {
         group_ids: selectedGroups,
       };
-      dispatch(
-        alertActions.saveAlertAsSource({ survey, id: objectId, payload }),
-      ).then((response: any) => {
-        if (response.status === "success") {
+      saveAlertAsSource({ survey, id: objectId, payload })
+        .unwrap()
+        .then(() => {
           dispatch(
             showNotification(
               `Saved ${objectId} to groups ${selectedGroups.join(", ")}`,
             ),
           );
-        } else {
+        })
+        .catch(() => {
           dispatch(
             showNotification(
               `Failed to save ${objectId} to groups ${selectedGroups.join(
@@ -394,8 +395,7 @@ const Alerts = () => {
               "error",
             ),
           );
-        }
-      });
+        });
     });
     setSaving(false);
     setSaveDialogOpen(false);

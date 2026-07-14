@@ -25,8 +25,6 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
-
 import StyledDataGrid from "../StyledDataGrid";
 import SaveAlertButton from "./SaveAlertButton";
 import ThumbnailList from "../thumbnail/ThumbnailList";
@@ -35,7 +33,10 @@ import withRouter from "../withRouter";
 
 import { ra_to_hours, dec_to_dms } from "../../units";
 
-import * as Actions from "../../ducks/boom_alert";
+import {
+  useGetAlertDataQuery,
+  useGetBoomObjectQuery,
+} from "../../ducks/boom_alert";
 import {
   useCheckSourceMutation,
   useLazyGetSourceQuery,
@@ -198,26 +199,25 @@ const AlertPhotometryPlot = ({
   objectId,
   jd = null,
 }: AlertPhotometryPlotProps) => {
-  const object_data = useAppSelector(
-    (state) => (state as any).boom_object_data,
+  const { data: objectData } = useGetBoomObjectQuery(
+    { survey, id: objectId },
+    { skip: !survey },
   );
   const [showUpperLimits, setShowUpperLimits] = useState(true);
   const [showForcedPhotometry, setShowForcedPhotometry] = useState(true);
   const [forcedPhotometrySNR, setForcedPhotometrySNR] = useState<any>(3);
 
-  if (!object_data || object_data[objectId] === null || jd === null) {
+  if (!objectData || jd === null) {
     return <div>Loading photometry...</div>;
   }
 
   let photometry: any[] = [];
-  if (typeof object_data === "object" && object_data[objectId]) {
-    const detections = (object_data[objectId].prv_candidates || []).map(
-      (d: any) => ({
-        ...d,
-        origin: "alert",
-      }),
-    );
-    const nonDetections = (object_data[objectId].prv_nondetections || []).map(
+  if (typeof objectData === "object") {
+    const detections = (objectData.prv_candidates || []).map((d: any) => ({
+      ...d,
+      origin: "alert",
+    }));
+    const nonDetections = (objectData.prv_nondetections || []).map(
       (d: any) => ({
         ...d,
         magpsf: null,
@@ -228,7 +228,7 @@ const AlertPhotometryPlot = ({
     photometry = detections.concat(nonDetections);
 
     const fp_hists = showForcedPhotometry
-      ? (object_data[objectId].fp_hists || []).map((d: any) => {
+      ? (objectData.fp_hists || []).map((d: any) => {
           const point: any = { ...d, origin: "fp" };
           if (d.snr_psf > forcedPhotometrySNR) {
             point.magpsf = d.magpsf;
@@ -489,7 +489,6 @@ const Alert = ({ route }: AlertProps) => {
   const objectId = route.id;
   const survey = inferSurvey(objectId);
 
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { classes } = useStyles();
   const [savedSource, setSavedSource] = useState(false);
@@ -544,11 +543,13 @@ const Alert = ({ route }: AlertProps) => {
     (panel: any) => (_: any, isExpanded: boolean) =>
       setPanelXMatchExpanded(isExpanded ? panel : false);
 
-  const boom_alert_data = useAppSelector(
-    (state) => (state as any).boom_alert_data,
+  const { data: alertData, isError: alertError } = useGetAlertDataQuery(
+    { survey: survey as string, id: objectId },
+    { skip: !survey },
   );
-  const boom_object_data = useAppSelector(
-    (state) => (state as any).boom_object_data,
+  const { data: objectData, isError: objectError } = useGetBoomObjectQuery(
+    { survey: survey as string, id: objectId },
+    { skip: !survey },
   );
 
   // ── Source existence check ──────────────────────────────────────────────────
@@ -573,50 +574,35 @@ const Alert = ({ route }: AlertProps) => {
     }
   }, [objectId]);
 
-  // ── Alert data fetch ────────────────────────────────────────────────────────
-  const isCached =
-    boom_alert_data &&
-    boom_alert_data[objectId] &&
-    !isString(boom_alert_data[objectId]) &&
-    candid !== null;
-
+  // ── Alert data → default candid/jd + duplicate check ────────────────────────
+  // getAlertData/getBoomObject are fetched by the query hooks above; derive the
+  // default candid/jd (and the duplicate check) once the alerts arrive.
   useEffect(() => {
-    if (isCached || !survey) return;
+    if (!Array.isArray(alertData) || alertData.length === 0) return;
 
-    const fetchAlert = async () => {
-      const data: any = await dispatch(
-        Actions.fetchAlertData(survey, objectId),
-      );
-      if (data.status !== "success") return;
+    const candids = Array.from(new Set(alertData.map((a: any) => getCandid(a))))
+      .filter((c: any) => c != null)
+      .sort();
+    const jds = Array.from(new Set(alertData.map((a: any) => getJd(a))))
+      .filter((j: any) => j != null)
+      .sort();
 
-      await dispatch(Actions.fetchBoomObject(survey, objectId));
+    if (candids.length === 0) return;
+    setCandid(candids[candids.length - 1]);
+    setJd(jds[jds.length - 1]);
 
-      const candids = Array.from(
-        new Set(data.data.map((a: any) => getCandid(a))),
-      )
-        .filter((c: any) => c != null)
-        .sort();
-      const jds = Array.from(new Set(data.data.map((a: any) => getJd(a))))
-        .filter((j: any) => j != null)
-        .sort();
-
-      if (candids.length === 0) return;
-      setCandid(candids[candids.length - 1]);
-      setJd(jds[jds.length - 1]);
-
-      const lastAlert = data.data.find(
-        (a: any) => getCandid(a) === candids[candids.length - 1],
-      );
-      const ra = getRa(lastAlert);
-      const dec = getDec(lastAlert);
-      if (ra != null && dec != null) {
-        const result = await triggerFetchSources({ ra, dec, radius: 2 / 3600 });
+    const lastAlert = alertData.find(
+      (a: any) => getCandid(a) === candids[candids.length - 1],
+    );
+    const ra = getRa(lastAlert);
+    const dec = getDec(lastAlert);
+    if (ra != null && dec != null) {
+      triggerFetchSources({ ra, dec, radius: 2 / 3600 }).then((result: any) => {
         if (result.data?.["status"] === "success") setFetchedDuplicates(true);
-      }
-    };
-
-    fetchAlert();
-  }, [dispatch, isCached, objectId, survey]);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alertData]);
 
   // ── Unknown survey guard ────────────────────────────────────────────────────
   if (!survey) {
@@ -634,12 +620,7 @@ const Alert = ({ route }: AlertProps) => {
   }
 
   // ── Alert candidate lookup helpers ─────────────────────────────────────────
-  const alertsForObject =
-    boom_alert_data &&
-    boom_alert_data[objectId] &&
-    !isString(boom_alert_data[objectId])
-      ? boom_alert_data[objectId]
-      : [];
+  const alertsForObject = Array.isArray(alertData) ? alertData : [];
 
   const currentAlert = alertsForObject.find(
     (a: any) => getCandid(a) === candid,
@@ -649,8 +630,8 @@ const Alert = ({ route }: AlertProps) => {
   const columns = buildColumns(survey);
 
   let cross_matches: Record<string, any> = {};
-  if (boom_object_data && !isString(boom_object_data[objectId])) {
-    cross_matches = boom_object_data[objectId]?.cross_matches ?? {};
+  if (objectData && !isString(objectData)) {
+    cross_matches = objectData?.cross_matches ?? {};
   }
 
   const thumbnails = cutoutDataUris
@@ -662,20 +643,17 @@ const Alert = ({ route }: AlertProps) => {
     : [];
 
   // ── Loading / error states ─────────────────────────────────────────────────
-  if (!boom_alert_data || boom_alert_data[objectId] == null) {
+  if (alertData == null && !alertError) {
     return (
       <div>
         <CircularProgress color="secondary" />
       </div>
     );
   }
-  if (
-    isString(boom_alert_data[objectId]) ||
-    (boom_object_data && isString(boom_object_data[objectId]))
-  ) {
+  if (alertError || objectError) {
     return <div>Failed to fetch alert data, please try again later.</div>;
   }
-  if (boom_alert_data[objectId]?.length === 0) {
+  if (alertData?.length === 0) {
     return (
       <Typography variant="h5" className={classes.header}>
         {objectId} not found
@@ -683,7 +661,7 @@ const Alert = ({ route }: AlertProps) => {
     );
   }
 
-  if (!boom_alert_data[objectId]?.length) {
+  if (!alertData?.length) {
     return null;
   }
 
@@ -707,7 +685,7 @@ const Alert = ({ route }: AlertProps) => {
                     <SharePage />
                   </div>
                   <div className={classes.name}>{objectId}</div>
-                  {boom_object_data[objectId]?.missing === true && (
+                  {objectData?.missing === true && (
                     <Chip
                       title="Aux data for this object is temporarily unavailable. Detections were fetched using individual alerts instead."
                       size="small"

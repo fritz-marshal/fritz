@@ -1,8 +1,6 @@
 import { makeStyles } from "tss-react/mui";
 import Typography from "@mui/material/Typography";
 
-import * as archiveActions from "../../ducks/boom_archive";
-
 import { greatCircleDistance } from "../../utils";
 
 // list of cross-match catalogs to hide
@@ -73,9 +71,6 @@ const crossMatchesLabels: Record<string, any> = {
   },
 };
 
-// max radius in arcseconds to use for cross-matching
-const radius = 10.0;
-
 const useStyles = makeStyles()(() => ({
   pluginContainer: {
     paddingTop: "0.5em",
@@ -84,8 +79,14 @@ const useStyles = makeStyles()(() => ({
   },
 }));
 
-function getCrossMatches(ra: any, dec: any, dispatch: any) {
-  dispatch(archiveActions.fetchCrossMatches({ ra, dec, radius }));
+// max radius in arcseconds to use for cross-matching
+const radius = 10.0;
+
+// Trigger a BOOM cross-match fetch. Callers pass the RTK lazy-query trigger from
+// useLazyGetCrossMatchesQuery() (boom_archive); the archive move onto BOOM wires
+// this up.
+function getCrossMatches(ra: any, dec: any, trigger: any) {
+  trigger({ ra, dec, radius });
 }
 
 function getCatalogCrossMatches(crossMatches: any, catalog: any) {
