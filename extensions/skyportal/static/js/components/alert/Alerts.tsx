@@ -63,6 +63,9 @@ function isString(x: any) {
 function inferSurvey(objectId: any): string | null {
   if (!objectId) return null;
   if (objectId.toUpperCase().startsWith("ZTF")) return "ZTF";
+  // WINTER objectIds are WNTR-prefixed (e.g. WNTR26capcd); BOOM knows the
+  // survey as WINTER, so bridge the two namespaces here.
+  if (objectId.toUpperCase().startsWith("WNTR")) return "WINTER";
   if (/^\d{15,}$/.test(objectId)) return "LSST";
   return null;
 }
@@ -295,6 +298,7 @@ const Alerts = () => {
 
   const makeRow = (alert: any, survey: string | null) => {
     const isLSST = survey === "LSST";
+    const isZTF = survey === "ZTF";
     return {
       objectId: alert?.objectId,
       candid: isLSST
@@ -307,19 +311,26 @@ const Alerts = () => {
       magpsf: alert?.candidate?.magpsf,
       sigmapsf: alert?.candidate?.sigmapsf,
       isdiffpos: alert?.candidate?.isdiffpos,
-      drb: isLSST ? alert?.candidate?.reliability : alert?.candidate?.drb,
+      // Real/bogus-style score: ZTF drb, LSST reliability, WINTER scorr.
+      drb: isLSST
+        ? alert?.candidate?.reliability
+        : isZTF
+          ? alert?.candidate?.drb
+          : alert?.candidate?.scorr,
       snr: alert?.candidate?.snr_psf,
-      ...(isLSST
-        ? {}
-        : {
-            programid: alert?.candidate?.programid,
+      ...(isLSST ? {} : { programid: alert?.candidate?.programid }),
+      // ACAI/BTSbot are ZTF-specific classifiers; other surveys (e.g. WINTER)
+      // don't carry them.
+      ...(isZTF
+        ? {
             acai_h: alert?.classifications?.acai_h,
             acai_n: alert?.classifications?.acai_n,
             acai_o: alert?.classifications?.acai_o,
             acai_v: alert?.classifications?.acai_v,
             acai_b: alert?.classifications?.acai_b,
             btsbot: alert?.classifications?.btsbot,
-          }),
+          }
+        : {}),
     };
   };
 
@@ -425,6 +436,7 @@ const Alerts = () => {
   });
 
   const isLSST = dataSurvey === "LSST";
+  const isZTF = dataSurvey === "ZTF";
 
   const compactHeaderClass = "alerts-compact-cell";
 
@@ -600,7 +612,7 @@ const Alerts = () => {
     },
     {
       field: "drb",
-      headerName: isLSST ? "reliability" : "drb",
+      headerName: isLSST ? "reliability" : isZTF ? "drb" : "scorr",
       flex: 1,
       minWidth: 100,
       filterable: false,
@@ -617,6 +629,11 @@ const Alerts = () => {
             minWidth: 100,
             headerClassName: compactHeaderClass,
           },
+        ]
+      : []),
+    // ACAI/BTSbot are ZTF-specific classifiers; don't show them for other surveys.
+    ...(isZTF
+      ? [
           mlScoreColumn("acai_h", "acai_h"),
           mlScoreColumn("acai_n", "acai_n"),
           mlScoreColumn("acai_o", "acai_o"),
@@ -931,6 +948,7 @@ const Alerts = () => {
                         >
                           <MenuItem value="ztf">ZTF</MenuItem>
                           <MenuItem value="lsst">LSST</MenuItem>
+                          <MenuItem value="winter">WINTER</MenuItem>
                         </Select>
                       )}
                     />
