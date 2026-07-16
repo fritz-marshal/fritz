@@ -654,6 +654,9 @@ skyportal:
       boom:
         repo: https://github.com/fritz-marshal/boom-skyportal-plugin.git
         rev: main
+        # One consumer per alert stream (ZTF, LSST, WINTER); Kafka distributes
+        # the topic partitions across them. Bounded by partition count + DB.
+        numprocs: 3
         params:
           kafka:
             host: kafka-1
@@ -664,6 +667,7 @@ skyportal:
             topics:
               - ZTF_alerts_results
               - LSST_alerts_results
+              - WINTER_alerts_results
           api:
             protocol: http
             host: boom-api-1
