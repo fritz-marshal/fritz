@@ -6,7 +6,7 @@ import {
   Save as SaveIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../../../types/hooks";
+import { useAppDispatch } from "../../../types/hooks";
 import { useFilterBuilder } from "../../../hooks/useContexts";
 import { flattenFieldOptions } from "../../../constants/filterConstants";
 import AddVariableDialog from "./dialog/AddVariableDialog";
@@ -18,8 +18,11 @@ import MongoQueryDialog from "./dialog/MongoQueryDialog";
 import { filterBuilderStyles } from "../../../styles/componentStyles";
 import { showNotification } from "baselayer/components/Notifications";
 
-import { updateGroupFilter } from "../../../ducks/boom_filter";
-import { fetchSchema } from "../../../ducks/boom_filter_modules";
+import {
+  useBoomFilterVersion,
+  useUpdateBoomGroupFilterMutation,
+} from "../../../ducks/boom_filter";
+import { useFilterSchema } from "../../../ducks/boom_filter_modules";
 
 interface FilterBuilderContentProps {
   onToggleAnnotationBuilder?: (...a: any[]) => void;
@@ -78,13 +81,9 @@ const FilterBuilderContent = ({
   } = useFilterBuilder();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const filter_v = useAppSelector((state: any) => state.boom_filter_v);
-  const filter_stream = useAppSelector(
-    (state: any) => state.boom_filter_v.stream?.name?.split(" ")[0],
-  );
-  const store_schema = useAppSelector(
-    (state: any) => state.filter_modules?.schema,
-  );
+  const { data: filter_v } = useBoomFilterVersion();
+  const [updateGroupFilter] = useUpdateBoomGroupFilterMutation();
+  const { data: store_schema } = useFilterSchema();
 
   const [, setSchema] = useState<any>(null);
   const [fieldOptions, setFieldOptions] = useState<any[]>([]);
@@ -222,10 +221,6 @@ const FilterBuilderContent = ({
   }, [localFilterData, setFilters]);
 
   useEffect(() => {
-    if (filter_stream) dispatch(fetchSchema(filter_stream));
-  }, [filter_stream, dispatch]);
-
-  useEffect(() => {
     if (store_schema) {
       setSchema(store_schema);
       setFieldOptions(flattenFieldOptions(store_schema));
@@ -331,11 +326,14 @@ const FilterBuilderContent = ({
         projectionFields: projectionFields || [],
       };
 
-      const result: any = await dispatch(
-        updateGroupFilter(filter.id, mongoQuery, versionData, filter_v.name),
-      );
+      const result: any = await updateGroupFilter({
+        filter_id: filter.id,
+        altdata: mongoQuery,
+        filters: versionData,
+        name: filter_v?.name,
+      });
       dispatch(showNotification("Filter saved to boom database!"));
-      if (result.status === "success") {
+      if (!result.error) {
         if (setInlineNewVersion) {
           setInlineNewVersion(false);
         }

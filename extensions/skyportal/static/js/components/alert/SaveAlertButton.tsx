@@ -21,7 +21,7 @@ import { useAppDispatch } from "../../types/hooks";
 
 import FormValidationError from "../FormValidationError";
 
-import * as alertActions from "../../ducks/boom_alert";
+import { useSaveAlertAsSourceMutation } from "../../ducks/boom_alert";
 import { useLazyGetSourceQuery } from "../../ducks/source";
 import { useGetGroupsQuery } from "../../ducks/groups";
 
@@ -31,6 +31,7 @@ interface SaveAlertButtonProps {
 }
 
 const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
+  const [saveAlertAsSource] = useSaveAlertAsSourceMutation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Dialog logic:
 
@@ -92,26 +93,28 @@ const SaveAlertButton = ({ alert, userGroups }: SaveAlertButtonProps) => {
 
     data.payload = { candid: alert.candid, group_ids: selectedGroupIDs };
 
-    const result: any = await dispatch(alertActions.saveAlertAsSource(data));
-    if (result.status === "error") {
+    let result: any;
+    try {
+      result = await saveAlertAsSource(data).unwrap();
+    } catch {
       setIsSubmitting(false);
-    } else {
-      dispatch(
-        showNotification("Source photometry updated successfully", "info"),
-      );
-      if (result?.data?.used_latest_candid) {
-        dispatch(
-          showNotification(
-            "Note that the latest alert packet was used to post thumbnails, as the provided candid didn't have any.",
-            "warning",
-          ),
-        );
-      }
-      setIsSubmitting(false);
-      setDialogOpen(false);
-      reset();
-      triggerGetSource(alert.id);
+      return;
     }
+    dispatch(
+      showNotification("Source photometry updated successfully", "info"),
+    );
+    if (result?.used_latest_candid) {
+      dispatch(
+        showNotification(
+          "Note that the latest alert packet was used to post thumbnails, as the provided candid didn't have any.",
+          "warning",
+        ),
+      );
+    }
+    setIsSubmitting(false);
+    setDialogOpen(false);
+    reset();
+    triggerGetSource(alert.id);
   };
 
   // Split button logic (largely copied from

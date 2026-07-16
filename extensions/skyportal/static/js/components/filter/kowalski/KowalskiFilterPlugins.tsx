@@ -40,8 +40,16 @@ import ReactDiffViewer from "react-diff-viewer";
 import { useForm, Controller } from "react-hook-form";
 import { showNotification } from "baselayer/components/Notifications";
 
-import { useAppDispatch, useAppSelector } from "../../../types/hooks";
-import * as filterVersionActions from "../../../ducks/kowalski_filter";
+import { useAppDispatch } from "../../../types/hooks";
+import {
+  useGetKowalskiFilterVersionQuery,
+  useAddKowalskiFilterVersionMutation,
+  useEditKowalskiActiveFilterVersionMutation,
+  useEditKowalskiActiveFidFilterVersionMutation,
+  useEditKowalskiAutosaveMutation,
+  useEditKowalskiUpdateAnnotationsMutation,
+  useEditKowalskiAutoFollowupMutation,
+} from "../../../ducks/kowalski_filter";
 import { useGetFilterQuery } from "../../../ducks/filter";
 import { useGetGroupsQuery } from "../../../ducks/groups";
 import { useGetProfileQuery } from "../../../ducks/profile";
@@ -139,12 +147,21 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
 
   const { data: profile } = useGetProfileQuery();
 
-  const filter_v = useAppSelector((state: any) => state.kowalski_filter_v);
   const { fid } = useParams();
   const { data: filter } = useGetFilterQuery(fid ?? "", {
     skip: !fid,
   }) as any;
-  const loadedId = filter?.id;
+  const { data: filter_v = {}, refetch: refetchFilterVersion } =
+    useGetKowalskiFilterVersionQuery(fid ?? "", { skip: !fid }) as any;
+
+  const [addFilterVersion] = useAddKowalskiFilterVersionMutation();
+  const [editActiveFilterVersion] =
+    useEditKowalskiActiveFilterVersionMutation();
+  const [editActiveFidFilterVersion] =
+    useEditKowalskiActiveFidFilterVersionMutation();
+  const [editAutosave] = useEditKowalskiAutosaveMutation();
+  const [editUpdateAnnotations] = useEditKowalskiUpdateAnnotationsMutation();
+  const [editAutoFollowup] = useEditKowalskiAutoFollowupMutation();
 
   const { data: usersData } = useGetUsersQuery();
   const { users } = usersData ?? {};
@@ -195,16 +212,14 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
 
   const handleChangeUpdateAnnotations = async (event: any) => {
     const target = event.target.checked;
-    const result: any = await dispatch(
-      filterVersionActions.editUpdateAnnotations({
-        filter_id: filter.id,
-        update_annotations: target,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editUpdateAnnotations({
+      filter_id: filter.id,
+      update_annotations: target,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Set update_annotations to ${target}`));
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleChangeAutosave = async (event: any) => {
@@ -217,16 +232,14 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
     } else {
       newAutoSave = target;
     }
-    const result: any = await dispatch(
-      filterVersionActions.editAutosave({
-        filter_id: filter.id,
-        autosave: newAutoSave,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutosave({
+      filter_id: filter.id,
+      autosave: newAutoSave,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Set autosave to ${target}`));
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleChangeAutosaveComment = async () => {
@@ -241,13 +254,11 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
     } else {
       newAutoSave = { active: true, comment: newAutosaveComment };
     }
-    const result: any = await dispatch(
-      filterVersionActions.editAutosave({
-        filter_id: filter.id,
-        autosave: newAutoSave,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutosave({
+      filter_id: filter.id,
+      autosave: newAutoSave,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(`Set autosave comment to ${newAutosaveComment}`),
       );
@@ -258,7 +269,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
         ),
       );
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleChangeAutoFollowupComment = async () => {
@@ -276,13 +287,11 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
     } else {
       newAutoFollowup = { active: true, comment: newAutoFollowupComment };
     }
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(
           `Set auto followup comment to ${newAutoFollowupComment}`,
@@ -295,7 +304,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
         ),
       );
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleChangeAutoFollowup = async (event: any) => {
@@ -305,16 +314,14 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
     if (filter_v.auto_followup) {
       newAutoFollowup = { ...filter_v.auto_followup, active: target };
     }
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Set auto_followup to ${target}`));
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleChangeAutoFollowupConstraints = async () => {
@@ -323,48 +330,42 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
       radius: autoFollowupRadius,
       not_if_tns_reported: autoFollowupTnsAge,
     };
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(
           `Set auto_followup radius constraint to ${autoFollowupRadius}, and TNS age constraint to ${autoFollowupTnsAge}`,
         ),
       );
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleChangeActiveFilter = async (event: any) => {
     const active_target = event.target.checked;
-    const result: any = await dispatch(
-      filterVersionActions.editActiveFilterVersion({
-        filter_id: filter.id,
-        active: active_target,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editActiveFilterVersion({
+      filter_id: filter.id,
+      active: active_target,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Set active to ${active_target}`));
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleFidChange = async (event: any) => {
     const activeFidTarget = event.target.value;
-    const result: any = await dispatch(
-      filterVersionActions.editActiveFidFilterVersion({
-        filter_id: filter.id,
-        active_fid: activeFidTarget,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editActiveFidFilterVersion({
+      filter_id: filter.id,
+      active_fid: activeFidTarget,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Set active filter ID to ${activeFidTarget}`));
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   // forms
@@ -464,84 +465,50 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
     }
   }, [selectedAllocationId, instrumentFormParams]);
 
-  // not using API/kowalski_filter duck here as that would throw an error if filter does not exist on K
-  useEffect(() => {
-    const fetchInit: any = {
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "GET",
-    };
-
-    const fetchFilterVersion = async () => {
-      const response = await fetch(`/api/kowalski/filters/${fid}/v`, fetchInit);
-
-      let json: any = "";
-      try {
-        json = await response.json();
-      } catch (error) {
-        throw new Error(`JSON decoding error: ${error}`);
-      }
-      // exists on Kowalski?
-      if (json.status === "success") {
-        await dispatch(filterVersionActions.fetchFilterVersion(fid));
-      }
-    };
-
-    if (loadedId !== fid) {
-      fetchFilterVersion();
-    }
-  }, [fid, loadedId, dispatch]);
-
   // save new filter version
   const onSubmitSaveFilterVersion = async (data: any) => {
-    const result: any = await dispatch(
-      filterVersionActions.addFilterVersion({
-        filter_id: filter.id,
-        pipeline: data.pipeline,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await addFilterVersion({
+      filter_id: filter.id,
+      pipeline: data.pipeline,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Saved new filter version`));
       setOpenNew(false);
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutosaveFilter = async (data: any) => {
-    let newAutosave: any = filter_v.autosave;
-    if (typeof filter_v.autosave === "boolean") {
-      newAutosave = { active: filter_v.autosave };
-    }
+    // copy: filter_v is the (frozen) RTK Query cache, so never mutate it in place
+    const newAutosave: any =
+      typeof filter_v.autosave === "boolean"
+        ? { active: filter_v.autosave }
+        : { ...filter_v.autosave };
     newAutosave.pipeline = data.pipeline_autosave;
-    const result: any = await dispatch(
-      filterVersionActions.editAutosave({
-        filter_id: filter.id,
-        autosave: newAutosave,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutosave({
+      filter_id: filter.id,
+      autosave: newAutosave,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Saved new autosave filter`));
       setOpenAutosaveFilter(false);
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutoFollowupFilter = async (data: any) => {
-    const newAutoFollowup = filter_v.auto_followup;
+    // copy: filter_v is the (frozen) RTK Query cache, so never mutate it in place
+    const newAutoFollowup = { ...filter_v.auto_followup };
     newAutoFollowup.pipeline = data.pipeline_auto_followup;
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Saved new auto followup filter`));
       setOpenAutoFollowupFilter(false);
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutoFollowupAllocation = async (e: any) => {
@@ -554,20 +521,18 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
       allocation_id: e.target.value,
       payload: {},
     };
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(
           `Saved new auto followup allocation_id to ${e.target.value}`,
         ),
       );
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutoFollowupPayload = async ({
@@ -579,31 +544,28 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
       ...filter_v.auto_followup,
       payload: formData || {},
     };
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(showNotification(`Saved new auto followup payload`));
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutosaveGroups = async (e: any) => {
-    let newAutosave: any = filter_v.autosave;
-    if (typeof filter_v.autosave === "boolean") {
-      newAutosave = { active: filter_v.autosave };
-    }
+    // copy: filter_v is the (frozen) RTK Query cache, so never mutate it in place
+    const newAutosave: any =
+      typeof filter_v.autosave === "boolean"
+        ? { active: filter_v.autosave }
+        : { ...filter_v.autosave };
     newAutosave.ignore_group_ids = e.target.value;
-    const result: any = await dispatch(
-      filterVersionActions.editAutosave({
-        filter_id: filter.id,
-        autosave: newAutosave,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutosave({
+      filter_id: filter.id,
+      autosave: newAutosave,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(
           `Saved new autosave ignore_group_ids to ${e.target.value}`,
@@ -611,19 +573,18 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
       );
       setSelectedIgnoreGroupIds(e.target.value);
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutoFollowupGroups = async (e: any) => {
-    const newAutoFollowup = filter_v.auto_followup;
+    // copy: filter_v is the (frozen) RTK Query cache, so never mutate it in place
+    const newAutoFollowup = { ...filter_v.auto_followup };
     newAutoFollowup.target_group_ids = e.target.value;
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(
           `Saved new auto followup target_group_ids to ${e.target.value}`,
@@ -631,26 +592,25 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
       );
       setSelectedTargetGroupIds(e.target.value);
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutosaveSaver = async (e: any) => {
-    let newAutosave: any = filter_v.autosave;
-    if (typeof filter_v.autosave === "boolean") {
-      newAutosave = { active: filter_v.autosave };
-    }
+    // copy: filter_v is the (frozen) RTK Query cache, so never mutate it in place
+    const newAutosave: any =
+      typeof filter_v.autosave === "boolean"
+        ? { active: filter_v.autosave }
+        : { ...filter_v.autosave };
     if (e.target.value === "unassigned") {
       newAutosave.saver_id = null;
     } else {
       newAutosave.saver_id = e.target.value;
     }
-    const result: any = await dispatch(
-      filterVersionActions.editAutosave({
-        filter_id: filter.id,
-        autosave: newAutosave,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutosave({
+      filter_id: filter.id,
+      autosave: newAutosave,
+    });
+    if (!result.error) {
       if (e.target.value === "unassigned") {
         dispatch(
           showNotification(
@@ -667,19 +627,18 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
         setSelectedSaver(e.target.value);
       }
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const onSubmitSaveAutoFollowupIgnoreAllocations = async (e: any) => {
-    const newAutoFollowup = filter_v.auto_followup;
+    // copy: filter_v is the (frozen) RTK Query cache, so never mutate it in place
+    const newAutoFollowup = { ...filter_v.auto_followup };
     newAutoFollowup.ignore_allocation_ids = e.target.value;
-    const result: any = await dispatch(
-      filterVersionActions.editAutoFollowup({
-        filter_id: filter.id,
-        auto_followup: newAutoFollowup,
-      }),
-    );
-    if (result.status === "success") {
+    const result: any = await editAutoFollowup({
+      filter_id: filter.id,
+      auto_followup: newAutoFollowup,
+    });
+    if (!result.error) {
       dispatch(
         showNotification(
           `Saved new auto followup ignore_allocation_ids to ${e.target.value}`,
@@ -687,7 +646,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
       );
       setSelectedIgnoreAllocationIds(e.target.value);
     }
-    dispatch(filterVersionActions.fetchFilterVersion(fid));
+    refetchFilterVersion();
   };
 
   const handleNew = () => {
