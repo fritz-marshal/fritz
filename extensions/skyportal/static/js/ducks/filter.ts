@@ -1,3 +1,13 @@
+/**
+ * Single alert-stream filter (the `/filter/:id` page) plus group filter
+ * add/delete.
+ *
+ * RTK Query conversion of the old `FETCH_FILTER` / `ADD_GROUP_FILTER` /
+ * `DELETE_GROUP_FILTER` duck. The endpoints are injected into the central
+ * `skyportalApi`. The queries provide the `Filters` tag; the add/delete
+ * mutations invalidate it (to refresh the filter list/single) and consumers
+ * still invalidate the owning *group* via `groupApi.util.invalidateTags`.
+ */
 import { skyportalApi } from "../api/skyportalApi";
 import type { RouteData } from "../types/routeSchemaMap";
 
@@ -18,6 +28,10 @@ export interface UpdateFilterNameArg {
 
 export const filterApi = skyportalApi.injectEndpoints({
   endpoints: (build) => ({
+    getFilters: build.query<RouteData<"GET /api/filters">, void>({
+      query: () => "api/filters",
+      providesTags: ["Filters"],
+    }),
     getFilter: build.query<
       RouteData<"GET /api/filters/{filter_id}">,
       number | string
@@ -31,12 +45,16 @@ export const filterApi = skyportalApi.injectEndpoints({
         method: "POST",
         body: { name, group_id, stream_id },
       }),
+      // Also refresh any filter query (list/single); consumers still invalidate
+      // the owning group separately.
+      invalidatesTags: ["Filters"],
     }),
     deleteGroupFilter: build.mutation<unknown, DeleteGroupFilterArg>({
       query: ({ filter_id }) => ({
         url: `api/filters/${filter_id}`,
         method: "DELETE",
       }),
+      invalidatesTags: ["Filters"],
     }),
     // Fritz-specific: rename an existing alert-stream filter. Not part of
     // upstream SkyPortal's filterApi.
@@ -51,6 +69,7 @@ export const filterApi = skyportalApi.injectEndpoints({
 });
 
 export const {
+  useGetFiltersQuery,
   useGetFilterQuery,
   useAddGroupFilterMutation,
   useDeleteGroupFilterMutation,
