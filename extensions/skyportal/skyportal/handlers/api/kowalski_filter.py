@@ -1,10 +1,11 @@
 from penquins import Kowalski
+from sqlalchemy.orm import selectinload
 
 from baselayer.app.access import auth_or_token, permissions
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
-from ...models import Allocation, Filter, Stream, User
+from ...models import Allocation, Filter, Group, Stream, User
 from ..base import BaseHandler
 
 env, cfg = load_env()
@@ -30,7 +31,7 @@ except Exception as e:
 
 class KowalskiFilterHandler(BaseHandler):
     @auth_or_token
-    def get(self, filter_id):
+    async def get(self, filter_id):
         """
         ---
         single:
@@ -71,11 +72,11 @@ class KowalskiFilterHandler(BaseHandler):
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             stmt = Filter.select(session.user_or_token).where(
                 Filter.id == int(filter_id)
             )
-            f = session.scalars(stmt).first()
+            f = (await session.scalars(stmt)).first()
             if f is None:
                 return self.error(f"No filter with ID: {filter_id}")
 
@@ -94,7 +95,7 @@ class KowalskiFilterHandler(BaseHandler):
             return self.success(data=data)
 
     @auth_or_token
-    def post(self, filter_id):
+    async def post(self, filter_id):
         """
         ---
         summary: POST a new filter version
@@ -136,11 +137,11 @@ class KowalskiFilterHandler(BaseHandler):
         if pipeline is None:
             return self.error("Missing pipeline parameter")
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             stmt = Filter.select(session.user_or_token).where(
                 Filter.id == int(filter_id)
             )
-            f = session.scalars(stmt).first()
+            f = (await session.scalars(stmt)).first()
             if f is None:
                 return self.error(f"No filter with ID: {filter_id}")
 
@@ -149,7 +150,7 @@ class KowalskiFilterHandler(BaseHandler):
             stmt = Stream.select(session.user_or_token).where(
                 Stream.id == int(f.stream_id)
             )
-            stream = session.scalars(stmt).first()
+            stream = (await session.scalars(stmt)).first()
             if f is None:
                 return self.error(f"No stream with ID: {filter_id}")
 
@@ -187,11 +188,11 @@ class KowalskiFilterHandler(BaseHandler):
 
             f.altdata = altdata
             session.add(f)
-            session.commit()
+            await session.commit()
             return self.success(data=data)
 
     @auth_or_token
-    def patch(self, filter_id):
+    async def patch(self, filter_id):
         """
         ---
         summary: Update a filter on Kowalski
@@ -261,11 +262,11 @@ class KowalskiFilterHandler(BaseHandler):
                 "At least one of (active, active_fid, autosave, update_annotations, auto_followup) must be set"
             )
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             stmt = Filter.select(session.user_or_token).where(
                 Filter.id == int(filter_id)
             )
-            f = session.scalars(stmt).first()
+            f = (await session.scalars(stmt)).first()
             if f is None:
                 return self.error(f"No filter with ID: {filter_id}")
 
@@ -301,7 +302,7 @@ class KowalskiFilterHandler(BaseHandler):
                             f"autosave dict keys must be a subset of {valid_keys}"
                         )
                     if "saver_id" in autosave:
-                        with self.Session() as session:
+                        async with self.AsyncSession() as session:
                             # before enforcing the group_admin | system_admin permission check,
                             # we check if the saver_id is different from the current filter
                             # if it is the same, we skip the permission check
@@ -310,9 +311,13 @@ class KowalskiFilterHandler(BaseHandler):
                                 != existing_data.get("autosave", {}).get("saver_id")
                                 and not self.current_user.is_system_admin
                             ):
-                                filter = session.scalar(
-                                    Filter.select(session.user_or_token).where(
-                                        Filter.id == filter_id
+                                filter = await session.scalar(
+                                    Filter.select(session.user_or_token)
+                                    .where(Filter.id == filter_id)
+                                    .options(
+                                        selectinload(Filter.group).selectinload(
+                                            Group.group_users
+                                        )
                                     )
                                 )
                                 filter_group_users = filter.group.group_users
@@ -333,7 +338,7 @@ class KowalskiFilterHandler(BaseHandler):
                                     return self.error(
                                         f"Invalid saver_id: {saver_id}, must be an integer"
                                     )
-                                user = session.scalar(
+                                user = await session.scalar(
                                     User.select(session.user_or_token).where(
                                         User.id == saver_id
                                     )
@@ -406,8 +411,8 @@ class KowalskiFilterHandler(BaseHandler):
 
                 # only if the allocation_id is provided, we can check the priority_order and implements_update
                 if allocation_id is not None:
-                    with self.Session() as session:
-                        allocation = session.scalar(
+                    async with self.AsyncSession() as session:
+                        allocation = await session.scalar(
                             Allocation.select(session.user_or_token).where(
                                 Allocation.id == allocation_id
                             )
@@ -461,11 +466,11 @@ class KowalskiFilterHandler(BaseHandler):
                 altdata["kowalski"] = new_kowalski_data
             f.altdata = altdata
             session.add(f)
-            session.commit()
+            await session.commit()
             return self.success(data=data)
 
     @permissions(["System admin"])
-    def delete(self, filter_id):
+    async def delete(self, filter_id):
         """
         ---
         summary: Delete a filter on Kowalski
@@ -488,11 +493,11 @@ class KowalskiFilterHandler(BaseHandler):
         if kowalski is None:
             return self.error("Couldn't connect to Kowalski")
 
-        with self.Session() as session:
+        async with self.AsyncSession() as session:
             stmt = Filter.select(session.user_or_token).where(
                 Filter.id == int(filter_id)
             )
-            f = session.scalars(stmt).first()
+            f = (await session.scalars(stmt)).first()
             if f is None:
                 return self.error(f"No filter with ID: {filter_id}")
 

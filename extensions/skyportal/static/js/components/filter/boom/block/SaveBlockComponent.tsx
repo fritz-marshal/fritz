@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button, Typography } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 
@@ -7,8 +7,8 @@ interface SaveBlockComponentProps {
   setSaveName: (...a: any[]) => void;
   setSaveError: (...a: any[]) => void;
   setFilters: (...a: any[]) => void;
-  isCustomBlock?: boolean;
-  isCollapsed?: boolean;
+  isCustomBlock?: boolean | undefined;
+  isCollapsed?: boolean | undefined;
   block: any;
 }
 

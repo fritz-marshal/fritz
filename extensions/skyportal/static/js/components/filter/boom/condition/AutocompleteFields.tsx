@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import { styled, lighten, darken } from "@mui/system";
@@ -71,7 +71,7 @@ const AutocompleteFields = ({
   setEquationAnchor = null,
 }: AutocompleteFieldsProps) => {
   // Show full path by default; clicking the chip toggles showing the group name vs short name
-  const [showGroupName, setShowGroupName] = useState(true);
+  const [, setShowGroupName] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   // Initialize collapsed groups as empty Set, will be populated when groups are computed
   const [collapsedGroups, setCollapsedGroups] = useState<any>(new Set());
@@ -208,16 +208,6 @@ const AutocompleteFields = ({
       ...new Set(processedOptions.map((option: any) => option.group)),
     ].sort();
 
-    const schemaFieldCount = processedOptions.filter(
-      (opt: any) => opt.isSchemaField,
-    ).length;
-
-    uniqueGroups.forEach((group: any) => {
-      const groupOptions = processedOptions.filter(
-        (opt: any) => opt.group === group,
-      );
-    });
-
     return { options: processedOptions, allGroups: uniqueGroups };
   }, [fieldOptions]);
 
@@ -268,19 +258,13 @@ const AutocompleteFields = ({
   };
 
   // Helper function to get display name for nested fields
-  const getDisplayName = (fieldName: any) => {
-    if (!fieldName) return "";
-    const parts = fieldName.split(".");
-    return parts.length > 1 ? parts[parts.length - 1] : fieldName;
-  };
-
   // Helper function to check if field is nested
   const isNestedField = (fieldName: any) => {
     return fieldName && fieldName.includes(".");
   };
 
   // Helper function to calculate chip width and styling based on text length
-  const getChipStyles = (text: any, baseStyles: any) => {
+  const getChipStyles = (_text: any, baseStyles: any) => {
     return {
       ...baseStyles,
       maxWidth: "calc(100% - 16px)",
@@ -488,9 +472,6 @@ const AutocompleteFields = ({
             // For list variables, include the operator in the display
             let displayText = option.label;
             if (option.isListVariable && option.listCondition?.operator) {
-              const operatorDisplay = getOperatorDisplayLabel(
-                option.listCondition.operator,
-              );
               displayText = `${option.label}`;
             } else if (
               option.group !== "Arithmetic Variables" &&
@@ -736,9 +717,6 @@ const AutocompleteFields = ({
               ? exactOption
               : null;
           if (arrayFieldOption) {
-            const hasCategory =
-              arrayFieldOption.group &&
-              arrayFieldOption.group !== "Other Fields";
             const displayText = () => {
               return arrayFieldOption.label;
             };
@@ -904,9 +882,6 @@ const AutocompleteFields = ({
             );
           }
           if (fieldOption) {
-            const hasCategory =
-              fieldOption.group &&
-              !["candidate", "Other Fields"].includes(fieldOption.group);
             const displayText = () => {
               return fieldOption.label;
             };
@@ -954,8 +929,6 @@ const AutocompleteFields = ({
               ? exactOption
               : null;
           if (listOption) {
-            const hasCategory =
-              listOption.group && listOption.group !== "Other Fields";
             const displayText = () => {
               return listOption.label;
             };

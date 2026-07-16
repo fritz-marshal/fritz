@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Box,
   Typography,
-  TextField,
   IconButton,
   Button,
   Paper,
-  Select,
-  MenuItem,
-  FormControl,
   Popover,
 } from "@mui/material";
 import {
@@ -58,7 +54,7 @@ interface ConditionalValueBuilderProps {
   onChange?: (...a: any[]) => void;
   defaultCondition: (...a: any[]) => any;
   defaultBlock: (...a: any[]) => any;
-  fieldOptionsList?: any[];
+  fieldOptionsList?: any[] | undefined;
 }
 
 const ConditionalValueBuilder = ({
@@ -80,13 +76,9 @@ const ConditionalValueBuilder = ({
 
   // Get builder context to access all necessary data
   const {
-    filters: contextFilters,
-    setFilters: contextSetFilters,
     customVariables,
     customListVariables,
     customSwitchCases,
-    isListDialogOpen,
-    setListConditionDialog,
     fieldOptionsList: contextFieldOptionsList,
   } = useCurrentBuilder();
 
@@ -173,7 +165,7 @@ const ConditionalValueBuilder = ({
   const [switchData, setSwitchData] = useState<any>(normalizeData(value));
   const [collapsedCases, setCollapsedCases] = useState<any>(new Set());
   const [openEquationIds, setOpenEquationIds] = useState<any>([]);
-  const [selectedChip, setSelectedChip] = useState("");
+  const [, setSelectedChip] = useState("");
   const [equationAnchor, setEquationAnchor] = useState<any>(null);
 
   const handleBlockChange = (caseIndex: any, newBlock: any) => {

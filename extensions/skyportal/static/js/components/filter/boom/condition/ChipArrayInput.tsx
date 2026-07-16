@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Box,
   Chip,
@@ -180,8 +180,10 @@ const ChipArrayInput = ({
                 },
               },
             }}
-            InputProps={{
-              disableUnderline: true,
+            slotProps={{
+              input: {
+                disableUnderline: true,
+              },
             }}
           />
         </Box>

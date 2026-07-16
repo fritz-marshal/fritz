@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Popover,
-  Button,
   IconButton,
   Tooltip,
   Select,
@@ -15,10 +14,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { useAppDispatch } from "../../../../types/hooks";
 import BlockComponent from "../block/BlockComponent";
-import {
-  useCurrentBuilder,
-  useFilterBuilder,
-} from "../../../../hooks/useContexts";
+import { useCurrentBuilder } from "../../../../hooks/useContexts";
 import { putElement } from "../../../../ducks/boom_filter_modules";
 import { normalizeFieldValue } from "../../../../utils/conditionHelpers";
 
@@ -97,9 +93,6 @@ const ListConditionPopover = ({
   const { setCustomListVariables } = useCurrentBuilder();
   const dispatch = useAppDispatch();
 
-  // Get the filter builder context to access dialog handlers
-  const filterBuilder = useFilterBuilder();
-
   // Handle focus management when popover opens/closes
   useEffect(() => {
     if (isOpen && popoverRef.current) {
@@ -111,6 +104,7 @@ const ListConditionPopover = ({
       }, 100);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isOpen]);
 
   const handleClose = () => {
@@ -809,9 +803,9 @@ const ListConditionPopover = ({
     conditionBlock: any,
     parentBlock: any,
     updateConditionFunc: any,
-    createDefaultConditionFunc: any,
-    variables: any,
-    listVariables: any,
+    _createDefaultConditionFunc: any,
+    _variables: any,
+    _listVariables: any,
   ) => {
     return (
       <div
@@ -930,9 +924,7 @@ const ListConditionPopover = ({
           // Prevent aria-hidden on the root when focus is inside
           "aria-hidden": false,
         } as any,
-      }}
-      PaperProps={
-        {
+        paper: {
           style: {
             minWidth: 500,
             maxWidth: 1000,
@@ -950,8 +942,8 @@ const ListConditionPopover = ({
           "aria-labelledby": "list-condition-popover-title",
           // Prevent aria-hidden on the paper when focus is inside
           "aria-hidden": false,
-        } as any
-      }
+        } as any,
+      }}
     >
       <div
         ref={popoverRef}

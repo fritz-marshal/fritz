@@ -11,7 +11,7 @@ import Typography from "@mui/material/Typography";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import Button from "./Button";
-import { useAppSelector } from "../types/hooks";
+import { useGetSysInfoQuery } from "../ducks/sysInfo";
 
 const useStyles = makeStyles()((theme) => ({
   header: {},
@@ -80,8 +80,9 @@ const BibLink = ({ bibtex, children }: BibLinkProps) => {
 
 const AboutPlugins = () => {
   const { classes } = useStyles();
-  const version = useAppSelector((state) => (state as any).sysInfo.version);
-  const gitlog = useAppSelector((state) => (state as any).sysInfo.gitlog);
+  const { data: sysInfo } = useGetSysInfoQuery();
+  const version = sysInfo?.version;
+  const gitlog = sysInfo?.gitlog;
 
   return (
     <div>
@@ -259,8 +260,8 @@ archivePrefix = {arXiv},
       {gitlog && (
         <>
           <Typography variant="h5">Recent Changelog</Typography>
-          <Paper {...({ mt: 1 } as any)} className={classes.gitlogPaper}>
-            <Box p={1}>
+          <Paper sx={{ mt: 1 }} className={classes.gitlogPaper}>
+            <Box sx={{ p: 1 }}>
               <div>
                 See all pull requests for{" "}
                 <a href="https://github.com/fritz-marshal/fritz/pulls">Fritz</a>

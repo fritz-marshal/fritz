@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import {
   Box,
@@ -632,7 +632,9 @@ const BlockHeader = ({
               onChange={(e: any) => handleToggleIsTrue(e.target.checked)}
               color="default"
               size="medium"
-              inputProps={{ "aria-label": "Custom block boolean value" }}
+              slotProps={{
+                input: { "aria-label": "Custom block boolean value" },
+              }}
             />
             <Box
               component="span"
@@ -663,7 +665,7 @@ const BlockHeader = ({
               onChange={(e: any) => handleToggleIsTrue(e.target.checked)}
               color="default"
               size="medium"
-              inputProps={{ "aria-label": "Negate block logic" }}
+              slotProps={{ input: { "aria-label": "Negate block logic" } }}
             />
             <Box
               component="span"
@@ -694,7 +696,7 @@ const BlockHeader = ({
               onChange={(e: any) => handleToggleIsTrue(e.target.checked)}
               color="default"
               size="medium"
-              inputProps={{ "aria-label": "Block boolean value" }}
+              slotProps={{ input: { "aria-label": "Block boolean value" } }}
             />
             <Box
               component="span"

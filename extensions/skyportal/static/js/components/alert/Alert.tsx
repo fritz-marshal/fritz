@@ -18,8 +18,6 @@ import Paper from "@mui/material/Paper";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 
-import { showNotification } from "baselayer/components/Notifications";
-
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -38,8 +36,12 @@ import withRouter from "../withRouter";
 import { ra_to_hours, dec_to_dms } from "../../units";
 
 import * as Actions from "../../ducks/boom_alert";
-import { checkSource, fetchSource } from "../../ducks/source";
-import { fetchSources } from "../../ducks/sources";
+import {
+  useCheckSourceMutation,
+  useLazyGetSourceQuery,
+} from "../../ducks/source";
+import { useLazyFetchSourcesQuery } from "../../ducks/sources";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
 
 // ── Survey inference ──────────────────────────────────────────────────────────
@@ -195,7 +197,6 @@ interface AlertPhotometryPlotProps {
 const AlertPhotometryPlot = ({
   objectId,
   jd = null,
-  survey,
 }: AlertPhotometryPlotProps) => {
   const object_data = useAppSelector(
     (state) => (state as any).boom_object_data,
@@ -273,7 +274,7 @@ const AlertPhotometryPlot = ({
             checked={showUpperLimits}
             onChange={() => setShowUpperLimits((v) => !v)}
             name="showUpperLimits"
-            inputProps={{ "aria-label": "show upper limits" }}
+            slotProps={{ input: { "aria-label": "show upper limits" } }}
           />
           <div>Upper limits</div>
         </div>
@@ -288,7 +289,7 @@ const AlertPhotometryPlot = ({
             checked={showForcedPhotometry}
             onChange={() => setShowForcedPhotometry((v) => !v)}
             name="showForcedPhotometry"
-            inputProps={{ "aria-label": "show forced photometry" }}
+            slotProps={{ input: { "aria-label": "show forced photometry" } }}
           />
           <div>Forced photometry</div>
         </div>
@@ -298,7 +299,7 @@ const AlertPhotometryPlot = ({
           value={forcedPhotometrySNR}
           size="small"
           onChange={(e) => setForcedPhotometrySNR(e.target.value)}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       </div>
     </div>
@@ -494,12 +495,15 @@ const Alert = ({ route }: AlertProps) => {
   const [savedSource, setSavedSource] = useState(false);
   const [fetchedDuplicates, setFetchedDuplicates] = useState(false);
 
-  const sources = useAppSelector((state) => (state as any).sources.latest);
-  const source = useAppSelector((state) => (state as any).source);
-  const loadedSourceId = useAppSelector((state) => (state as any)?.source?.id);
-  const userAccessibleGroups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  const [triggerCheckSource] = useCheckSourceMutation();
+  const [triggerGetSource, getSourceResult] = useLazyGetSourceQuery();
+  const [triggerFetchSources, fetchSourcesResult] = useLazyFetchSourcesQuery();
+
+  // RTK Query: read results from the query hooks (no more redux slices).
+  const sources: any = fetchSourcesResult.data;
+  const source: any = getSourceResult.data;
+  const loadedSourceId = getSourceResult.data?.id;
+  const userAccessibleGroups = useGetGroupsQuery().data?.userAccessible ?? [];
   const userAccessibleGroupIds = useMemo(
     () => userAccessibleGroups?.map((a: any) => a.id),
     [userAccessibleGroups],
@@ -540,32 +544,6 @@ const Alert = ({ route }: AlertProps) => {
     (panel: any) => (_: any, isExpanded: boolean) =>
       setPanelXMatchExpanded(isExpanded ? panel : false);
 
-  const [cutoutWhich, setCutoutWhich] = useState("last");
-  const [cutoutCandid, setCutoutCandid] = useState("");
-  const [cutoutSaving, setCutoutSaving] = useState(false);
-
-  const handleSaveCutouts = async () => {
-    setCutoutSaving(true);
-    const result: any = await dispatch(
-      Actions.updateCutouts({
-        survey,
-        objectId,
-        candid: cutoutCandid || undefined,
-        which: cutoutCandid ? undefined : cutoutWhich,
-      } as any),
-    );
-    if (result.status === "success") {
-      dispatch(
-        showNotification("Cutouts saved to source successfully.", "info"),
-      );
-    } else {
-      dispatch(
-        showNotification(result.message || "Failed to save cutouts.", "error"),
-      );
-    }
-    setCutoutSaving(false);
-  };
-
   const boom_alert_data = useAppSelector(
     (state) => (state as any).boom_alert_data,
   );
@@ -575,25 +553,25 @@ const Alert = ({ route }: AlertProps) => {
 
   // ── Source existence check ──────────────────────────────────────────────────
   useEffect(() => {
-    const fetchExistingSource = () => {
-      dispatch(checkSource(objectId, { nameOnly: true })).then(
-        (response: any) => {
-          if (
-            response.status === "success" &&
-            response.data?.source_exists === true
-          ) {
-            setSavedSource(true);
-            dispatch(fetchSource(objectId));
-          } else {
-            setSavedSource(false);
-          }
-        },
-      );
+    const fetchExistingSource = async () => {
+      const result = await triggerCheckSource({
+        id: objectId,
+        params: { nameOnly: true },
+      });
+      if (
+        result.data?.status === "success" &&
+        result.data?.data?.source_exists === true
+      ) {
+        setSavedSource(true);
+        triggerGetSource(objectId);
+      } else {
+        setSavedSource(false);
+      }
     };
     if (objectId !== loadedSourceId) {
       fetchExistingSource();
     }
-  }, [dispatch, objectId]);
+  }, [objectId]);
 
   // ── Alert data fetch ────────────────────────────────────────────────────────
   const isCached =
@@ -632,11 +610,8 @@ const Alert = ({ route }: AlertProps) => {
       const ra = getRa(lastAlert);
       const dec = getDec(lastAlert);
       if (ra != null && dec != null) {
-        dispatch(fetchSources({ ra, dec, radius: 2 / 3600 })).then(
-          (response: any) => {
-            if (response.status === "success") setFetchedDuplicates(true);
-          },
-        );
+        const result = await triggerFetchSources({ ra, dec, radius: 2 / 3600 });
+        if (result.data?.["status"] === "success") setFetchedDuplicates(true);
       }
     };
 
@@ -715,11 +690,11 @@ const Alert = ({ route }: AlertProps) => {
   return (
     <Grid container spacing={2}>
       {/* ── Header card ─────────────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Paper>
           <Grid container spacing={0} style={{ paddingBottom: "1rem" }}>
             {/* Left: metadata, save button */}
-            <Grid {...({ item: true, xs: 12, lg: 6 } as any)}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <div
                 style={{
                   padding: "0.5rem 1rem 0 1rem",
@@ -868,7 +843,7 @@ const Alert = ({ route }: AlertProps) => {
             </Grid>
 
             {/* Right: thumbnails + cutout save panel */}
-            <Grid {...({ item: true, xs: 12, lg: 6 } as any)}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               {candid !== null && (
                 <div
                   style={{
@@ -902,7 +877,7 @@ const Alert = ({ route }: AlertProps) => {
       </Grid>
 
       {/* ── Photometry plot ──────────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Suspense fallback={<CircularProgress color="secondary" />}>
           <Paper
             style={{
@@ -918,7 +893,7 @@ const Alert = ({ route }: AlertProps) => {
       </Grid>
 
       {/* ── Alert history table ──────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Paper elevation={1}>
           <Typography variant="h6" style={{ padding: "0.5rem" }}>
             Alerts
@@ -938,7 +913,7 @@ const Alert = ({ route }: AlertProps) => {
       </Grid>
 
       {/* ── Cross-matches ────────────────────────────────────────────────── */}
-      <Grid {...({ item: true, xs: 12 } as any)}>
+      <Grid size={12}>
         <Accordion
           expanded={panelXMatchExpanded}
           onChange={handlePanelXMatchChange(true)}

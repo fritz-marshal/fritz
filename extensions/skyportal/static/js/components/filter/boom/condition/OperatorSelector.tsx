@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { FormControlLabel, Switch } from "@mui/material";
 import {
   mongoOperatorLabels,

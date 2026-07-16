@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -24,7 +24,6 @@ import {
   Link,
 } from "@mui/material";
 import {
-  ContentCopy as CopyIcon,
   Close as CloseIcon,
   PlayArrow as RunIcon,
   Fullscreen as FullscreenIcon,
@@ -48,10 +47,11 @@ import {
   runBoomTestFilter,
   clearBoomFilter,
 } from "../../../../ducks/boom_run_filter";
+import { useGetProfileQuery } from "../../../../ducks/profile";
 import PipelineViewer from "./PipelineViewer";
 import FullscreenResultsDialog from "./FullscreenResultsDialog";
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles()((_theme) => ({
   timeRange: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -65,7 +65,7 @@ const useStyles = makeStyles()((theme) => ({
 const combineWithPipeline = (
   userPipeline: any[],
   additionalStages: any[] = [],
-  isCountOnly = false,
+  _isCountOnly = false,
 ) => {
   const finalPipeline: any[] = [];
 
@@ -144,12 +144,9 @@ const MongoQueryDialog = () => {
     (state: any) => state.boom_filter_v.stream?.name?.split(" ")[0],
   );
   const filter_id = useAppSelector((state: any) => state.boom_filter_v.id);
-  const last_result_id = useAppSelector((state: any) =>
-    state.query_result?.data?.results?.at(-1),
-  );
-
   const dispatch = useAppDispatch();
-  const { useAMPM } = useAppSelector((state: any) => state.profile.preferences);
+  const { data: profile } = useGetProfileQuery();
+  const { useAMPM } = profile?.preferences ?? {};
 
   const [copySuccess, setCopySuccess] = useState(false);
   const [displayResults, setDisplayResults] = useState<{ data?: any[] }>({
@@ -177,11 +174,11 @@ const MongoQueryDialog = () => {
   const [isLoadingPage, setIsLoadingPage] = useState(false);
   const [pageCursors, setPageCursors] = useState<Map<any, any>>(new Map());
   const [pageDataCache, setPageDataCache] = useState<Map<any, any>>(new Map()); // Cache actual page data
-  const [lastDocumentId, setLastDocumentId] = useState<any>(null);
+  const [, setLastDocumentId] = useState<any>(null);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [queryCompleted, setQueryCompleted] = useState(false);
   const [lastQueryString, setLastQueryString] = useState("");
-  const [lastPageOffset, setLastPageOffset] = useState(0);
+  const [, setLastPageOffset] = useState(0);
 
   useEffect(() => {
     if (hasValidQuery()) {
@@ -260,12 +257,7 @@ const MongoQueryDialog = () => {
   const defaultEndDate = new Date();
   defaultEndDate.setDate(defaultEndDate.getDate() + 1);
 
-  const {
-    getValues,
-    control,
-    formState: { errors },
-    watch,
-  } = useForm({
+  const { getValues, control, watch } = useForm({
     startDate: defaultStartDate,
     endDate: defaultEndDate,
   } as any);
@@ -295,26 +287,6 @@ const MongoQueryDialog = () => {
       setDateValidationError(null);
     }
   }, [watchedStartDate, watchedEndDate]);
-
-  const isDateRangeValid = () => {
-    const formState = getValues();
-    if (formState.startDate && formState.endDate) {
-      const startDate = new Date(formState.startDate);
-      const endDate = new Date(formState.endDate);
-
-      // Check if start date is before end date
-      if (startDate > endDate) {
-        return false;
-      }
-
-      // Check if date range is maximum 7 days
-      const diffInMs = endDate.getTime() - startDate.getTime();
-      const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-
-      return diffInDays <= 7;
-    }
-    return true;
-  };
 
   const handleStageToggle = (stageIndex: number) => {
     setExpandedStages((prev: Set<any>) => {
@@ -618,7 +590,7 @@ const MongoQueryDialog = () => {
     }
   };
 
-  const handlePageChange = async (event: any, newPage: number) => {
+  const handlePageChange = async (_event: any, newPage: number) => {
     setIsLoadingPage(true);
     setExpandedCells(new Set());
 
@@ -715,7 +687,6 @@ const MongoQueryDialog = () => {
   }
 
   const pipeline = generateMongoQuery();
-  const formattedQuery = getFormattedMongoQuery();
   const isValid = hasValidQuery();
 
   return (
@@ -725,8 +696,8 @@ const MongoQueryDialog = () => {
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { minHeight: "500px", maxHeight: "90vh" },
+        slotProps={{
+          paper: { sx: { minHeight: "500px", maxHeight: "90vh" } },
         }}
       >
         <DialogTitle
@@ -874,7 +845,7 @@ const MongoQueryDialog = () => {
                       mb: 2,
                     }}
                   >
-                    <Typography variant="subtitle1" fontWeight="bold">
+                    <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
                       Query Results
                     </Typography>
                     <Chip

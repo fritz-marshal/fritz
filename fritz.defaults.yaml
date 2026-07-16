@@ -47,6 +47,12 @@ skyportal:
 
     ps1_endpoint: https://catalogs.mast.stsci.edu/
 
+    # PS1 cutout service used to scrape the public thumbnail link for an Obj.
+    # Set to an empty string to skip the HTTP call and use the
+    # "currently_unavailable.png" placeholder (useful in tests).
+    ps1_cutout_url: http://ps1images.stsci.edu/cgi-bin/ps1cutouts
+    skymapper_cutout_url: https://api.skymapper.nci.org.au/public/siap/dr4/query
+
     tess_endpoint: https://tess.mit.edu/public/tesstransients/
 
     atlas:
@@ -77,9 +83,19 @@ skyportal:
       look_back_days: 7
 
     hermes:
-      endpoint: https://hermes.lco.global/api/v0
-      topic: hermes.test
-      token:
+      endpoint: https://hermes.lco.global/api/v0 # Base URL of the Hermes API
+      token: # Hermes API token for authentication (required to publish messages)
+      topic: hermes.test # Kafka topic used to publish outgoing SkyPortal alerts to Hermes
+      test_topic: # Kafka topic used during testing
+      sync:
+        scimma_username: # SCiMMA/Kafka username for authentication
+        scimma_password: # SCiMMA/Kafka password for authentication
+        kafka_server: kafka.scimma.org
+        from_start: False # Start from beginning of topic (True) or latest message (False)
+        max_age_days: # Skip messages older than N days (null/empty = no limit)
+        bot_user_id: # User ID of the bot account that will save sources and own photometry. If not set, the service will not start.
+        group_ids: [] # List of group IDs to assign imported sources to
+        instrument_tns_ids: # Whitelist of TNS instrument IDs whose photometry will be imported (see https://www.wis-tns.org/api/get/values). If not set, photometry import is skipped entirely.
 
     winter:
       protocol: http
@@ -105,6 +121,8 @@ skyportal:
         component: group/Groups
       - path: "/group/:id"
         component: group/Group
+      - path: "/teams"
+        component: team/Teams
       - path: "/profile"
         component: user/Profile
       - path: "/candidates"
@@ -128,13 +146,13 @@ skyportal:
       - path: "/run/:id"
         component: observing_run/RunSummary
       - path: "/allocations"
-        component: allocation/AllocationPage
+        component: allocation/AllocationList
       - path: "/allocation/:id"
-        component: allocation/AllocationSummary
+        component: allocation/Allocation
       - path: "/telescope/:id"
-        component: telescope/TelescopeSummary
+        component: telescope/Telescope
       - path: "/instrument/:id"
-        component: instrument/InstrumentSummary
+        component: instrument/Instrument
       - path: "/group_sources/:id"
         component: group/GroupSources
       - path: "/user_management"
@@ -155,6 +173,8 @@ skyportal:
         component: Periodogram
       - path: "/db_stats"
         component: DBStats
+      - path: "/source_statistics"
+        component: SourceStatistics
       - path: "/galaxies"
         component: galaxy/GalaxyPage
       - path: "/spatial_catalogs"
@@ -164,13 +184,15 @@ skyportal:
       - path: "/gcn_events/:dateobs"
         component: gcn/GcnEventPage
       - path: "/telescopes"
-        component: telescope/TelescopePage
+        component: telescope/TelescopeList
       - path: "/instruments"
-        component: instrument/InstrumentPage
+        component: instrument/InstrumentList
       - path: "/mmadetectors"
         component: mma_detector/MMADetectorPage
       - path: "/services"
         component: analysis/AnalysisServicePage
+      - path: "/analysis_requests"
+        component: analysis/AnalysisRequestPage
       - path: "/recurring_apis"
         component: RecurringAPIPage
       - path: "/shifts"
@@ -249,6 +271,10 @@ skyportal:
             icon: GroupWork
             url: /groups
 
+          - name: Teams
+            icon: Diversity3
+            url: /teams
+
           - name: Observing Runs
             icon: LocalCafe
             url: /runs
@@ -261,6 +287,10 @@ skyportal:
             icon: WorkOutlined
             url: /followup_requests
 
+          - name: Analysis Requests
+            icon: Analytics
+            url: /analysis_requests
+
           - name: Shifts
             icon: SubwayRounded
             url: /shifts
@@ -268,6 +298,10 @@ skyportal:
           - name: Summary Search
             icon: Troubleshoot
             url: /summary_search
+
+          - name: Source Statistics
+            icon: ScatterPlot
+            url: /source_statistics
 
           - name: About
             icon: Info
@@ -414,6 +448,19 @@ skyportal:
       # the column 1 (zero-indexed) and row 2. Note that each row is by default
       # 150px in height. The row height can be altered in the homepage_grid
       # section above (as well as other grid characteristics).
+      GettingStarted:
+        # Onboarding checklist + guided tour. Shown to every user until they
+        # dismiss it (persisted per-user); reopenable any time. Set show: false to
+        # disable it for a deployment.
+        resizeable: true
+        minW: 2
+        layouts:
+          xlg: [0, 0, 4, 3]
+          lg: [0, 0, 4, 3]
+          md: [0, 0, 4, 3]
+          sm: [0, 0, 6, 3]
+          xs: [0, 0, 4, 3]
+
       WeatherWidget:
         resizeable: true
         minW: 2
@@ -505,6 +552,20 @@ skyportal:
     user: skyportal
     password: password
 
+    # Transaction-mode connection pooler (bundled pgbouncer, runs in the web
+    # container). host/port here are where the app reaches pgbouncer; the
+    # database.host/port above stay pointed at the real Postgres backend.
+    pooler:
+      enabled: true
+      # IPv4 explicitly: pgbouncer listens on 127.0.0.1, and localhost can
+      # resolve to ::1 (IPv6), where it isn't listening.
+      host: 127.0.0.1
+      port: 6432
+      pool_mode: transaction
+      # Sized for production concurrency; Cloud SQL max_connections is 600.
+      default_pool_size: 100
+      max_client_conn: 1000
+
   # To serve the source page's photometry from the broker-canonical passthrough
   # (saved DB photometry merged with on-demand BOOM photometry), set:
   #   photometry_display_endpoint: "/api/boom/surveys/ZTF/objects/{id}/photometry"
@@ -513,12 +574,22 @@ skyportal:
   # deployment once that holds.
 
   ports:
-    facility_queue: 64510
+    # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
+    # migration_manager:
     notification_queue: 64610
-    observation_plan_queue: 64710
     thumbnail_queue: 64910
     tns_retrieval_queue: 64810
-    sharing_service_submission_queue: 64812
+
+  hosts:
+    # Hostnames the application uses to reach its internal microservices. These
+    # default to the loopback address, which is correct for the standard
+    # single-host deployment where every service runs alongside the app. Override
+    # a service's host to run it on a separate host/container (e.g. to scale a
+    # microservice independently, or for a distributed/Kubernetes deployment).
+    migration_manager: 127.0.0.1
+    notification_queue: 127.0.0.1
+    tns_retrieval_queue: 127.0.0.1
+    slack: 127.0.0.1
 
   server:
     # From https://console.developers.google.com/
@@ -588,8 +659,11 @@ skyportal:
       - dask
     external:
       boom:
-        repo: https://github.com/Theodlz/boom-skyportal-plugin.git
+        repo: https://github.com/fritz-marshal/boom-skyportal-plugin.git
         rev: main
+        # One consumer per alert stream (ZTF, LSST, WINTER); Kafka distributes
+        # the topic partitions across them. Bounded by partition count + DB.
+        numprocs: 3
         params:
           kafka:
             host: kafka-1
@@ -600,12 +674,53 @@ skyportal:
             topics:
               - ZTF_alerts_results
               - LSST_alerts_results
+              - WINTER_alerts_results
           api:
             protocol: http
             host: boom-api-1
             port: 4000
             username: admin
             password: adminsecret
+      osg:
+        repo: https://github.com/skyportal/osg-skyportal-plugin.git
+        rev: main
+        params:
+          listener:
+            host: 0.0.0.0
+            port: 7100
+          htcondor:
+            collector: "cm-2.ospool.osg-htc.org, cm-1.ospool.osg-htc.org"
+            schedd: ap41.uw.osg-htc.org
+            scitoken_path: /secrets/scitokens/osg.use
+            project_name: CHANGEME_OSG_PROJECT
+            spool: true
+            keepalive: true
+          defaults:
+            request_cpus: 1
+            request_memory: 4096 # MB
+            request_disk: 1024 # MB
+            max_runtime_seconds: 3600
+            singularity_image: /cvmfs/singularity.opensciencegrid.org/michaelwcoughlin/fiesta:latest
+            use_wrapper: true
+            cpu_requirements: "(has_avx == True)"
+          poller:
+            interval_seconds: 60
+          batch:
+            enabled: true
+            max_size: 50
+            window_seconds: 30
+          caps:
+            max_concurrent_total: 600
+            max_concurrent_per_analysis: 600
+            max_concurrent_per_resource_per_analysis: 8
+          # No OSDF output staging (mirrors the proven NRP setup): condor spool +
+          # staging_dir bring the small Fiesta outputs back to the pod.
+          osdf:
+            output_prefix: null
+          staging_dir: /tmp/staging
+          auth:
+            # Real value provided via the sops-managed config secret at deploy.
+            incoming_bearer_token: CHANGEME_SHARED_SECRET
 
   misc:
     days_to_keep_unsaved_candidates: 7
@@ -625,7 +740,16 @@ skyportal:
     #cosmology: {H0: "65.0", Om0: 0.3, Ode0: 0.7, name: 'skyportal_user_cosmo'}
 
     dustmap: sfd
-    dustmap_folder: persistentdata/dustmap
+    # Vendored in the skyportal-data submodule so the SFD maps are present
+    # without a network fetch at startup. obj.py still falls back to fetching
+    # if the files are absent (e.g. submodule not initialized).
+    dustmap_folder: skyportal-data/dustmaps
+
+    # sncosmo cache (bandpasses, SED models, spectra), vendored in the
+    # skyportal-data submodule. Pointing sncosmo here keeps app import off the
+    # flaky SVO Filter Profile Service; any missing bandpass still falls back to
+    # a network fetch into this directory.
+    sncosmo_data_folder: skyportal-data/sncosmo
 
     # The minimum signal-to-noise ratio/ n-sigma for lim mag cacluations to
     # consider a photometry point as a detection
@@ -658,6 +782,16 @@ skyportal:
       # of sampled transactions.
       # We recommend adjusting this value in production.
       profiles_sample_rate: 1.0
+
+    observability:
+      # Enable OpenTelemetry instrumentation of the Tornado app and expose request
+      # metrics in Prometheus format at /api/internal/metrics. The endpoint requires
+      # a System admin token (scrape with `Authorization: token <id>`). Each app
+      # worker serves its own metrics on its internal port (ports.app_internal +
+      # worker number); point Prometheus at those ports directly rather than the
+      # load-balanced public endpoint. Disabled by default.
+      enabled: False
+      service_name: skyportal
 
   weather:
     refresh_time: 3600.0
@@ -723,10 +857,6 @@ skyportal:
         - gcn.classic.voevent.FERMI_GBM_SUBTHRESH
         - gcn.classic.voevent.SWIFT_BAT_GRB_POS_ACK
         - gcn.classic.voevent.SWIFT_XRT_POSITION
-        - gcn.classic.voevent.LVC_PRELIMINARY
-        - gcn.classic.voevent.LVC_INITIAL
-        - gcn.classic.voevent.LVC_UPDATE
-        - gcn.classic.voevent.LVC_RETRACTION
         # - gcn.classic.voevent.AMON_ICECUBE_COINC
         # - gcn.classic.voevent.AMON_ICECUBE_HESE
         - gcn.classic.voevent.ICECUBE_ASTROTRACK_GOLD
@@ -735,6 +865,7 @@ skyportal:
         - gcn.notices.svom.voevent.grm
         - gcn.notices.svom.voevent.eclairs
       json:
+        - igwn.gwalert
         - einstein_probe.wxt.alert
         - swift.bat.guano
         - icecube.lvk_nu_track_search

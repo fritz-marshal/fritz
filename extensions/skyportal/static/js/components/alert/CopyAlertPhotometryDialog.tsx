@@ -1,4 +1,3 @@
-import React from "react";
 import { useForm, Controller } from "react-hook-form";
 
 import Dialog from "@mui/material/Dialog";
@@ -9,12 +8,13 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 
 import { showNotification } from "baselayer/components/Notifications";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
+import { useAppDispatch } from "../../types/hooks";
 
 import Button from "../Button";
 import FormValidationError from "../FormValidationError";
 
 import { saveAlertAsSource } from "../../ducks/boom_alert";
+import { useGetGroupsQuery } from "../../ducks/groups";
 
 interface CopyAlertPhotometryDialogProps {
   alert: any;
@@ -33,9 +33,8 @@ const CopyAlertPhotometryDialog = ({
 }: CopyAlertPhotometryDialogProps) => {
   const dispatch = useAppDispatch();
 
-  const groups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  const { data: groupsData } = useGetGroupsQuery();
+  const groups = groupsData?.userAccessible;
 
   const {
     handleSubmit,
@@ -48,9 +47,8 @@ const CopyAlertPhotometryDialog = ({
 
   const currentGroupIds = duplicate.groups?.map((g: any) => g.id);
 
-  const savedGroups = groups?.filter((g: any) =>
-    currentGroupIds.includes(g.id),
-  );
+  const savedGroups =
+    groups?.filter((g: any) => currentGroupIds.includes(g.id)) ?? [];
 
   const validateGroups = () => {
     const formState: any = getValues();
@@ -63,7 +61,7 @@ const CopyAlertPhotometryDialog = ({
   const onSubmit = async (data: any) => {
     const savedGroupIds = savedGroups?.map((g: any) => g.id);
     const groupIds = savedGroupIds?.filter(
-      (ID: any, idx: number) => data.groupIds[idx],
+      (_ID: any, idx: number) => data.groupIds[idx],
     );
     data.group_ids = groupIds;
     data.copyToSource = duplicate.id;
@@ -89,7 +87,7 @@ const CopyAlertPhotometryDialog = ({
         <DialogTitle>Copy photometry to selected groups:</DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit(onSubmit)}>
-            {(errors.inviteGroupIds || errors.unsaveGroupIds) && (
+            {(errors["inviteGroupIds"] || errors["unsaveGroupIds"]) && (
               <FormValidationError message="Select at least one group." />
             )}
             {!!savedGroups.length && (

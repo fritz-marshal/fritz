@@ -255,7 +255,7 @@ class BoomCutoutHandler(BaseHandler):
 
     @permissions(["Upload data"])
     @boom_available
-    def post(self, survey: str):
+    async def post(self, survey: str):
         """
         ---
         summary: Save or replace cutout thumbnails for an existing source
@@ -353,8 +353,8 @@ class BoomCutoutHandler(BaseHandler):
             "Authorization": f"Bearer {boom_token}",
         }
 
-        with self.Session() as session:
-            obj = session.scalar(sa.select(Obj).where(Obj.id == object_id))
+        async with self.AsyncSession() as session:
+            obj = await session.scalar(sa.select(Obj).where(Obj.id == object_id))
             if obj is None:
                 return self.error(
                     f"Object '{object_id}' not found. Save it as a source first."
@@ -375,17 +375,19 @@ class BoomCutoutHandler(BaseHandler):
             cutout_data = response.json().get("data", {})
             cutout_data["objectId"] = object_id
 
-            existing = session.scalars(
-                sa.select(Thumbnail).where(
-                    Thumbnail.obj_id == object_id,
-                    Thumbnail.type.in_([t[1] for t in thumbnail_types]),
+            existing = (
+                await session.scalars(
+                    sa.select(Thumbnail).where(
+                        Thumbnail.obj_id == object_id,
+                        Thumbnail.type.in_([t[1] for t in thumbnail_types]),
+                    )
                 )
             ).all()
             for thumb in existing:
-                session.delete(thumb)
-            session.flush()
+                await session.delete(thumb)
+            await session.flush()
 
-            add_thumbnails(cutout_data, survey.upper(), session)
-            session.commit()
+            await add_thumbnails(cutout_data, survey.upper(), session)
+            await session.commit()
 
         return self.success(data={"objectId": object_id, "survey": survey})

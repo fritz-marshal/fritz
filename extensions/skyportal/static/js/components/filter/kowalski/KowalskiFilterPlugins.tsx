@@ -29,7 +29,7 @@ import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import FileCopyIcon from "@mui/icons-material/FileCopy";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import TextField from "@mui/material/TextField";
@@ -42,8 +42,15 @@ import { showNotification } from "baselayer/components/Notifications";
 
 import { useAppDispatch, useAppSelector } from "../../../types/hooks";
 import * as filterVersionActions from "../../../ducks/kowalski_filter";
-import * as allocationActions from "../../../ducks/allocations";
-import * as instrumentsActions from "../../../ducks/instruments";
+import { useGetFilterQuery } from "../../../ducks/filter";
+import { useGetGroupsQuery } from "../../../ducks/groups";
+import { useGetProfileQuery } from "../../../ducks/profile";
+import { useGetUsersQuery } from "../../../ducks/users";
+import { useGetAllocationsApiClassnameQuery } from "../../../ducks/allocations";
+import {
+  useGetInstrumentsQuery,
+  useGetInstrumentFormsQuery,
+} from "../../../ducks/instruments";
 
 const useStyles = makeStyles()((theme) => ({
   pre: {
@@ -130,37 +137,25 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
   const theme = useTheme();
   const darkTheme = theme.palette.mode === "dark";
 
-  const profile = useAppSelector((state: any) => state.profile);
+  const { data: profile } = useGetProfileQuery();
 
-  const filter = useAppSelector((state: any) => state.filter);
   const filter_v = useAppSelector((state: any) => state.kowalski_filter_v);
   const { fid } = useParams();
-  const loadedId = useAppSelector((state: any) => state.filter?.id);
+  const { data: filter } = useGetFilterQuery(fid ?? "", {
+    skip: !fid,
+  }) as any;
+  const loadedId = filter?.id;
 
-  const { users } = useAppSelector((state: any) => state.users);
+  const { data: usersData } = useGetUsersQuery();
+  const { users } = usersData ?? {};
 
-  const allGroups = useAppSelector((state: any) => state.groups.all);
-  const userAccessibleGroups = useAppSelector(
-    (state: any) => state.groups.userAccessible,
-  );
-  const { allocationListApiClassname } = useAppSelector(
-    (state: any) => state.allocations,
-  );
-  const { instrumentList, instrumentFormParams } = useAppSelector(
-    (state: any) => state.instruments,
-  );
-
-  useEffect(() => {
-    if (!instrumentList || instrumentList.length === 0) {
-      dispatch(instrumentsActions.fetchInstruments());
-    }
-    if (
-      !allocationListApiClassname ||
-      allocationListApiClassname.length === 0
-    ) {
-      dispatch(allocationActions.fetchAllocationsApiClassname());
-    }
-  }, [dispatch]);
+  const { data: groupsData } = useGetGroupsQuery();
+  const allGroups = groupsData?.all;
+  const userAccessibleGroups = groupsData?.userAccessible;
+  const { data: allocationListApiClassname } =
+    useGetAllocationsApiClassnameQuery();
+  const { data: instrumentList } = useGetInstrumentsQuery();
+  const { data: instrumentFormParams } = useGetInstrumentFormsQuery();
 
   const groupLookUp: Record<string, any> = {};
 
@@ -194,7 +189,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
   const [panelKowalskiExpanded, setPanelKowalskiExpanded] = useState<any>(true);
 
   const handlePanelKowalskiChange =
-    (panel: any) => (event: any, isExpanded: boolean) => {
+    (panel: any) => (_event: any, isExpanded: boolean) => {
       setPanelKowalskiExpanded(isExpanded ? panel : false);
     };
 
@@ -914,7 +909,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                     </AppBar>
                     <Paper className={classes.paperDiv}>
                       <Grid container spacing={2}>
-                        <Grid item xs={6} {...({ align: "center" } as any)}>
+                        <Grid size={6} sx={{ textAlign: "center" }}>
                           <FormControl className={classes.formControl}>
                             <Select
                               labelId="fv-diff-label"
@@ -957,7 +952,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                             </CopyToClipboard>
                           )}
                         </Grid>
-                        <Grid item xs={6} {...({ align: "center" } as any)}>
+                        <Grid size={6} sx={{ textAlign: "center" }}>
                           <Typography
                             className={classes.big_font}
                             color="textSecondary"
@@ -996,7 +991,7 @@ const KowalskiFilterPlugins = ({ group }: KowalskiFilterPluginsProps) => {
                             </CopyToClipboard>
                           </Typography>
                         </Grid>
-                        <Grid {...({ item: true } as any)} xs={12}>
+                        <Grid size={12}>
                           <ReactDiffViewer
                             newValue={JSON.stringify(
                               JSON.parse(

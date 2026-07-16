@@ -1,4 +1,3 @@
-import React from "react";
 import { Switch, FormControlLabel, TextField } from "@mui/material";
 import ChipArrayInput from "./ChipArrayInput";
 import { mongoOperatorTypes } from "../../../../constants/filterConstants";
@@ -76,7 +75,7 @@ const SpecialOperatorInputs = ({
           )
         }
         style={{ minWidth: 120, maxWidth: 150 }}
-        inputProps={{ min: 0, max: 10 }}
+        slotProps={{ htmlInput: { min: 0, max: 10 } }}
       />
     );
   }

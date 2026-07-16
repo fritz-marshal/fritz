@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 
 import Card from "@mui/material/Card";
@@ -48,11 +48,12 @@ import Button from "../Button";
 import ThumbnailList from "../thumbnail/ThumbnailList";
 import FormValidationError from "../FormValidationError";
 
-import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
+import { dms_to_dec, hours_to_ra } from "../../units";
 import { greatCircleDistance } from "../../utils";
 
 import * as alertActions from "../../ducks/boom_alert";
 import * as alertsActions from "../../ducks/boom_alerts";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { bytes2image } from "../../utils/imageProcessing";
 
 function isString(x: any) {
@@ -226,9 +227,8 @@ const Alerts = () => {
   const { alerts, queryInProgress } = useAppSelector(
     (state) => (state as any).alerts,
   );
-  const groups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
+  // RTK Query: groups come from the query hook (no more redux slice).
+  const groups = useGetGroupsQuery().data?.userAccessible ?? [];
 
   // save alerts to SP in bulk (by objectID)
   const [selectedSurvey, setSelectedSurvey] = useState("ZTF");
@@ -438,7 +438,7 @@ const Alerts = () => {
     disableColumnMenu: true,
     // For a synthetic detail row, span the full width of the grid; otherwise a
     // single cell holding the expand toggle.
-    colSpan: (value: any, row: any) => (row.__detail ? 100 : 1),
+    colSpan: (_value: any, row: any) => (row.__detail ? 100 : 1),
     renderCell: (params: any) => {
       if (params.row.__detail) {
         const rowObj = params.row.__source;
@@ -447,11 +447,10 @@ const Alerts = () => {
             container
             direction="row"
             spacing={3}
-            justifyContent="center"
-            alignItems="center"
+            sx={{ justifyContent: "center", alignItems: "center" }}
             data-testid={`alertRow_${rowObj.candid}`}
           >
-            <Grid {...({ item: true } as any)}>
+            <Grid>
               <CutoutTriplet
                 rowObj={rowObj}
                 survey={inferSurvey(rowObj.objectId) || dataSurvey}
@@ -650,7 +649,8 @@ const Alerts = () => {
 
   // Default sort: separation ascending in positional grouped mode, otherwise
   // most-recent (jd) first.
-  const useSeparationSort = groupByObj && getValues().ra && getValues().dec;
+  const useSeparationSort =
+    groupByObj && getValues()["ra"] && getValues()["dec"];
   const sortModel: any[] = [
     useSeparationSort
       ? { field: "separation", sort: "asc" }
@@ -846,14 +846,10 @@ const Alerts = () => {
         <Grid
           container
           direction="row"
-          justifyContent="flex-start"
-          alignItems="flex-start"
           spacing={1}
+          sx={{ justifyContent: "flex-start", alignItems: "flex-start" }}
         >
-          <Grid
-            {...({ item: true, xs: 12, lg: 10 } as any)}
-            className={classes.grid_item_table}
-          >
+          <Grid size={{ xs: 12, lg: 10 }} className={classes.grid_item_table}>
             <Paper elevation={1}>
               <div className={(classes as any).maindiv}>
                 <div className={(classes as any).accordionDetails}>
@@ -904,7 +900,7 @@ const Alerts = () => {
             </Paper>
           </Grid>
           <Grid
-            {...({ item: true, xs: 12, lg: 2 } as any)}
+            size={{ xs: 12, lg: 2 }}
             className={classes.grid_item_search_box}
           >
             <Card className={classes.root}>

@@ -30,7 +30,7 @@ import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
 import Grid from "@mui/material/Grid";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -52,7 +52,8 @@ import StyledDataGrid from "../StyledDataGrid";
 import FormValidationError from "../FormValidationError";
 import { dec_to_dms, ra_to_hours, dms_to_dec, hours_to_ra } from "../../units";
 import * as archiveActions from "../../ducks/kowalski_archive";
-import { checkSource } from "../../ducks/source";
+import { useCheckSourceMutation } from "../../ducks/source";
+import { useGetGroupsQuery } from "../../ducks/groups";
 import { useAppDispatch, useAppSelector } from "../../types/hooks";
 
 function isString(x: any) {
@@ -191,6 +192,7 @@ const ZTFLightCurveColors: Record<number, string> = {
 
 const Archive = () => {
   const dispatch = useAppDispatch();
+  const [triggerCheckSource] = useCheckSourceMutation();
   const { classes } = useStyles();
   const theme = useTheme();
   const fullScreen = !useMediaQuery(theme.breakpoints.up("md"));
@@ -200,12 +202,9 @@ const Archive = () => {
   const nearestSources = useAppSelector(
     (state) => (state as any).nearest_sources?.sources,
   );
-  const userGroups = useAppSelector(
-    (state) => (state as any).groups.userAccessible,
-  );
-  const userGroupIds = useAppSelector((state) =>
-    (state as any).groups.userAccessible?.map((a: any) => a.id),
-  );
+  const { data: groupsData } = useGetGroupsQuery();
+  const userGroups = groupsData?.userAccessible ?? [];
+  const userGroupIds = groupsData?.userAccessible?.map((a: any) => a.id) ?? [];
   const catalogNames = useAppSelector(
     (state) => (state as any).kowalski_catalog_names,
   );
@@ -483,13 +482,13 @@ const Archive = () => {
     }
 
     if (saveNewSource) {
-      let data: any = null;
       const row = rowsToSave[0];
-      data = await dispatch(
-        checkSource(objID, { ra: row.ra, dec: row.dec, nameOnly: true }),
-      );
-      if (data.data !== "A source of that name does not exist.") {
-        dispatch(showNotification(data.data, "error"));
+      const result = await triggerCheckSource({
+        id: objID,
+        params: { ra: row.ra, dec: row.dec, nameOnly: true },
+      });
+      if (result.data !== "A source of that name does not exist.") {
+        dispatch(showNotification(result.data, "error"));
         setIsSubmitting(false);
         return;
       }
@@ -497,7 +496,7 @@ const Archive = () => {
 
     // IDs of selected groups:
     const groupIDs = userGroupIds.filter(
-      (groupId: any, index: number) => data2.group_ids[index],
+      (_groupId: any, index: number) => data2.group_ids[index],
     );
     // IDs of selected light curves
     const lightCurveIDs = rowsToSave.map((rowToSave) => rowToSave._id);
@@ -568,10 +567,9 @@ const Archive = () => {
           container
           direction="row"
           spacing={2}
-          justifyContent="center"
-          alignItems="center"
+          sx={{ justifyContent: "center", alignItems: "center" }}
         >
-          <Grid {...({ item: true } as any)}>
+          <Grid>
             {ZTFLightCurveData.length && (
               <Suspense fallback={<CircularProgress color="secondary" />}>
                 <VegaPlotZTFArchive
@@ -595,7 +593,7 @@ const Archive = () => {
       filterable: false,
       hideable: false,
       disableColumnMenu: true,
-      colSpan: (value: any, row: any) => (row.__detail ? 100 : 1),
+      colSpan: (_value: any, row: any) => (row.__detail ? 100 : 1),
       renderCell: (params: any) => {
         if (params.row.__detail) {
           return renderPullOutRow(params.row.__source);
@@ -771,14 +769,10 @@ const Archive = () => {
         <Grid
           container
           direction="row"
-          justifyContent="flex-start"
-          alignItems="flex-start"
           spacing={1}
+          sx={{ justifyContent: "flex-start", alignItems: "flex-start" }}
         >
-          <Grid
-            {...({ item: true, xs: 12, lg: 10 } as any)}
-            className={classes.grid_item_table}
-          >
+          <Grid size={{ xs: 12, lg: 10 }} className={classes.grid_item_table}>
             <Paper elevation={1}>
               <div className={classes.maindiv}>
                 <div className={classes.accordionDetails}>
@@ -819,7 +813,7 @@ const Archive = () => {
             </Paper>
           </Grid>
           <Grid
-            {...({ item: true, xs: 12, lg: 2 } as any)}
+            size={{ xs: 12, lg: 2 }}
             className={classes.grid_item_search_box}
           >
             <Card className={classes.root}>
@@ -1099,7 +1093,7 @@ const Archive = () => {
               <DialogContentText className={classes.marginTop}>
                 Select groups to save new source to:
               </DialogContentText>
-              {saveNewSource && errors.group_ids && (
+              {saveNewSource && errors["group_ids"] && (
                 <FormValidationError message="Select at least one group." />
               )}
               {userGroups.map((userGroup: any, idx: number) => (

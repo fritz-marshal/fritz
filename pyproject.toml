@@ -4,7 +4,7 @@ version = '0.1.0'
 requires-python = '>=3.12,<3.13'
 dependencies = [
     "fire>=0.3.1",
-    "setuptools<76.1.0",
+    "setuptools<78.2.0",
     "jinja2<3.2.0",
     "tomli>=2.4.0",
     "tomli-w>=1.2.0",
@@ -12,7 +12,7 @@ dependencies = [
 
 [dependency-groups]
 test = [
-    "pytest>=8.3.2, <9.0.0",
+    "pytest>=9.0.3,<10.0.0",
     "pytest-randomly==4.0.1",
     "pytest-rerunfailures>=14.0",
     "selenium==4.38.0",
@@ -21,9 +21,9 @@ test = [
 ]
 dev = [
     "pre-commit",
-    "pyjwt>=2.12.1",
+    "pyjwt>=2.13.0",
     "pyyaml>=6.0.3",
-    "requests>=2.26"
+    "requests>=2.33.0"
 ]
 docs = [
     "sphinx",
@@ -34,6 +34,7 @@ ext = [
     "cramjam>=2.11.0",
     "penquins>=2.4.1",
     "pymongo>=4.7.2",
+    "htcondor>=24.0",
 ]
 
 [tool.ruff]

@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Paper from "@mui/material/Paper";
 import { makeStyles } from "tss-react/mui";
 import CircularProgress from "@mui/material/CircularProgress";
 
-import { useAppDispatch, useAppSelector } from "../../types/hooks";
-
-import * as filterActions from "../../ducks/filter";
+import { useGetFilterQuery } from "../../ducks/filter";
+import { useGetGroupsQuery } from "../../ducks/groups";
 
 import BoomFilterPlugins from "./boom/BoomFilterPlugins";
 import KowalskiFilterPlugins from "./kowalski/KowalskiFilterPlugins";
@@ -24,21 +23,15 @@ const useStyles = makeStyles()(() => ({
 
 const FilterPlugins = ({ group }: FilterPluginsProps) => {
   const { classes } = useStyles();
-  const dispatch = useAppDispatch();
 
   const { fid } = useParams();
 
-  const filter = useAppSelector((state) => (state as any).filter);
+  const { data: filter } = useGetFilterQuery(fid ?? "", {
+    skip: !fid,
+  }) as any;
   const [filterOrigin, setFilterOrigin] = useState<any>(null);
 
   useEffect(() => {
-    if (!fid || isNaN(fid as any)) {
-      return;
-    }
-    if (parseFloat(fid as any) !== filter?.id) {
-      dispatch(filterActions.fetchFilter(fid));
-    }
-
     if (filterOrigin || !filter) {
       return;
     }
@@ -74,7 +67,8 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
     }
   }, [fid, filter]);
 
-  const allGroups = useAppSelector((state) => (state as any).groups.all);
+  const { data: groupsData } = useGetGroupsQuery();
+  const allGroups = groupsData?.all;
 
   const groupLookUp: Record<string, any> = {};
 

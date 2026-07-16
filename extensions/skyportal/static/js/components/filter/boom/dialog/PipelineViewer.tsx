@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Box,
   Typography,
@@ -68,7 +67,7 @@ const PipelineViewer = ({
 }: PipelineViewerProps) => (
   <Box sx={{ mb: 3 }}>
     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-      <Typography variant="subtitle1" fontWeight="bold">
+      <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
         MongoDB Pipeline ({pipeline.length} stage
         {pipeline.length !== 1 ? "s" : ""})
       </Typography>
@@ -81,7 +80,7 @@ const PipelineViewer = ({
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs
           value={pipelineView}
-          onChange={(e: any, newValue: any) => setPipelineView(newValue)}
+          onChange={(_e: any, newValue: any) => setPipelineView(newValue)}
           aria-label="pipeline view tabs"
         >
           <Tab
@@ -123,7 +122,7 @@ const PipelineViewer = ({
                 mb: 2,
               }}
             >
-              <Typography variant="subtitle2" fontWeight="bold">
+              <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
                 Complete Pipeline JSON:
               </Typography>
               <Button
@@ -171,7 +170,7 @@ const PipelineViewer = ({
           >
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {pipeline.map((stage: any, index: number) => {
-                const stageName = Object.keys(stage)[0];
+                const stageName = Object.keys(stage)[0] ?? "";
                 const stageContent = stage[stageName];
                 const description =
                   STAGE_DESCRIPTIONS[stageName] || "MongoDB aggregation stage";

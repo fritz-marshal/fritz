@@ -23,9 +23,24 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Reclaim disk before the boom+fritz stacks fill the runner
+      # ("No space left on device").
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+
       - name: Checkout fritz
         uses: actions/checkout@v6
         with:
+          # skyportal-data (SFD dust maps + sncosmo models) is vendored as plain
+          # git blobs in the submodule, so a recursive checkout pulls it in.
           submodules: recursive
 
       - name: Checkout boom (sibling working dir)
@@ -54,17 +69,9 @@ jobs:
           uv sync --inexact
           ./fritz develop
 
-      # SkyPortal's conftest triggers a fresh ~128 MiB SFD dustmap download
-      # at pytest-collect time. Cache it on the runner; we'll inject the
-      # files into the container after fritz boots.
-      - name: Cache SFD dustmap
-        uses: actions/cache@v5
-        with:
-          path: persistentdata/dustmap/sfd
-          key: ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-dustmap-${{ hashFiles('**/skyportal/pyproject.toml') }}
-            ${{ runner.os }}-dustmap-
+      # The SFD dust maps are now vendored in the skyportal-data submodule and
+      # pulled via `lfs: true` above. `ADD . /skyportal` bakes them into the
+      # image, so no host-side download/cache/inject is needed.
 
       # ── Networks ───────────────────────────────────────────────────────
       # fritz_net is the network fritz creates for skyportal-web-1.
@@ -103,7 +110,7 @@ jobs:
                 # matching too many alerts in a small (~100-alert) seed.
                 BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT: "${BOOM_WORKERS__ZTF__FILTER__REFERENCE_NIGHT}"
                 BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "${BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE}"
-            consumer-ztf:
+            consumer-ztf-public:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
@@ -117,6 +124,16 @@ jobs:
                 - /app/kafka_consumer
                 - ztf
                 - "20240617"
+            consumer-ztf-partnership:
+               environment:
+                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                 BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
+            consumer-ztf-caltech:
+               environment:
+                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                 BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
             scheduler-ztf:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
@@ -127,7 +144,19 @@ jobs:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                BOOM_KAFKA__CONSUMER__LSST__SERVER: broker:29092
+                BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
+                BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
             scheduler-lsst:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+            consumer-winter:
+              environment:
+                BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
+                BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
+                BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
+            scheduler-winter:
               environment:
                 BOOM_API__AUTH__SECRET_KEY: ${BOOM_API__AUTH__SECRET_KEY}
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
@@ -152,9 +181,11 @@ jobs:
           KAFKA_ADMIN_PASSWORD: ci-kafka-admin
           KAFKA_READONLY_PASSWORD: ci-kafka-readonly
           BOOM_KAFKA__CONSUMER__ZTF__GROUP_ID: boom-ztf-consumer-group
+          BOOM_KAFKA__CONSUMER__ZTF__SERVER: broker:29092
           BOOM_KAFKA__CONSUMER__LSST__GROUP_ID: boom-lsst-consumer-group
           BOOM_KAFKA__CONSUMER__LSST__USERNAME: lsst_user
           BOOM_KAFKA__CONSUMER__LSST__PASSWORD: lsst_password
+          BOOM_KAFKA__CONSUMER__LSST__SERVER: broker:29092
           # Filter activation validation: boom's default reference_night is
           # 2026-03-16, but our seed dataset is 2024-06-17. Without this
           # override, POST /filters returns 400 because no alerts exist on
@@ -163,6 +194,8 @@ jobs:
           # Allow up to 100% match rate so the validation test passes even
           # if our filter matches every seeded alert.
           BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "100"
+          BOOM_KAFKA__CONSUMER__WINTER__GROUP_ID: boom-winter-consumer-group
+          BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
         run: |
           docker compose -p boom \
             -f docker-compose.yaml \
@@ -327,6 +360,18 @@ jobs:
           docker logs skyportal-web-1 --tail=200
           exit 1
 
+      # Connection pooling is enabled (database.pooler), so supervisord must be
+      # running the bundled pgbouncer in the web container. Assert it explicitly
+      # so a broken pooler (crash, auth, missing binary) fails loudly here
+      # rather than silently degrading behaviour downstream.
+      - name: Assert pgbouncer (connection pooler) is running
+        run: |
+          status=$(docker exec -i skyportal-web-1 /bin/bash -c \
+            "source .venv/bin/activate && python -m supervisor.supervisorctl \
+             -c baselayer/conf/supervisor/supervisor.conf status pgbouncer")
+          echo "$status"
+          echo "$status" | grep -q "RUNNING"
+
       # The skyportal-web-1 container starts the app via supervisor but
       # does NOT initialize the database schema or load seed data. Without
       # this step, the `users` table doesn't exist and skyportal's
@@ -389,21 +434,6 @@ jobs:
             <<< '${{ steps.boom_seed.outputs.seed_json }}'
           docker exec -i skyportal-web-1 cat /tmp/boom_seed.json
 
-      # Inject the cached SFD dustmap into the container so the dustmap
-      # auto-downloader at conftest-collect time finds it and skips the
-      # ~128 MiB fetch. Best-effort — if no cache hit, the in-container
-      # download still works, just slower.
-      - name: Seed dustmap inside container
-        run: |
-          if [ -d persistentdata/dustmap/sfd ] && [ -n "$(ls -A persistentdata/dustmap/sfd 2>/dev/null)" ]; then
-            docker exec -i skyportal-web-1 mkdir -p /skyportal/persistentdata/dustmap/sfd
-            docker cp persistentdata/dustmap/sfd/. skyportal-web-1:/skyportal/persistentdata/dustmap/sfd
-            echo "dustmap files copied into container:"
-            docker exec -i skyportal-web-1 ls -lh /skyportal/persistentdata/dustmap/sfd
-          else
-            echo "no cached dustmap on host; container will download fresh"
-          fi
-
       # ── Tests ──────────────────────────────────────────────────────────
       # Split mirrors skyportal's CI structure: one job, multiple pytest
       # invocations against slices of the test tree. Sharing the stack
@@ -428,19 +458,14 @@ jobs:
         if: always()
         run: ./fritz test frontend
 
-      # Pull the dustmap back out for the cache action on success.
-      - name: Persist dustmap from container
-        if: success() || failure()
-        run: |
-          docker exec -i skyportal-web-1 bash -c '[ -d /skyportal/persistentdata/dustmap/sfd ]' || exit 0
-          mkdir -p persistentdata/dustmap/sfd
-          docker cp skyportal-web-1:/skyportal/persistentdata/dustmap/sfd/. persistentdata/dustmap/sfd
-
       # ── Diagnostics on failure ─────────────────────────────────────────
       - name: Dump skyportal logs on failure
         if: failure()
         run: |
-          docker logs skyportal-web-1 --tail=500 || true
+          # Large tail: API-test tracebacks run early and scroll off a small window.
+          docker logs skyportal-web-1 --tail=8000 || true
+          echo "===== filtered: handler errors / tracebacks ====="
+          docker logs skyportal-web-1 2>&1 | grep -iE "Traceback|Error response returned|Unable to post|greenlet|MissingGreenlet" | tail -200 || true
 
       - name: Dump boom logs on failure
         if: failure()
