@@ -27,6 +27,7 @@ import traceback
 import requests
 import sqlalchemy as sa
 from sqlalchemy.orm import joinedload, load_only
+from tornado.ioloop import IOLoop
 
 from baselayer.app import models as baselayer_models
 from baselayer.app.access import auth_or_token
@@ -378,10 +379,12 @@ class BoomPhotometryHandler(BaseHandler):
                     await cache.set_json(key, broker_points)
                     # Fresh broker data in hand: refresh the object's PhotStat
                     # summary (from the full DB ∪ broker set) so listings/scanning
-                    # reflect it. Fire-and-forget — never blocks or fails the read.
+                    # reflect it. Fire-and-forget via spawn_callback — the IOLoop
+                    # keeps the task alive (a bare ensure_future can be GC'd before
+                    # it runs) and logs any exception.
                     if groups:
-                        asyncio.ensure_future(
-                            update_phot_stat_from_broker(object_id, groups)
+                        IOLoop.current().spawn_callback(
+                            update_phot_stat_from_broker, object_id, groups
                         )
                 except Exception:
                     log(
