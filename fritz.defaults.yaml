@@ -161,6 +161,12 @@ skyportal:
         component: alert/Alerts
       - path: "/alerts/:survey/:id"
         component: alert/Alert
+      - path: "/brokers"
+        component: broker/BrokerAlerts
+      - path: "/brokers/:brokerId/filter/:fid"
+        component: broker/BrokerFilterPage
+      - path: "/broker_admin"
+        component: broker/BrokerAdmin
       - path: "/archive"
         component: archive/Archive
       - path: "/upload_spectrum/:id"
@@ -379,6 +385,10 @@ skyportal:
             icon: Group
             permissions: ["Manage users", "System admin"]
             url: /user_management
+          - name: Brokers
+            icon: Hub
+            permissions: ["System admin"]
+            url: /broker_admin
 
     security:
       strict: true
