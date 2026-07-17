@@ -560,10 +560,10 @@ const Alert = ({ route }: AlertProps) => {
         id: objectId,
         params: { nameOnly: true },
       });
-      if (
-        result.data?.status === "success" &&
-        result.data?.data?.source_exists === true
-      ) {
+      // skyportalBaseQuery already unwraps the {status, data, version} envelope,
+      // so result.data is the payload itself (see ExecutedObservationsTable /
+      // NewSource, which use the same shape).
+      if (result.data?.source_exists === true) {
         setSavedSource(true);
         triggerGetSource(objectId);
       } else {

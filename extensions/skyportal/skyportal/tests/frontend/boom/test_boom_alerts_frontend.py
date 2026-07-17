@@ -155,15 +155,32 @@ def test_save_alert_as_source(page, boom_seed_oid, public_group, super_admin_tok
     # → Obj + Source created.
     deadline = time.time() + 30
     last_status = None
+    saved = False
     while time.time() < deadline:
         last_status, data = api(
             "GET", f"sources/{boom_seed_oid}", token=super_admin_token
         )
         if last_status == 200 and data.get("status") == "success":
             assert data["data"]["id"] == boom_seed_oid
-            return
+            saved = True
+            break
         time.sleep(1)
-    pytest.fail(
-        f"Source {boom_seed_oid} never appeared after submit "
-        f"(last GET /sources status={last_status})"
-    )
+    if not saved:
+        pytest.fail(
+            f"Source {boom_seed_oid} never appeared after submit "
+            f"(last GET /sources status={last_status})"
+        )
+
+    # Regression for the alert saved-state: re-open the detail page (as the same
+    # user who just saved it, so the Source is visible) and confirm it renders
+    # the saved branch ("Previously Saved") instead of "NOT SAVED". That branch
+    # is gated on the GET /api/source_exists check, whose {status, data, version}
+    # envelope skyportalBaseQuery strips — Alert.tsx must read
+    # result.data.source_exists directly; it previously read the pre-unwrap shape
+    # and always fell through to "NOT SAVED". Asserted on the branch's own chip
+    # rather than the per-group chips, which need the lazy getSource to have
+    # resolved with groups too.
+    page.goto(f"/alerts/ZTF/{boom_seed_oid}")
+    expect(
+        page.locator("//*[contains(text(),'Previously Saved')]").first
+    ).to_be_visible(timeout=30000)
