@@ -1,0 +1,1021 @@
+import arrow
+import sqlalchemy as sa
+from marshmallow.exceptions import ValidationError
+from sqlalchemy import func
+from sqlalchemy.orm import selectinload
+
+from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.env import load_env
+from baselayer.app.flow import Flow
+
+from ...models import (
+    Classification,
+    ClassificationVote,
+    Group,
+    Obj,
+    SourceLabel,
+    SuperObj,
+    Taxonomy,
+    User,
+)
+from ...utils.parse import str_to_bool
+from ..base import BaseHandler
+
+_, cfg = load_env()
+
+DEFAULT_CLASSIFICATIONS_PER_PAGE = 100
+MAX_CLASSIFICATIONS_PER_PAGE = 500
+
+
+async def post_classification(data, user_id, session):
+    """Post classification to database (async).
+
+    data : dict
+        Classification dictionary
+    user_id : int
+        SkyPortal ID of User posting the Classification
+    session : sqlalchemy.ext.asyncio.AsyncSession
+        Async database session for this transaction
+    """
+
+    user = await session.scalar(sa.select(User).where(User.id == user_id))
+    obj_id = data["obj_id"]
+
+    obj = await session.scalar(
+        Obj.select(session.user_or_token).where(Obj.id == obj_id)
+    )
+    if obj is None:
+        raise ValueError(f"Cannot find object with ID {obj_id}.")
+
+    group_ids = data.pop("group_ids", [])
+    if not isinstance(group_ids, list) or len(group_ids) == 0:
+        public_group = await session.scalar(
+            sa.select(Group.id).where(Group.name == cfg["misc.public_group_name"])
+        )
+        if public_group is None:
+            raise ValueError(
+                f'No group_ids were specified and the public group "{cfg["misc.public_group_name"]}" does not exist. Cannot post classification'
+            )
+        group_ids = [public_group]
+
+    origin = data.get("origin")
+
+    ml = data.get("ml", False)
+    if ml in [True, "True", "t", "true"]:
+        ml = True
+    elif ml in [False, "False", "f", "false"]:
+        ml = False
+    else:
+        raise ValueError(
+            f"If provided, ml must be one of True, False, 'True', 'False', 't', 'f', 'true', 'false' (got {ml})"
+        )
+
+    taxonomy_id = data["taxonomy_id"]
+    taxonomy = await session.scalar(
+        Taxonomy.select(session.user_or_token).where(Taxonomy.id == taxonomy_id)
+    )
+    if taxonomy is None:
+        raise ValueError(f"Cannot find a taxonomy with ID: {taxonomy_id}.")
+
+    def allowed_classes(hierarchy):
+        if "class" in hierarchy:
+            yield hierarchy["class"]
+        if "subclasses" in hierarchy:
+            for item in hierarchy.get("subclasses", []):
+                yield from allowed_classes(item)
+
+    if data["classification"] not in allowed_classes(taxonomy.hierarchy):
+        raise ValueError(
+            f"That classification ({data['classification']}) "
+            "is not in the allowed classes for the chosen "
+            f"taxonomy (id={taxonomy_id}"
+        )
+
+    probability = data.get("probability")
+    if probability is not None:
+        if probability < 0 or probability > 1:
+            raise ValueError(
+                f"That probability ({probability}) is outside "
+                "the allowable range (0-1)."
+            )
+
+    groups_result = await session.scalars(
+        Group.select(user).where(Group.id.in_(group_ids))
+    )
+    groups = list(groups_result.all())
+    if {g.id for g in groups} != set(group_ids):
+        raise ValueError(f"Cannot find one or more groups with IDs: {group_ids}.")
+
+    classification = Classification(
+        classification=data["classification"],
+        obj_id=obj_id,
+        origin=origin,
+        probability=probability,
+        ml=ml,
+        taxonomy_id=data["taxonomy_id"],
+        author_id=user.id,
+        author_name=user.username,
+        groups=groups,
+    )
+    session.add(classification)
+
+    add_vote = True
+    if "vote" in data and data["vote"] is False:
+        add_vote = False
+
+    if add_vote:
+        new_vote = ClassificationVote(
+            classification=classification, voter_id=user.id, vote=1
+        )
+        session.add(new_vote)
+
+    add_label = True
+    if "label" in data and data["label"] is False:
+        add_label = False
+
+    if add_label:
+        for group_id in group_ids:
+            source_label = await session.scalar(
+                SourceLabel.select(session.user_or_token)
+                .where(SourceLabel.obj_id == obj_id)
+                .where(SourceLabel.group_id == group_id)
+                .where(SourceLabel.labeller_id == user_id)
+            )
+            if source_label is None:
+                label = SourceLabel(
+                    obj_id=obj_id,
+                    labeller_id=user_id,
+                    group_id=group_id,
+                )
+                session.add(label)
+
+    await session.commit()
+
+    flow = Flow()
+    flow.push(
+        "*",
+        "skyportal/REFRESH_SOURCE",
+        payload={"obj_key": obj.internal_key},
+    )
+
+    return classification.id
+
+
+class ClassificationHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, classification_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Get a classification
+          description: Retrieve a classification
+          tags:
+            - classifications
+          parameters:
+            - in: path
+              name: classification_id
+              required: true
+              schema:
+                type: integer
+            - in: query
+              name: includeTaxonomy
+              nullable: true
+              schema:
+                type: boolean
+              description: |
+                Return associated taxonomy.
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: SingleClassification
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Get all classifications
+          description: Retrieve all classifications
+          tags:
+            - classifications
+          parameters:
+          - in: query
+            name: startDate
+            nullable: true
+            schema:
+              type: string
+            description: |
+              Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+              created_at >= startDate
+          - in: query
+            name: endDate
+            nullable: true
+            schema:
+              type: string
+            description: |
+              Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+              created_at <= endDate
+          - in: query
+            name: includeTaxonomy
+            nullable: true
+            schema:
+              type: boolean
+            description: |
+              Return associated taxonomy.
+          - in: query
+            name: numPerPage
+            nullable: true
+            schema:
+              type: integer
+            description: |
+              Number of sources to return per paginated request. Defaults to 100. Max 500.
+          - in: query
+            name: pageNumber
+            nullable: true
+            schema:
+              type: integer
+            description: Page number for paginated query results. Defaults to 1
+          responses:
+            200:
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: object
+                            properties:
+                              sources:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/Classification'
+                              totalMatches:
+                                type: integer
+            400:
+              content:
+                application/json:
+                  schema: Error
+
+        """
+
+        page_number = self.get_query_argument("pageNumber", 1, type=int)
+        n_per_page = self.get_query_argument(
+            "numPerPage", DEFAULT_CLASSIFICATIONS_PER_PAGE, type=int
+        )
+        if page_number is None or n_per_page is None:
+            return self.error(
+                "Cannot parse inputs pageNumber or numPerPage as integers."
+            )
+        n_per_page = min(n_per_page, MAX_CLASSIFICATIONS_PER_PAGE)
+
+        start_date = self.get_query_argument("startDate", None)
+        end_date = self.get_query_argument("endDate", None)
+        include_taxonomy = self.get_query_argument("includeTaxonomy", False)
+
+        async with self.AsyncSession() as session:
+            if classification_id is not None:
+                options = []
+                if include_taxonomy:
+                    options.append(selectinload(Classification.taxonomy))
+                classification = await session.scalar(
+                    Classification.select(session.user_or_token, options=options).where(
+                        Classification.id == classification_id
+                    )
+                )
+                if classification is None:
+                    return self.error(
+                        f"Cannot find classification with ID: {classification_id}."
+                    )
+                data_out = classification.to_dict()
+                if include_taxonomy:
+                    data_out["taxonomy"] = classification.taxonomy.to_dict()
+                return self.success(data=data_out)
+
+            classifications = Classification.select(session.user_or_token)
+            if include_taxonomy:
+                classifications = classifications.options(
+                    selectinload(Classification.taxonomy)
+                )
+
+            if start_date:
+                start_date = arrow.get(start_date.strip()).naive
+                classifications = classifications.where(
+                    Classification.created_at >= start_date
+                )
+            if end_date:
+                end_date = arrow.get(end_date.strip()).naive
+                classifications = classifications.where(
+                    Classification.created_at <= end_date
+                )
+
+            count_stmt = sa.select(func.count()).select_from(classifications.subquery())
+            total_matches = await session.scalar(count_stmt)
+            classifications = classifications.limit(n_per_page).offset(
+                (page_number - 1) * n_per_page
+            )
+            result = await session.scalars(classifications)
+            classifications_list = result.unique().all()
+
+            data_out = []
+            for classification in classifications_list:
+                req = classification.to_dict()
+                if include_taxonomy:
+                    req["taxonomy"] = classification.taxonomy.to_dict()
+                data_out.append(req)
+
+            info = {}
+            info["classifications"] = data_out
+            info["totalMatches"] = int(total_matches)
+            return self.success(data=info)
+
+    @permissions(["Classify"])
+    async def post(self):
+        """
+        ---
+        summary: Post a classification
+        description: Post a classification
+        tags:
+          - classifications
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  obj_id:
+                    type: string
+                  classification:
+                    type: string
+                  origin:
+                    type: string
+                    description: |
+                      String describing the source of this classification.
+                  taxonomy_id:
+                    type: integer
+                  probability:
+                    type: number
+                    nullable: true
+                    minimum: 0.0
+                    maximum: 1.0
+                    description: |
+                      User-assigned probability of this classification on this
+                      taxonomy. If multiple classifications are given for the
+                      same source by the same user, the sum of the
+                      classifications ought to equal unity. Only individual
+                      probabilities are checked.
+                  group_ids:
+                    type: array
+                    items:
+                      type: integer
+                    description: |
+                      List of group IDs corresponding to which groups should be
+                      able to view classification. Defaults to the public group.
+                  vote:
+                    type: boolean
+                    nullable: true
+                    description: |
+                      Add vote associated with classification.
+                  label:
+                    type: boolean
+                    nullable: true
+                    description: |
+                      Add label associated with classification.
+                required:
+                  - obj_id
+                  - classification
+                  - taxonomy_id
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            classification_id:
+                              type: integer
+                              description: New classification ID
+        """
+        data = self.get_json()
+
+        async with self.AsyncSession() as session:
+            if "classifications" in data:
+                classification_ids = []
+                for classification in data["classifications"]:
+                    try:
+                        classification_id = await post_classification(
+                            classification, self.associated_user_object.id, session
+                        )
+                    except Exception as e:
+                        return self.error(f"Error posting classification: {str(e)}")
+                    classification_ids.append(classification_id)
+                return self.success(data={"classification_ids": classification_ids})
+            else:
+                try:
+                    classification_id = await post_classification(
+                        data, self.associated_user_object.id, session
+                    )
+                except Exception as e:
+                    return self.error(f"Error posting classification: {str(e)}")
+                return self.success(data={"classification_id": classification_id})
+
+    @permissions(["Classify"])
+    async def put(self, classification_id: int):
+        """
+        ---
+        summary: Update a classification
+        description: Update a classification
+        tags:
+          - classifications
+        parameters:
+          - in: path
+            name: classification
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ClassificationNoID'
+                  - type: object
+                    properties:
+                      group_ids:
+                        type: array
+                        items:
+                          type: integer
+                        description: |
+                          List of group IDs corresponding to which groups should be
+                          able to view classification.
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        async with self.AsyncSession() as session:
+            c = await session.scalar(
+                Classification.select(session.user_or_token, mode="update")
+                .options(
+                    selectinload(Classification.obj),
+                    selectinload(Classification.groups),
+                )
+                .where(Classification.id == classification_id)
+            )
+            if c is None:
+                return self.error(
+                    f"Cannot find a classification with ID: {classification_id}."
+                )
+
+            data = self.get_json()
+            group_ids = data.pop("group_ids", None)
+            data["id"] = classification_id
+
+            ml = data.get("ml", False)
+            if ml in [True, "True", "t", "true"]:
+                ml = True
+            elif ml in [False, "False", "f", "false"]:
+                ml = False
+            else:
+                return self.error(
+                    f"If provided, ml must be one of True, False, 'True', 'False', 't', 'f', 'true', 'false' (got {ml})"
+                )
+            data["ml"] = ml
+
+            schema = Classification.__schema__()
+            try:
+                schema.load(data, partial=True)
+            except ValidationError as e:
+                return self.error(
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
+                )
+
+            for k in data:
+                setattr(c, k, data[k])
+
+            if group_ids is not None:
+                groups_result = await session.scalars(
+                    Group.select(self.current_user).where(Group.id.in_(group_ids))
+                )
+                groups = list(groups_result.all())
+                if {g.id for g in groups} != set(group_ids):
+                    return self.error(
+                        f"Cannot find one or more groups with IDs: {group_ids}."
+                    )
+
+                c.groups = groups
+
+            await session.commit()
+            self.push_all(
+                action="skyportal/REFRESH_SOURCE",
+                payload={"obj_key": c.obj.internal_key},
+            )
+            self.push_all(
+                action="skyportal/REFRESH_CANDIDATE",
+                payload={"id": c.obj.internal_key},
+            )
+            return self.success()
+
+    @permissions(["Classify"])
+    async def delete(self, classification_id: int):
+        """
+        ---
+        summary: Delete a classification
+        description: Delete a classification
+        tags:
+          - classifications
+        parameters:
+          - in: path
+            name: classification_id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label:
+                    type: boolean
+                    nullable: true
+                    description: |
+                      Add label associated with classification.
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+        try:
+            classification_id = int(classification_id)
+        except (ValueError, TypeError):
+            return self.error(f"Invalid classification ID: {classification_id}")
+
+        async with self.AsyncSession() as session:
+            c = await session.scalar(
+                Classification.select(session.user_or_token, mode="delete")
+                .options(
+                    selectinload(Classification.obj),
+                    selectinload(Classification.groups),
+                )
+                .where(Classification.id == classification_id)
+            )
+            if c is None:
+                return self.error(
+                    f"Cannot find a classification with ID: {classification_id}."
+                )
+
+            data = self.get_json()
+            add_label = data.get("label", True)
+
+            obj_key = c.obj.internal_key
+            obj_id = c.obj.id
+            group_ids = [group.id for group in c.groups]
+            await session.delete(c)
+
+            if add_label:
+                for group_id in group_ids:
+                    source_label = await session.scalar(
+                        SourceLabel.select(session.user_or_token)
+                        .where(SourceLabel.obj_id == obj_id)
+                        .where(SourceLabel.group_id == group_id)
+                        .where(
+                            SourceLabel.labeller_id == self.associated_user_object.id
+                        )
+                    )
+                    if source_label is None:
+                        label = SourceLabel(
+                            obj_id=obj_id,
+                            labeller_id=self.associated_user_object.id,
+                            group_id=group_id,
+                        )
+                        session.add(label)
+
+            self.push_all(
+                action="skyportal/REFRESH_SOURCE",
+                payload={"obj_key": obj_key},
+            )
+            self.push_all(
+                action="skyportal/REFRESH_CANDIDATE",
+                payload={"id": obj_key},
+            )
+
+            await session.commit()
+
+            return self.success()
+
+
+class ObjClassificationHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, obj_id: str):
+        """
+        ---
+        summary: Get an object's classifications
+        description: Retrieve an object's classifications
+        tags:
+          - classifications
+          - sources
+        parameters:
+          - in: path
+            name: obj_id
+            required: true
+            schema:
+              type: string
+          - in: query
+            name: includeSuperObjs
+            required: false
+            schema:
+              type: boolean
+            description: |
+              If true and the obj is linked to other objs via a SuperObj
+              (meta-object), return the union of classifications across all
+              linked objs. Each entry carries its obj_id for provenance.
+        responses:
+          200:
+            content:
+              application/json:
+                schema: ArrayOfClassifications
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        include_super_objs = str_to_bool(
+            self.get_query_argument("includeSuperObjs", "false"), default=False
+        )
+
+        async with self.AsyncSession() as session:
+            # Meta-object aggregation: expand to every obj linked through a
+            # SuperObj. RLS still applies via Classification.select(user).
+            obj_ids = {obj_id}
+            if include_super_objs:
+                super_objs_result = await session.scalars(
+                    sa.select(SuperObj)
+                    .options(selectinload(SuperObj.objs))
+                    .where(SuperObj.objs.any(Obj.id == obj_id))
+                )
+                for super_obj in super_objs_result.unique().all():
+                    obj_ids.update({linked_obj.id for linked_obj in super_obj.objs})
+
+            result = await session.scalars(
+                Classification.select(session.user_or_token)
+                .options(selectinload(Classification.votes))
+                .where(Classification.obj_id.in_(obj_ids))
+            )
+            classifications = result.unique().all()
+            if include_super_objs:
+                # Most-recent-first across the union; obj_id preserves provenance.
+                classifications = sorted(
+                    classifications, key=lambda c: c.created_at, reverse=True
+                )
+
+            classifications_json = []
+            for classification in classifications:
+                classification_dict = classification.to_dict()
+                classification_dict["votes"] = [
+                    v.to_dict() for v in classification.votes
+                ]
+                classifications_json.append(classification_dict)
+
+            return self.success(data=classifications_json)
+
+    @auth_or_token
+    async def delete(self, obj_id: str):
+        """
+        ---
+        summary: Delete all classifications for an object
+        description: Delete all of an object's classifications
+        tags:
+          - classifications
+          - sources
+        parameters:
+          - in: path
+            name: classification_id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label:
+                    type: boolean
+                    nullable: true
+                    description: |
+                      Add label associated with classification.
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        async with self.AsyncSession() as session:
+            result = await session.scalars(
+                Classification.select(session.user_or_token, mode="delete")
+                .options(
+                    selectinload(Classification.obj),
+                    selectinload(Classification.groups),
+                )
+                .where(Classification.obj_id == obj_id)
+            )
+            classifications = result.unique().all()
+
+            data = self.get_json()
+            add_label = data.get("label", True)
+
+            obj_key = None
+            for c in classifications:
+                obj_key = c.obj.internal_key
+                obj_id_local = c.obj.id
+                group_ids = [group.id for group in c.groups]
+                await session.delete(c)
+
+                if add_label:
+                    for group_id in group_ids:
+                        source_label = await session.scalar(
+                            SourceLabel.select(session.user_or_token)
+                            .where(SourceLabel.obj_id == obj_id_local)
+                            .where(SourceLabel.group_id == group_id)
+                            .where(
+                                SourceLabel.labeller_id
+                                == self.associated_user_object.id
+                            )
+                        )
+                        if source_label is None:
+                            label = SourceLabel(
+                                obj_id=obj_id_local,
+                                labeller_id=self.associated_user_object.id,
+                                group_id=group_id,
+                            )
+                            session.add(label)
+
+            await session.commit()
+
+            if obj_key is not None:
+                self.push_all(
+                    action="skyportal/REFRESH_SOURCE",
+                    payload={"obj_key": obj_key},
+                )
+                self.push_all(
+                    action="skyportal/REFRESH_CANDIDATE",
+                    payload={"id": obj_key},
+                )
+
+            return self.success()
+
+
+class ObjClassificationQueryHandler(BaseHandler):
+    @auth_or_token
+    async def get(self):
+        """
+        ---
+        summary: Find sources with classifications
+        description: find the sources with classifications
+        tags:
+          - sources
+        parameters:
+        - in: query
+          name: startDate
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Arrow-parseable date string (e.g. 2020-01-01) for when the classification was made. If provided, filter by
+            created_at >= startDate
+        - in: query
+          name: endDate
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Arrow-parseable date string (e.g. 2020-01-01) for when the classification was made. If provided, filter by
+            created_at <= endDate
+        responses:
+            200:
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: integer
+                            description: |
+                              List of obj IDs with classifications
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        start_date = self.get_query_argument("startDate", None)
+        end_date = self.get_query_argument("endDate", None)
+
+        async with self.AsyncSession() as session:
+            classifications = Classification.select(session.user_or_token)
+
+            if start_date:
+                start_date = arrow.get(start_date.strip()).naive
+                classifications = classifications.where(
+                    Classification.created_at >= start_date
+                )
+            if end_date:
+                end_date = arrow.get(end_date.strip()).naive
+                classifications = classifications.where(
+                    Classification.created_at <= end_date
+                )
+
+            classifications_subquery = classifications.subquery()
+
+            stmt = sa.select(Obj.id).join(
+                classifications_subquery, classifications_subquery.c.obj_id == Obj.id
+            )
+            result = await session.scalars(stmt.distinct())
+            obj_ids = result.all()
+
+            return self.success(data=obj_ids)
+
+
+class ClassificationVotesHandler(BaseHandler):
+    @auth_or_token
+    async def post(self, classification_id: int):
+        """
+        ---
+        summary: Vote for a classification
+        description: Vote for a classification.
+        tags:
+          - classifications
+        parameters:
+          - in: path
+            name: classification_id
+            required: true
+            schema:
+              type: string
+            description: |
+              ID of classification to indicate the vote for
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vote:
+                    type: integer
+                    description: |
+                      Upvote or downvote a classification
+                required:
+                  - vote
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+        data = self.get_json()
+        vote = data.get("vote")
+        if vote is None:
+            return self.error("Missing required parameter: `vote`")
+
+        async with self.AsyncSession() as session:
+            classification = await session.scalar(
+                Classification.select(session.user_or_token)
+                .options(
+                    selectinload(Classification.obj),
+                    selectinload(Classification.groups),
+                )
+                .where(Classification.id == classification_id)
+            )
+            if classification is None:
+                return self.error(
+                    f"Cannot find classification with ID {classification_id}"
+                )
+
+            classification_vote = await session.scalar(
+                ClassificationVote.select(session.user_or_token).where(
+                    ClassificationVote.classification_id == classification_id,
+                    ClassificationVote.voter_id == self.associated_user_object.id,
+                )
+            )
+            if classification_vote is None:
+                new_vote = ClassificationVote(
+                    classification_id=classification_id,
+                    voter_id=self.associated_user_object.id,
+                    vote=vote,
+                )
+                session.add(new_vote)
+            else:
+                classification_vote.vote = vote
+
+            obj_id = classification.obj.id
+            group_ids = [group.id for group in classification.groups]
+            source_label = None
+            for group_id in group_ids:
+                source_label = await session.scalar(
+                    SourceLabel.select(session.user_or_token)
+                    .where(SourceLabel.obj_id == obj_id)
+                    .where(SourceLabel.group_id == group_id)
+                    .where(SourceLabel.labeller_id == self.associated_user_object.id)
+                )
+            if source_label is None and group_ids:
+                label = SourceLabel(
+                    obj_id=obj_id,
+                    labeller_id=self.associated_user_object.id,
+                    group_id=group_ids[-1],
+                )
+                session.add(label)
+
+            await session.commit()
+
+            self.push_all(
+                action="skyportal/REFRESH_SOURCE",
+                payload={"obj_key": classification.obj.internal_key},
+            )
+            return self.success()
+
+    @auth_or_token
+    async def delete(self, classification_id: int):
+        """
+        ---
+        summary: Delete a classification vote
+        description: Delete classification vote.
+        tags:
+          - classifications
+        parameters:
+          - in: path
+            name: classification_id
+            required: true
+            schema:
+              type: string
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+        async with self.AsyncSession() as session:
+            classification = await session.scalar(
+                Classification.select(session.user_or_token)
+                .options(
+                    selectinload(Classification.obj),
+                    selectinload(Classification.groups),
+                )
+                .where(Classification.id == classification_id)
+            )
+            if classification is None:
+                return self.error(
+                    f"Cannot find classification with ID {classification_id}"
+                )
+
+            classification_vote = await session.scalar(
+                ClassificationVote.select(session.user_or_token, mode="delete").where(
+                    ClassificationVote.classification_id == classification_id,
+                    ClassificationVote.voter_id == self.associated_user_object.id,
+                )
+            )
+            if classification_vote is not None:
+                await session.delete(classification_vote)
+
+            obj_id = classification.obj.id
+            group_ids = [group.id for group in classification.groups]
+            source_label = None
+            for group_id in group_ids:
+                source_label = await session.scalar(
+                    SourceLabel.select(session.user_or_token)
+                    .where(SourceLabel.obj_id == obj_id)
+                    .where(SourceLabel.group_id == group_id)
+                    .where(SourceLabel.labeller_id == self.associated_user_object.id)
+                )
+            if source_label is None and group_ids:
+                label = SourceLabel(
+                    obj_id=obj_id,
+                    labeller_id=self.associated_user_object.id,
+                    group_id=group_ids[-1],
+                )
+                session.add(label)
+
+            await session.commit()
+
+            self.push_all(
+                action="skyportal/REFRESH_SOURCE",
+                payload={"obj_key": classification.obj.internal_key},
+            )
+
+            return self.success()

@@ -1,0 +1,171 @@
+from collections import defaultdict
+
+import sqlalchemy as sa
+from sqlalchemy import desc
+from sqlalchemy.orm import selectinload
+
+from baselayer.app.access import auth_or_token
+from baselayer.app.env import load_env
+from baselayer.log import make_log
+from skyportal.models.group import Group
+
+from ....models import Obj, ObjTag, Source, serialize_obj_tag
+from ....utils.data_access import (
+    accessible_group_ids_async,
+    team_scoped_group_ids,
+)
+from ....utils.parse import get_list_typed
+from ...base import BaseHandler
+from .source_views import t_index
+
+# maxNumSources is the maximum number of sources to return
+# includeSitewide is a boolean that determines whether to include
+# sources that are only in the sitewide group
+default_prefs = {
+    "maxNumSources": 25,
+    "includeSitewideSources": False,
+    "groupIds": [],
+}
+
+env, cfg = load_env()
+log = make_log("api/recent_sources")
+
+
+class RecentSourcesHandler(BaseHandler):
+    @classmethod
+    async def get_recent_source_ids(cls, current_user, session, team_group_ids=None):
+        user_prefs = getattr(current_user, "preferences", None) or {}
+        recent_sources_prefs = user_prefs.get("recentSources", {})
+        recent_sources_prefs = {**default_prefs, **recent_sources_prefs}
+
+        max_num_sources = int(recent_sources_prefs["maxNumSources"])
+        include_sitewide = recent_sources_prefs.get("includeSitewideSources", False)
+        group_ids = get_list_typed(
+            recent_sources_prefs.get("groupIds", []),
+            int,
+            error_msg="Invalid group_ids, must be a list of integers.",
+        )
+
+        stmt = Source.select(session.user_or_token).where(Source.active.is_(True))
+
+        if team_group_ids is not None:
+            # Team view: restrict to the team's (accessible) groups.
+            stmt = stmt.where(Source.group_id.in_(team_group_ids))
+        elif len(group_ids) > 0:
+            stmt = stmt.where(Source.group_id.in_(group_ids))
+        elif not include_sitewide:
+            public_group_id = await session.scalar(
+                sa.select(Group.id).where(Group.name == cfg["misc.public_group_name"])
+            )
+            if public_group_id is None:
+                raise ValueError(
+                    f"Could not find public group with name {cfg['misc.public_group_name']}"
+                )
+            stmt = stmt.where(Source.group_id != public_group_id)
+
+        stmt = stmt.order_by(desc(Source.created_at)).distinct(
+            Source.obj_id, Source.created_at
+        )
+        result = await session.scalars(stmt.limit(max_num_sources))
+        return [src.obj_id for src in result.all()]
+
+    @auth_or_token
+    async def get(self):
+        async with self.AsyncSession() as session:
+            user_group_ids = set(
+                await accessible_group_ids_async(session.user_or_token, session)
+            )
+            try:
+                team_group_ids = await team_scoped_group_ids(
+                    session,
+                    self.current_user,
+                    self.get_query_argument("teamID", None),
+                    user_group_ids,
+                )
+            except ValueError as e:
+                return self.error(str(e))
+            query_results = await RecentSourcesHandler.get_recent_source_ids(
+                self.current_user, session, team_group_ids=team_group_ids
+            )
+            tags_result = await session.scalars(
+                ObjTag.select(session.user_or_token)
+                .options(
+                    selectinload(ObjTag.objtagoption),
+                    selectinload(ObjTag.groups),
+                )
+                .where(ObjTag.obj_id.in_(list(set(query_results))))
+            )
+            tags = tags_result.all()
+            tags = [serialize_obj_tag(tag, user_group_ids) for tag in tags]
+            # make it a hashmap of obj_id to tags
+            tags_dict = defaultdict(list)
+            for tag in tags:
+                tags_dict[tag["obj_id"]].append(tag)
+
+            sources = []
+            sources_seen = defaultdict(lambda: 1)
+            for obj_id in query_results:
+                # The recency_index is how current a source row was saved for a given
+                # object. If recency_index = 0, this is the most recent time a source
+                # was saved; recency_index = 1 is the second-latest time the source
+                # was saved, etc.
+                recency_index = 0
+                if obj_id in sources_seen:
+                    recency_index = sources_seen[obj_id]
+                    sources_seen[obj_id] += 1
+
+                s = await session.scalar(
+                    Obj.select(
+                        session.user_or_token,
+                        options=[
+                            selectinload(Obj.thumbnails),
+                            selectinload(Obj.classifications),
+                        ],
+                    ).where(Obj.id == obj_id)
+                )
+
+                # Get the entry in the Source table to get the accurate saved_at time
+                source_entry = await session.scalar(
+                    Source.select(session.user_or_token)
+                    .where(Source.obj_id == obj_id)
+                    .order_by(desc(Source.created_at))
+                    .offset(recency_index)
+                )
+
+                if s is None or source_entry is None:
+                    log(f"Source with obj_id {obj_id} not found.")
+                    continue
+
+                sources.append(
+                    {
+                        "obj_id": s.id,
+                        "ra": s.ra,
+                        "dec": s.dec,
+                        "created_at": source_entry.created_at,
+                        "thumbnails": [
+                            {
+                                "type": t.type,
+                                "is_grayscale": t.is_grayscale,
+                                "public_url": t.public_url,
+                            }
+                            for t in sorted(s.thumbnails, key=lambda t: t_index(t.type))
+                        ],
+                        "classifications": s.classifications,
+                        "recency_index": recency_index,
+                        "tns_name": s.tns_name,
+                        "tags": tags_dict.get(s.id, []),
+                    }
+                )
+
+            for source in sources:
+                num_times_seen = sources_seen[source["obj_id"]]
+                # If this source was saved multiple times recently, and this is not
+                # the oldest instance of an object being saved (highest recency_index)
+                if num_times_seen > 1 and source["recency_index"] != num_times_seen - 1:
+                    source["resaved"] = True
+                else:
+                    source["resaved"] = False
+                # Delete bookkeeping recency_index key
+                del source["recency_index"]
+
+            return self.success(data=sources)

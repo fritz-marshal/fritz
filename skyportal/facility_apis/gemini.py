@@ -1,0 +1,512 @@
+import asyncio
+import functools
+import traceback
+from datetime import timedelta
+from json import JSONDecodeError
+
+import aiohttp
+import arrow
+import sqlalchemy as sa
+from sqlalchemy.orm import selectinload
+
+from baselayer.app.env import load_env
+from baselayer.app.flow import Flow
+from baselayer.log import make_log
+
+from ..utils import http
+from ..utils.calculations import deg2dms, deg2hms
+from ..utils.naive_datetime import utcnow_naive
+from ..utils.offset import _calculate_best_position_for_offset_stars, get_finding_chart
+from ..utils.parse import get_list_typed
+from . import FollowUpAPI
+
+env, cfg = load_env()
+log = make_log("facility_apis/gemini")
+
+
+def get_api_url(program_id):
+    if not any(program_id.startswith(x) for x in ["GN", "GS"]):
+        raise ValueError("Invalid program ID, must start with GN or GS")
+    prefix = (
+        cfg["app.gemini.south_prefix"]
+        if program_id.startswith("GS")
+        else cfg["app.gemini.north_prefix"]
+    )
+    return f"{cfg['app.gemini.protocol']}://{prefix}.{cfg['app.gemini.domain']}:{cfg['app.gemini.port']}/too"
+
+
+class GeminiRequest:
+    def __init__(self, payload):
+        self.payload = payload
+
+    @classmethod
+    async def create(cls, request, session):
+        """Async factory: build the payload, then construct the request."""
+        self = cls.__new__(cls)
+        self.payload = await self._build_payload(request, session)
+        return self
+
+    async def _get_guide_star(self, request, session):
+        from ..models import Photometry
+
+        # Test hook: skip the external finder-chart / guide-star lookup (Gaia +
+        # image services) when a canned guide star is configured. Mirrors SEDM's
+        # config short-circuit; never set in production.
+        mock_gs = cfg.get("app.gemini.mock_guide_star")
+        if mock_gs:
+            return (
+                mock_gs["name"],
+                mock_gs["ra"],
+                mock_gs["dec"],
+                mock_gs["mag"],
+                mock_gs["pa"],
+                mock_gs.get("finding_chart_public_url"),
+            )
+
+        best_ra, best_dec = request.obj.ra, request.obj.dec
+
+        photometry = (
+            await session.scalars(
+                Photometry.select(session.user_or_token).where(
+                    Photometry.obj_id == request.obj.id,
+                    Photometry.origin.not_in(["alert_fp", "fp"]),
+                    Photometry.flux.is_not(None),
+                    Photometry.fluxerr.is_not(None),
+                    Photometry.ra.is_not(None),
+                    Photometry.dec.is_not(None),
+                )
+            )
+        ).all()
+
+        if len(photometry) == 0:
+            log(
+                f"No photometry found for {request.obj.id}, defaulting to object position"
+            )
+        else:
+            try:
+                best_ra, best_dec = _calculate_best_position_for_offset_stars(
+                    photometry,
+                    fallback=(best_ra, best_dec),
+                    how="snr2",
+                )
+            except JSONDecodeError:
+                log(
+                    f"Error calculating best position for {request.obj.id}, defaulting to object position"
+                )
+                best_ra, best_dec = request.obj.ra, request.obj.dec
+
+        start_date = request.payload.get("start_date")
+        end_date = request.payload.get("end_date")
+
+        try:
+            start_date = arrow.get(start_date)
+            end_date = arrow.get(end_date)
+        except Exception:
+            raise ValueError("Invalid start_date or end_date")
+
+        duration = (end_date - start_date).total_seconds()
+
+        obstime = start_date + timedelta(
+            seconds=duration / 2
+        )  # middle of the observation window
+        obstime = obstime.strftime("%Y-%m-%d %H:%M:%S")
+
+        # get_finding_chart is a sync helper doing blocking IO (requests);
+        # run it off the event loop.
+        finder = await asyncio.to_thread(
+            functools.partial(
+                get_finding_chart,
+                source_ra=best_ra,
+                source_dec=best_dec,
+                source_name=request.obj.id,
+                use_cache=True,
+                how_many=3,
+                radius_degrees=2 / 60,
+                mag_limit=18,
+                mag_min=10,
+                min_sep_arcsec=2,
+                obstime=obstime,
+                use_source_pos_in_starlist=False,
+            )
+        )
+
+        offset_stars = finder.get("starlist", [])
+        finding_chart_public_url = finder.get("public_url", None)
+
+        if len(offset_stars) == 0:
+            return None, None, None, None, None, None
+
+        name = offset_stars[0]["name"]
+        ra = offset_stars[0]["ra"]
+        dec = offset_stars[0]["dec"]
+        mag = round(offset_stars[0]["mag"], 1)
+        pa = offset_stars[0]["pa"]
+
+        return name, ra, dec, f"{mag:.1f}/UC/Vega", pa, finding_chart_public_url
+
+    async def _build_payload(self, request, session):
+        altdata = request.allocation.altdata
+        if not altdata:
+            raise ValueError("Missing allocation information.")
+
+        user_email = altdata.get("user_email")
+        programid = altdata.get("programid")
+        user_key = altdata.get("user_key", altdata.get("user_password"))
+
+        if user_email is None or programid is None or user_key is None:
+            raise ValueError("user_email, user_key, and programid are required")
+
+        target = request.obj.id
+        ra, dec = request.obj.ra, request.obj.dec
+        # the ra dec are in deg, we need them in hms dms
+        ra, dec = deg2hms(ra), deg2dms(dec)
+
+        ready = True  # default to ready
+        try:
+            ready = bool(request.payload.get("ready", True))
+        except Exception:
+            pass
+
+        # target brightness
+        # TODO: query the photometry of the object, get the latest detection
+        # and build a string like: mag/filter/magsys
+        # smags = "20.0/r/AB"
+        # (it's optional, so let's ignore it for now, for simplicity sake)
+
+        l_exptime = request.payload.get(
+            "l_exptime", 0
+        )  # exposure time [seconds], if 0 then use the value in the template. Integer
+        if l_exptime < 0 or l_exptime > 1200:
+            raise ValueError("Exposure time must be between 0 and 1200 seconds")
+
+        start_date = request.payload.get("start_date", "")
+        end_date = request.payload.get("end_date", "")
+        # make sure it's a valid readable datetime
+        try:
+            start_date = arrow.get(start_date)
+            end_date = arrow.get(end_date)
+        except Exception:
+            raise ValueError("Invalid start_date or end_date")
+
+        l_wDate = start_date.format(
+            "YYYY-MM-DD"
+        )  # UTC date YYYY-MM-DD for timing window
+        l_wTime = start_date.format("HH:mm")  # UTC time HH:MM for timing window
+        l_wDur = str(
+            int((end_date - start_date).total_seconds() // 3600)
+        )  # Timing window duration, integer hours
+
+        l_elmin = str(
+            request.payload.get("l_elmin", 1.0)
+        ).strip()  # minimum airmass value
+        l_elmax = str(
+            request.payload.get("l_elmax", 1.6)
+        ).strip()  # maximum airmass value
+
+        # Guide star selection
+        (
+            gstarg,
+            gsra,
+            gsdec,
+            gsmag,
+            gspa,
+            finding_chart_public_url,
+        ) = await self._get_guide_star(request, session)
+        if gstarg is None:
+            raise ValueError("No guide star found")
+
+        # optional
+        group_name = (
+            str(request.payload.get("group_name", "")).strip() or request.obj.id
+        )
+        note_title = str(request.payload.get("note_title", "")).strip() or None
+        note = request.payload.get("note", "")
+        note = f"{str(note).strip()}\n(finder chart: {finding_chart_public_url})"
+
+        # templates available for the allocation
+        template_ids = get_list_typed(
+            altdata.get("template_ids"),
+            int,
+            "Invalid template IDs specified in altdata",
+        )
+
+        # template specified by the requester
+        obsids = get_list_typed(
+            request.payload.get("template_ids"),
+            int,
+            "Invalid template IDs specified in request",
+        )
+
+        payloads = []
+        for obsid in obsids:
+            # check that the requested template ID is in the allocation's allowed ones
+            if len(template_ids) > 0 and obsid not in template_ids:
+                raise ValueError(
+                    f"Invalid template ID, must be one of: {str(template_ids)}"
+                )
+
+            obsnum = str(obsid)
+
+            payload = {
+                "prog": programid,
+                "email": user_email,
+                "password": user_key,
+                "obsnum": obsnum,
+                "target": target,
+                "ra": ra,
+                "dec": dec,
+                "posangle": gspa,
+                "noteTitle": note_title,
+                "note": note,
+                "ready": ready,
+                "windowDate": l_wDate,
+                "windowTime": l_wTime,
+                "windowDuration": l_wDur,
+                "elevationType": "airmass",
+                "elevationMin": str(l_elmin).strip(),
+                "elevationMax": str(l_elmax).strip(),
+                "gstarg": gstarg,
+                "gsra": gsra,
+                "gsdec": gsdec,
+                "gsmag": gsmag,
+                "gsprobe": "OIWFS",
+                "group": group_name,
+            }
+
+            if round(l_exptime) != 0:
+                payload.update({"exptime": round(l_exptime)})
+
+            # yarl (aiohttp params=) rejects None and, on newer versions, bool:
+            # omit unset optional fields and stringify bools (same wire value).
+            payload = {
+                k: (str(v) if isinstance(v, bool) else v)
+                for k, v in payload.items()
+                if v is not None
+            }
+
+            payloads.append(payload)
+
+        return payloads
+
+
+class GEMINIAPI(FollowUpAPI):
+    @staticmethod
+    def validate_altdata(altdata, **kwargs):
+        if not altdata:
+            raise ValueError("Missing allocation information.")
+
+        if not isinstance(altdata, dict):
+            raise ValueError("Invalid altdata format")
+
+        user_email = str(altdata.get("user_email") or "").strip()
+        user_key = str(
+            altdata.get("user_key", altdata.get("user_password")) or ""
+        ).strip()
+        programid = str(altdata.get("programid") or "").strip()
+        if not any(programid.startswith(x) for x in ["GN", "GS"]):
+            raise ValueError("Invalid program ID, must start with GN or GS")
+
+        instrument = kwargs.get("instrument")
+        if instrument is None:
+            raise ValueError("Instrument not provided, required for validation")
+
+        instrument_name = str(instrument["name"]).lower().strip()
+        if any(
+            x in instrument_name for x in ["south", "gs"]
+        ) and not programid.startswith("GS"):
+            raise ValueError("Invalid program ID for Gemini South, must start with GS")
+        elif any(
+            x in instrument_name for x in ["north", "gn"]
+        ) and not programid.startswith("GN"):
+            raise ValueError("Invalid program ID for Gemini North, must start with GN")
+        elif not any(x in instrument_name for x in ["north", "south", "gn", "gs"]):
+            raise ValueError("Invalid instrument, must be Gemini North or South")
+
+        if not user_email or not user_key or not programid:
+            raise ValueError("user_email, user_key, and programid are required")
+
+        template_ids = altdata.get("template_ids")
+        if template_ids:
+            template_ids = get_list_typed(
+                template_ids, int, "Invalid template IDs format"
+            )
+            if len(template_ids) > 0:
+                altdata["template_ids"] = template_ids
+
+        return altdata
+
+    @staticmethod
+    async def submit(request, session, **kwargs):
+        """
+        Submit a request to the Gemini Observatory
+        """
+
+        from ..models import Allocation, FacilityTransaction, FollowupRequest
+
+        # Reload with the lazy chains this method (and GeminiRequest) walks
+        # eager-loaded, since async sessions raise on implicit lazy loads.
+        request = await session.scalar(
+            sa.select(FollowupRequest)
+            .where(FollowupRequest.id == request.id)
+            .options(
+                selectinload(FollowupRequest.allocation).selectinload(
+                    Allocation.instrument
+                ),
+                selectinload(FollowupRequest.obj),
+            )
+        )
+
+        altdata = request.allocation.altdata
+        if not altdata:
+            raise ValueError("Missing allocation information.")
+
+        try:
+            gemini_request = await GeminiRequest.create(request, session)
+        except Exception as e:
+            log(traceback.format_exc())
+            raise ValueError(f"Error building Gemini request: {e}")
+
+        failed_requests = []
+        url = get_api_url(altdata.get("programid", ""))
+        async with aiohttp.ClientSession() as http_session:
+            for payload in gemini_request.payload:
+                async with http_session.post(url, ssl=False, params=payload) as r:
+                    content = await r.text()
+                    status = r.status
+                if status != 200:
+                    failed_requests.append(
+                        {
+                            "id": payload["obsnum"],
+                            "content": content,
+                        }
+                    )
+
+        if not failed_requests:
+            request.status = "submitted"
+        else:
+            failure_ids = ",".join(fail["id"] for fail in failed_requests)
+            if len(failed_requests) == len(gemini_request.payload):
+                request.status = "rejected: all the templates failed to submit"
+            else:
+                request.status = f"submitted: not all templates were submitted successfully, {failure_ids} failed"
+
+            log(
+                f"Failed to submit some Gemini request for {request.id} (obj {request.obj.id}, template_ids {failure_ids}): {' / '.join(fail['content'] for fail in failed_requests)}"
+            )
+            try:
+                flow = Flow()
+                flow.push(
+                    request.last_modified_by_id,
+                    "baselayer/SHOW_NOTIFICATION",
+                    payload={
+                        "note": f"Failed to submit Gemini request: {' / '.join(fail['content'] for fail in failed_requests)}",
+                        "type": "error",
+                    },
+                )
+            except Exception as e:
+                log(f"Failed to send notification: {e}")
+
+        # Record the last request/response (params encoded in r.url).
+        transaction = FacilityTransaction(
+            request=http.serialize_aiohttp_request("POST", r.url, {}, payload),
+            response=await http.serialize_aiohttp_response(r, content),
+            followup_request=request,
+            initiator_id=request.last_modified_by_id,
+        )
+
+        session.add(transaction)
+
+        if kwargs.get("refresh_source", False):
+            flow = Flow()
+            flow.push(
+                "*",
+                "skyportal/REFRESH_SOURCE",
+                payload={"obj_key": request.obj.internal_key},
+            )
+        if kwargs.get("refresh_requests", False):
+            flow = Flow()
+            flow.push(
+                request.last_modified_by_id,
+                "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+            )
+
+    form_json_schema = {
+        "type": "object",
+        "properties": {
+            "template_ids": {
+                "title": "Template IDs",
+                "type": "string",
+                "description": "Comma delimited string of template IDs to execute. The template IDs can be found on the program's page on the OT",
+            },
+            "start_date": {
+                "title": "Start Date (UT)",
+                "type": "string",
+                "default": str(utcnow_naive() - timedelta(days=7)).replace("T", ""),
+            },
+            "end_date": {
+                "title": "End Date (UT)",
+                "type": "string",
+                "default": str(utcnow_naive()).replace("T", ""),
+            },
+            "l_exptime": {
+                "title": "Exposure Time",
+                "type": "number",
+                "description": "(if left at 0, the value in the template will be used)",
+                "default": 0,
+            },
+            "l_elmin": {"title": "Minimum airmass", "type": "number", "default": 1.0},
+            "l_elmax": {"title": "Maximum airmass", "type": "number", "default": 1.6},
+            "group_name": {
+                "title": "Group Name (optional)",
+                "type": "string",
+                "description": "Defaults to object ID if not provided",
+            },
+            "note_title": {
+                "title": "Note Title (optional)",
+                "type": "string",
+            },
+            "note": {
+                "title": "Note Content (optional)",
+                "type": "string",
+            },
+            "ready": {
+                "title": "Ready",
+                "type": "boolean",
+                "description": "Indicates if the request is ready to be observed",
+                "default": True,
+            },
+        },
+        "required": [
+            "l_exptime",
+            "l_elmin",
+            "l_elmax",
+            "start_date",
+            "end_date",
+            "template_ids",
+        ],
+    }
+
+    form_json_schema_altdata = {
+        "type": "object",
+        "properties": {
+            "user_email": {"type": "string", "title": "Email"},
+            "user_key": {
+                "type": "string",
+                "title": "User Key",
+                "description": "CAUTION: A User Key is different from the allocation’s Program Key provided by the Gemini staff.",
+            },
+            "programid": {
+                "type": "string",
+                "title": "Program ID",
+                "description": "CAUTION: Gemini North and South have different program IDs, starting with GN or GS respectively. So, make sure to use the correct one for the instrument you've selected.",
+            },
+            "template_ids": {
+                "type": "string",
+                "title": "Template IDs",
+                "description": "List of available templates, comma separated (optional)",
+            },
+        },
+        "required": ["user_email", "user_key", "programid"],
+    }
+
+    ui_json_schema = {}

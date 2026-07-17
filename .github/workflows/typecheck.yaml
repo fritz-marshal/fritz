@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # recursive: skyportal (the submodule the fritz overlay patches) and its
-      # own baselayer submodule, which skyportal's tsconfig maps `baselayer/*` to.
+      # submodules: true pulls in baselayer, which tsconfig maps `baselayer/*`
+      # to (baselayer/static/js/*); without it tsc can't resolve those imports.
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
       - uses: actions/setup-node@v6
         with:
@@ -28,25 +28,14 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: skyportal/package.json
-
-      # Mirrors the JS half of launcher/skyportal.py `patch()`: drop the fritz
-      # extension sources onto skyportal and merge the fritz-specific JS deps
-      # (package.fritz.json) into skyportal/package.json, so tsc sees the same
-      # merged tree the real build compiles.
-      - name: Apply fritz JS overlay onto skyportal
-        run: |
-          cp -r extensions/skyportal/static skyportal/
-          node -e '
-            const fs = require("fs");
-            const sp = JSON.parse(fs.readFileSync("skyportal/package.json"));
-            const fz = JSON.parse(fs.readFileSync("extensions/skyportal/package.fritz.json"));
-            sp.dependencies = { ...sp.dependencies, ...fz.dependencies };
-            fs.writeFileSync("skyportal/package.json", JSON.stringify(sp, null, 2));
-          '
+          bun-version-file: package.json
 
       - name: Install JS dependencies
-        run: cd skyportal && bun install
+        run: bun install --frozen-lockfile
 
+      # Type-checks against the committed generated types (static/js/types/*).
+      # The docs workflow separately verifies those stay in sync with the
+      # OpenAPI spec, so together they catch frontend/backend type divergence:
+      # this fails when frontend code stops matching the API's types.
       - name: Type-check (tsc --noEmit)
-        run: cd skyportal && bun run typecheck
+        run: bun run typecheck

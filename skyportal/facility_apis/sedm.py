@@ -1,0 +1,664 @@
+import json
+import traceback
+from copy import deepcopy
+from datetime import timedelta
+
+import aiohttp
+import sqlalchemy as sa
+from sqlalchemy.orm import selectinload
+
+from baselayer.app.env import load_env
+from baselayer.app.flow import Flow
+from baselayer.log import make_log
+
+from ..utils import http
+from ..utils.naive_datetime import utcnow_naive
+from . import FollowUpAPI, Listener
+
+env, cfg = load_env()
+
+log = make_log("facility_apis/sedm")
+
+
+async def _sedm_post(content):
+    """POST a payload to the SEDM endpoint.
+
+    Returns the captured (status, body, request_dict, response_dict) for the
+    call. When `app.sedm_endpoint` is empty (test environments without a live
+    SEDM service to talk to), short-circuit with a stub `200 accepted`
+    response so callers see the same success path without hitting the
+    network — the live endpoint occasionally hangs CI workers.
+    """
+    endpoint = cfg["app.sedm_endpoint"]
+    if not endpoint:
+        url = "mock://sedm"
+        request_dict = http.serialize_aiohttp_request("POST", url, None, content)
+        response_dict = {
+            "headers": {},
+            "content": "accepted",
+            "cookies": {},
+            "elapsed": None,
+            "status_code": 200,
+            "ok": True,
+        }
+        return 200, "accepted", request_dict, response_dict
+
+    data = aiohttp.FormData()
+    data.add_field("jsonfile", content, filename="jsonfile")
+    async with aiohttp.ClientSession() as http_session:
+        async with http_session.post(
+            endpoint, data=data, timeout=aiohttp.ClientTimeout(total=30)
+        ) as r:
+            body = await r.text()
+            status = r.status
+            request_dict = http.serialize_aiohttp_request(
+                "POST", endpoint, None, content
+            )
+            response_dict = await http.serialize_aiohttp_response(r, body)
+    return status, body, request_dict, response_dict
+
+
+class SEDMListener(Listener):
+    schema = {
+        "type": "object",
+        "properties": {
+            "new_status": {
+                "type": "string",
+            },
+        },
+        "required": ["new_status"],
+    }
+
+    @staticmethod
+    async def process_message(handler_instance, session):
+        """Receive a POSTed message from SEDM.
+
+        Parameters
+        ----------
+        message: skyportal.handlers.FacilityMessageHandler
+           The instance of the handler that received the request.
+        session: sqlalchemy.Session
+            Database session for this transaction
+        """
+
+        from ..models import FacilityTransaction, FollowupRequest
+
+        data = handler_instance.get_json()
+
+        request = await session.scalar(
+            FollowupRequest.select(session.user_or_token, mode="update").where(
+                FollowupRequest.id == int(data["followup_request_id"])
+            )
+        )
+
+        request.status = data["new_status"]
+
+        transaction_record = FacilityTransaction(
+            request=http.serialize_tornado_request(handler_instance),
+            followup_request=request,
+            initiator_id=handler_instance.associated_user_object.id,
+        )
+
+        session.add(transaction_record)
+
+
+async def convert_request_to_sedm(request, session, method_value="new"):
+    """Convert a FollowupRequest into a dictionary that can be directly
+    submitted via HTTP to the SEDM queue.
+
+    Parameters
+    ----------
+    request: skyportal.models.FollowupRequest
+        The request to send to SEDM.
+    session: sqlalchemy.AsyncSession
+        Database session for this transaction
+    method_value: 'new', 'edit', 'delete'
+        The desired SEDM queue action.
+    """
+
+    from ..models import Invitation, UserInvitation
+
+    photometry = sorted(request.obj.photometry, key=lambda p: p.mjd, reverse=True)
+    photometry_payload = {}
+
+    for p in photometry:
+        if (
+            p.filter.startswith("ztf")
+            and p.filter[-1] not in photometry_payload
+            and p.mag is not None
+        ):
+            # using filter[-1] as SEDM expects the bandpass name without "ZTF"
+            photometry_payload[p.filter[-1]] = {
+                "jd": p.mjd + 2_400_000.5,
+                "mag": p.mag,
+                "obsdate": p.iso.date().isoformat(),
+            }
+
+    rtype = request.payload["observation_type"]
+
+    filtdict = {
+        "IFU": "",
+        "3-shot (gri)": "g,r,i",
+        "4-shot (ugri)": "u,g,r,i",
+        "4-shot+IFU": "u,g,r,i",
+        "3-shot+IFU": "g,r,i",
+    }
+
+    if rtype == "Mix 'n Match":
+        # we make a deepcopy so that the payload's observation_choices
+        # aren't edited when we edit choices
+        choices = deepcopy(request.payload["observation_choices"])
+        hasspec = "IFU" in choices
+        followup = "IFU" if hasspec else ""
+        if hasspec:
+            choices.remove("IFU")
+        filters = ",".join(choices)
+    elif rtype in filtdict:
+        filters = filtdict[rtype]
+        followup = "IFU" if "IFU" in rtype else ""
+    else:
+        raise ValueError("Cannot coerce payload into SEDM format.")
+
+    # default to user invitation email if preferred contact email has not been set
+    email = request.requester.contact_email
+    if email is None:
+        invitation = await session.scalar(
+            sa.select(Invitation)
+            .join(UserInvitation)
+            .where(
+                UserInvitation.user_id == request.requester_id,
+                Invitation.used.is_(True),
+            )
+        )
+
+        if invitation is not None:
+            email = invitation.user_email
+        else:
+            # this should only be true in the CI test suite
+            email = "test_suite@skyportal.com"
+
+    payload = {
+        "Filters": filters,
+        "Followup": followup,
+        "email": email,
+        "enddate": request.payload["end_date"],
+        "startdate": request.payload["start_date"],
+        "prior_photometry": photometry_payload,
+        "priority": request.payload["priority"],
+        "programname": request.allocation.group.name,
+        "requestid": request.id,
+        "sourceid": request.obj_id[:26],  # 26 characters is the max allowed by sedm
+        "sourcename": request.obj_id[:26],
+        "status": method_value,
+        "username": request.requester.username,
+        "ra": request.obj.ra,
+        "dec": request.obj.dec,
+        "exptime": request.payload.get("exposure_time", -1),
+        "maxairmass": request.payload.get("maximum_airmass", 2.8),
+        "max_fwhm": request.payload.get("maximum_fwhm", 10),
+    }
+
+    return payload
+
+
+def prepare_payload_sedm(payload, existing_payload=None):
+    """Format a payload for SEDM.
+
+    Parameters
+    ----------
+    payload: dict
+        The payload to format.
+
+    Returns
+    -------
+    formatted_payload: dict
+        The formatted payload.
+    """
+
+    payload["exposure_time"] = payload.get(
+        "exposure_time",
+        -1 if existing_payload is None else existing_payload["exposure_time"],
+    )
+    payload["maximum_airmass"] = payload.get(
+        "maximum_airmass",
+        2.8 if existing_payload is None else existing_payload["maximum_airmass"],
+    )
+    payload["maximum_fwhm"] = payload.get(
+        "maximum_fwhm",
+        10 if existing_payload is None else existing_payload["maximum_fwhm"],
+    )
+
+    if "advanced" in payload:
+        del payload["advanced"]
+
+    return payload
+
+
+class SEDMAPI(FollowUpAPI):
+    """SkyPortal interface to the Spectral Energy Distribution machine (SEDM)."""
+
+    @staticmethod
+    async def submit(request, session, **kwargs):
+        """Submit a follow-up request to SEDM.
+
+        Parameters
+        ----------
+        request: skyportal.models.FollowupRequest
+            The request to submit.
+        session: sqlalchemy.Session
+            Database session for this transaction
+        """
+
+        from ..models import Allocation, FacilityTransaction, FollowupRequest, Obj
+
+        # Reload with the lazy chains this method (and convert_request_to_sedm)
+        # walk eager-loaded, since async sessions raise on implicit lazy loads.
+        request = await session.scalar(
+            sa.select(FollowupRequest)
+            .where(FollowupRequest.id == request.id)
+            .options(
+                selectinload(FollowupRequest.allocation).selectinload(
+                    Allocation.instrument
+                ),
+                selectinload(FollowupRequest.allocation).selectinload(Allocation.group),
+                selectinload(FollowupRequest.obj).selectinload(Obj.photometry),
+                selectinload(FollowupRequest.requester),
+            )
+        )
+
+        payload = await convert_request_to_sedm(request, session, method_value="new")
+        content = json.dumps(payload)
+        status, body, request_dict, response_dict = await _sedm_post(content)
+
+        if status == 200 and "accepted" in body.lower():
+            request.status = "submitted"
+        else:
+            request.status = f"rejected: {body}"
+
+        transaction = FacilityTransaction(
+            request=request_dict,
+            response=response_dict,
+            followup_request=request,
+            initiator_id=request.last_modified_by_id,
+        )
+
+        session.add(transaction)
+
+        if kwargs.get("refresh_source", False):
+            flow = Flow()
+            flow.push(
+                "*",
+                "skyportal/REFRESH_SOURCE",
+                payload={"obj_key": request.obj.internal_key},
+            )
+        if kwargs.get("refresh_requests", False):
+            flow = Flow()
+            flow.push(
+                request.last_modified_by_id,
+                "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+            )
+
+        try:
+            notification_type = request.allocation.altdata.get(
+                "notification_type", "none"
+            )
+            if notification_type == "slack":
+                from ..utils.notifications import request_notify_by_slack
+
+                await request_notify_by_slack(
+                    request,
+                    session,
+                    is_update=False,
+                )
+            elif notification_type == "email":
+                from ..utils.notifications import request_notify_by_email
+
+                await request_notify_by_email(
+                    request,
+                    session,
+                    is_update=False,
+                )
+        except Exception as e:
+            traceback.print_exc()
+            log(f"Error sending notification: {e}")
+
+    @staticmethod
+    async def delete(request, session, **kwargs):
+        """Delete a follow-up request from SEDM queue.
+
+        Parameters
+        ----------
+        request: skyportal.models.FollowupRequest
+            The request to delete from the queue and the SkyPortal database.
+        session: sqlalchemy.Session
+            Database session for this transaction
+        """
+
+        from ..models import Allocation, FacilityTransaction, FollowupRequest, Obj
+
+        # Reload with the lazy chains this method (and convert_request_to_sedm)
+        # walk eager-loaded, since async sessions raise on implicit lazy loads.
+        request = await session.scalar(
+            sa.select(FollowupRequest)
+            .where(FollowupRequest.id == request.id)
+            .options(
+                selectinload(FollowupRequest.allocation).selectinload(
+                    Allocation.instrument
+                ),
+                selectinload(FollowupRequest.allocation).selectinload(Allocation.group),
+                selectinload(FollowupRequest.obj).selectinload(Obj.photometry),
+                selectinload(FollowupRequest.requester),
+            )
+        )
+
+        last_modified_by_id = request.last_modified_by_id
+        obj_internal_key = request.obj.internal_key
+
+        payload = await convert_request_to_sedm(request, session, method_value="delete")
+        content = json.dumps(payload)
+        status, body, request_dict, response_dict = await _sedm_post(content)
+
+        if status == 200 and "accepted" in body.lower():
+            request.status = "deleted"
+        elif "Rejected Deletion, ACTIVE" in body.lower():
+            raise Exception("Cannot delete an active request. Data is being taken.")
+        else:
+            raise Exception(f"{body}")
+
+        transaction = FacilityTransaction(
+            request=request_dict,
+            response=response_dict,
+            followup_request=request,
+            initiator_id=request.last_modified_by_id,
+        )
+
+        session.add(transaction)
+
+        flow = Flow()
+        if kwargs.get("refresh_source", False):
+            flow.push(
+                "*",
+                "skyportal/REFRESH_SOURCE",
+                payload={"obj_key": obj_internal_key},
+            )
+        if kwargs.get("refresh_requests", False):
+            flow.push(
+                last_modified_by_id,
+                "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+            )
+
+    @staticmethod
+    async def update(request, session, **kwargs):
+        """Update a request in the SEDM queue.
+
+        Parameters
+        ----------
+        request: skyportal.models.FollowupRequest
+            The updated request.
+        session: sqlalchemy.Session
+            Database session for this transaction
+        """
+
+        from ..models import Allocation, FacilityTransaction, FollowupRequest, Obj
+
+        # Reload with the lazy chains this method (and convert_request_to_sedm)
+        # walk eager-loaded, since async sessions raise on implicit lazy loads.
+        request = await session.scalar(
+            sa.select(FollowupRequest)
+            .where(FollowupRequest.id == request.id)
+            .options(
+                selectinload(FollowupRequest.allocation).selectinload(
+                    Allocation.instrument
+                ),
+                selectinload(FollowupRequest.allocation).selectinload(Allocation.group),
+                selectinload(FollowupRequest.obj).selectinload(Obj.photometry),
+                selectinload(FollowupRequest.requester),
+            )
+        )
+
+        payload = await convert_request_to_sedm(request, session, method_value="edit")
+        content = json.dumps(payload)
+        status, body, request_dict, response_dict = await _sedm_post(content)
+
+        if status == 200 and "accepted" in body.lower():
+            request.status = "submitted"
+        elif "Rejected Edit Deletion, ACTIVE" in body.lower():
+            raise Exception("Cannot edit an active request. Data is being taken.")
+        else:
+            raise Exception(f"{body}")
+
+        transaction = FacilityTransaction(
+            request=request_dict,
+            response=response_dict,
+            followup_request=request,
+            initiator_id=request.last_modified_by_id,
+        )
+
+        session.add(transaction)
+
+        flow = Flow()
+        if kwargs.get("refresh_source", False):
+            flow.push(
+                "*",
+                "skyportal/REFRESH_SOURCE",
+                payload={"obj_key": request.obj.internal_key},
+            )
+        if kwargs.get("refresh_requests", False):
+            flow.push(
+                request.last_modified_by_id,
+                "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+            )
+
+        try:
+            notification_type = request.allocation.altdata.get(
+                "notification_type", "none"
+            )
+            if notification_type == "slack":
+                from ..utils.notifications import request_notify_by_slack
+
+                await request_notify_by_slack(
+                    request,
+                    session,
+                    is_update=True,
+                )
+            elif notification_type == "email":
+                from ..utils.notifications import request_notify_by_email
+
+                await request_notify_by_email(
+                    request,
+                    session,
+                    is_update=True,
+                )
+        except Exception as e:
+            traceback.print_exc()
+            log(f"Error sending notification: {e}")
+
+    @staticmethod
+    def prepare_payload(payload, existing_payload=None):
+        return prepare_payload_sedm(payload, existing_payload)
+
+    _observation_types = [
+        "3-shot (gri)",
+        "4-shot (ugri)",
+        "IFU",
+        "4-shot+IFU",
+        "3-shot+IFU",
+        "Mix 'n Match",
+    ]
+
+    _dependencies = [
+        {"properties": {"observation_type": {"enum": [v], "title": "Mode"}}}
+        for v in _observation_types[:-1]
+    ]
+
+    _dependencies.append(
+        {
+            "properties": {
+                "observation_type": {"enum": _observation_types[-1:], "title": "Mode"},
+                "observation_choices": {
+                    "type": "array",
+                    "title": "Desired Observations",
+                    "items": {"type": "string", "enum": ["u", "g", "r", "i", "IFU"]},
+                    "uniqueItems": True,
+                    "minItems": 1,
+                },
+            },
+            "required": ["observation_choices"],
+        }
+    )
+
+    form_json_schema = {
+        "type": "object",
+        "properties": {
+            "observation_type": {
+                "type": "string",
+                "enum": _observation_types,
+                "title": "Mode",
+                "default": "IFU",
+            },
+            "priority": {
+                "type": "number",
+                "default": 1.0,
+                "minimum": 1,
+                "maximum": 5,
+                "title": "Priority",
+            },
+            "start_date": {
+                "type": "string",
+                "format": "date",
+                "default": utcnow_naive().date().isoformat(),
+                "title": "Start Date (UT)",
+            },
+            "end_date": {
+                "type": "string",
+                "format": "date",
+                "title": "End Date (UT)",
+                "default": (utcnow_naive().date() + timedelta(days=7)).isoformat(),
+            },
+            "advanced": {
+                "type": "boolean",
+                "title": "Show Advanced Options",
+                "default": False,
+            },
+        },
+        "dependencies": {
+            "observation_type": {"oneOf": _dependencies},
+            "advanced": {
+                "oneOf": [
+                    {
+                        "properties": {
+                            "advanced": {"enum": [True]},
+                            "exposure_time": {
+                                "title": "Exposure Time (Photometry) [s]",
+                                "type": "number",
+                                "default": -1,
+                                "minimum": -1,
+                                "maximum": 3600,
+                            },
+                            "maximum_airmass": {
+                                "title": "Maximum Airmass (1-3)",
+                                "type": "number",
+                                "default": 2.8,
+                                "minimum": 1,
+                                "maximum": 3,
+                            },
+                            "maximum_fwhm": {
+                                "title": "Maximum FWHM (1-10)",
+                                "type": "number",
+                                "default": 10,
+                                "minimum": 1,
+                                "maximum": 10,
+                            },
+                        },
+                        "required": [
+                            "exposure_time",
+                            "maximum_airmass",
+                            "maximum_fwhm",
+                        ],
+                    },
+                    {
+                        "properties": {
+                            "advanced": {"enum": [False]},
+                        }
+                    },
+                ]
+            },
+        },
+        "required": ["observation_type", "priority", "start_date", "end_date"],
+    }
+
+    ui_json_schema = {"observation_choices": {"ui:widget": "checkboxes"}}
+
+    alias_lookup = {
+        "observation_choices": "Request",
+        "start_date": "Start Date",
+        "end_date": "End Date",
+        "priority": "Priority",
+        "observation_type": "Mode",
+    }
+
+    form_json_schema_altdata = {
+        "type": "object",
+        "properties": {
+            "notification_type": {
+                "type": "string",
+                "title": "Notification Type",
+                "enum": ["none", "slack", "email"],
+            },
+        },
+        "dependencies": {
+            "notification_type": {
+                "oneOf": [
+                    {
+                        "properties": {
+                            "notification_type": {"enum": ["none"]},
+                        },
+                    },
+                    {
+                        "properties": {
+                            "notification_type": {"enum": ["slack"]},
+                            "slack_workspace": {
+                                "type": "string",
+                                "title": "Slack Workspace",
+                            },
+                            "slack_channel": {
+                                "type": "string",
+                                "title": "Slack Channel",
+                            },
+                            "slack_token": {
+                                "type": "string",
+                                "title": "Slack Token",
+                            },
+                            "include_comments": {
+                                "type": "boolean",
+                                "title": "Include Comments",
+                                "default": False,
+                            },
+                        },
+                        "required": [
+                            "slack_workspace",
+                            "slack_channel",
+                            "slack_token",
+                        ],
+                    },
+                    {
+                        "properties": {
+                            "notification_type": {"enum": ["email"]},
+                            "email": {
+                                "type": "string",
+                                "title": "Email",
+                            },
+                            "include_comments": {
+                                "type": "boolean",
+                                "title": "Include Comments",
+                                "default": False,
+                            },
+                        },
+                        "required": [
+                            "email",
+                        ],
+                    },
+                ]
+            },
+        },
+    }

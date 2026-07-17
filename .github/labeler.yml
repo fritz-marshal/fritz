@@ -1,0 +1,65 @@
+# Labels to be automatically added to PRs
+
+# Add 'config-change' label to any change to default config files
+config-change:
+  - changed-files:
+      - any-glob-to-any-file: ["config.yaml.defaults", "test_config.yaml"]
+
+# Add 'demo-data' label to any change to provided demo data
+demo-data:
+  - changed-files:
+      - any-glob-to-any-file: "data/**/*"
+
+# Add 'dependencies' label to any change to dependencies
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["requirements.txt", "requirements.docs.txt", "package.json"]
+
+# Add 'docker' label to any change to files related to Docker deployment
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["Dockerfile", "docker.yaml", "docker-compose.yaml", ".dockerignore"]
+
+# Add 'documentation' label to any change to the doc directory
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: "doc/**/*"
+
+# Add 'formatting-and-linting' label to any changes to the formatting and
+# linting checks, and the pre-commit hooks that run them
+formatting-and-linting:
+  - changed-files:
+      - any-glob-to-any-file:
+          [
+            ".eslintignore",
+            ".eslintrc.yaml",
+            ".flake8",
+            ".git-pre-commit",
+            ".pep8speaks.yml",
+            ".pre-commit-config.yaml",
+          ]
+
+# Add 'migration' label to any change within the 'alembic' directory
+migration:
+  - changed-files:
+      - any-glob-to-any-file: "alembic/versions/*"
+
+# Add 'needs-migration?' label to any change to models.py without changes to
+# the Alembic versions
+needs-migration?:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              [
+                "skyportal/models.py",
+                "skyportal/models/*",
+                "baselayer/app/models.py",
+                "baselayer/app/models/*",
+              ]
+          - all-globs-to-all-files: "!alembic/versions/*"
+
+# Add 'workflows' label to any changes to GA workflows (.github folder)
+workflows:
+  - any-glob-to-any-file: ".github/**/*"

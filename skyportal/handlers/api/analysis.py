@@ -1,0 +1,2805 @@
+import copy
+import datetime
+import functools
+import io
+import json
+import os
+from urllib.parse import urljoin, urlparse
+
+import numpy as np
+import pandas as pd
+import requests
+import sqlalchemy as sa
+import yaml
+from marshmallow.exceptions import ValidationError
+from requests.auth import HTTPBasicAuth, HTTPDigestAuth
+from requests_oauthlib import OAuth1
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import contains_eager, joinedload, selectinload
+from tornado.ioloop import IOLoop
+
+from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.env import load_env
+from baselayer.app.flow import Flow
+from baselayer.app.model_util import recursive_to_dict
+from baselayer.log import make_log
+
+from ...app_utils import get_app_base_url
+from ...enum_types import (
+    ANALYSIS_INPUT_TYPES,
+    ANALYSIS_TYPES,
+    AUTHENTICATION_TYPES,
+    DEFAULT_ANALYSIS_FILTER_TYPES,
+    DEFAULT_ANALYSIS_SCALAR_FILTERS,
+)
+from ...models import (
+    AnalysisService,
+    Annotation,
+    Classification,
+    Comment,
+    DefaultAnalysis,
+    Group,
+    Obj,
+    ObjAnalysis,
+    Photometry,
+    Spectrum,
+    User,
+    UserNotification,
+)
+from ...utils.naive_datetime import utcnow_naive
+from ..base import BaseHandler, format_doc
+from .photometry import serialize
+
+log = make_log("app/analysis")
+
+_, cfg = load_env()
+
+DEFAULT_ANALYSES_DAILY_LIMIT = 1000
+
+# check for API key
+summary_config = copy.deepcopy(cfg["analysis_services.openai_analysis_service.summary"])
+if summary_config.get("api_key"):
+    # there may be a global API key set in the config file
+    openai_api_key = summary_config.pop("api_key")
+elif os.path.exists(".secret"):
+    # try to get this key from the dev environment, useful for debugging
+    openai_api_key = yaml.safe_load(open(".secret")).get("OPENAI_API_KEY")
+else:
+    openai_api_key = None
+
+
+def valid_url(trial_url):
+    """
+    determine if the URL is valid
+    """
+    try:
+        rez = urlparse(trial_url)
+        return all([rez.scheme, rez.netloc])
+    except ValueError:
+        return False
+
+
+def call_external_analysis_service(
+    url,
+    callback_url,
+    inputs={},
+    analysis_parameters={},
+    authentication_type="none",
+    authinfo=None,
+    callback_method="POST",
+    invalid_after=None,
+    analysis_resource_type=None,
+    resource_id=None,
+    request_timeout=30.0,
+):
+    """
+    Call an external analysis service with pre-assembled input data and user-specified
+    authentication.
+
+    The expectation is that any errors raised herein will be handled by the caller.
+    """
+    headers = {}
+    auth = None
+    payload_data = {
+        "callback_url": callback_url,
+        "inputs": inputs,
+        "callback_method": callback_method,
+        "invalid_after": str(invalid_after),
+        "analysis_resource_type": analysis_resource_type,
+        "resource_id": resource_id,
+        "analysis_parameters": analysis_parameters,
+    }
+
+    if authentication_type == "api_key":
+        payload_data.update({authinfo["api_key_name"]: authinfo["api_key"]})
+    elif authentication_type == "header_token":
+        headers.update(authinfo["header_token"])
+    elif authentication_type == "HTTPBasicAuth":
+        auth = HTTPBasicAuth(authinfo["username"], authinfo["password"])
+    elif authentication_type == "HTTPDigestAuth":
+        auth = HTTPDigestAuth(authinfo["username"], authinfo["password"])
+    elif authentication_type == "OAuth1":
+        auth = OAuth1(
+            authinfo["app_key"],
+            authinfo["app_secret"],
+            authinfo["user_oauth_token"],
+            authinfo["user_oauth_token_secret"],
+        )
+    elif authentication_type == "none":
+        pass
+    else:
+        raise ValueError(f"Invalid authentication_type: {authentication_type}")
+
+    try:
+        result = requests.post(
+            url,
+            json=payload_data,
+            headers=headers,
+            auth=auth,
+            timeout=request_timeout,
+        )
+    except requests.exceptions.Timeout:
+        raise ValueError(f"Request to {url} timed out.")
+    except Exception as e:
+        raise Exception(f"Request to {url} had exception {e}.")
+
+    return result
+
+
+def generic_serialize(row, columns):
+    return {
+        c: getattr(row, c).tolist()
+        if isinstance(getattr(row, c), np.ndarray)
+        else getattr(row, c)
+        for c in columns
+    }
+
+
+def get_associated_obj_resource(associated_resource_type):
+    """
+    What are the columns that we can allow to send to the external service
+    should not be sending internal keys
+    """
+    associated_resource_type = associated_resource_type.lower()
+    associated_resource_types = {
+        "photometry": {
+            "class": Photometry,
+            "allowed_export_columns": [
+                "mjd",
+                "flux",
+                "fluxerr",
+                "mag",
+                "magerr",
+                "filter",
+                "magsys",
+                "limiting_mag",
+                "zp",
+                "instrument_name",
+            ],
+            "id_attr": "obj_id",
+        },
+        "spectra": {
+            "class": Spectrum,
+            "allowed_export_columns": [
+                "observed_at",
+                "wavelengths",
+                "fluxes",
+                "errors",
+                "units",
+                "altdata",
+                "created_at",
+                "origin",
+                "modified",
+                "type",
+            ],
+            "id_attr": "obj_id",
+        },
+        "annotations": {
+            "class": Annotation,
+            "allowed_export_columns": ["data", "modified", "origin", "created_at"],
+            "id_attr": "obj_id",
+        },
+        "comments": {
+            "class": Comment,
+            "allowed_export_columns": [
+                "text",
+                "bot",
+                "modified",
+                "origin",
+                "created_at",
+            ],
+            "id_attr": "obj_id",
+        },
+        "classifications": {
+            "class": Classification,
+            "allowed_export_columns": [
+                "classification",
+                "probability",
+                "modified",
+                "created_at",
+            ],
+            "id_attr": "obj_id",
+        },
+        "redshift": {
+            "class": Obj,
+            "allowed_export_columns": [
+                "redshift",
+                "redshift_error",
+                "redshift_origin",
+            ],
+            "id_attr": "id",
+        },
+    }
+    if associated_resource_type not in associated_resource_types:
+        raise ValueError(
+            f"Invalid associated_resource_type: {associated_resource_type}"
+        )
+    return associated_resource_types[associated_resource_type]
+
+
+def post_analysis(
+    analysis_resource_type,
+    resource_id,
+    current_user,
+    author,
+    groups,
+    analysis_service,
+    session,
+    notification=None,
+    analysis_parameters=None,
+    show_parameters=False,
+    show_plots=False,
+    show_corner=False,
+    input_filters=None,
+):
+    """
+    Post an analysis to the database.
+
+    Parameters
+    ----------
+    analysis_resource_type: str
+        The type of resource we are analyzing.
+    resource_id: str
+        The ID of the resource we are analyzing.
+    current_user: baselayer.app.models.User
+        The user who is requesting the analysis.
+    author: baselayer.app.models.User
+        The user who will be the author of the analysis.
+    groups: list of baselayer.app.models.Group
+        The groups that will be able to view the analysis.
+    analysis_service: skyportal.models.AnalysisService
+        The analysis service to use.
+    session: sqlalchemy.orm.session.Session
+        The database session.
+    analysis_parameters: dict
+        The parameters to pass to the analysis service.
+    show_parameters: bool
+        Whether to show the parameters in the analysis.
+    show_plots: bool
+        Whether to show the plots in the analysis.
+    show_corner: bool
+        Whether to show the corner plot in the analysis.
+    input_filters: list of str
+        The filters to apply on the input data before sending it to the analysis service.
+
+    Returns
+    -------
+    analysis_id: int
+        The ID of the analysis.
+    """
+
+    input_data_types = analysis_service.input_data_types.copy()
+
+    inputs = {"analysis_parameters": analysis_parameters.copy()}
+
+    # if any analysis_parameters is a file, we discard it and just keep its name (if possible)
+    keys_to_delete = []
+    for k, v in analysis_parameters.items():
+        if isinstance(v, str):
+            if "data:" in v and ";name=" in v:
+                keys_to_delete.append(k)
+    for k in keys_to_delete:
+        try:
+            analysis_parameters[k] = (
+                analysis_parameters[k].split(";name=")[1].split(";")[0]
+            )
+        except Exception:
+            del analysis_parameters[k]
+
+    if analysis_resource_type.lower() == "obj":
+        obj_id = resource_id
+        stmt = Obj.select(current_user).where(Obj.id == obj_id)
+        obj = session.scalars(stmt).first()
+        if obj is None:
+            raise ValueError(f"Obj {obj_id} not found")
+
+        # make sure the user has not exceeded the maximum number of analyses
+        # for this object. This will help save space on the disk
+        # an enforce a reasonable limit on the number of analyses.
+        stmt = ObjAnalysis.select(current_user).where(ObjAnalysis.obj_id == obj_id)
+        stmt = stmt.where(ObjAnalysis.author == author)
+        stmt = stmt.where(ObjAnalysis.status == "completed")
+
+        total_matches = session.execute(select(func.count()).select_from(stmt)).scalar()
+
+        if total_matches >= cfg["analysis_services.max_analysis_per_obj_per_user"]:
+            raise Exception(
+                """'You have reached the maximum number of analyses for this object.'
+                  ' Please delete some analyses before attempting to start more analyses.'
+                  """
+            )
+
+        # Let's assemble the input data for this Obj
+        for input_type in input_data_types:
+            associated_resource = get_associated_obj_resource(input_type)
+            stmt = (
+                associated_resource["class"]
+                .select(current_user)
+                .where(
+                    getattr(
+                        associated_resource["class"],
+                        associated_resource["id_attr"],
+                    )
+                    == obj_id
+                )
+            )
+            input_data = session.scalars(stmt).all()
+            if input_type == "photometry":
+                input_data = [serialize(phot, "ab", "both") for phot in input_data]
+                df = pd.DataFrame(input_data)
+
+                if (
+                    input_filters is not None
+                    and input_filters.get("photometry") is not None
+                ):
+                    if len(input_filters.get("photometry").get("filters", [])) > 0:
+                        df = df[
+                            df["filter"].isin(
+                                input_filters.get("photometry")["filters"]
+                            )
+                        ]
+                    if len(input_filters.get("photometry").get("instruments", [])) > 0:
+                        # we want to make sure that after this runs, the user can still figure out
+                        # what instrument he filtered on, non trivial when only reporting the id used
+                        # the instrument could be edited, deleted, ...
+                        # so, we grab the name and inject that in the input_filters
+                        df = df[
+                            df["instrument_id"].isin(
+                                input_filters.get("photometry")["instruments"]
+                            )
+                        ]
+                        instruments = df["instrument_name"].unique().tolist()
+                        input_filters["photometry"]["instruments_by_name"] = instruments
+
+                df = df[associated_resource["allowed_export_columns"]]
+                # collapse duplicate mjd/filter points, keeping the lowest-error
+                # (best) one rather than an arbitrary first
+                df = (
+                    df.sort_values("magerr")
+                    .drop_duplicates(["mjd", "filter"])
+                    .reset_index(drop=True)
+                )
+            else:
+                input_data = [
+                    generic_serialize(
+                        row, associated_resource["allowed_export_columns"]
+                    )
+                    for row in input_data
+                ]
+                df = pd.DataFrame(input_data)
+            inputs[input_type] = df.to_csv(index=False)
+
+        invalid_after = utcnow_naive() + datetime.timedelta(
+            seconds=analysis_service.timeout
+        )
+
+        analysis = ObjAnalysis(
+            obj=obj,
+            author=author,
+            groups=groups,
+            analysis_service=analysis_service,
+            show_parameters=show_parameters,
+            show_plots=show_plots,
+            show_corner=show_corner,
+            analysis_parameters=analysis_parameters,
+            status="queued",
+            handled_by_url="api/webhook/obj_analysis",
+            invalid_after=invalid_after,
+            input_filters=input_filters,
+        )
+    # Add more analysis_resource_types here one day (eg. GCN)
+    else:
+        raise ValueError(f"analysis_resource_type must be one of {', '.join(['obj'])}")
+
+    session.add(analysis)
+    try:
+        session.commit()
+    except IntegrityError as e:
+        raise Exception(f"Analysis already exists: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Unexpected error creating analysis: {str(e)}")
+
+    # Now call the analysis service to start the analysis, using the `input` data
+    # that we assembled above.
+    callback_url = urljoin(
+        get_app_base_url(), f"{analysis.handled_by_url}/{analysis.token}"
+    )
+    external_analysis_service = functools.partial(
+        call_external_analysis_service,
+        analysis_service.url,
+        callback_url,
+        inputs=inputs,
+        authentication_type=analysis_service.authentication_type,
+        authinfo=analysis_service.authinfo,
+        callback_method="POST",
+        invalid_after=invalid_after,
+        analysis_resource_type=analysis_resource_type,
+        resource_id=resource_id,
+    )
+
+    flow = Flow()
+    flow.push(
+        current_user.id,
+        action_type="baselayer/SHOW_NOTIFICATION",
+        payload={
+            "note": f"Sending data to analysis service {analysis_service.name} to start the analysis."
+            if notification is None
+            else notification,
+            "type": "info",
+        },
+    )
+
+    if notification is not None and notification != "":
+        try:
+            user_notification = UserNotification(
+                user=current_user,
+                text=notification,
+                notification_type="default_analysis",
+                url=f"/source/{obj_id}/analysis/{analysis.id}",
+            )
+            session.add(user_notification)
+            session.commit()
+        except Exception as e:
+            log(f"Could not add notification: {e}")
+
+    def analysis_done_callback(
+        future,
+        logger=log,
+        analysis_id=analysis.id,
+        analysis_service_id=analysis_service.id,
+        analysis_resource_type=analysis_resource_type,
+    ):
+        """
+        Callback function for when the analysis service is done.
+        Updates the Analysis object with the results/errors.
+        """
+        # grab the analysis (only Obj for now)
+        if analysis_resource_type.lower() == "obj":
+            try:
+                analysis = session.get(ObjAnalysis, analysis_id)
+                if analysis is None:
+                    logger.error(f"Analysis {analysis_id} not found")
+                    return
+            except Exception as e:
+                log(f"Could not access Analysis {analysis_id} {e}.")
+                return
+        else:
+            log(f"Invalid analysis_resource_type: {analysis_resource_type}")
+            return
+
+        analysis.last_activity = utcnow_naive()
+        try:
+            result = future.result()
+            analysis.status = "pending" if result.status_code == 200 else "failure"
+            # truncate the return just so we dont have a huge string in the database
+            analysis.status_message = result.text[:1024]
+        except Exception:
+            analysis.status = "failure"
+            analysis.status_message = str(future.exception())[:1024]
+        finally:
+            logger(
+                f"[id={analysis_id} service={analysis_service_id}] status='{analysis.status}' message='{analysis.status_message}'"
+            )
+            session.commit()
+            if analysis_resource_type.lower() == "obj":
+                try:
+                    flow = Flow()
+                    flow.push(
+                        "*",
+                        "skyportal/REFRESH_OBJ_ANALYSES",
+                        payload={"obj_key": analysis.obj.internal_key},
+                    )
+                except Exception as e:
+                    logger(f"Could not refresh analyses: {e}")
+
+    # Start the analysis service in a separate thread and log any exceptions
+    x = IOLoop.current().run_in_executor(None, external_analysis_service)
+    x.add_done_callback(analysis_done_callback)
+
+    return analysis.id
+
+
+async def post_analysis_async(
+    analysis_resource_type,
+    resource_id,
+    current_user,
+    author,
+    groups,
+    analysis_service,
+    session,
+    notification=None,
+    analysis_parameters=None,
+    show_parameters=False,
+    show_plots=False,
+    show_corner=False,
+    input_filters=None,
+):
+    """Async equivalent of ``post_analysis``.
+
+    Does the same work as the sync ``post_analysis`` but uses an
+    ``AsyncSession``. The background HTTP call (via ``IOLoop.run_in_executor``)
+    is still dispatched here; its done-callback uses a sync ``DBSession`` for
+    its own writes since it runs in a thread executor.
+    """
+
+    # `author` and `current_user` are passed in but may originate from a
+    # different (sync) session. Capture their IDs and re-load `author` in the
+    # current async session to avoid identity-map conflicts. `current_user`
+    # is used only as an ACL principal for queries; its id is what matters.
+    author_id_val = author.id
+    current_user_id_val = current_user.id
+    author = await session.get(User, author_id_val)
+
+    input_data_types = analysis_service.input_data_types.copy()
+
+    inputs = {"analysis_parameters": analysis_parameters.copy()}
+
+    # if any analysis_parameters is a file, we discard it and just keep its name (if possible)
+    keys_to_delete = []
+    for k, v in analysis_parameters.items():
+        if isinstance(v, str):
+            if "data:" in v and ";name=" in v:
+                keys_to_delete.append(k)
+    for k in keys_to_delete:
+        try:
+            analysis_parameters[k] = (
+                analysis_parameters[k].split(";name=")[1].split(";")[0]
+            )
+        except Exception:
+            del analysis_parameters[k]
+
+    if analysis_resource_type.lower() == "obj":
+        obj_id = resource_id
+        stmt = Obj.select(current_user).where(Obj.id == obj_id)
+        obj = await session.scalar(stmt)
+        if obj is None:
+            raise ValueError(f"Obj {obj_id} not found")
+
+        # make sure the user has not exceeded the maximum number of analyses
+        # for this object. This will help save space on the disk
+        # an enforce a reasonable limit on the number of analyses.
+        stmt = ObjAnalysis.select(current_user).where(ObjAnalysis.obj_id == obj_id)
+        stmt = stmt.where(ObjAnalysis.author == author)
+        stmt = stmt.where(ObjAnalysis.status == "completed")
+
+        total_matches = await session.scalar(select(func.count()).select_from(stmt))
+
+        if total_matches >= cfg["analysis_services.max_analysis_per_obj_per_user"]:
+            raise Exception(
+                """'You have reached the maximum number of analyses for this object.'
+                  ' Please delete some analyses before attempting to start more analyses.'
+                  """
+            )
+
+        # Let's assemble the input data for this Obj
+        for input_type in input_data_types:
+            associated_resource = get_associated_obj_resource(input_type)
+            stmt = (
+                associated_resource["class"]
+                .select(current_user)
+                .where(
+                    getattr(
+                        associated_resource["class"],
+                        associated_resource["id_attr"],
+                    )
+                    == obj_id
+                )
+            )
+            if input_type == "photometry":
+                stmt = stmt.options(joinedload(Photometry.instrument))
+            result = await session.scalars(stmt)
+            input_data = (
+                result.unique().all() if input_type == "photometry" else result.all()
+            )
+            if input_type == "photometry":
+                input_data = [
+                    serialize(
+                        phot,
+                        "ab",
+                        "both",
+                        groups=False,
+                        annotations=False,
+                    )
+                    for phot in input_data
+                ]
+                df = pd.DataFrame(input_data)
+
+                if (
+                    input_filters is not None
+                    and input_filters.get("photometry") is not None
+                ):
+                    if len(input_filters.get("photometry").get("filters", [])) > 0:
+                        df = df[
+                            df["filter"].isin(
+                                input_filters.get("photometry")["filters"]
+                            )
+                        ]
+                    if len(input_filters.get("photometry").get("instruments", [])) > 0:
+                        df = df[
+                            df["instrument_id"].isin(
+                                input_filters.get("photometry")["instruments"]
+                            )
+                        ]
+                        instruments = df["instrument_name"].unique().tolist()
+                        input_filters["photometry"]["instruments_by_name"] = instruments
+
+                df = df[associated_resource["allowed_export_columns"]]
+                # collapse duplicate mjd/filter points, keeping the lowest-error
+                # (best) one rather than an arbitrary first
+                df = (
+                    df.sort_values("magerr")
+                    .drop_duplicates(["mjd", "filter"])
+                    .reset_index(drop=True)
+                )
+            else:
+                input_data = [
+                    generic_serialize(
+                        row, associated_resource["allowed_export_columns"]
+                    )
+                    for row in input_data
+                ]
+                df = pd.DataFrame(input_data)
+            inputs[input_type] = df.to_csv(index=False)
+
+        invalid_after = utcnow_naive() + datetime.timedelta(
+            seconds=analysis_service.timeout
+        )
+
+        analysis = ObjAnalysis(
+            obj=obj,
+            author=author,
+            groups=groups,
+            analysis_service=analysis_service,
+            show_parameters=show_parameters,
+            show_plots=show_plots,
+            show_corner=show_corner,
+            analysis_parameters=analysis_parameters,
+            status="queued",
+            handled_by_url="api/webhook/obj_analysis",
+            invalid_after=invalid_after,
+            input_filters=input_filters,
+        )
+    # Add more analysis_resource_types here one day (eg. GCN)
+    else:
+        raise ValueError(f"analysis_resource_type must be one of {', '.join(['obj'])}")
+
+    session.add(analysis)
+    try:
+        await session.commit()
+    except IntegrityError as e:
+        raise Exception(f"Analysis already exists: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Unexpected error creating analysis: {str(e)}")
+
+    # Capture attrs we need before any further async work that could detach
+    analysis_id = analysis.id
+    analysis_token = analysis.token
+    analysis_handled_by_url = analysis.handled_by_url
+    analysis_service_id = analysis_service.id
+    analysis_service_url = analysis_service.url
+    analysis_service_authentication_type = analysis_service.authentication_type
+    analysis_service_authinfo = analysis_service.authinfo
+    analysis_service_name = analysis_service.name
+
+    # Now call the analysis service to start the analysis, using the `input` data
+    # that we assembled above.
+    callback_url = urljoin(
+        get_app_base_url(), f"{analysis_handled_by_url}/{analysis_token}"
+    )
+    external_analysis_service = functools.partial(
+        call_external_analysis_service,
+        analysis_service_url,
+        callback_url,
+        inputs=inputs,
+        authentication_type=analysis_service_authentication_type,
+        authinfo=analysis_service_authinfo,
+        callback_method="POST",
+        invalid_after=invalid_after,
+        analysis_resource_type=analysis_resource_type,
+        resource_id=resource_id,
+    )
+
+    flow = Flow()
+    flow.push(
+        current_user_id_val,
+        action_type="baselayer/SHOW_NOTIFICATION",
+        payload={
+            "note": f"Sending data to analysis service {analysis_service_name} to start the analysis."
+            if notification is None
+            else notification,
+            "type": "info",
+        },
+    )
+
+    if notification is not None and notification != "":
+        try:
+            user_notification = UserNotification(
+                user_id=current_user_id_val,
+                text=notification,
+                notification_type="default_analysis",
+                url=f"/source/{obj_id}/analysis/{analysis_id}",
+            )
+            session.add(user_notification)
+            await session.commit()
+        except Exception as e:
+            log(f"Could not add notification: {e}")
+
+    def analysis_done_callback(
+        future,
+        logger=log,
+        analysis_id=analysis_id,
+        analysis_service_id=analysis_service_id,
+        analysis_resource_type=analysis_resource_type,
+    ):
+        """
+        Callback function for when the analysis service is done.
+        Updates the Analysis object with the results/errors.
+        Runs in a thread executor; uses a sync DBSession.
+        """
+        from ...models import DBSession
+
+        with DBSession() as db_session:
+            # grab the analysis (only Obj for now)
+            if analysis_resource_type.lower() == "obj":
+                try:
+                    analysis = db_session.get(ObjAnalysis, analysis_id)
+                    if analysis is None:
+                        logger.error(f"Analysis {analysis_id} not found")
+                        return
+                except Exception as e:
+                    log(f"Could not access Analysis {analysis_id} {e}.")
+                    return
+            else:
+                log(f"Invalid analysis_resource_type: {analysis_resource_type}")
+                return
+
+            analysis.last_activity = utcnow_naive()
+            try:
+                result = future.result()
+                analysis.status = "pending" if result.status_code == 200 else "failure"
+                # truncate the return just so we dont have a huge string in the database
+                analysis.status_message = result.text[:1024]
+            except Exception:
+                analysis.status = "failure"
+                analysis.status_message = str(future.exception())[:1024]
+            finally:
+                logger(
+                    f"[id={analysis_id} service={analysis_service_id}] status='{analysis.status}' message='{analysis.status_message}'"
+                )
+                db_session.commit()
+                if analysis_resource_type.lower() == "obj":
+                    try:
+                        flow = Flow()
+                        flow.push(
+                            "*",
+                            "skyportal/REFRESH_OBJ_ANALYSES",
+                            payload={"obj_key": analysis.obj.internal_key},
+                        )
+                    except Exception as e:
+                        logger(f"Could not refresh analyses: {e}")
+
+    # Start the analysis service in a separate thread and log any exceptions
+    x = IOLoop.current().run_in_executor(None, external_analysis_service)
+    x.add_done_callback(analysis_done_callback)
+
+    return analysis_id
+
+
+class AnalysisServiceHandler(BaseHandler):
+    """Handler for analysis services."""
+
+    @permissions(["Manage Analysis Services"])
+    @format_doc(
+        AUTHENTICATION_TYPES=", ".join(f"'{t}'" for t in AUTHENTICATION_TYPES),
+        ANALYSIS_TYPES=", ".join(f"'{t}'" for t in ANALYSIS_TYPES),
+        ANALYSIS_INPUT_TYPES=", ".join(f"'{t}'" for t in ANALYSIS_INPUT_TYPES),
+    )
+    async def post(self):
+        """
+        ---
+        summary: Create an Analysis Service.
+        description: POST a new Analysis Service.
+        tags:
+          - analysis services
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Unique name/identifier of the analysis service.
+                  display_name:
+                    type: string
+                    description: Display name of the analysis service.
+                  description:
+                    type: string
+                    description: Description of the analysis service.
+                  version:
+                    type: string
+                    description: Semantic version (or githash) of the analysis service.
+                  contact_name:
+                    type: string
+                    description: |
+                        Name of person responsible for the service (ie. the maintainer).
+                        This person does not need to be part of this SkyPortal instance.
+                  contact_email:
+                    type: string
+                    description: Email address of the person responsible for the service.
+                  url:
+                    type: string
+                    description: |
+                        URL to running service accessible to this SkyPortal instance.
+                        For example, http://localhost:5000/analysis/<service_name>.
+                  optional_analysis_parameters:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                    description: |
+                        Optional URL parameters that can be passed to the service, along
+                        with a list of possible values (to be used in a dropdown UI)
+                  authentication_type:
+                    type: string
+                    description: |
+                        Service authentication method. One of: {AUTHENTICATION_TYPES}.
+                        See https://docs.python-requests.org/en/master/user/authentication/
+                  _authinfo:
+                    type: object
+                    description: |
+                        Authentication secrets for the service. Not needed if authentication_type is "none".
+                        This should be a string that can be parsed by the python json.loads() function and
+                        should contain the key `authentication_type`. Values of this key will be used
+                        to POST into the remote analysis service.
+                  enabled:
+                    type: boolean
+                    description: Whether the service is enabled or not.
+                  analysis_type:
+                    type: string
+                    description: |
+                        Type of analysis. One of: {ANALYSIS_TYPES}
+                  input_data_types:
+                    type: array
+                    items:
+                        type: string
+                    description: |
+                        List of input data types that the service requires. Zero to many of:
+                        {ANALYSIS_INPUT_TYPES}
+                  timeout:
+                    type: number
+                    description: Max time in seconds to wait for the analysis service to complete. Default is 3600.0.
+                    default: 3600.0
+                  is_summary:
+                    type: boolean
+                    description: |
+                        Establishes that analysis results on the resource should be considered a summary
+                    default: false
+                  display_on_resource_dropdown:
+                    type: boolean
+                    description: |
+                        Show this analysis service on the analysis dropdown of the resource
+                    default: true
+                  group_ids:
+                    type: array
+                    items:
+                      type: integer
+                    description: |
+                      List of group IDs corresponding to which groups should be
+                      able to use the Analysis Service. Defaults to all of requesting
+                      user's groups.
+                required:
+                  - name
+                  - url
+                  - authentication_type
+                  - analysis_type
+                  - input_data_types
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              description: New AnalysisService ID
+        """
+        data = self.get_json()
+
+        if not data.get("url", None):
+            return self.error("`url` is required to add an Analysis Service.")
+        else:
+            if not valid_url(data.get("url", None)):
+                return self.error(
+                    "a valid `url` is required to add an Analysis Service."
+                )
+        try:
+            _ = json.loads(data.get("optional_analysis_parameters", "{}"))
+        except json.decoder.JSONDecodeError:
+            return self.error(
+                "Could not parse `optional_analysis_parameters` as JSON.", status=400
+            )
+
+        authentication_type = data.get("authentication_type", None)
+        if not authentication_type:
+            return self.error(
+                "`authentication_type` is required to add an Analysis Service."
+            )
+
+        if authentication_type not in AUTHENTICATION_TYPES:
+            return self.error(
+                f"`authentication_type` must be one of: {', '.join(list(AUTHENTICATION_TYPES))}."
+            )
+        else:
+            if authentication_type != "none":
+                _authinfo = data.get("_authinfo", None)
+                if not _authinfo:
+                    return self.error(
+                        "`_authinfo` is required to add an Analysis Service "
+                        ' when authentication_type is not "none".'
+                    )
+                try:
+                    _authinfo = json.loads(_authinfo)
+                except json.JSONDecodeError:
+                    return self.error(
+                        "`_authinfo` must be parseable to a valid JSON object."
+                    )
+                if authentication_type not in _authinfo:
+                    return self.error(
+                        f'`_authinfo` must contain a key for "{authentication_type}".'
+                    )
+
+        group_ids = data.pop("group_ids", None)
+        async with self.AsyncSession() as session:
+            from ...utils.data_access import accessible_group_ids_async
+
+            if not group_ids:
+                group_ids = await accessible_group_ids_async(self.current_user, session)
+
+            groups_result = await session.scalars(
+                Group.select(self.current_user).where(Group.id.in_(group_ids))
+            )
+            groups = groups_result.unique().all()
+            if {g.id for g in groups} != set(group_ids):
+                return self.error(
+                    f"Cannot find one or more groups with IDs: {group_ids}.",
+                    status=403,
+                )
+
+            schema = AnalysisService.__schema__()
+            try:
+                analysis_service = schema.load(data)
+            except ValidationError as e:
+                return self.error(
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
+                )
+
+            session.add(analysis_service)
+            analysis_service.groups = groups
+
+            try:
+                await session.commit()
+            except IntegrityError as e:
+                return self.error(
+                    f"Analysis Service with that name already exists: {str(e)}"
+                )
+            except Exception as e:
+                return self.error(f"Unexpected Error adding Analysis Service: {str(e)}")
+
+            self.push_all(action="skyportal/REFRESH_ANALYSIS_SERVICES")
+            return self.success(data={"id": analysis_service.id})
+
+    @auth_or_token
+    async def get(self, analysis_service_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Get an Analysis Service.
+          description: Retrieve an Analysis Service by id
+          tags:
+            - analysis services
+          parameters:
+            - in: path
+              name: analysis_service_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: SingleAnalysisService
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Get all Analysis Services
+          description: Retrieve all Analysis Services
+          tags:
+            - analysis services
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfAnalysisServices
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        if analysis_service_id is not None:
+            try:
+                analysis_service_id = int(analysis_service_id)
+            except (TypeError, ValueError):
+                return self.error("analysis_service_id must be an int.")
+
+        async with self.AsyncSession() as session:
+            if analysis_service_id is not None:
+                s = await session.scalar(
+                    AnalysisService.select(session.user_or_token)
+                    .options(selectinload(AnalysisService.groups))
+                    .where(AnalysisService.id == analysis_service_id)
+                )
+                if s is None:
+                    return self.error(
+                        "Cannot access this Analysis Service.", status=403
+                    )
+
+                analysis_dict = recursive_to_dict(s)
+                analysis_dict["groups"] = s.groups
+                return self.success(data=analysis_dict)
+
+            # retrieve multiple services
+            result = await session.scalars(
+                AnalysisService.select(session.user_or_token).options(
+                    selectinload(AnalysisService.groups)
+                )
+            )
+            analysis_services = result.unique().all()
+
+            ret_array = []
+            for a in analysis_services:
+                analysis_dict = recursive_to_dict(a)
+                analysis_dict["groups"] = a.groups
+                if isinstance(a.optional_analysis_parameters, str):
+                    analysis_dict["optional_analysis_parameters"] = json.loads(
+                        a.optional_analysis_parameters
+                    )
+                elif isinstance(a.optional_analysis_parameters, dict):
+                    analysis_dict["optional_analysis_parameters"] = (
+                        a.optional_analysis_parameters
+                    )
+                else:
+                    return self.error(
+                        message="optional_analysis_parameters must be dictionary or string"
+                    )
+                ret_array.append(analysis_dict)
+
+            return self.success(data=ret_array)
+
+    @permissions(["Manage Analysis Services"])
+    @format_doc(
+        AUTHENTICATION_TYPES=", ".join(f"'{t}'" for t in AUTHENTICATION_TYPES),
+        ANALYSIS_TYPES=", ".join(f"'{t}'" for t in ANALYSIS_TYPES),
+        ANALYSIS_INPUT_TYPES=", ".join(f"'{t}'" for t in ANALYSIS_INPUT_TYPES),
+    )
+    async def patch(self, analysis_service_id: int):
+        """
+        ---
+        summary: Update an Analysis Service.
+        description: Update an Analysis Service.
+        tags:
+          - analysis services
+        parameters:
+          - in: path
+            name: analysis_service_id
+            required: True
+            schema:
+              type: integer
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Unique name/identifier of the analysis service.
+                  display_name:
+                    type: string
+                    description: Display name of the analysis service.
+                  description:
+                    type: string
+                    description: Description of the analysis service.
+                  version:
+                    type: string
+                    description: Semantic version (or githash) of the analysis service.
+                  contact_name:
+                    type: string
+                    description: |
+                        Name of person responsible for the service (ie. the maintainer).
+                        This person does not need to be part of this SkyPortal instance.
+                  contact_email:
+                    type: string
+                    description: Email address of the person responsible for the service.
+                  url:
+                    type: string
+                    description: |
+                        URL to running service accessible to this SkyPortal instance.
+                        For example, http://localhost:5000/analysis/<service_name>.
+                  optional_analysis_parameters:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                    description: |
+                        Optional URL parameters that can be passed to the service, along
+                        with a list of possible values (to be used in a dropdown UI)
+                  authentication_type:
+                    type: string
+                    description: |
+                        Service authentication method. One of: {AUTHENTICATION_TYPES}.
+                        See https://docs.python-requests.org/en/master/user/authentication/
+                  authinfo:
+                    type: object
+                    description: Authentication secrets for the service. Not needed if authentication_type is "none".
+                  enabled:
+                    type: boolean
+                    description: Whether the service is enabled or not.
+                  analysis_type:
+                    type: string
+                    description: |
+                        Type of analysis. One of: {ANALYSIS_TYPES}
+                  input_data_types:
+                    type: array
+                    items:
+                        type: string
+                    description: |
+                        List of input data types that the service requires. Zero to many of:
+                        {ANALYSIS_INPUT_TYPES}
+                  timeout:
+                    type: number
+                    description: Max time in seconds to wait for the analysis service to complete. Default is 3600.0.
+                    default: 3600.0
+                  is_summary:
+                    type: boolean
+                    description: |
+                        Establishes that analysis results on the resource should be considered a summary
+                    default: false
+                  display_on_resource_dropdown:
+                    type: boolean
+                    description: |
+                        Show this analysis service on the analysis dropdown of the resource
+                    default: true
+                  group_ids:
+                    type: array
+                    items:
+                      type: integer
+                    description: |
+                      List of group IDs corresponding to which groups should be
+                      able to use the Analysis Service.
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error("analysis_service_id must be an int.")
+
+        async with self.AsyncSession() as session:
+            from ...utils.data_access import accessible_group_ids_async
+
+            s = await session.scalar(
+                AnalysisService.select(session.user_or_token, mode="update").where(
+                    AnalysisService.id == analysis_service_id
+                )
+            )
+            if s is None:
+                return self.error("Cannot access this Analysis Service.", status=403)
+
+            data = self.get_json()
+            group_ids = data.pop("group_ids", None)
+
+            schema = AnalysisService.__schema__()
+            try:
+                new_analysis_service = schema.load(data, partial=True)
+            except ValidationError as e:
+                return self.error(
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
+                )
+
+            new_analysis_service.id = analysis_service_id
+            merged_analysis_service = await session.merge(new_analysis_service)
+            await session.flush()
+
+            if group_ids is not None:
+                groups_result = await session.scalars(
+                    Group.select(self.current_user).where(Group.id.in_(group_ids))
+                )
+                groups = groups_result.unique().all()
+                if {g.id for g in groups} != set(group_ids):
+                    return self.error(
+                        f"Cannot find one or more groups with IDs: {group_ids}."
+                    )
+
+                accessible_ids = set(
+                    await accessible_group_ids_async(self.current_user, session)
+                )
+                if not all(group.id in accessible_ids for group in groups):
+                    return self.error(
+                        "Cannot change groups for Analysis Services that you are not a member of."
+                    )
+                # Async: preload groups before reassigning, else the lazy
+                # diff-load raises greenlet_spawn (sync IO in async).
+                await session.refresh(
+                    merged_analysis_service, attribute_names=["groups"]
+                )
+                merged_analysis_service.groups = groups
+
+            await session.commit()
+            return self.success()
+
+    @permissions(["Manage Analysis Services"])
+    async def delete(self, analysis_service_id: int):
+        """
+        ---
+        summary: Delete an Analysis Service.
+        description: Delete an Analysis Service.
+        tags:
+          - analysis services
+        parameters:
+          - in: path
+            name: analysis_service_id
+            required: true
+            schema:
+              type: integer
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error("analysis_service_id must be an int.")
+
+        async with self.AsyncSession() as session:
+            analysis_service = await session.scalar(
+                AnalysisService.select(session.user_or_token, mode="delete").where(
+                    AnalysisService.id == analysis_service_id
+                )
+            )
+            if analysis_service is None:
+                return self.error("Cannot delete this Analysis Service.", status=403)
+            await session.delete(analysis_service)
+            await session.commit()
+
+            self.push_all(action="skyportal/REFRESH_ANALYSIS_SERVICES")
+            return self.success()
+
+
+class AnalysisHandler(BaseHandler):
+    @permissions(["Run Analyses"])
+    async def post(
+        self, analysis_resource_type: str, resource_id: str, analysis_service_id: int
+    ):
+        """
+        ---
+        summary: Run an analysis
+        description: Begin an analysis run
+        tags:
+          - analysis
+        parameters:
+          - in: path
+            name: analysis_resource_type
+            required: true
+            schema:
+              type: string
+            description: |
+               What underlying data the analysis is on:
+               must be "obj" (more to be added in the future)
+          - in: path
+            name: resource_id
+            required: true
+            schema:
+              type: string
+            description: |
+               The ID of the underlying data.
+               This would be a string for an object ID.
+          - in: path
+            name: analysis_service_id
+            required: true
+            schema:
+              type: string
+            description: the analysis service id to be used
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  show_parameters:
+                    type: boolean
+                    description: Whether to render the parameters of this analysis
+                  show_plots:
+                    type: boolean
+                    description: Whether to render the plots of this analysis
+                  show_corner:
+                    type: boolean
+                    description: Whether to render the corner plots of this analysis
+                  input_filters:
+                    type: array
+                    description: Filters to apply to the input data
+                  analysis_parameters:
+                    type: object
+                    description: Dictionary of parameters to be passed thru to the analysis
+                    additionalProperties:
+                        type: string
+                  group_ids:
+                    type: array
+                    items:
+                      type: integer
+                    description: |
+                      List of group IDs corresponding to which groups should be
+                      able to view analysis results. Defaults to all of requesting user's
+                      groups.
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            analysis_id:
+                              type: integer
+                              description: New analysis ID
+        """
+        try:
+            data = self.get_json()
+        except Exception as e:
+            return self.error(f"Error parsing JSON: {e}")
+
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid analysis_service_id: {analysis_service_id}")
+
+        async with self.AsyncSession() as session:
+            from ...utils.data_access import accessible_group_ids_async
+
+            stmt = AnalysisService.select(self.current_user).where(
+                AnalysisService.id == analysis_service_id
+            )
+            analysis_service = await session.scalar(stmt)
+            if analysis_service is None:
+                return self.error(
+                    message=f"Could not access Analysis Service ID: {analysis_service_id}.",
+                    status=403,
+                )
+
+            if analysis_service.upload_only:
+                return self.error(
+                    message=(
+                        f"Analysis Service ID: {analysis_service_id} is of type upload_only."
+                        " Please use the analysis_upload endpoint."
+                    ),
+                    status=403,
+                )
+
+            analysis_parameters = data.get("analysis_parameters", {})
+
+            if isinstance(analysis_service.optional_analysis_parameters, str):
+                optional_analysis_parameters = json.loads(
+                    analysis_service.optional_analysis_parameters
+                )
+            else:
+                optional_analysis_parameters = (
+                    analysis_service.optional_analysis_parameters
+                )
+
+            if not set(analysis_parameters.keys()).issubset(
+                set(optional_analysis_parameters.keys())
+            ):
+                return self.error(
+                    f"Invalid analysis_parameters: {analysis_parameters}.", status=400
+                )
+
+            if analysis_service.is_summary:
+                user_id = self.associated_user_object.id
+                user = await session.scalar(
+                    User.select(session.user_or_token, mode="update").where(
+                        User.id == user_id
+                    )
+                )
+                if user is None:
+                    return self.error("Cannot find user.", status=400)
+
+                if (
+                    user.preferences.get("summary", {})
+                    .get("OpenAI", {})
+                    .get("active", False)
+                ):
+                    user_pref_openai = user.preferences["summary"]["OpenAI"].copy()
+                    analysis_parameters["openai_api_key"] = user_pref_openai["apikey"]
+                    user_pref_openai.pop("apikey", None)
+                    user_pref_openai.pop("active", None)
+                    analysis_parameters["summary_parameters"] = user_pref_openai
+                elif openai_api_key is not None:
+                    analysis_parameters["openai_api_key"] = openai_api_key
+                    analysis_parameters["summary_parameters"] = summary_config
+
+            group_ids = data.pop("group_ids", None)
+            if not group_ids:
+                group_ids = await accessible_group_ids_async(self.current_user, session)
+
+            groups_result = await session.scalars(
+                Group.select(self.current_user).where(Group.id.in_(group_ids))
+            )
+            groups = groups_result.unique().all()
+            if {g.id for g in groups} != set(group_ids):
+                return self.error(
+                    f"Cannot find one or more groups with IDs: {group_ids}."
+                )
+
+            author = self.associated_user_object
+            input_filters = data.get("input_filters", {})
+            if input_filters is not None:
+                if (
+                    "photometry" in analysis_service.input_data_types
+                    and "photometry" in input_filters
+                ):
+                    filters = input_filters.get("photometry", {}).get("filters", [])
+                    instruments = input_filters.get("photometry", {}).get(
+                        "instruments", []
+                    )
+                    if filters is not None:
+                        filters = [f.strip() for f in filters if f.strip() != ""]
+                        if len(filters) > 0:
+                            input_filters["photometry"]["filters"] = filters
+                    if instruments is not None:
+                        instruments = [
+                            int(i.strip()) for i in instruments if isinstance(i, str)
+                        ]
+                        if len(instruments) > 0:
+                            input_filters["photometry"]["instruments"] = instruments
+
+            try:
+                analysis_id = await post_analysis_async(
+                    analysis_resource_type,
+                    resource_id,
+                    self.current_user,
+                    author,
+                    groups,
+                    analysis_service,
+                    analysis_parameters=data.get("analysis_parameters", {}),
+                    show_parameters=data.get("show_parameters", False),
+                    show_plots=data.get("show_plots", False),
+                    show_corner=data.get("show_corner", False),
+                    input_filters=input_filters,
+                    session=session,
+                )
+                return self.success(data={"id": analysis_id})
+            except Exception as e:
+                if "not found" in str(e).lower():
+                    return self.error(f"Error posting analysis: {e}", status=404)
+                else:
+                    return self.error(f"Error posting analysis: {e}")
+
+    @auth_or_token
+    async def get(
+        self,
+        analysis_resource_type: str,
+        obj_id_path: str | None = None,
+        analysis_id: int | None = None,
+    ):
+        """
+        ---
+        single:
+          summary: Get an Analysis by id
+          description: Retrieve an Analysis by id
+          tags:
+            - analysis
+          parameters:
+            - in: path
+              name: analysis_resource_type
+              required: true
+              schema:
+                type: string
+              description: |
+                What underlying data the analysis is on:
+                must be "obj" (more to be added in the future)
+            - in: path
+              name: analysis_id
+              required: false
+              schema:
+                type: integer
+              description: |
+                ID of the analysis to return.
+            - in: query
+              name: objID
+              nullable: true
+              schema:
+                type: string
+              description: |
+                Return any analysis on an object with ID objID
+            - in: query
+              name: analysisServiceID
+              required: false
+              schema:
+                type: integer
+              description: |
+                ID of the analysis service used to create the analysis, used only if no analysis_id is given
+            - in: query
+              name: includeAnalysisData
+              nullable: true
+              schema:
+                type: boolean
+              description: |
+                Boolean indicating whether to include the data associated
+                with the analysis in the response. Could be a large
+                amount of data. Only works for single analysis requests.
+                Defaults to false.
+            - in: query
+              name: summaryOnly
+              nullable: true
+              schema:
+                type: boolean
+              description: |
+                Boolean indicating whether to return only analyses that
+                use analysis services with `is_summary` set to true.
+                Defaults to false.
+            - in: query
+              name: includeFilename
+              nullable: true
+              schema:
+                type: boolean
+              description: |
+                Boolean indicating whether to include the filename of the
+                data associated with the analysis in the response. Defaults to false.
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: SingleObjAnalysisDetail
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Get all Analyses
+          description: Retrieve all Analyses
+          tags:
+            - analysis
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfObjAnalysisDetails
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        include_analysis_data = self.get_query_argument(
+            "includeAnalysisData", False
+        ) in ["True", "t", "true", "1", True, 1]
+        include_filename = self.get_query_argument("includeFilename", False)
+        summary_only = self.get_query_argument("summaryOnly", False)
+
+        # This GET serves two routes that pass path captures positionally:
+        #   /api/(obj)/<obj_id>/analysis(/<analysis_id>)  -> (obj_id_path, analysis_id)
+        #   /api/(obj)/analysis(/<analysis_id>)           -> the analysis_id lands in
+        #       the obj_id_path slot (it's the first optional capture).
+        # A bare numeric first capture with no analysis_id is therefore the
+        # analysis_id, not an obj_id (SkyPortal obj ids are non-numeric).
+        if (
+            analysis_id is None
+            and obj_id_path is not None
+            and str(obj_id_path).isdigit()
+        ):
+            analysis_id = int(obj_id_path)
+            obj_id_path = None
+        obj_id = obj_id_path or self.get_query_argument("objID", None)
+        analysis_service_id = self.get_query_argument(
+            "analysisServiceID", None, type=int
+        )
+        async with self.AsyncSession() as session:
+            if obj_id is not None:
+                stmt = Obj.select(self.current_user).where(Obj.id == obj_id)
+                obj = await session.scalar(stmt)
+                if obj is None:
+                    return self.error(f"Obj {obj_id} not found", status=404)
+
+            if analysis_resource_type.lower() == "obj":
+                if analysis_id is not None:
+                    stmt = (
+                        ObjAnalysis.select(self.current_user)
+                        .options(selectinload(ObjAnalysis.groups))
+                        .where(ObjAnalysis.id == analysis_id)
+                    )
+                    if obj_id:
+                        stmt = stmt.where(ObjAnalysis.obj_id.contains(obj_id.strip()))
+
+                    analysis = await session.scalar(stmt)
+                    if analysis is None:
+                        return self.error("Cannot access this Analysis.", status=403)
+
+                    analysis_dict = recursive_to_dict(analysis)
+
+                    # dont return the openai api key if its there
+                    if "analysis_parameters" in analysis_dict:
+                        analysis_dict["analysis_parameters"].pop("openai_api_key", None)
+
+                    stmt = AnalysisService.select(self.current_user).where(
+                        AnalysisService.id == analysis.analysis_service_id
+                    )
+                    analysis_service = await session.scalar(stmt)
+                    analysis_dict["analysis_service_name"] = (
+                        analysis_service.display_name
+                    )
+                    analysis_dict["analysis_service_description"] = (
+                        analysis_service.description
+                    )
+                    analysis_dict["num_plots"] = analysis.number_of_analysis_plots
+
+                    if include_filename:
+                        analysis_dict["filename"] = analysis._full_name
+                    analysis_dict["groups"] = analysis.groups
+                    if include_analysis_data:
+                        analysis_dict["data"] = analysis.data
+
+                    return self.success(data=analysis_dict)
+
+                # retrieve multiple analyses
+                stmt = ObjAnalysis.select(self.current_user)
+                if obj_id:
+                    # groups are only serialized for the per-source view; skip the
+                    # eager load (a big secondary query) for the global list.
+                    stmt = stmt.options(selectinload(ObjAnalysis.groups))
+                    stmt = stmt.where(ObjAnalysis.obj_id.contains(obj_id.strip()))
+                if analysis_service_id:
+                    stmt = stmt.where(
+                        ObjAnalysis.analysis_service_id == analysis_service_id
+                    )
+                result = await session.scalars(stmt)
+                analyses = result.unique().all()
+
+                ret_array = []
+                analysis_services_dict = {}
+                for a in analyses:
+                    # Per-source queries (objID) feed the photometry overlay and
+                    # need the full record + model light curve (loaded from disk).
+                    # The global list (no objID) only renders a few columns + the
+                    # health histogram, so build a minimal dict — serializing every
+                    # column and the groups for all rows is what made it slow.
+                    if obj_id:
+                        analysis_dict = recursive_to_dict(a)
+                        if "analysis_parameters" in analysis_dict:
+                            analysis_dict["analysis_parameters"].pop(
+                                "openai_api_key", None
+                            )
+                        analysis_dict["groups"] = [
+                            {"id": g.id, "name": g.name} for g in a.groups
+                        ]
+                        if include_filename:
+                            analysis_dict["filename"] = a._full_name
+                        analysis_dict["model_lightcurve"] = None
+                        analysis_dict["model_lightcurves"] = None
+                        analysis_dict["model_name"] = None
+                        analysis_dict["n_detections"] = None
+                        try:
+                            adata = a.data or {}
+                            analysis_dict["model_lightcurve"] = adata.get(
+                                "model_lightcurve"
+                            )
+                            analysis_dict["model_lightcurves"] = adata.get(
+                                "model_lightcurves"
+                            )
+                            analysis_dict["model_name"] = adata.get("model_name")
+                            analysis_dict["n_detections"] = adata.get("n_detections")
+                        except Exception:
+                            pass
+                    else:
+                        analysis_dict = {
+                            "id": a.id,
+                            "obj_id": a.obj_id,
+                            "status": a.status,
+                            "status_message": a.status_message,
+                            "created_at": a.created_at,
+                            "last_activity": a.last_activity,
+                            "analysis_service_id": a.analysis_service_id,
+                        }
+
+                    if a.analysis_service_id not in analysis_services_dict:
+                        stmt = AnalysisService.select(self.current_user).where(
+                            AnalysisService.id == a.analysis_service_id
+                        )
+                        analysis_service = await session.scalar(stmt)
+                        if analysis_service is not None:
+                            analysis_services_dict.update(
+                                {
+                                    a.analysis_service_id: {
+                                        "analysis_service_name": analysis_service.display_name,
+                                        "analysis_service_description": analysis_service.description,
+                                        "analysis_serivce_display_as_summary": analysis_service.is_summary,
+                                    }
+                                }
+                            )
+
+                    if a.analysis_service_id in analysis_services_dict:
+                        service_info = analysis_services_dict[a.analysis_service_id]
+                        analysis_dict["analysis_service_name"] = service_info[
+                            "analysis_service_name"
+                        ]
+                        analysis_dict["analysis_service_description"] = service_info[
+                            "analysis_service_description"
+                        ]
+
+                    if (
+                        summary_only
+                        and not service_info["analysis_serivce_display_as_summary"]
+                    ):
+                        # the analysis service is not a summary service, so skip returning this analysis
+                        continue
+                    ret_array.append(analysis_dict)
+            else:
+                return self.error(
+                    f"analysis_resource_type must be one of {', '.join(['obj'])}",
+                    status=404,
+                )
+            return self.success(data=ret_array)
+
+    @permissions(["Run Analyses"])
+    async def delete(self, analysis_resource_type: str, analysis_id: int):
+        """
+        ---
+        summary: Delete an Analysis.
+        description: Delete an Analysis.
+        tags:
+          - analysis
+        parameters:
+          - in: path
+            name: analysis_id
+            required: true
+            schema:
+              type: integer
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        try:
+            analysis_id = int(analysis_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid analysis_id: {analysis_id}")
+
+        async with self.AsyncSession() as session:
+            if analysis_resource_type.lower() == "obj":
+                stmt = (
+                    ObjAnalysis.select(self.current_user)
+                    .join(ObjAnalysis.obj)
+                    .join(ObjAnalysis.analysis_service)
+                    .options(contains_eager(ObjAnalysis.analysis_service))
+                    .options(contains_eager(ObjAnalysis.obj))
+                    .where(ObjAnalysis.id == analysis_id)
+                )
+                analysis = await session.scalar(stmt)
+                if analysis is None:
+                    return self.error("Cannot access this Analysis.", status=403)
+
+                # Capture attributes before delete (post-delete attribute access
+                # on async-detached objects can fail)
+                obj_internal_key = analysis.obj.internal_key
+                analysis_service_is_summary = analysis.analysis_service.is_summary
+
+                if analysis.obj.summary_history is not None:
+                    analysis.obj.summary_history = [
+                        x
+                        for x in analysis.obj.summary_history
+                        if x.get("analysis_id", -1) != analysis.id
+                    ]
+                await session.delete(analysis)
+                await session.commit()
+
+                try:
+                    flow = Flow()
+                    if analysis_service_is_summary:
+                        flow.push(
+                            "*",
+                            "skyportal/REFRESH_SOURCE",
+                            payload={"obj_key": obj_internal_key},
+                        )
+                    elif analysis_resource_type == "obj":
+                        flow.push(
+                            "*",
+                            "skyportal/REFRESH_OBJ_ANALYSES",
+                            payload={"obj_key": obj_internal_key},
+                        )
+                except Exception as e:
+                    log(f"Error pushing updates to source: {e}")
+
+                return self.success()
+            else:
+                return self.error(
+                    f"analysis_resource_type must be one of {', '.join(['obj'])}",
+                    status=404,
+                )
+
+
+class AnalysisProductsHandler(BaseHandler):
+    @auth_or_token
+    async def get(
+        self,
+        analysis_resource_type: str,
+        analysis_id: int,
+        product_type: str,
+        plot_number: int = 0,
+    ):
+        """
+        ---
+        summary: Get analysis products
+        description: Retrieve primary data associated with an Analysis.
+        tags:
+        - analysis
+        parameters:
+        - in: path
+          name: analysis_resource_type
+          required: true
+          schema:
+            type: string
+          description: |
+            What underlying data the analysis is on:
+            must be "obj" (more to be added in the future)
+        - in: path
+          name: analysis_id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: product_type
+          required: true
+          schema:
+            type: string
+          description: |
+            What type of data to retrieve:
+            must be one of "results" or "plot"
+        - in: path
+          name: plot_number
+          required: false
+          schema:
+            type: integer
+          description: |
+            if product_type == "plot", which
+            plot number should be returned?
+            Default to zero (first plot).
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download:
+                    type: bool
+                    description: |
+                        Download the results as a file
+                  plot_kwargs:
+                    type: object
+                    additionalProperties:
+                      type: object
+                    description: |
+                        Extra parameters to pass to the plotting functions
+                        if new plots are to be generated (e.g. with corner plots)
+        responses:
+          200:
+            description: Requested analysis file
+            content:
+              application/json:
+                schema:
+                  type: object
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            if analysis_resource_type.lower() == "obj":
+                if analysis_id is not None:
+                    stmt = ObjAnalysis.select(self.current_user).where(
+                        ObjAnalysis.id == analysis_id
+                    )
+                    analysis = await session.scalar(stmt)
+                    if analysis is None:
+                        return self.error("Cannot access this Analysis.", status=403)
+
+                    if analysis.data in [None, {}]:
+                        return self.error(
+                            "No data found for this Analysis.", status=404
+                        )
+
+                    if product_type.lower() == "results":
+                        if not analysis.has_results_data:
+                            return self.error(
+                                "No results data found for this Analysis.", status=404
+                            )
+
+                        result = analysis.serialize_results_data()
+
+                        if result:
+                            download = self.get_query_argument("download", False)
+                            if download:
+                                filename = f"analysis_{analysis.obj_id}.json"
+                                buf = io.BytesIO()
+                                buf.write(json.dumps(result).encode("utf-8"))
+                                buf.seek(0)
+
+                                await self.send_file(buf, filename, output_type="json")
+                                return
+                            else:
+                                return self.success(data=result)
+                        else:
+                            return self.error(
+                                "No results data found for this Analysis.", status=404
+                            )
+                    elif product_type.lower() == "plots":
+                        if not analysis.has_plot_data:
+                            return self.error(
+                                "No plot data found for this Analysis.", status=404
+                            )
+                        try:
+                            plot_number = int(plot_number)
+                        except Exception as e:
+                            return self.error(
+                                f"plot_number must be an integer. {e}", status=400
+                            )
+                        if (
+                            plot_number < 0
+                            or plot_number >= analysis.number_of_analysis_plots
+                        ):
+                            return self.error(
+                                "Invalid plot number. "
+                                f"There is/are {analysis.number_of_analysis_plots} plot(s) available for this analysis",
+                                status=404,
+                            )
+
+                        result = analysis.get_analysis_plot(plot_number=plot_number)
+                        if result is not None:
+                            output_data = result["plot_data"]
+                            output_type = result["plot_type"].lower()
+                            filename = f"analysis_{analysis.obj_id}_plot_{plot_number}.{output_type}"
+                            await self.send_file(
+                                output_data, filename, output_type=output_type
+                            )
+                            return
+                    else:
+                        return self.error(
+                            f"Invalid product type: {product_type}", status=404
+                        )
+            else:
+                return self.error(
+                    f"analysis_resource_type must be one of {', '.join(['obj'])}",
+                    status=404,
+                )
+
+            return self.error("No data found for this Analysis.", status=404)
+
+
+class AnalysisUploadOnlyHandler(BaseHandler):
+    @permissions(["Run Analyses"])
+    async def post(
+        self, analysis_resource_type: str, resource_id: str, analysis_service_id: int
+    ):
+        """
+        ---
+        summary: Upload an upload_only analysis result
+        description: Upload an upload_only analysis result
+        tags:
+          - analysis
+        parameters:
+          - in: path
+            name: analysis_resource_type
+            required: true
+            schema:
+              type: string
+            description: |
+               What underlying data the analysis is on:
+               must be "obj" (more to be added in the future)
+          - in: path
+            name: resource_id
+            required: true
+            schema:
+              type: string
+            description: |
+               The ID of the underlying data.
+               This would be a string for an object ID.
+          - in: path
+            name: analysis_service_id
+            required: true
+            schema:
+              type: string
+            description: the analysis service id to be used
+        requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: object
+                    description: Results data of this analysis
+                  show_parameters:
+                    type: boolean
+                    description: Whether to render the parameters of this analysis
+                  show_plots:
+                    type: boolean
+                    description: Whether to render the plots of this analysis
+                  show_corner:
+                    type: boolean
+                    description: Whether to render the corner plots of this analysis
+                  group_ids:
+                    type: array
+                    items:
+                      type: integer
+                    description: |
+                      List of group IDs corresponding to which groups should be
+                      able to view analysis results. Defaults to all of requesting user's
+                      groups.
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            analysis_id:
+                              type: integer
+                              description: New analysis ID
+        """
+        # allowable resources now are [obj]. Can be extended in the future.
+        if analysis_resource_type.lower() not in ["obj"]:
+            return self.error("Invalid analysis resource type", status=403)
+
+        try:
+            data = self.get_json()
+        except Exception as e:
+            return self.error(f"Error parsing JSON: {e}")
+
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid analysis_service_id: {analysis_service_id}")
+
+        async with self.AsyncSession() as session:
+            from ...utils.data_access import accessible_group_ids_async
+
+            stmt = AnalysisService.select(self.current_user).where(
+                AnalysisService.id == analysis_service_id
+            )
+            analysis_service = await session.scalar(stmt)
+            if analysis_service is None:
+                return self.error(
+                    message=f"Could not access Analysis Service ID: {analysis_service_id}.",
+                    status=403,
+                )
+            if not analysis_service.upload_only:
+                return self.error(
+                    message=f"Analysis Service ID: {analysis_service_id} is not of type upload_only.",
+                    status=403,
+                )
+
+            group_ids = data.pop("group_ids", None)
+            if not group_ids:
+                group_ids = await accessible_group_ids_async(self.current_user, session)
+
+            groups_result = await session.scalars(
+                Group.select(self.current_user).where(Group.id.in_(group_ids))
+            )
+            groups = groups_result.unique().all()
+            if {g.id for g in groups} != set(group_ids):
+                return self.error(
+                    f"Cannot find one or more groups with IDs: {group_ids}."
+                )
+
+            author_id_val = self.associated_user_object.id
+            author = await session.get(User, author_id_val)
+            status_message = data.get("message", "")
+
+            if analysis_resource_type.lower() == "obj":
+                obj_id = resource_id
+                stmt = Obj.select(self.current_user).where(Obj.id == obj_id)
+                obj = await session.scalar(stmt)
+                if obj is None:
+                    return self.error(f"Obj {obj_id} not found", status=404)
+
+                # make sure the user has not exceeded the maximum number of analyses
+                # for this object. This will help save space on the disk
+                # an enforce a reasonable limit on the number of analyses.
+                stmt = ObjAnalysis.select(self.current_user).where(
+                    ObjAnalysis.obj_id == obj_id
+                )
+                stmt = stmt.where(ObjAnalysis.author_id == author_id_val)
+                stmt = stmt.where(ObjAnalysis.status == "completed")
+
+                total_matches = await session.scalar(
+                    select(func.count()).select_from(stmt)
+                )
+
+                if (
+                    total_matches
+                    >= cfg["analysis_services.max_analysis_per_obj_per_user"]
+                ):
+                    return self.error(
+                        (
+                            "You have reached the maximum number of analyses for this object."
+                            " Please delete some analyses before uploading more."
+                        ),
+                        status=403,
+                    )
+                invalid_after = utcnow_naive() + datetime.timedelta(seconds=10)
+                analysis = ObjAnalysis(
+                    obj=obj,
+                    author=author,
+                    groups=groups,
+                    analysis_service=analysis_service,
+                    show_parameters=data.get("show_parameters", True),
+                    show_plots=data.get("show_plots", True),
+                    show_corner=data.get("show_corner", True),
+                    analysis_parameters={},
+                    status="completed",
+                    status_message=status_message,
+                    handled_by_url="/",
+                    invalid_after=invalid_after,
+                    last_activity=utcnow_naive(),
+                )
+            else:
+                return self.error(
+                    f"analysis_resource_type must be one of {', '.join(['obj'])}",
+                    status=404,
+                )
+            session.add(analysis)
+            try:
+                await session.commit()
+            except IntegrityError as e:
+                return self.error(f"Analysis already exists: {str(e)}")
+            except Exception as e:
+                return self.error(f"Unexpected error creating analysis: {str(e)}")
+
+            results = data.get("analysis", {})
+            if len(results.keys()) > 0:
+                analysis._data = results
+                analysis.save_data()
+                message = f"Saved upload_only analysis data at {analysis.filename}. Message: {analysis.status_message}"
+            else:
+                message = f"Note: empty analysis upload_only results. Message: {analysis.status_message}"
+            log(message)
+            await session.commit()
+            return self.success(data={"id": analysis.id, "message": message})
+
+
+class DefaultAnalysisHandler(BaseHandler):
+    # this handler is a handler to post and get default analyses
+    # a DefaultAnalysis is a reference to an analysis service, and a set of parameters, and a set of source_filter, that are criteria
+    # for a default analysis to be run on an object
+
+    @auth_or_token
+    async def get(self, analysis_service_id: int, default_analysis_id: int):
+        """
+        ---
+        single:
+          summary: Get a default analysis
+          description: Retrieve a default analysis
+          tags:
+            - default analyses
+          parameters:
+            - in: path
+              name: analysis_service_id
+              required: true
+              description: Analysis service ID
+            - in: path
+              name: default_analysis_id
+              required: true
+              description: Default analysis ID
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: SingleDefaultAnalysis
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Get all default analyses
+          description: Retrieve all default analyses
+          tags:
+            - default analyses
+          parameters:
+            - in: path
+              name: analysis_service_id
+              required: false
+              description: Analysis service ID, if not provided, return all default analyses for all analysis services
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfDefaultAnalysiss
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            try:
+                analysis_service_id = (
+                    int(analysis_service_id)
+                    if analysis_service_id is not None
+                    else None
+                )
+                default_analysis_id = (
+                    int(default_analysis_id)
+                    if default_analysis_id is not None
+                    else None
+                )
+                if default_analysis_id is not None and analysis_service_id is not None:
+                    stmt = (
+                        DefaultAnalysis.select(self.current_user)
+                        .options(
+                            selectinload(DefaultAnalysis.groups),
+                            joinedload(DefaultAnalysis.author),
+                            joinedload(DefaultAnalysis.analysis_service),
+                        )
+                        .where(
+                            DefaultAnalysis.analysis_service_id == analysis_service_id,
+                            DefaultAnalysis.id == default_analysis_id,
+                        )
+                    )
+                    default_analysis = await session.scalar(stmt)
+                    if default_analysis is None:
+                        return self.error(
+                            f"Could not load default analysis {default_analysis_id}",
+                            status=400,
+                        )
+                    return self.success(data=default_analysis)
+                elif analysis_service_id is not None:
+                    stmt = (
+                        DefaultAnalysis.select(self.current_user)
+                        .options(
+                            selectinload(DefaultAnalysis.groups),
+                            joinedload(DefaultAnalysis.author),
+                            joinedload(DefaultAnalysis.analysis_service),
+                        )
+                        .where(
+                            DefaultAnalysis.analysis_service_id == analysis_service_id
+                        )
+                    )
+                    result = await session.scalars(stmt)
+                    default_analysis = result.unique().all()
+                    return self.success(data=default_analysis)
+                else:
+                    stmt = DefaultAnalysis.select(self.current_user).options(
+                        selectinload(DefaultAnalysis.groups),
+                        joinedload(DefaultAnalysis.author),
+                        joinedload(DefaultAnalysis.analysis_service),
+                    )
+                    result = await session.scalars(stmt)
+                    default_analysis = result.unique().all()
+                    return self.success(data=default_analysis)
+            except Exception as e:
+                return self.error(
+                    f"Unexpected error loading default analysis: {str(e)}"
+                )
+
+    @auth_or_token
+    async def post(self, analysis_service_id: int, *ignored_args):
+        """
+        ---
+        summary: Create a new default analysis
+        description: Create a new default analysis
+        tags:
+          - default analyses
+        parameters:
+            - in: path
+              name: analysis_service_id
+              required: true
+              description: Analysis service ID
+            - in: path
+              name: default_analysis_id
+              required: false
+              description: Default analysis ID
+        requestBody:
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            default_analysis_parameters:
+                                type: object
+                                description: Dictionary of parameters to be passed thru to the analysis
+                                additionalProperties:
+                                    type: string
+                            source_filter:
+                                type: object
+                                description: Dictionary of filters to apply to the input data
+                                additionalProperties:
+                                    type: string
+                            daily_limit:
+                                type: integer
+                                description: Maximum number of analyses to run per day
+                            group_ids:
+                                type: array
+                                items:
+                                    type: integer
+                                description: |
+                                    List of group IDs corresponding to which groups should be
+                                    able to view analysis results. Defaults to all of requesting user's
+                                    groups.
+        responses:
+            200:
+                content:
+                    application/json:
+                        schema:
+                            allOf:
+                                - $ref: '#/components/schemas/Success'
+                                - type: object
+                                  properties:
+                                    id:
+                                      type: integer
+                                      description: New default analysis ID
+            400:
+                content:
+                    application/json:
+                        schema: Error
+        """
+        data = self.get_json()
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid analysis_service_id: {analysis_service_id}")
+
+        async with self.AsyncSession() as session:
+            from ...utils.data_access import accessible_group_ids_async
+
+            try:
+                analysis_service = await session.scalar(
+                    AnalysisService.select(self.current_user).where(
+                        AnalysisService.id == analysis_service_id
+                    )
+                )
+                if analysis_service is None:
+                    return self.error(
+                        f"Analysis service {analysis_service_id} not found", status=404
+                    )
+
+                # Multiple default analyses per service are allowed — e.g. one
+                # per classification, or the same trigger with different
+                # parameters. Each matching default runs independently.
+
+                default_analysis_parameters = data.get(
+                    "default_analysis_parameters", {}
+                )
+                source_filter = data.get("source_filter", {})
+                daily_limit = data.get("daily_limit", 10)
+                if not isinstance(daily_limit, int):
+                    try:
+                        daily_limit = int(daily_limit)
+                    except Exception:
+                        return self.error(
+                            f"Invalid daily_limit: {daily_limit}.", status=400
+                        )
+
+                if daily_limit > DEFAULT_ANALYSES_DAILY_LIMIT or daily_limit <= 0:
+                    return self.error(
+                        f"Invalid daily_limit: {daily_limit}. Must be between 1 and {DEFAULT_ANALYSES_DAILY_LIMIT}",
+                        status=400,
+                    )
+
+                stats = {
+                    "daily_limit": daily_limit,
+                    "daily_count": 0,
+                    "last_run": utcnow_naive().strftime("%Y-%m-%dT%H:%M:%S.%f"),
+                }
+
+                if not isinstance(source_filter, dict):
+                    try:
+                        source_filter = json.loads(source_filter)
+                    except Exception:
+                        return self.error(
+                            f"Invalid source_filter: {source_filter}.",
+                            status=400,
+                        )
+
+                if not isinstance(default_analysis_parameters, dict):
+                    try:
+                        default_analysis_parameters = json.loads(
+                            default_analysis_parameters
+                        )
+                    except Exception:
+                        return self.error(
+                            f"Invalid analysis_parameters: {default_analysis_parameters}.",
+                            status=400,
+                        )
+
+                if isinstance(analysis_service.optional_analysis_parameters, str):
+                    optional_analysis_parameters = json.loads(
+                        analysis_service.optional_analysis_parameters
+                    )
+                else:
+                    optional_analysis_parameters = (
+                        analysis_service.optional_analysis_parameters
+                    )
+
+                if not set(default_analysis_parameters.keys()).issubset(
+                    set(optional_analysis_parameters.keys())
+                ):
+                    return self.error(
+                        f"Invalid default_analysis_parameters: {default_analysis_parameters}.",
+                        status=400,
+                    )
+
+                group_ids = data.pop("group_ids", None)
+                if not group_ids:
+                    group_ids = await accessible_group_ids_async(
+                        self.current_user, session
+                    )
+
+                groups_result = await session.scalars(
+                    Group.select(self.current_user).where(Group.id.in_(group_ids))
+                )
+                groups = groups_result.unique().all()
+                if {g.id for g in groups} != set(group_ids):
+                    return self.error(
+                        f"Cannot find one or more groups with IDs: {group_ids}."
+                    )
+
+                # check that the source_filter keys are valid: either a
+                # list-of-dicts filter (classifications) or a scalar (group_id).
+                if not set(source_filter.keys()).issubset(
+                    set(DEFAULT_ANALYSIS_FILTER_TYPES.keys())
+                    | set(DEFAULT_ANALYSIS_SCALAR_FILTERS.keys())
+                ):
+                    return self.error(f"Invalid source_filter: {source_filter}.")
+
+                for key, value in source_filter.items():
+                    if key in DEFAULT_ANALYSIS_SCALAR_FILTERS:
+                        if not isinstance(value, DEFAULT_ANALYSIS_SCALAR_FILTERS[key]):
+                            return self.error(
+                                f"Invalid source_filter. Key {key} must be a "
+                                f"{DEFAULT_ANALYSIS_SCALAR_FILTERS[key].__name__}."
+                            )
+                    elif isinstance(value, list):
+                        for v in value:
+                            if isinstance(v, dict):
+                                if not set(v.keys()).issubset(
+                                    set(DEFAULT_ANALYSIS_FILTER_TYPES[key])
+                                ):
+                                    return self.error(
+                                        f"Invalid source_filter. Key {key} must be a list of dicts with keys {str(DEFAULT_ANALYSIS_FILTER_TYPES[key])}."
+                                    )
+                            else:
+                                return self.error(
+                                    f"Invalid source_filter. Key {key} must be a list of dicts."
+                                )
+                    else:
+                        return self.error(
+                            f"Invalid source_filter with key {key}. Value must be a list."
+                        )
+
+                author = await session.get(User, self.associated_user_object.id)
+
+                default_analysis = DefaultAnalysis(
+                    analysis_service=analysis_service,
+                    default_analysis_parameters=default_analysis_parameters,
+                    source_filter=source_filter,
+                    stats=stats,
+                    show_parameters=data.get("show_parameters", True),
+                    show_plots=data.get("show_plots", True),
+                    show_corner=data.get("show_corner", True),
+                    author=author,
+                    groups=groups,
+                )
+
+                session.add(default_analysis)
+                await session.commit()
+                return self.success(data={"id": default_analysis.id})
+            except Exception as e:
+                return self.error(
+                    f"Unexpected error posting default analysis: {str(e)}"
+                )
+
+    @auth_or_token
+    async def patch(self, analysis_service_id: int, default_analysis_id: int):
+        """
+        ---
+        summary: Update a default analysis
+        description: |
+            Partial update of a default analysis. Any of default_analysis_parameters,
+            source_filter, group_ids, daily_limit, show_parameters, show_plots,
+            show_corner may be supplied; omitted fields are left unchanged.
+        tags:
+          - default analyses
+        parameters:
+          - in: path
+            name: analysis_service_id
+            required: true
+            schema:
+              type: integer
+          - in: path
+            name: default_analysis_id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            default_analysis_parameters:
+                                type: object
+                            source_filter:
+                                type: object
+                            daily_limit:
+                                type: integer
+                            group_ids:
+                                type: array
+                                items:
+                                    type: integer
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        if default_analysis_id is None:
+            return self.error("Missing required parameter: default_analysis_id")
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid analysis_service_id: {analysis_service_id}")
+        try:
+            default_analysis_id = int(default_analysis_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid default_analysis_id: {default_analysis_id}")
+
+        data = self.get_json()
+        async with self.AsyncSession() as session:
+            try:
+                # Eager-load groups: we may reassign them below, and a lazy diff-load
+                # in the async session would raise greenlet_spawn.
+                default_analysis = await session.scalar(
+                    DefaultAnalysis.select(self.current_user, mode="update")
+                    .options(selectinload(DefaultAnalysis.groups))
+                    .where(
+                        DefaultAnalysis.analysis_service_id == analysis_service_id,
+                        DefaultAnalysis.id == default_analysis_id,
+                    )
+                )
+                if default_analysis is None:
+                    return self.error(
+                        f"Could not find default analysis {default_analysis_id}",
+                        status=400,
+                    )
+
+                if "default_analysis_parameters" in data:
+                    params = data["default_analysis_parameters"]
+                    if not isinstance(params, dict):
+                        try:
+                            params = json.loads(params)
+                        except Exception:
+                            return self.error(
+                                f"Invalid analysis_parameters: {params}.", status=400
+                            )
+                    analysis_service = await session.scalar(
+                        AnalysisService.select(self.current_user).where(
+                            AnalysisService.id == analysis_service_id
+                        )
+                    )
+                    oap = analysis_service.optional_analysis_parameters
+                    if isinstance(oap, str):
+                        oap = json.loads(oap)
+                    if not set(params.keys()).issubset(set(oap.keys())):
+                        return self.error(
+                            f"Invalid default_analysis_parameters: {params}.",
+                            status=400,
+                        )
+                    default_analysis.default_analysis_parameters = params
+
+                if "source_filter" in data:
+                    source_filter = data["source_filter"]
+                    if not isinstance(source_filter, dict):
+                        try:
+                            source_filter = json.loads(source_filter)
+                        except Exception:
+                            return self.error(
+                                f"Invalid source_filter: {source_filter}.", status=400
+                            )
+                    if not set(source_filter.keys()).issubset(
+                        set(DEFAULT_ANALYSIS_FILTER_TYPES.keys())
+                        | set(DEFAULT_ANALYSIS_SCALAR_FILTERS.keys())
+                    ):
+                        return self.error(f"Invalid source_filter: {source_filter}.")
+                    for key, value in source_filter.items():
+                        if key in DEFAULT_ANALYSIS_SCALAR_FILTERS:
+                            if not isinstance(
+                                value, DEFAULT_ANALYSIS_SCALAR_FILTERS[key]
+                            ):
+                                return self.error(
+                                    f"Invalid source_filter. Key {key} must be a "
+                                    f"{DEFAULT_ANALYSIS_SCALAR_FILTERS[key].__name__}."
+                                )
+                        elif isinstance(value, list):
+                            for v in value:
+                                if not isinstance(v, dict) or not set(
+                                    v.keys()
+                                ).issubset(set(DEFAULT_ANALYSIS_FILTER_TYPES[key])):
+                                    return self.error(
+                                        f"Invalid source_filter. Key {key} must be a list of dicts with keys {str(DEFAULT_ANALYSIS_FILTER_TYPES[key])}."
+                                    )
+                        else:
+                            return self.error(
+                                f"Invalid source_filter with key {key}. Value must be a list."
+                            )
+                    default_analysis.source_filter = source_filter
+
+                if "daily_limit" in data:
+                    daily_limit = data["daily_limit"]
+                    if not isinstance(daily_limit, int):
+                        try:
+                            daily_limit = int(daily_limit)
+                        except Exception:
+                            return self.error(
+                                f"Invalid daily_limit: {daily_limit}.", status=400
+                            )
+                    if daily_limit > DEFAULT_ANALYSES_DAILY_LIMIT or daily_limit <= 0:
+                        return self.error(
+                            f"Invalid daily_limit: {daily_limit}. Must be between 1 and {DEFAULT_ANALYSES_DAILY_LIMIT}",
+                            status=400,
+                        )
+                    default_analysis.stats = {
+                        **(default_analysis.stats or {}),
+                        "daily_limit": daily_limit,
+                    }
+
+                for flag in ("show_parameters", "show_plots", "show_corner"):
+                    if flag in data:
+                        setattr(default_analysis, flag, bool(data[flag]))
+
+                group_ids = data.get("group_ids", None)
+                if group_ids is not None:
+                    groups_result = await session.scalars(
+                        Group.select(self.current_user).where(Group.id.in_(group_ids))
+                    )
+                    groups = groups_result.unique().all()
+                    if {g.id for g in groups} != set(group_ids):
+                        return self.error(
+                            f"Cannot find one or more groups with IDs: {group_ids}."
+                        )
+                    default_analysis.groups = groups
+
+                await session.commit()
+                return self.success()
+            except Exception as e:
+                return self.error(
+                    f"Unexpected error updating default analysis: {str(e)}"
+                )
+
+    @auth_or_token
+    async def delete(self, analysis_service_id: int, default_analysis_id: int):
+        """
+        ---
+        summary: Delete a default analysis
+        description: Delete a default analysis
+        tags:
+            - default analyses
+        parameters:
+          - in: path
+            name: analysis_service_id
+            required: true
+            schema:
+              type: integer
+            description: Analysis service ID
+          - in: path
+            name: default_analysis_id
+            required: true
+            schema:
+              type: integer
+            description: Default analysis ID
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        if default_analysis_id is None:
+            return self.error("Missing required parameter: default_analysis_id")
+
+        try:
+            analysis_service_id = int(analysis_service_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid analysis_service_id: {analysis_service_id}")
+        try:
+            default_analysis_id = int(default_analysis_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid default_analysis_id: {default_analysis_id}")
+
+        async with self.AsyncSession() as session:
+            try:
+                default_analysis = await session.scalar(
+                    DefaultAnalysis.select(self.current_user).where(
+                        DefaultAnalysis.analysis_service_id == analysis_service_id,
+                        DefaultAnalysis.id == default_analysis_id,
+                    )
+                )
+                if default_analysis is None:
+                    return self.error(
+                        f"Could not find default analysis {default_analysis_id}",
+                        status=400,
+                    )
+                await session.delete(default_analysis)
+                await session.commit()
+                return self.success()
+            except Exception as e:
+                return self.error(
+                    f"Unexpected error deleting default analysis: {str(e)}"
+                )

@@ -1,0 +1,862 @@
+import io
+import json
+
+import astropy
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import sqlalchemy as sa
+from astroplan.moon import moon_phase_angle
+from astropy.utils.masked import MaskedNDArray
+from marshmallow.exceptions import ValidationError
+from sqlalchemy import func
+from sqlalchemy.orm import selectinload
+
+from baselayer.app.access import auth_or_token, permissions
+
+from ...models import (
+    Allocation,
+    AllocationUser,
+    EventObservationPlan,
+    FollowupRequest,
+    Group,
+    Instrument,
+    Obj,
+    ObservationPlanRequest,
+    User,
+)
+from ...utils.parse import get_page_and_n_per_page
+from ..base import BaseHandler, format_doc
+from .followup_request import MAX_FOLLOWUP_REQUESTS
+
+MAX_OBSERVATION_PLANS = 1000
+
+
+class AllocationObservationPlanHandler(BaseHandler):
+    @auth_or_token
+    @format_doc(MAX_OBSERVATION_PLANS=MAX_OBSERVATION_PLANS)
+    async def get(self, allocation_id: int):
+        """
+        ---
+        summary: Get an allocation's observation plans
+        description: Retrieve observation plans associated with an allocation
+        tags:
+          - allocations
+          - observation plans
+        parameters:
+          - in: path
+            name: allocation_id
+            required: true
+            schema:
+              type: integer
+          - in: query
+            name: numPerPage
+            nullable: true
+            schema:
+              type: integer
+            description: |
+              Number of observation plans to return per paginated request. Defaults to 10. Can be no larger than {MAX_OBSERVATION_PLANS}.
+          - in: query
+            name: pageNumber
+            nullable: true
+            schema:
+              type: integer
+            description: Page number for paginated query results. Defaults to 1
+        responses:
+          200:
+             content:
+              application/json:
+                schema: ArrayOfObservationPlanRequests
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        try:
+            allocation_id = int(allocation_id)
+        except (TypeError, ValueError):
+            return self.error("Allocation ID must be an integer.")
+
+        page_number = self.get_query_argument("pageNumber", 1, type=int)
+        n_per_page = self.get_query_argument("numPerPage", 50, type=int)
+        if page_number is None or n_per_page is None:
+            return self.error("Invalid pagination arguments")
+
+        sortBy = self.get_query_argument("sortBy", "created_at")
+        sortOrder = self.get_query_argument("sortOrder", "asc")
+
+        if sortBy not in ["created_at", "modified", "status", "gcnevent_id"]:
+            return self.error("Invalid sortBy value.")
+        if sortOrder not in ["asc", "desc"]:
+            return self.error("Invalid sortOrder value.")
+
+        async with self.AsyncSession() as session:
+            allocation = await session.scalar(
+                Allocation.select(self.current_user).where(
+                    Allocation.id == allocation_id
+                )
+            )
+            if allocation is None:
+                return self.error("Could not retrieve allocation.")
+
+            observation_plan_requests = ObservationPlanRequest.select(
+                self.current_user,
+                options=[
+                    selectinload(ObservationPlanRequest.observation_plans).selectinload(
+                        EventObservationPlan.statistics
+                    ),
+                    selectinload(ObservationPlanRequest.localization),
+                ],
+            ).where(ObservationPlanRequest.allocation_id == allocation.id)
+
+            count_stmt = sa.select(func.count()).select_from(
+                observation_plan_requests.subquery()
+            )
+            total_matches = await session.scalar(count_stmt)
+
+            order_attr = {
+                "created_at": ObservationPlanRequest.created_at,
+                "modified": ObservationPlanRequest.modified,
+                "status": ObservationPlanRequest.status,
+                "gcnevent_id": ObservationPlanRequest.gcnevent_id,
+            }[sortBy]
+            observation_plan_requests = observation_plan_requests.order_by(
+                order_attr.asc() if sortOrder == "asc" else order_attr.desc()
+            )
+
+            if n_per_page is not None:
+                observation_plan_requests = (
+                    observation_plan_requests.distinct()
+                    .limit(n_per_page)
+                    .offset((page_number - 1) * n_per_page)
+                )
+            result = await session.scalars(observation_plan_requests)
+            observation_plan_requests = result.unique().all()
+
+            request_data = []
+            for req in observation_plan_requests:
+                dat = req.to_dict()
+                plan_data = []
+                for plan in dat["observation_plans"]:
+                    plan_dict = plan.to_dict()
+                    plan_dict["statistics"] = [
+                        statistics.to_dict() for statistics in plan_dict["statistics"]
+                    ]
+                    plan_data.append(plan_dict)
+
+                dat["observation_plans"] = plan_data
+                request_data.append(dat)
+
+            data = {
+                "totalMatches": total_matches,
+                "observation_plan_requests": request_data,
+                "pageNumber": page_number,
+                "numPerPage": n_per_page,
+            }
+
+            return self.success(data=data)
+
+
+class AllocationHandler(BaseHandler):
+    @auth_or_token
+    @format_doc(MAX_FOLLOWUP_REQUESTS=MAX_FOLLOWUP_REQUESTS)
+    async def get(self, allocation_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Get an allocation
+          description: Retrieve an allocation
+          tags:
+            - allocations
+          parameters:
+            - in: path
+              name: allocation_id
+              required: true
+              schema:
+                type: integer
+            - in: query
+              name: numPerPage
+              nullable: true
+              schema:
+                type: integer
+              description: |
+                Number of followup requests to return per paginated request. Defaults to 10. Can be no larger than {MAX_FOLLOWUP_REQUESTS}.
+            - in: query
+              name: pageNumber
+              nullable: true
+              schema:
+                type: integer
+              description: Page number for paginated query results. Defaults to 1
+          responses:
+            200:
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: object
+                            properties:
+                              allocation:
+                                $ref: '#/components/schemas/Allocation'
+                              totalMatches:
+                                type: integer
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Get all allocations
+          description: Retrieve all allocations
+          tags:
+            - allocations
+          parameters:
+          - in: query
+            name: instrument_id
+            nullable: true
+            schema:
+              type: number
+            description: Instrument ID to retrieve allocations for
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfAllocations
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        async with self.AsyncSession() as session:
+            if allocation_id is not None:
+                try:
+                    allocation_id = int(allocation_id)
+                except (TypeError, ValueError):
+                    return self.error("Allocation ID must be an integer.")
+
+                page_number = self.get_query_argument("pageNumber", 1, type=int)
+                n_per_page = self.get_query_argument("numPerPage", 50, type=int)
+                try:
+                    page_number, n_per_page = get_page_and_n_per_page(
+                        page_number, n_per_page, MAX_FOLLOWUP_REQUESTS
+                    )
+                except ValueError as e:
+                    return self.error(str(e))
+
+                sortBy = self.get_query_argument("sortBy", "created_at")
+                sortOrder = self.get_query_argument("sortOrder", "asc")
+
+                if sortBy not in ["created_at", "modified", "status", "obj"]:
+                    return self.error("Invalid sortBy value.")
+                if sortOrder not in ["asc", "desc"]:
+                    return self.error("Invalid sortOrder value.")
+
+                allocation = await session.scalar(
+                    Allocation.select(self.current_user)
+                    .options(
+                        selectinload(Allocation.instrument).selectinload(
+                            Instrument.telescope
+                        ),
+                    )
+                    .where(Allocation.id == allocation_id)
+                )
+                if allocation is None:
+                    return self.error("Could not retrieve allocation.")
+
+                allocation_data = allocation.to_dict()
+
+                followup_requests = FollowupRequest.select(
+                    self.current_user,
+                    options=[
+                        selectinload(FollowupRequest.requester),
+                        selectinload(FollowupRequest.obj).selectinload(Obj.thumbnails),
+                        selectinload(FollowupRequest.allocation)
+                        .selectinload(Allocation.instrument)
+                        .selectinload(Instrument.telescope),
+                    ],
+                ).where(FollowupRequest.allocation_id == allocation.id)
+
+                count_stmt = sa.select(func.count()).select_from(
+                    followup_requests.subquery()
+                )
+                total_matches = await session.scalar(count_stmt)
+
+                order_attr = {
+                    "created_at": FollowupRequest.created_at,
+                    "modified": FollowupRequest.modified,
+                    "status": FollowupRequest.status,
+                    "obj": FollowupRequest.obj_id,
+                }[sortBy]
+                followup_requests = followup_requests.order_by(
+                    order_attr.asc() if sortOrder == "asc" else order_attr.desc()
+                )
+
+                followup_requests_result = await session.scalars(
+                    followup_requests.distinct()
+                    .limit(n_per_page)
+                    .offset((page_number - 1) * n_per_page)
+                )
+                followup_requests = followup_requests_result.unique().all()
+
+                requests = []
+                for request in followup_requests:
+                    request_data = request.to_dict()
+                    if request.requester is not None:
+                        request_data["requester"] = request.requester.to_dict()
+                    request_data["obj"] = request.obj.to_dict()
+                    request_data["obj"]["thumbnails"] = [
+                        thumbnail.to_dict() for thumbnail in request.obj.thumbnails
+                    ]
+                    set_time = request.set_time()
+                    request_data["set_time_utc"] = (
+                        set_time.iso if set_time is not None else None
+                    )
+                    if isinstance(
+                        request_data["set_time_utc"], np.ma.MaskedArray | MaskedNDArray
+                    ):
+                        request_data["set_time_utc"] = None
+                    rise_time = request.rise_time()
+                    request_data["rise_time_utc"] = (
+                        rise_time.iso if rise_time is not None else None
+                    )
+                    if isinstance(
+                        request_data["rise_time_utc"],
+                        np.ma.MaskedArray | MaskedNDArray,
+                    ):
+                        request_data["rise_time_utc"] = None
+                    requests.append(request_data)
+
+                allocation_data["requests"] = requests
+                allocation_data["ephemeris"] = (
+                    allocation.instrument.telescope.ephemeris(astropy.time.Time.now())
+                )
+                allocation_data["telescope"] = allocation.instrument.telescope.to_dict()
+                return self.success(
+                    data={
+                        "allocation": allocation_data,
+                        "totalMatches": int(total_matches),
+                    }
+                )
+
+            allocations_stmt = Allocation.select(
+                self.current_user,
+                options=[
+                    selectinload(Allocation.instrument).selectinload(
+                        Instrument.telescope
+                    ),
+                    selectinload(Allocation.allocation_users).selectinload(
+                        AllocationUser.user
+                    ),
+                ],
+            )
+            instrument_id = self.get_query_argument("instrument_id", None, type=int)
+            if instrument_id is not None:
+                allocations_stmt = allocations_stmt.where(
+                    Allocation.instrument_id == instrument_id
+                )
+
+            apitype = self.get_query_argument("apiType", None)
+            if apitype is not None:
+                if apitype == "api_classname":
+                    instruments_subquery = (
+                        sa.select(Instrument.id)
+                        .where(Instrument.api_classname.isnot(None))
+                        .distinct()
+                        .subquery()
+                    )
+
+                    allocations_stmt = allocations_stmt.join(
+                        instruments_subquery,
+                        Allocation.instrument_id == instruments_subquery.c.id,
+                    )
+                elif apitype == "api_classname_obsplan":
+                    instruments_subquery = (
+                        sa.select(Instrument.id)
+                        .where(Instrument.api_classname_obsplan.isnot(None))
+                        .distinct()
+                        .subquery()
+                    )
+
+                    allocations_stmt = allocations_stmt.join(
+                        instruments_subquery,
+                        Allocation.instrument_id == instruments_subquery.c.id,
+                    )
+                else:
+                    return self.error(
+                        f"apitype can only be api_classname or api_classname_obsplan, not {apitype}"
+                    )
+
+            allocations_result = await session.scalars(allocations_stmt)
+            allocations = allocations_result.unique().all()
+
+            apiImplements = self.get_query_argument("apiImplements", None)
+            if apiImplements is not None:
+                if apiImplements not in [
+                    "update",
+                    "delete",
+                    "get",
+                    "submit",
+                    "send",
+                    "remove",
+                    "retrieve",
+                    "queued",
+                    "remove_queue",
+                    "prepare_payload",
+                    "send_skymap",
+                    "queued_skymap",
+                    "remove_skymap",
+                    "retrieve_log",
+                    "update_status",
+                ]:
+                    return self.error(
+                        f"apiImplements {apiImplements} not a valid argument"
+                    )
+
+                if apitype is None:
+                    return self.error(
+                        "apiImplements can only be checked if apitype is specified"
+                    )
+                if apitype == "api_classname":
+                    allocations = [
+                        a
+                        for a in allocations
+                        if a.instrument.api_class.implements()[apiImplements]
+                    ]
+                elif apitype == "api_classname_obsplan":
+                    allocations = [
+                        a
+                        for a in allocations
+                        if a.instrument.api_class_obsplan.implements()[apiImplements]
+                    ]
+
+            allocations = sorted(
+                allocations,
+                key=lambda x: (
+                    x.instrument.telescope.name,
+                    x.instrument.name,
+                    x.pi,
+                ),
+            )
+            allocations = [
+                {
+                    **allocation.to_dict(),
+                    "allocation_users": [
+                        user.user.to_dict() for user in allocation.allocation_users
+                    ],
+                }
+                for allocation in allocations
+            ]
+            return self.success(data=allocations)
+
+    @permissions(["Manage allocations"])
+    async def post(self):
+        """
+        ---
+        summary: Create a new allocation
+        description: Post new allocation on a robotic instrument
+        tags:
+          - allocations
+        requestBody:
+          content:
+            application/json:
+              schema: AllocationNoID
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              description: New allocation ID
+        """
+
+        data = self.get_json()
+        if "instrument_id" not in data:
+            return self.error("instrument_id is required")
+        try:
+            data["instrument_id"] = int(data["instrument_id"])
+        except (TypeError, ValueError):
+            return self.error("instrument_id must be an integer")
+        if isinstance(data.get("_altdata"), dict):
+            data["_altdata"] = {
+                k: v
+                for k, v in data["_altdata"].items()
+                if v is not None and str(v).strip() != ""
+            }
+            if not data["_altdata"]:
+                data.pop("_altdata")
+
+        async with self.AsyncSession() as session:
+            instrument = await session.scalar(
+                Instrument.select(self.current_user).where(
+                    Instrument.id == int(data["instrument_id"])
+                )
+            )
+            if instrument is None:
+                return self.error(
+                    f"No instrument with specified ID: {data['instrument_id']}"
+                )
+            if isinstance(data.get("_altdata"), dict):
+                if instrument.api_class.implements()["validate_altdata"]:
+                    try:
+                        data["_altdata"] = instrument.api_class.validate_altdata(
+                            data["_altdata"], instrument=instrument.to_dict()
+                        )
+                    except Exception as e:
+                        return self.error(f"Error validating altdata: {str(e)}")
+                data["_altdata"] = json.dumps(data["_altdata"])
+
+            allocation_admin_ids = data.pop("allocation_admin_ids", None)
+            if allocation_admin_ids is not None:
+                admins_result = await session.scalars(
+                    User.select(self.current_user).where(
+                        User.id.in_(allocation_admin_ids)
+                    )
+                )
+                allocation_admins = list(admins_result.unique().all())
+            else:
+                allocation_admins = []
+
+            try:
+                allocation = Allocation.__schema__().load(data=data)
+            except ValidationError as e:
+                return self.error(
+                    f'Error parsing posted allocation: "{e.normalized_messages()}"'
+                )
+
+            group = await session.scalar(
+                Group.select(session.user_or_token).where(
+                    Group.id == allocation.group_id
+                )
+            )
+            if group is None:
+                return self.error(f"No group with specified ID: {allocation.group_id}")
+
+            instrument_check = await session.scalar(
+                Instrument.select(session.user_or_token).where(
+                    Instrument.id == allocation.instrument_id
+                )
+            )
+            if instrument_check is None:
+                return self.error(
+                    f"No group with specified ID: {allocation.instrument_id}"
+                )
+
+            session.add(allocation)
+            await session.flush()  # populate allocation.id
+
+            for user in allocation_admins:
+                session.add(
+                    AllocationUser(allocation_id=allocation.id, user_id=user.id)
+                )
+
+            await session.commit()
+            self.push_all(action="skyportal/REFRESH_ALLOCATIONS")
+            return self.success(data={"id": allocation.id})
+
+    @permissions(["Manage allocations"])
+    async def put(self, allocation_id: int):
+        """
+        ---
+        summary: Update an allocation
+        description: Update an allocation on a robotic instrument
+        tags:
+          - allocations
+        parameters:
+          - in: path
+            name: allocation_id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          content:
+            application/json:
+              schema: AllocationNoID
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            allocation = await session.scalar(
+                Allocation.select(session.user_or_token, mode="update")
+                .options(selectinload(Allocation.allocation_users))
+                .where(Allocation.id == allocation_id)
+            )
+            if allocation is None:
+                return self.error("No such allocation")
+
+            data = self.get_json()
+            data["id"] = allocation_id
+
+            replace_altdata = data.pop("replace_altdata", False)
+            if isinstance(data.get("_altdata"), dict):
+                data["_altdata"] = {
+                    k: v
+                    for k, v in data["_altdata"].items()
+                    if v is not None and str(v).strip() != ""
+                }
+
+                if not data["_altdata"]:
+                    data.pop("_altdata")
+                elif allocation._altdata and replace_altdata:
+                    data["_altdata"] = json.dumps(
+                        {**json.loads(allocation._altdata), **data["_altdata"]}
+                    )
+                elif allocation._altdata and not replace_altdata:
+                    data["_altdata"] = json.dumps(
+                        {**json.loads(allocation._altdata), **data["_altdata"]}
+                    )
+                else:
+                    data["_altdata"] = json.dumps(data["_altdata"])
+            allocation_admin_ids = data.pop("allocation_admin_ids", [])
+
+            if not isinstance(allocation_admin_ids, list) or not all(
+                isinstance(x, int) for x in allocation_admin_ids
+            ):
+                return self.error("allocation_admin_ids must be a list of user IDs")
+
+            schema = Allocation.__schema__()
+            try:
+                schema.load(data, partial=True)
+            except ValidationError as e:
+                return self.error(
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
+                )
+
+            for k in data:
+                setattr(allocation, k, data[k])
+
+            users_result = await session.scalars(
+                User.select(self.current_user).where(User.id.in_(allocation_admin_ids))
+            )
+            users = list(users_result.unique().all())
+            users_ids = [user.id for user in users]
+
+            for au in allocation.allocation_users:
+                if au.user_id not in users_ids:
+                    await session.delete(au)
+
+            current_au_user_ids = [au.user_id for au in allocation.allocation_users]
+            for user in users:
+                if user.id not in current_au_user_ids:
+                    session.add(
+                        AllocationUser(allocation_id=allocation.id, user_id=user.id)
+                    )
+
+            await session.commit()
+            self.push_all(action="skyportal/REFRESH_ALLOCATIONS")
+            return self.success()
+
+    @permissions(["Manage allocations"])
+    async def delete(self, allocation_id: int):
+        """
+        ---
+        summary: Delete an allocation
+        description: Delete allocation.
+        tags:
+          - allocations
+        parameters:
+          - in: path
+            name: allocation_id
+            required: true
+            schema:
+              type: string
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        async with self.AsyncSession() as session:
+            allocation = await session.scalar(
+                Allocation.select(session.user_or_token, mode="delete").where(
+                    Allocation.id == allocation_id
+                )
+            )
+            if allocation is None:
+                return self.error("No such allocation")
+
+            await session.delete(allocation)
+            await session.commit()
+            self.push_all(action="skyportal/REFRESH_ALLOCATIONS")
+            return self.success()
+
+
+class AllocationReportHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, instrument_id: int):
+        """
+        ---
+        summary: Get allocation report
+        description: Produce a report on allocations for an instrument
+        tags:
+          - allocations
+        parameters:
+          - in: path
+            name: instrument_id
+            required: true
+            schema:
+              type: integer
+          - in: query
+            name: output_format
+            nullable: true
+            schema:
+              type: string
+            description: |
+              Output format for analysis. Can be png or pdf
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        output_format = self.get_query_argument("output_format", "pdf")
+        if output_format not in ["pdf", "png"]:
+            return self.error("output_format must be png or pdf")
+
+        async with self.AsyncSession() as session:
+            allocations_result = await session.scalars(
+                Allocation.select(
+                    session.user_or_token,
+                    options=[selectinload(Allocation.instrument)],
+                ).where(Allocation.instrument_id == instrument_id)
+            )
+            allocations = allocations_result.unique().all()
+
+            if len(allocations) == 0:
+                return self.error("Need at least one allocation for analysis")
+
+            instrument = allocations[0].instrument
+
+            labels = [a.proposal_id for a in allocations]
+            values = [a.hours_allocated for a in allocations]
+
+            def make_autopct(values, label="Hours"):
+                def my_autopct(pct):
+                    total = sum(values)
+                    if np.isnan(pct):
+                        val = 0
+                    else:
+                        val = int(round(pct * total / 100.0))
+                    return f"{pct:.0f}%  ({val:d} {label})"
+
+                return my_autopct
+
+            matplotlib.use("Agg")
+            fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16, 6))
+            ax1.pie(
+                values,
+                labels=labels,
+                shadow=True,
+                startangle=90,
+                autopct=make_autopct(values, label="Hours"),
+            )
+            ax1.axis("equal")
+            ax1.set_title("Time Allocated")
+
+            # number of requests per allocation, via SQL not lazy a.requests
+            request_counts = []
+            for a in allocations:
+                count = await session.scalar(
+                    sa.select(func.count())
+                    .select_from(FollowupRequest)
+                    .where(FollowupRequest.allocation_id == a.id)
+                )
+                request_counts.append(count or 0)
+            if sum(request_counts) > 0:
+                ax2.pie(
+                    request_counts,
+                    labels=labels,
+                    shadow=True,
+                    startangle=90,
+                    autopct=make_autopct(request_counts, label="Requests"),
+                )
+                ax2.axis("equal")
+                ax2.set_title("Requests Made")
+            else:
+                ax2.remove()
+
+            values = []
+            phases = []
+            for a in allocations:
+                stmt = (
+                    FollowupRequest.select(session.user_or_token)
+                    .where(FollowupRequest.allocation_id == a.id)
+                    .where(FollowupRequest.status.contains("Complete"))
+                )
+                total_matches = await session.scalar(
+                    sa.select(func.count()).select_from(stmt.subquery())
+                )
+                values.append(total_matches or 0)
+
+                followups_result = await session.scalars(stmt)
+                followup_requests = followups_result.unique().all()
+                phase_angles = []
+                for followup_request in followup_requests:
+                    try:
+                        status_split = followup_request.status.split(" ")[-1]
+                        status_split = status_split.replace("_", ":").replace(" ", "T")
+                        tt = astropy.time.Time(status_split, format="isot")
+                        phase_angle = moon_phase_angle(tt)
+                        phase_angles.append(phase_angle.value)
+                    except Exception:
+                        pass
+                phases.append(phase_angles)
+
+            if sum(values) > 0:
+                ax3.pie(
+                    values,
+                    labels=labels,
+                    shadow=True,
+                    startangle=90,
+                    autopct=make_autopct(values, label="Observations"),
+                )
+                ax3.axis("equal")
+                ax3.set_title("Requests Completed")
+            else:
+                ax3.remove()
+
+            bins = np.linspace(0, np.pi, 20)
+            for label, phase_angles in zip(labels, phases):
+                hist, bin_edges = np.histogram(phase_angles, bins=bins)
+                bin_centers = (bin_edges[1:] + bin_edges[:-1]) / 2.0
+                if np.sum(hist) > 0:
+                    hist = hist / np.sum(hist)
+                ax4.step(bin_centers, hist, label=label)
+            ax4.set_yscale("log")
+            ax4.set_xlabel("Phase Angle")
+            ax4.legend(loc="upper right")
+            ax4.axis("equal")
+            ax4.set_title("Moon Phase")
+
+            buf = io.BytesIO()
+            fig.savefig(buf, format=output_format)
+            plt.close(fig)
+            buf.seek(0)
+
+            data = io.BytesIO(buf.read())
+            filename = f"allocations_{instrument.name}.{output_format}"
+
+            await self.send_file(data, filename, output_type=output_format)

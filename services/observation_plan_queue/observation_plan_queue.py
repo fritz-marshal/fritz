@@ -1,0 +1,408 @@
+import asyncio
+import itertools
+import time
+import traceback
+
+import arrow
+import sqlalchemy as sa
+
+from baselayer.app import models
+from baselayer.app.env import load_env
+from baselayer.app.flow import Flow
+from baselayer.app.models import init_db
+from baselayer.log import make_log
+from skyportal.handlers.api.observation_plan import (
+    post_survey_efficiency_analysis,
+    send_observation_plan,
+)
+from skyportal.models import (
+    DBSession,
+    DefaultObservationPlanRequest,
+    EventObservationPlan,
+    ObservationPlanRequest,
+)
+from skyportal.utils.services import check_loaded
+
+env, cfg = load_env()
+log = make_log("observation_plan_queue")
+
+init_db(**cfg["database"])
+
+# Defensive guardrail so a stuck query can't wedge a backend. SET LOCAL keeps it
+# scoped to the transaction, so it can't leak onto a pgbouncer-pooled connection.
+STATEMENT_TIMEOUT = "120s"
+
+
+def set_statement_timeout(session):
+    session.execute(sa.text(f"SET LOCAL statement_timeout = '{STATEMENT_TIMEOUT}'"))
+
+
+def mark_failed(rids):
+    """Mark requests 'failed to process' in a short txn (submit failure path)."""
+    try:
+        with DBSession() as session:
+            set_statement_timeout(session)
+            for rid in rids:
+                pr = session.scalar(
+                    sa.select(ObservationPlanRequest)
+                    .where(ObservationPlanRequest.id == rid)
+                    .execution_options(populate_existing=True)
+                )
+                if pr is not None:
+                    pr.status = "failed to process"
+            session.commit()
+    except Exception as e:
+        log(f"Error marking observation plan requests {rids} as failed: {e}")
+
+
+def prioritize_requests(requests):
+    try:
+        if (
+            len(requests) == 1
+        ):  # if there is only one plan in the queue, no need to prioritize
+            return 0
+
+        telescopeAllocationLookup = {}
+        allocationByPlanLookup = {}
+
+        # we create 2 lookups to avoid repeating some operations like getting the morning and evening for a telescope
+        for ii, plan_requests in enumerate(requests):
+            for plan in plan_requests:
+                allocation_id = plan.allocation_id
+                if ii not in allocationByPlanLookup:
+                    allocationByPlanLookup[ii] = [
+                        {
+                            "allocation_id": allocation_id,
+                            "start_date": plan.payload.get("start_date", None),
+                        }
+                    ]
+                else:
+                    allocationByPlanLookup[ii].append(
+                        {
+                            "allocation_id": allocation_id,
+                            "start_date": plan.payload.get("start_date", None),
+                        }
+                    )
+                if allocation_id not in telescopeAllocationLookup:
+                    telescopeAllocationLookup[allocation_id] = (
+                        plan.allocation.instrument.telescope.current_time()
+                    )
+
+        # now we loop over the plans. For plans with multiple plans we pick the allocation with the earliest start date and morning time
+        # at the same time, we pick the plan to prioritize
+        plan_with_priority = None
+        for plan_id, allocationsAndStartDate in allocationByPlanLookup.items():
+            if plan_with_priority is None:
+                plan_with_priority = {
+                    "plan_id": plan_id,
+                    "morning": telescopeAllocationLookup[
+                        allocationsAndStartDate[0]["allocation_id"]
+                    ]["morning"],
+                    "start_date": allocationsAndStartDate[0]["start_date"],
+                }
+            earliest = None
+            for allocationAndStartDate in allocationsAndStartDate:
+                # find the plan
+                if earliest is None:
+                    earliest = allocationAndStartDate
+                    continue
+                if (
+                    telescopeAllocationLookup[allocationAndStartDate["allocation_id"]][
+                        "morning"
+                    ]
+                    is False
+                ):
+                    continue
+                start_date = allocationAndStartDate["start_date"]
+                if start_date is None:
+                    continue
+                start_date = arrow.get(start_date).datetime
+                if (
+                    start_date
+                    > telescopeAllocationLookup[
+                        allocationAndStartDate["allocation_id"]
+                    ]["morning"].datetime
+                ):
+                    continue
+                if (
+                    telescopeAllocationLookup[earliest["allocation_id"]]["morning"]
+                    is False
+                ):
+                    earliest = allocationAndStartDate
+                    continue
+                if (
+                    telescopeAllocationLookup[allocationAndStartDate["allocation_id"]][
+                        "morning"
+                    ].datetime
+                    < telescopeAllocationLookup[earliest["allocation_id"]][
+                        "morning"
+                    ].datetime
+                ):
+                    earliest = plan.allocation
+                    continue
+            allocationByPlanLookup[plan_id] = [earliest]
+
+            # check if that plan is more urgent than the current plan_with_priority
+            if telescopeAllocationLookup[earliest["allocation_id"]]["morning"] is None:
+                continue
+            if plan_with_priority["morning"] is None:
+                plan_with_priority = {
+                    "plan_id": plan_id,
+                    "morning": telescopeAllocationLookup[earliest["allocation_id"]][
+                        "morning"
+                    ],
+                    "start_date": earliest["start_date"],
+                }
+                continue
+            if (
+                telescopeAllocationLookup[earliest["allocation_id"]]["morning"]
+                <= plan_with_priority["morning"]
+                and earliest["start_date"] < plan_with_priority["start_date"]
+            ):
+                plan_with_priority = {
+                    "plan_id": plan_id,
+                    "morning": telescopeAllocationLookup[earliest["allocation_id"]][
+                        "morning"
+                    ],
+                    "start_date": earliest["start_date"],
+                }
+                continue
+
+        return plan_with_priority["plan_id"]
+    except Exception as e:
+        traceback.print_exc()
+        log(f"Error occured prioritizing the observation plan queue: {e}")
+        return 0
+
+
+@check_loaded(logger=log)
+def service(*args, **kwargs):
+    log("Starting observation plan queue.")
+    while True:
+        try:
+            # 1. Read/claim (short txn): pick the plan(s) to process and snapshot
+            # everything the slow submit + later refresh need, then release the
+            # connection before submit() so we don't sit idle-in-transaction.
+            with DBSession() as session:
+                set_statement_timeout(session)
+                stmt = sa.select(ObservationPlanRequest).where(
+                    # we only want to process plans that have been created in the last 72 hours
+                    sa.or_(
+                        sa.and_(
+                            ObservationPlanRequest.status == "pending submission",
+                            ObservationPlanRequest.created_at
+                            > arrow.utcnow().shift(days=-3).datetime,
+                        ),
+                        # or plans that have been "running" for more than 5 minutes but less than 1 hours
+                        # this is a way to grab plans that have been stuck in the running state
+                        # and have not been processed
+                        sa.and_(
+                            ObservationPlanRequest.status == "running",
+                            ObservationPlanRequest.created_at
+                            < arrow.utcnow().shift(minutes=-5).datetime,
+                            ObservationPlanRequest.created_at
+                            > arrow.utcnow().shift(hours=-1).datetime,
+                        ),
+                    )
+                )
+                single_requests = session.scalars(stmt).unique().all()
+
+                # reprocessing plans that were marked as running before (and probably stuck in that state)
+                # is lower priority, so if we have any pending submission plans, we prioritize those
+                # and remove the running plans from the list
+                if any(
+                    request.status == "pending submission"
+                    for request in single_requests
+                ):
+                    single_requests = [
+                        request
+                        for request in single_requests
+                        if request.status == "pending submission"
+                    ]
+
+                # requests is a list. We want to group that list of plans to be a list of list,
+                # we group based on the plans 'combined_id' which is a unique uuid for a group of plans
+                # plans that are not grouped simply don't have one
+                combined_requests = [
+                    request
+                    for request in single_requests
+                    if request.combined_id is not None
+                ]
+                requests = [
+                    list(group)
+                    for _, group in itertools.groupby(
+                        combined_requests, lambda x: x.combined_id
+                    )
+                ] + [
+                    [request]
+                    for request in single_requests
+                    if request.combined_id is None
+                ]
+
+                if len(requests) == 0:
+                    time.sleep(5)
+                    continue
+
+                log(f"Prioritizing {len(requests)} observation plan requests...")
+
+                index = prioritize_requests(requests)
+
+                plan_requests = requests[index]
+                is_combined = len(plan_requests) > 1
+                # api_class_obsplan is a class ref (safe to hold detached); snapshot
+                # the ids and dateobs now so nothing lazy-loads after the session closes.
+                api = plan_requests[0].allocation.instrument.api_class_obsplan
+                rids = [pr.id for pr in plan_requests]
+                dateobs_list = list({pr.gcnevent.dateobs for pr in plan_requests})
+
+            # 2. Slow work (no txn open): submit runs on its own async session.
+            try:
+                if is_combined:
+
+                    async def _submit_multiple(api=api, rids=rids):
+                        async with models.async_plain_session_factory() as s:
+                            return await api.submit_multiple(
+                                rids, s, asynchronous=False
+                            )
+
+                    plan_ids = asyncio.run(_submit_multiple())
+                else:
+
+                    async def _submit(api=api, rid=rids[0]):
+                        async with models.async_plain_session_factory() as s:
+                            return await api.submit(rid, s, asynchronous=False)
+
+                    plan_ids = [asyncio.run(_submit())]
+            except Exception as e:
+                traceback.print_exc()
+                if is_combined:
+                    log(f"Error processing combined plans: {rids}: {str(e)}")
+                else:
+                    log(
+                        f"Error processing observation plan: {e.args[0] if e.args else e}"
+                    )
+                mark_failed(rids)
+                time.sleep(2)
+                continue
+
+            # 3. Short write txn: submit committed the status on its own session,
+            # so re-fetch (populate_existing) and advance running -> complete, then
+            # push the frontend refresh.
+            with DBSession() as session:
+                set_statement_timeout(session)
+                for rid in rids:
+                    plan_request = session.scalar(
+                        sa.select(ObservationPlanRequest)
+                        .where(ObservationPlanRequest.id == rid)
+                        .execution_options(populate_existing=True)
+                    )
+                    if plan_request is None:
+                        continue
+                    log(f"Plan {rid} status: {plan_request.status}")
+                    if plan_request.status == "running":
+                        plan_request.status = "complete"
+                session.commit()
+
+            try:
+                flow = Flow()
+                for dateobs in dateobs_list:
+                    flow.push(
+                        "*",
+                        "skyportal/REFRESH_GCNEVENT_OBSERVATION_PLAN_REQUESTS",
+                        payload={"gcnEvent_dateobs": dateobs},
+                    )
+            except Exception as e:
+                log(f"Error refreshing observation plan requests on the frontend: {e}")
+
+            log(f"Generated plans: {plan_ids}")
+
+            # 4. Per-plan post-processing (auto-send + survey efficiency). Same
+            # split: snapshot in a short txn, then run the async calls with no txn.
+            for id in plan_ids:
+                try:
+                    with DBSession() as session:
+                        set_statement_timeout(session)
+                        plan = session.scalars(
+                            sa.select(EventObservationPlan).where(
+                                EventObservationPlan.id == int(id)
+                            )
+                        ).first()
+                        if plan is None:
+                            continue
+                        default = plan.observation_plan_request.payload.get(
+                            "default", None
+                        )
+                        if default is None:
+                            continue
+                        defaultobsplanrequest = session.scalars(
+                            sa.select(DefaultObservationPlanRequest).where(
+                                DefaultObservationPlanRequest.id == int(default)
+                            )
+                        ).first()
+                        if defaultobsplanrequest is None:
+                            continue
+                        obsplan_request_id = plan.observation_plan_request.id
+                        auto_send = defaultobsplanrequest.auto_send
+                        survey_eff_data_list = [
+                            se.to_dict()
+                            for se in defaultobsplanrequest.default_survey_efficiencies
+                        ]
+
+                    if auto_send:
+                        # bridge to the async impl on a fresh async session
+                        async def _send(rid=obsplan_request_id, default=default):
+                            async with models.async_plain_session_factory() as s:
+                                await send_observation_plan(
+                                    rid,
+                                    s,
+                                    auto_send=True,
+                                    default_obsplan_id=default,
+                                )
+
+                        asyncio.run(_send())
+
+                    for survey_eff_data in survey_eff_data_list:
+                        try:
+
+                            async def _post_eff(
+                                data=survey_eff_data,
+                                rid=obsplan_request_id,
+                            ):
+                                async with models.async_plain_session_factory() as s:
+                                    await post_survey_efficiency_analysis(
+                                        data,
+                                        rid,
+                                        1,
+                                        s,
+                                        asynchronous=False,
+                                    )
+
+                            asyncio.run(_post_eff())
+                        except Exception as e:
+                            if (
+                                "Need at least one observation to evaluate efficiency"
+                                in str(e)
+                            ):
+                                log(
+                                    f"Error processing default survey efficiency for plan {id}: {e}"
+                                )
+                            else:
+                                raise e
+                except Exception as e:
+                    traceback.print_exc()
+                    log(
+                        f"Error occured processing default queue submission or survey efficiency for plan {id}: {e}"
+                    )
+                    time.sleep(2)
+
+        except Exception as e:
+            log(f"Error occured processing the observation plan queue: {e}")
+            time.sleep(2)
+
+
+if __name__ == "__main__":
+    try:
+        service()
+    except Exception as e:
+        log(f"Error starting observation plan queue: {str(e)}")
+        raise e

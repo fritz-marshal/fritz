@@ -1,0 +1,356 @@
+from sqlalchemy.orm import joinedload
+
+from baselayer.app.access import auth_or_token
+
+from ...models import (
+    DefaultObservationPlanRequest,
+    DefaultSurveyEfficiencyRequest,
+    SurveyEfficiencyForObservationPlan,
+    SurveyEfficiencyForObservations,
+)
+from ..base import BaseHandler
+
+
+class SurveyEfficiencyForObservationPlanHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, survey_efficiency_analysis_id: int | None = None):
+        """
+        ---
+        single:
+          tags:
+            - survey efficiency
+          summary: Retrieve an observation plan efficiency analysis
+          description: Retrieve an observation plan efficiency analysis
+          parameters:
+            - in: path
+              name: survey_efficiency_analysis_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+               content:
+                application/json:
+                  schema: SingleSurveyEfficiencyForObservationPlan
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          tags:
+            - allocations
+          summary: Retrieve all observation plan efficiency analyses
+          description: Retrieve all observation plan efficiency analyses
+          parameters:
+          - in: query
+            name: observation_plan_id
+            nullable: true
+            schema:
+              type: number
+            description: EventObservationPlan ID to retrieve observation plan efficiency analyses for
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfSurveyEfficiencyForObservationPlans
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+        async with self.AsyncSession() as session:
+            if survey_efficiency_analysis_id is not None:
+                try:
+                    survey_efficiency_analysis_id = int(survey_efficiency_analysis_id)
+                except ValueError:
+                    return self.error(
+                        "SurveyEfficiencyForObservationPlan ID must be an integer."
+                    )
+                survey_efficiency_analyses = await session.scalar(
+                    SurveyEfficiencyForObservationPlan.select(
+                        self.associated_user_object
+                    ).where(
+                        SurveyEfficiencyForObservationPlan.id
+                        == survey_efficiency_analysis_id
+                    )
+                )
+                if survey_efficiency_analyses is None:
+                    return self.error(
+                        f"Could not retrieve survey efficiency analysis with id {survey_efficiency_analysis_id}."
+                    )
+                return self.success(data=survey_efficiency_analyses)
+
+            stmt = SurveyEfficiencyForObservationPlan.select(
+                self.associated_user_object
+            )
+            observation_plan_id = self.get_query_argument(
+                "observation_plan_id", None, type=int
+            )
+            if observation_plan_id is not None:
+                stmt = stmt.where(
+                    SurveyEfficiencyForObservationPlan.observation_plan_id
+                    == observation_plan_id
+                )
+            result = await session.scalars(stmt)
+            return self.success(data=result.all())
+
+
+class SurveyEfficiencyForObservationsHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, survey_efficiency_analysis_id: int | None = None):
+        """
+        ---
+        single:
+          tags:
+            - survey efficiency
+          summary: Retrieve an observation efficiency analysis
+          description: Retrieve an observation efficiency analysis
+          parameters:
+            - in: path
+              name: survey_efficiency_analysis_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+               content:
+                application/json:
+                  schema: SingleSurveyEfficiencyForObservations
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          tags:
+            - allocations
+          summary: Retrieve all observation efficiencies
+          description: Retrieve all observation analyses
+          parameters:
+          - in: query
+            name: gcnevent_id
+            nullable: true
+            schema:
+              type: number
+            description: GcnEvent  ID to retrieve observation efficiency analyses for
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfSurveyEfficiencyForObservationss
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            if survey_efficiency_analysis_id is not None:
+                try:
+                    survey_efficiency_analysis_id = int(survey_efficiency_analysis_id)
+                except ValueError:
+                    return self.error(
+                        "SurveyEfficiencyForObservations ID must be an integer."
+                    )
+                survey_efficiency_analyses = await session.scalar(
+                    SurveyEfficiencyForObservations.select(
+                        self.associated_user_object
+                    ).where(
+                        SurveyEfficiencyForObservations.id
+                        == survey_efficiency_analysis_id
+                    )
+                )
+                if survey_efficiency_analyses is None:
+                    return self.error(
+                        f"Could not retrieve survey efficiency analysis with id {survey_efficiency_analysis_id}."
+                    )
+                return self.success(data=survey_efficiency_analyses)
+
+            stmt = SurveyEfficiencyForObservations.select(self.associated_user_object)
+            gcnevent_id = self.get_query_argument("gcnevent_id", None, type=int)
+            if gcnevent_id is not None:
+                stmt = stmt.where(
+                    SurveyEfficiencyForObservations.gcnevent_id == gcnevent_id
+                )
+            result = await session.scalars(stmt)
+            return self.success(data=result.all())
+
+
+class DefaultSurveyEfficiencyRequestHandler(BaseHandler):
+    @auth_or_token
+    async def post(self):
+        """
+        ---
+        summary: Create default survey efficiency requests
+        description: Create default survey efficiency requests.
+        tags:
+          - default survey efficiency
+        requestBody:
+          content:
+            application/json:
+              schema: DefaultSurveyEfficiencyPost
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              description: New default survey efficiency request ID
+        """
+        data = self.get_json()
+
+        async with self.AsyncSession() as session:
+            stmt = DefaultObservationPlanRequest.select(session.user_or_token).where(
+                DefaultObservationPlanRequest.id
+                == data["default_observationplan_request_id"],
+            )
+            default_observation_plan = await session.scalar(stmt)
+            if default_observation_plan is None:
+                return self.error(
+                    f"Missing allocation with ID: {data['default_observation_plan_id']}",
+                    status=403,
+                )
+
+            default_survey_efficiency_request = (
+                DefaultSurveyEfficiencyRequest.__schema__().load(data)
+            )
+            session.add(default_survey_efficiency_request)
+            await session.commit()
+
+            self.push_all(action="skyportal/REFRESH_DEFAULT_SURVEY_EFFICIENCIES")
+            return self.success(data={"id": default_survey_efficiency_request.id})
+
+    @auth_or_token
+    async def get(self, default_survey_efficiency_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Retrieve a default survey efficiency
+          description: Retrieve a single default survey efficiency
+          tags:
+            - default survey efficiency
+          parameters:
+            - in: path
+              name: default_survey_efficiency_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: SingleDefaultSurveyEfficiencyRequest
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Retrieve all default survey efficiencies
+          description: Retrieve all default survey efficiencies
+          tags:
+            - default survey efficiency
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfDefaultSurveyEfficiencyRequests
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            if default_survey_efficiency_id is not None:
+                default_survey_efficiency_request = await session.scalar(
+                    DefaultSurveyEfficiencyRequest.select(
+                        session.user_or_token,
+                        options=[
+                            joinedload(
+                                DefaultSurveyEfficiencyRequest.default_observationplan_request
+                            )
+                        ],
+                    ).where(
+                        DefaultSurveyEfficiencyRequest.id
+                        == default_survey_efficiency_id
+                    )
+                )
+                if default_survey_efficiency_request is None:
+                    return self.error(
+                        f"Cannot access default_survey_efficiency_request for id {default_survey_efficiency_id}"
+                    )
+
+                return self.success(data=default_survey_efficiency_request)
+
+            result = await session.scalars(
+                DefaultSurveyEfficiencyRequest.select(
+                    session.user_or_token,
+                    options=[
+                        joinedload(
+                            DefaultSurveyEfficiencyRequest.default_observationplan_request
+                        )
+                    ],
+                )
+            )
+            default_survey_efficiency_requests = result.unique().all()
+
+            default_survey_efficiency_data = []
+            for request in default_survey_efficiency_requests:
+                default_survey_efficiency_data.append(
+                    {
+                        **request.to_dict(),
+                        "default_observationplan_request": request.default_observationplan_request.to_dict(),
+                    }
+                )
+
+            return self.success(data=default_survey_efficiency_data)
+
+    @auth_or_token
+    async def delete(self, default_survey_efficiency_id: int):
+        """
+        ---
+        summary: Delete a default survey efficiency
+        description: Delete a default survey efficiency
+        tags:
+          - default survey efficiency
+        parameters:
+          - in: path
+            name: default_survey_efficiency_id
+            required: true
+            schema:
+              type: integer
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        try:
+            default_survey_efficiency_id = int(default_survey_efficiency_id)
+        except (TypeError, ValueError):
+            return self.error(
+                f"Invalid default_survey_efficiency_id: {default_survey_efficiency_id}"
+            )
+        async with self.AsyncSession() as session:
+            stmt = DefaultSurveyEfficiencyRequest.select(session.user_or_token).where(
+                DefaultSurveyEfficiencyRequest.id == default_survey_efficiency_id
+            )
+            default_survey_efficiency_request = await session.scalar(stmt)
+
+            if default_survey_efficiency_request is None:
+                return self.error(
+                    "Default survey efficiency with ID {default_survey_efficiency_id} is not available."
+                )
+
+            await session.delete(default_survey_efficiency_request)
+            await session.commit()
+            self.push_all(action="skyportal/REFRESH_DEFAULT_SURVEY_EFFICIENCIES")
+            return self.success()

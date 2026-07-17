@@ -1,0 +1,27 @@
+name: Reusable Cache Save Workflow
+inputs:
+  key-prefix:
+    description: Cache key prefix
+    default: "pr"
+
+on:
+  workflow_call:
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/cache/save@v5
+      with:
+        path: |
+          ~/.bun/install/cache
+        key: ${{ inputs.key-prefix }}-${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+
+    - uses: actions/cache/save@v5
+      with:
+        path: |
+          ~/.cache/uv
+        key: ${{ inputs.key-prefix }}-${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+
+    # The sncosmo bandpass and SFD dustmap data are now vendored in the
+    # skyportal-data submodule (see misc.sncosmo_data_folder / dustmap_folder),
+    # so they no longer need to be fetched and cached here.

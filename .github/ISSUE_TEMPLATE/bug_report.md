@@ -27,7 +27,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Platform information:**
 
-- Fritz version: (find this in the [About](https://fritz.science/about) page)
+- SkyPortal version: (find this in the [About](https://fritz.science/about) page)
 - Interface
   - [ ] I am using the API
   - [ ] I am browsing on a desktop

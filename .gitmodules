@@ -1,4 +1,7 @@
-[submodule "skyportal"]
-	path = skyportal
-	url = https://github.com/skyportal/skyportal.git
+[submodule "baselayer"]
+	path = baselayer
+	url = https://github.com/cesium-ml/baselayer.git
 	branch = main
+[submodule "skyportal-data"]
+	path = skyportal-data
+	url = https://github.com/skyportal/skyportal-data.git

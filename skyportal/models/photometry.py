@@ -1,0 +1,540 @@
+__all__ = ["Photometry", "PHOT_ZP", "PHOT_SYS"]
+import uuid
+
+import arrow
+import conesearch_alchemy
+import numpy as np
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
+
+from baselayer.app.env import load_env
+from baselayer.app.models import (
+    Base,
+    CustomUserAccessControl,
+    accessible_by_owner,
+    public,
+)
+
+from ..enum_types import allowed_bandpasses
+from ..utils.extinction import calculate_extinction, deredden_flux
+from .group import accessible_by_groups_members, accessible_by_streams_members
+
+_, cfg = load_env()
+
+# In the AB system, a brightness of 23.9 mag corresponds to 1 microJy.
+# All DB fluxes are stored in microJy (AB).
+PHOT_ZP = 23.9
+PHOT_SYS = "ab"
+
+# The minimum signal-to-noise ratio to consider a photometry point as a detection
+PHOT_DETECTION_THRESHOLD = cfg["misc.photometry_detection_threshold_nsigma"]
+
+# SQL literal for double-precision NaN. Used in hybrid_property expressions
+# below to compare against Float columns. Under psycopg2, `"NaN"` was
+# implicitly coerced; psycopg3 binds Python strings as VARCHAR, so the cast
+# must be explicit.
+_PG_NAN = sa.cast(sa.literal("NaN"), sa.Float)
+
+manage_photometry_access = (
+    accessible_by_groups_members | accessible_by_streams_members | accessible_by_owner
+)
+
+
+def manage_photometry_access_logic(cls, user_or_token):
+    """
+    Users with 'Manage photometry' permission can modify photometry
+    for objects accessible to their groups.
+    """
+    if user_or_token.is_admin:
+        return public.select_accessible_rows(cls, user_or_token)
+    elif "Manage photometry" in user_or_token.permissions:
+        return manage_photometry_access.select_accessible_rows(cls, user_or_token)
+    else:
+        return accessible_by_owner.select_accessible_rows(cls, user_or_token)
+
+
+class Photometry(conesearch_alchemy.Point, Base):
+    """Calibrated measurement of the flux of an object through a broadband filter."""
+
+    __tablename__ = "photometry"
+
+    # created_at is never queried on this 1B-row table; skip the dead index.
+    index_created_at = False
+
+    @declared_attr
+    def __table_args__(cls):
+        # conesearch_alchemy.Point auto-creates a spatial index
+        # (ix_<table>_point) on the cartesian coords for every table that mixes
+        # it in. Photometry is only ever queried by obj_id and never
+        # cone-searched (there is no Photometry.within(...) call), so that index
+        # is enormous and unused on a large DB. Skip it by inheriting
+        # __table_args__ from Point's parent instead of Point, whose
+        # __table_args__ builds the index. Other indexes (deduplication_index)
+        # are attached after the class is defined below.
+        return super(conesearch_alchemy.Point, cls).__table_args__
+
+    read = (
+        accessible_by_groups_members
+        | accessible_by_streams_members
+        | accessible_by_owner
+    )
+    update = delete = CustomUserAccessControl(manage_photometry_access_logic)
+
+    mjd = sa.Column(sa.Float, nullable=False, doc="MJD of the observation.", index=True)
+    flux = sa.Column(
+        sa.Float,
+        doc="Flux of the observation in µJy. "
+        "Corresponds to an AB Zeropoint of 23.9 in all "
+        "filters.",
+        server_default="NaN",
+        nullable=False,
+    )
+
+    fluxerr = sa.Column(
+        sa.Float, nullable=False, doc="Gaussian error on the flux in µJy."
+    )
+    filter = sa.Column(
+        allowed_bandpasses,
+        nullable=False,
+        doc="Filter with which the observation was taken.",
+    )
+
+    ra_unc = sa.Column(sa.Float, doc="Uncertainty of ra position [arcsec]")
+    dec_unc = sa.Column(sa.Float, doc="Uncertainty of dec position [arcsec]")
+
+    ref_flux = sa.Column(
+        sa.Float,
+        nullable=True,
+        doc="Reference flux. E.g., "
+        "of the source before transient started, "
+        "or the mean flux of a variable source.",
+    )
+
+    ref_fluxerr = sa.Column(
+        sa.Float, nullable=True, doc="Uncertainty on the reference flux."
+    )
+
+    original_user_data = sa.Column(
+        JSONB,
+        doc="Original data passed by the user "
+        "through the PhotometryHandler.POST "
+        "API or the PhotometryHandler.PUT "
+        "API. The schema of this JSON "
+        "validates under either "
+        "schema.PhotometryFlux or schema.PhotometryMag "
+        "(depending on how the data was passed).",
+    )
+    altdata = sa.Column(JSONB, doc="Arbitrary metadata in JSON format..")
+    upload_id = sa.Column(
+        sa.String,
+        nullable=False,
+        default=lambda: str(uuid.uuid4()),
+        doc="ID of the batch in which this Photometry was uploaded (for bulk deletes).",
+    )
+
+    origin = sa.Column(
+        sa.String,
+        nullable=False,
+        unique=False,
+        doc="Origin from which this Photometry was extracted (if any).",
+        server_default="",
+    )
+
+    obj_id = sa.Column(
+        sa.ForeignKey("objs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        doc="ID of the Photometry's Obj.",
+    )
+    obj = relationship("Obj", back_populates="photometry", doc="The Photometry's Obj.")
+    groups = relationship(
+        "Group",
+        secondary="group_photometry",
+        back_populates="photometry",
+        cascade="save-update, merge, refresh-expire, expunge",
+        passive_deletes=True,
+        doc="Groups that can access this Photometry.",
+    )
+    streams = relationship(
+        "Stream",
+        secondary="stream_photometry",
+        back_populates="photometry",
+        cascade="save-update, merge, refresh-expire, expunge",
+        passive_deletes=True,
+        doc="Streams associated with this Photometry.",
+    )
+    instrument_id = sa.Column(
+        sa.ForeignKey("instruments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        doc="ID of the Instrument that took this Photometry.",
+    )
+    instrument = relationship(
+        "Instrument",
+        back_populates="photometry",
+        doc="Instrument that took this Photometry.",
+    )
+
+    followup_request_id = sa.Column(
+        sa.ForeignKey("followuprequests.id"), nullable=True, index=True
+    )
+    followup_request = relationship("FollowupRequest", back_populates="photometry")
+
+    assignment_id = sa.Column(
+        sa.ForeignKey("classicalassignments.id"), nullable=True, index=True
+    )
+    assignment = relationship("ClassicalAssignment", back_populates="photometry")
+
+    owner_id = sa.Column(
+        sa.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        doc="ID of the User who uploaded the photometry.",
+    )
+    owner = relationship(
+        "User",
+        back_populates="photometry",
+        foreign_keys=[owner_id],
+        passive_deletes=True,
+        cascade="save-update, merge, refresh-expire, expunge",
+        doc="The User who uploaded the photometry.",
+    )
+
+    annotations = relationship(
+        "AnnotationOnPhotometry",
+        back_populates="photometry",
+        cascade="save-update, merge, refresh-expire, expunge, delete",
+        passive_deletes=True,
+        order_by="AnnotationOnPhotometry.created_at",
+        doc="Annotations posted about this photometry.",
+    )
+
+    validations = relationship(
+        "PhotometryValidation",
+        back_populates="photometry",
+        passive_deletes=True,
+        doc="Photometry validation check.",
+    )
+
+    @hybrid_property
+    def mag(self):
+        """The magnitude of the photometry point in the AB system."""
+        if not np.isnan(self.flux) and self.flux > 0:
+            return -2.5 * np.log10(self.flux) + PHOT_ZP
+        else:
+            return None
+
+    @hybrid_property
+    def e_mag(self):
+        """The error on the magnitude of the photometry point."""
+        if not np.isnan(self.flux) and self.flux > 0 and self.fluxerr > 0:
+            return (2.5 / np.log(10)) * (self.fluxerr / self.flux)
+        else:
+            return None
+
+    @mag.expression
+    def mag(cls):
+        """The magnitude of the photometry point in the AB system."""
+        return sa.case(
+            (
+                sa.and_(cls.flux != _PG_NAN, cls.flux > 0),  # noqa
+                -2.5 * sa.func.log(cls.flux) + PHOT_ZP,
+            ),
+            else_=None,
+        )
+
+    @e_mag.expression
+    def e_mag(cls):
+        """The error on the magnitude of the photometry point."""
+        return sa.case(
+            (
+                sa.and_(cls.flux != _PG_NAN, cls.flux > 0, cls.fluxerr > 0),  # noqa: E711
+                2.5 / sa.func.ln(10) * cls.fluxerr / cls.flux,
+            ),
+            else_=None,
+        )
+
+    @hybrid_property
+    def magref(self):
+        """
+        Reference magnitude, e.g.,
+        the mean magnitude of a variable source,
+        or the magnitude of a source before a transient started.
+        """
+        if self.ref_flux is not None and self.ref_flux > 0:
+            return -2.5 * np.log10(self.ref_flux) + PHOT_ZP
+        else:
+            return None
+
+    @hybrid_property
+    def e_magref(self):
+        """The error on the reference magnitude."""
+        if (
+            self.ref_flux is not None
+            and self.ref_flux > 0
+            and self.ref_fluxerr is not None
+            and self.ref_fluxerr > 0
+        ):
+            return (2.5 / np.log(10)) * (self.ref_fluxerr / self.ref_flux)
+        else:
+            return None
+
+    @magref.expression
+    def magref(cls):
+        """The magnitude of the photometry point in the AB system."""
+        return sa.case(
+            (
+                sa.and_(
+                    cls.ref_flux != None,  # noqa: E711
+                    cls.ref_flux != _PG_NAN,
+                    cls.ref_flux > 0,
+                ),
+                -2.5 * sa.func.log(cls.ref_flux) + PHOT_ZP,
+            ),
+            else_=None,
+        )
+
+    @e_magref.expression
+    def e_magref(cls):
+        """The error on the magnitude of the photometry point."""
+        return sa.case(
+            (
+                sa.and_(
+                    cls.ref_flux != None,  # noqa: E711
+                    cls.ref_flux != _PG_NAN,
+                    cls.ref_flux > 0,
+                    cls.ref_fluxerr > 0,
+                ),  # noqa: E711
+                (2.5 / sa.func.ln(10)) * (cls.ref_fluxerr / cls.ref_flux),
+            ),
+            else_=None,
+        )
+
+    @hybrid_property
+    def magtot(self):
+        """
+        Total magnitude, e.g.,
+        the combined magnitude of a variable source,
+        as opposed to the regular magnitude which may come
+        from subtraction images, etc.
+        """
+        if self.ref_flux is not None and self.ref_flux > 0 and self.flux > 0:
+            return -2.5 * np.log10(self.ref_flux + self.flux) + PHOT_ZP
+        else:
+            return None
+
+    @hybrid_property
+    def e_magtot(self):
+        """The error on the total magnitude."""
+        if (
+            self.ref_flux is not None
+            and self.ref_flux > 0
+            and self.ref_fluxerr is not None
+            and self.ref_fluxerr > 0
+            and self.flux > 0
+            and self.fluxerr > 0
+        ):
+            return (
+                2.5
+                / np.log(10)
+                * np.sqrt(self.ref_fluxerr**2 + self.fluxerr**2)
+                / (self.ref_flux + self.flux)
+            )
+        else:
+            return None
+
+    @magtot.expression
+    def magtot(cls):
+        """The total magnitude of the photometry point in the AB system."""
+        return sa.case(
+            (
+                sa.and_(
+                    cls.ref_flux != None,  # noqa: E711
+                    cls.ref_flux != _PG_NAN,
+                    cls.ref_flux > 0,
+                    cls.flux != _PG_NAN,
+                    cls.flux > 0,
+                ),  # noqa
+                -2.5 * sa.func.log(cls.ref_flux + cls.flux) + PHOT_ZP,
+            ),
+            else_=None,
+        )
+
+    @e_magtot.expression
+    def e_magtot(cls):
+        """The error on the total magnitude of the photometry point."""
+        return sa.case(
+            (
+                sa.and_(
+                    cls.ref_flux is not None,
+                    cls.ref_flux != _PG_NAN,
+                    cls.ref_flux > 0,
+                    cls.ref_fluxerr > 0,
+                    cls.flux is not None,
+                    cls.flux != _PG_NAN,
+                    cls.flux > 0,
+                    cls.fluxerr > 0,
+                ),  # noqa: E711
+                2.5
+                / sa.func.ln(10)
+                * sa.func.sqrt(
+                    sa.func.pow(cls.ref_fluxerr, 2) + sa.func.pow(cls.fluxerr, 2)
+                )
+                / (cls.ref_flux + cls.flux),
+            ),
+            else_=None,
+        )
+
+    @hybrid_property
+    def tot_flux(self):
+        """Total flux, e.g., the combined flux of a variable source."""
+        if self.ref_flux is not None and self.ref_flux > 0 and self.flux > 0:
+            return self.ref_flux + self.flux
+        else:
+            return None
+
+    @hybrid_property
+    def tot_fluxerr(self):
+        """The error on the total flux."""
+        if (
+            self.ref_fluxerr is not None
+            and self.ref_fluxerr > 0
+            and self.fluxerr is not None
+            and self.fluxerr > 0
+        ):
+            return np.sqrt(self.ref_fluxerr**2 + self.fluxerr**2)
+        else:
+            return None
+
+    @tot_flux.expression
+    def tot_flux(cls):
+        """The total flux of the photometry point."""
+        return sa.case(
+            (
+                sa.and_(
+                    cls.ref_flux != None,  # noqa: E711
+                    cls.ref_flux != _PG_NAN,
+                    cls.ref_flux > 0,
+                    cls.flux != _PG_NAN,
+                    cls.flux > 0,
+                ),  # noqa
+                cls.ref_flux + cls.flux,
+            ),
+            else_=None,
+        )
+
+    @tot_fluxerr.expression
+    def tot_fluxerr(cls):
+        """The error on the total flux of the photometry point."""
+        return sa.case(
+            (
+                sa.and_(
+                    cls.ref_fluxerr != None,  # noqa: E711
+                    cls.ref_fluxerr != _PG_NAN,
+                    cls.ref_fluxerr > 0,
+                    cls.fluxerr != None,  # noqa: E711
+                    cls.fluxerr != _PG_NAN,
+                    cls.fluxerr > 0,
+                ),  # noqa
+                sa.func.sqrt(
+                    sa.func.pow(cls.ref_fluxerr, 2) + sa.func.pow(cls.fluxerr, 2)
+                ),
+            ),
+            else_=None,
+        )
+
+    @hybrid_property
+    def jd(self):
+        """Julian Date of the exposure that produced this Photometry."""
+        return self.mjd + 2_400_000.5
+
+    @hybrid_property
+    def iso(self):
+        """UTC ISO timestamp (ArrowType) of the exposure that produced this Photometry."""
+        return arrow.get((self.mjd - 40_587) * 86400.0)
+
+    @iso.expression
+    def iso(cls):
+        """UTC ISO timestamp (ArrowType) of the exposure that produced this Photometry."""
+        # converts MJD to unix timestamp
+        return sa.func.to_timestamp((cls.mjd - 40_587) * 86400.0)
+
+    @hybrid_property
+    def snr(self):
+        """Signal-to-noise ratio of this Photometry point."""
+        return (
+            self.flux / self.fluxerr
+            if not np.isnan(self.flux)
+            and not np.isnan(self.fluxerr)
+            and self.fluxerr != 0
+            else None
+        )
+
+    @snr.expression
+    def snr(self):
+        """Signal-to-noise ratio of this Photometry point."""
+        return sa.case(
+            (
+                sa.and_(
+                    self.flux != _PG_NAN, self.fluxerr != _PG_NAN, self.fluxerr != 0
+                ),  # noqa
+                self.flux / self.fluxerr,
+            ),
+            else_=None,
+        )
+
+    def to_dict_public(self):
+        from ..handlers.api.photometry import serialize
+
+        serialize_photometry = serialize(
+            self,
+            "ab",
+            "mag",
+            created_at=False,
+            groups=False,
+            annotations=False,
+            validation=True,
+        )
+        return {
+            "mjd": serialize_photometry.get("mjd"),
+            "mag": serialize_photometry.get("mag"),
+            "magerr": serialize_photometry.get("magerr"),
+            "filter": serialize_photometry.get("filter"),
+            "limiting_mag": serialize_photometry.get("limiting_mag"),
+            "instrument_id": serialize_photometry.get("instrument_id"),
+            "instrument_name": serialize_photometry.get("instrument_name"),
+            "origin": serialize_photometry.get("origin"),
+            "notes": serialize_photometry["validations"][0].get("notes", "")
+            if serialize_photometry.get("validations")
+            else "",
+        }
+
+
+# Deduplication index. This is a unique index that prevents any photometry
+# point that has the same obj_id, instrument_id, origin, mjd, flux error,
+# and flux as a photometry point that already exists within the table from
+# being inserted into the table. The index also allows fast lookups on this
+# set of columns, making the search for duplicates a O(log(n)) operation.
+
+# Single source of truth for the dedup column set: ON CONFLICT call sites
+# and the dedup-key helper in handlers/api/photometry.py both read this so
+# the list cannot drift from the index definition.
+Photometry.DEDUP_COLUMNS = (
+    "obj_id",
+    "instrument_id",
+    "origin",
+    "mjd",
+    "fluxerr",
+    "flux",
+)
+
+Photometry.__table_args__ = (
+    sa.Index(
+        "deduplication_index",
+        *(getattr(Photometry, c) for c in Photometry.DEDUP_COLUMNS),
+        unique=True,
+    ),
+)

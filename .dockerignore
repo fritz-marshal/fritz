@@ -1,0 +1,45 @@
+*~
+.*
+log
+worker*
+tmp
+node_modules
+run
+config.yaml
+test_config.yaml
+github_deploy_key.enc
+dbdata
+dask-worker-space
+webdriver-console
+cache
+__pycache__/
+.pytest_cache/
+static/build
+static/thumbnails
+persistentdata
+
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+
+# macOS
+.DS_Store
+
+# Visual Studio Code
+.vscode
+
+# Python virtual environments
+skyportal_env/
+env/
+venv/
+.venv/
+
+dists/

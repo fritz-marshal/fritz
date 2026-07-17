@@ -1,0 +1,179 @@
+database:
+  database: skyportal_test
+  user: skyportal
+  host: localhost
+  port: 5432
+  password:
+
+ports:
+  app: 5000 # internal facing port, edit this if you want to run the app on a different port
+
+server:
+  port: 5000 # external facing port, edit this if you want to expose the app on a different port
+  # Tests run serially (no xdist), so extra app processes buy no concurrency and
+  # just contend for the 2 vCPUs of the CI runner alongside Postgres, the
+  # microservices and Firefox. Keep the process count small to reduce CPU/memory
+  # starvation (which otherwise shows up as nginx 504s and 30s+ UI timeouts).
+  processes: 2
+  dedicated_frontend_processes: 1
+  auth:
+    debug_login: True
+    google_oauth2_key:
+    google_oauth2_secret:
+
+misc:
+  photometry_detection_threshold_nsigma: 3.0
+  minutes_to_keep_candidate_query_cache: 0.033333 # 2 seconds
+  minutes_to_keep_annotations_info_query_cache: 0.033333 # 2 seconds
+  allow_nonadmins_delete_objs: True
+  max_seconds_to_sleep_reminders_service: 5
+  max_seconds_to_sleep_recurring_apis_service: 5
+
+twilio:
+  # Twilio Sendgrid API configs
+  # This needs to be set to a valid, Sendgrid-registered address in config.yaml
+  from_email:
+  # This needs to be obtained via Sendgrid setup on their site
+  sendgrid_api_key:
+
+  # Twilio SMS API configs
+  # These values must be valid ones from the Twitter API console
+  from_number:
+  sms_account_sid:
+  sms_auth_token:
+
+invitations:
+  enabled: True
+  days_until_expiry: 3
+  email_subject: "You've been invited to collaborate on SkyPortal"
+  email_body_preamble: | # This can include HTML tags
+    Welcome to <b>SkyPortal</b>!
+    <br />
+    Some other text here.
+
+smtp:
+  from_email: test@skyportal.com # This is both the email used to authenticate with smtplib and the sender address
+  password: password123
+  host: localhost # Local test server
+  port: 64503 # Local test server
+
+# This value needs to be either "sendgrid" or "smtp" (without quotes)
+email_service: smtp
+
+notifications:
+  enabled: True
+
+testing: true
+
+services:
+  paths:
+    - ./baselayer/services
+    - ./skyportal/services
+  disabled:
+    - external_logging
+    - cron
+    - gcnserver
+    - dask
+    - spectral_cube_analysis_service
+    - tns_retrieval_queue
+    - external_publishing_submission_queue
+    - watch_list
+    - ngsf_analysis_service
+    # Auto-fetches external survey images (sdss/ls/ps1) for every obj's
+    # thumbnails; tests create thumbnails directly, so it only adds external
+    # network load. The queue test calls fetch_obj() directly.
+    - thumbnail_queue
+    # No tests exercise these; skip them to free CPU/RAM on the CI runner.
+    - gcn_service
+    - pdl_service
+    - hermes_skyportal_sync
+test_server:
+  port: 64502
+  smtp_port: 64503
+  # Reset the cache every * days
+  refresh_cache_days: 7
+  redirects:
+    # List of routes listened for by the test server, and the real URLs that
+    # requests should be redirected to. Requests will be forwarded by the
+    # test server, cached, and responses played back to the API as if it came
+    # from the real server.
+    /forcedphot/queue/: https://fallingstar-data.com # ATLAS
+    /node_agent2/node_agent: http://161.72.57.3:8080 # LT
+    /api/requestgroups/: https://observe.lco.global # LCO
+    /api/triggers/ztf: http://skipper.caltech.edu:4000 # ZTF
+    /cgi-bin/internal/process_kait_ztf_request.py: http://herculesii.astro.berkeley.edu # KAIT
+    /api/v0/pointings: https://treasuremap.space
+    /toop/submit_json.php: https://www.swift.psu.edu # Swift
+    /api/v0.1/panstarrs/dr2/: https://catalogs.mast.stsci.edu # PS1
+    /too/winter: http://winter.caltech.edu:82 # WINTER
+    /too/spring: http://winter.caltech.edu:82 # SPRING
+    /too: https://gnodb.gemini.edu:8443 # Gemini
+
+app:
+  atlas:
+    protocol: http
+    host: localhost
+    port: 64502
+  lt_host: localhost
+  lt_port: 64502
+  lco_protocol: http
+  lco_host: localhost
+  lco_port: 64502
+  ztf:
+    protocol: http
+    host: localhost
+    port: 64502
+  kait:
+    protocol: http
+    host: localhost
+    port: 64502
+  treasuremap_endpoint: http://localhost:64502
+  swift:
+    protocol: http
+    host: localhost
+    port: 64502
+  gemini:
+    protocol: http
+    # {prefix}.localhost resolves to loopback (systemd-resolved / CI), so the
+    # /too request reaches the test server on port 64502.
+    north_prefix: gnodbtest
+    south_prefix: gsodbtest
+    domain: localhost
+    port: 64502
+    # Canned guide star so the submit path skips the external finder-chart /
+    # Gaia lookup (see GEMINIAPI._get_guide_star).
+    mock_guide_star:
+      name: "TEST-GS"
+      ra: 123.45
+      dec: -5.87
+      mag: "15.0/UC/Vega"
+      pa: 90.0
+  winter:
+    protocol: http
+    host: localhost
+    port: 64502
+  ps1_endpoint: http://localhost:64502
+  # No live SEDM endpoint in tests — SEDMAPI short-circuits the HTTP call
+  # and returns a stub "accepted" response when this is empty.
+  sedm_endpoint:
+  # No live PS1 / SkyMapper cutout services in tests — Obj.panstarrs_url and
+  # Obj.skymapper_url fall back to the "currently_unavailable.png" placeholder
+  # without hitting the network.
+  ps1_cutout_url:
+  skymapper_cutout_url:
+
+  observation_plan:
+    default_filters: ["ztfg", "ztfr", "ztfi"]
+    use_skyportal_fields: True
+    # Serial generation in CI: parallel plan generation spawns Ncores CPU-bound
+    # workers that peg the 2-vCPU runner and starve the app server (504s /
+    # timeouts) during observation-plan and gcn-summary tests.
+    use_parallel: False
+    Ncores: 1
+
+analysis_services:
+  analysis_folder: analysis_data
+  sn_analysis_service:
+    port: 6802
+  spectral_cube_analysis_service:
+    port: 7003

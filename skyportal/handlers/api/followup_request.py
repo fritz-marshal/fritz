@@ -1,0 +1,3284 @@
+import ast
+import asyncio
+import functools
+import io
+import json
+import operator
+import re
+import tempfile
+import time
+import traceback
+import uuid
+from datetime import timedelta
+
+import arrow
+import conesearch_alchemy as ca
+import healpy as hp
+import jsonschema
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import sqlalchemy as sa
+from astroplan import FixedTarget, Observer, ObservingBlock
+from astroplan.constraints import (
+    AirmassConstraint,
+    AltitudeConstraint,
+    AtNightConstraint,
+    Constraint,
+    MoonSeparationConstraint,
+)
+from astroplan.plots import plot_schedule_airmass
+from astroplan.scheduling import PriorityScheduler, Schedule, Transitioner
+from astropy import units as u
+from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.time import Time, TimeDelta
+from marshmallow.exceptions import ValidationError
+from scipy.stats import norm
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import joinedload, selectinload, undefer
+from sqlalchemy.sql.expression import cast
+from tornado.ioloop import IOLoop
+
+from baselayer.app.access import auth_or_token, permissions
+from baselayer.app.flow import Flow
+from baselayer.app.models import async_plain_session_factory
+from baselayer.log import make_log
+
+from ...models import (
+    Allocation,
+    ClassicalAssignment,
+    Classification,
+    Comment,
+    DBSession,
+    DefaultFollowupRequest,
+    FollowupRequest,
+    FollowupRequestUser,
+    Group,
+    Instrument,
+    Localization,
+    Obj,
+    ObservingRun,
+    Source,
+    Spectrum,
+    User,
+    cosmo,
+)
+from ...models.schema import AssignmentSchema, FollowupRequestPost
+from ...utils.naive_datetime import utcnow_naive
+from ...utils.offset import get_formatted_standards_list
+from ...utils.parse import get_list_typed, get_page_and_n_per_page, str_to_bool
+from ..base import BaseHandler, format_doc
+
+log = make_log("api/followup_request")
+
+MAX_FOLLOWUP_REQUESTS = 1000
+
+# Trigger-constraint keys the manual follow-up API accepts; Default Follow-up
+# Requests store and apply the identical logic.
+FOLLOWUP_CONSTRAINT_KEYS = (
+    "not_if_duplicates",
+    "source_group_ids",
+    "ignore_source_group_ids",
+    "not_if_classified",
+    "not_if_spectra_exist",
+    "not_if_tns_classified",
+    "not_if_tns_reported",
+    "ignore_allocation_ids",
+    "not_if_assignment_exists",
+)
+
+# Recognized priority keys in a follow-up payload, highest-precedence first.
+FOLLOWUP_PRIORITY_ALIASES = ("priority", "urgency", "Urgency")
+
+
+def build_constraints_dict(data):
+    """Pop trigger-constraint keys out of ``data`` and return them as a dict.
+
+    Mirrors the constraints the manual follow-up request API accepts so that
+    Default Follow-up Requests can store and apply the identical logic. Returns
+    ``None`` when no constraint keys are present. Raises ``ValueError`` if a
+    radius is provided but cannot be parsed as a float.
+    """
+    constraints = {}
+    for key in FOLLOWUP_CONSTRAINT_KEYS:
+        if key in data:
+            constraints[key] = data.pop(key)
+    if not constraints:
+        return None
+    try:
+        constraints["radius"] = float(data.pop("radius", 0.5))
+    except (TypeError, ValueError):
+        raise ValueError("Invalid specified radius for spatial constraints.")
+    return constraints
+
+
+def get_payload_priority(payload):
+    """Return (key, float value) of the priority in a follow-up payload, or
+    (None, None) if no recognized priority key holds a numeric value."""
+    if not isinstance(payload, dict):
+        return None, None
+    for alias in FOLLOWUP_PRIORITY_ALIASES:
+        if alias in payload and isinstance(payload[alias], int | float | str):
+            try:
+                return alias, float(payload[alias])
+            except (TypeError, ValueError):
+                return None, None
+    return None, None
+
+
+def priority_should_update(existing_priority, new_priority, priority_order="asc"):
+    """Whether ``new_priority`` outranks ``existing_priority``.
+
+    With ``priority_order == "desc"`` a lower number means higher observing
+    priority, so the comparison is inverted. Mirrors Kowalski's helper of the
+    same name so auto-trigger priority bumps behave identically.
+    """
+    if priority_order == "desc":
+        return float(new_priority) < float(existing_priority)
+    return float(new_priority) > float(existing_priority)
+
+
+def detect_priority_alias(payload):
+    """Return the priority key present in ``payload`` (one of
+    FOLLOWUP_PRIORITY_ALIASES), defaulting to "priority". Unlike
+    get_payload_priority this does not require the value to be numeric, so it
+    can be used to detect urgency-based instruments."""
+    if isinstance(payload, dict):
+        for alias in FOLLOWUP_PRIORITY_ALIASES:
+            if alias in payload:
+                return alias
+    return "priority"
+
+
+async def post_assignment(data, session):
+    """Post assignment to database.
+
+    Posts a ClassicalAssignment using an ``AsyncSession``.
+    """
+
+    try:
+        assignment = ClassicalAssignment(**AssignmentSchema.load(data=data))
+    except ValidationError as e:
+        raise ValidationError(
+            f'Error parsing followup request: "{e.normalized_messages()}"'
+        )
+
+    run_id = assignment.run_id
+    data["priority"] = assignment.priority.name
+    run = await session.scalar(
+        ObservingRun.select(session.user_or_token).where(ObservingRun.id == run_id)
+    )
+    if run is None:
+        raise ValueError("Observing run is not accessible.")
+
+    predecessor = await session.scalar(
+        ClassicalAssignment.select(session.user_or_token).where(
+            ClassicalAssignment.obj_id == assignment.obj_id,
+            ClassicalAssignment.run_id == run_id,
+        )
+    )
+
+    if predecessor is not None:
+        raise ValueError("Object is already assigned to this run.")
+
+    if hasattr(session.user_or_token, "created_by"):
+        user_id = session.user_or_token.created_by.id
+    else:
+        user_id = session.user_or_token.id
+
+    data["requester_id"] = user_id
+    data["last_modified_by_id"] = user_id
+    assignment = ClassicalAssignment(**data)
+    session.add(assignment)
+    await session.commit()
+
+    # Re-load assignment with relationships eagerly loaded for downstream access
+    assignment = await session.scalar(
+        sa.select(ClassicalAssignment)
+        .where(ClassicalAssignment.id == assignment.id)
+        .options(joinedload(ClassicalAssignment.obj))
+    )
+
+    flow = Flow()
+    flow.push(
+        "*",
+        "skyportal/REFRESH_SOURCE",
+        payload={"obj_key": assignment.obj.internal_key},
+    )
+    flow.push(
+        "*",
+        "skyportal/REFRESH_OBSERVING_RUN",
+        payload={"run_id": assignment.run_id},
+    )
+    return assignment.id
+
+
+class AssignmentHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, assignment_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Get an assignment
+          description: Retrieve an observing run assignment
+          tags:
+            - assignments
+          parameters:
+            - in: path
+              name: assignment_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+               content:
+                application/json:
+                  schema: SingleClassicalAssignment
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Retrieve multiple assignments
+          description: Retrieve all observing run assignments
+          tags:
+            - assignments
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfClassicalAssignments
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            from ...models.instrument import Instrument as _Instrument
+
+            # get owned assignments — eager load all relationships referenced
+            # by the marshmallow auto-schema dump (include_relationships=True)
+            # plus telescope (needed by rise_time/set_time)
+            assignments = ClassicalAssignment.select(session.user_or_token).options(
+                selectinload(ClassicalAssignment.obj),
+                selectinload(ClassicalAssignment.requester),
+                selectinload(ClassicalAssignment.last_modified_by),
+                selectinload(ClassicalAssignment.run)
+                .selectinload(ObservingRun.instrument)
+                .selectinload(_Instrument.telescope),
+                selectinload(ClassicalAssignment.spectra),
+                selectinload(ClassicalAssignment.photometry),
+                selectinload(ClassicalAssignment.photometric_series),
+            )
+
+            if assignment_id is not None:
+                try:
+                    assignment_id = int(assignment_id)
+                except ValueError:
+                    return self.error("Assignment ID must be an integer.")
+
+                assignments = assignments.where(
+                    ClassicalAssignment.id == assignment_id
+                ).options(
+                    selectinload(ClassicalAssignment.obj).selectinload(Obj.thumbnails),
+                )
+
+            result = await session.scalars(assignments)
+            assignments = result.unique().all()
+
+            if len(assignments) == 0 and assignment_id is not None:
+                return self.error(
+                    "Could not retrieve assignment with ID {assignment_id}."
+                )
+
+            out_json = ClassicalAssignment.__schema__().dump(assignments, many=True)
+
+            # calculate when the targets rise and set
+            for json_obj, assignment in zip(out_json, assignments):
+                json_obj["rise_time_utc"] = assignment.rise_time.isot
+                json_obj["set_time_utc"] = assignment.set_time.isot
+                json_obj["obj"] = assignment.obj
+                json_obj["requester"] = assignment.requester
+
+            if assignment_id is not None:
+                out_json = out_json[0]
+
+            return self.success(data=out_json)
+
+    @permissions(["Upload data"])
+    async def post(self):
+        """
+        ---
+        summary: Post a new assignment
+        description: Post new target assignment to observing run
+        tags:
+          - assignments
+        requestBody:
+          content:
+            application/json:
+              schema: AssignmentSchema
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              description: New assignment ID
+        """
+
+        data = self.get_json()
+
+        async with self.AsyncSession() as session:
+            try:
+                assignment_id = await post_assignment(data, session)
+            except ValidationError as e:
+                return self.error(
+                    f'Error posting followup request: "{e.normalized_messages()}"'
+                )
+            except ValueError as e:
+                return self.error(f'Error posting followup request: "{e.args[0]}"')
+            except Exception as e:
+                return self.error(f'Error posting followup request: "{str(e)}"')
+
+            return self.success(data={"id": assignment_id})
+
+    @permissions(["Upload data"])
+    async def put(self, assignment_id: int):
+        """
+        ---
+        summary: Update an assignment
+        description: Update an assignment
+        tags:
+          - assignments
+        parameters:
+          - in: path
+            name: assignment_id
+            required: true
+            schema:
+              type: integer
+        requestBody:
+          content:
+            application/json:
+              schema: ClassicalAssignmentNoID
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            assignment = await session.scalar(
+                ClassicalAssignment.select(session.user_or_token, mode="update")
+                .where(ClassicalAssignment.id == assignment_id)
+                .options(selectinload(ClassicalAssignment.obj))
+            )
+            if assignment is None:
+                return self.error(f"Could not find assigment with ID {assignment_id}.")
+
+            data = self.get_json()
+            data["id"] = assignment_id
+            data["last_modified_by_id"] = self.associated_user_object.id
+
+            schema = ClassicalAssignment.__schema__()
+            try:
+                schema.load(data, partial=True)
+            except ValidationError as e:
+                return self.error(
+                    f"Invalid/missing parameters: {e.normalized_messages()}"
+                )
+
+            if "comment" in data:
+                assignment.comment = data["comment"]
+
+            if "status" in data:
+                assignment.status = data["status"]
+
+            if "priority" in data:
+                assignment.priority = data["priority"]
+
+            if "last_modified_by_id" in data:
+                assignment.last_modified_by_id = data["last_modified_by_id"]
+
+            await session.commit()
+
+            self.push_all(
+                action="skyportal/REFRESH_SOURCE",
+                payload={"obj_key": assignment.obj.internal_key},
+            )
+            self.push_all(
+                action="skyportal/REFRESH_OBSERVING_RUN",
+                payload={"run_id": assignment.run_id},
+            )
+            return self.success()
+
+    @permissions(["Upload data"])
+    async def delete(self, assignment_id: int):
+        """
+        ---
+        summary: Delete an assignment
+        description: Delete assignment.
+        tags:
+          - assignments
+        parameters:
+          - in: path
+            name: assignment_id
+            required: true
+            schema:
+              type: string
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        async with self.AsyncSession() as session:
+            assignment = await session.scalar(
+                ClassicalAssignment.select(session.user_or_token, mode="update")
+                .where(ClassicalAssignment.id == assignment_id)
+                .options(selectinload(ClassicalAssignment.obj))
+            )
+            if assignment is None:
+                return self.error(f"Could not find assigment with ID {assignment_id}.")
+
+            obj_key = assignment.obj.internal_key
+            run_id = assignment.run_id
+            await session.delete(assignment)
+            await session.commit()
+
+            self.push_all(
+                action="skyportal/REFRESH_SOURCE",
+                payload={"obj_key": obj_key},
+            )
+            self.push_all(
+                action="skyportal/REFRESH_OBSERVING_RUN",
+                payload={"run_id": run_id},
+            )
+            return self.success()
+
+
+FOLLOWUP_DEDUP_IGNORE_KEYS = (
+    "priority",
+    "urgency",
+    "Urgency",
+    "start_date",
+    "end_date",
+    "advanced",
+    "observation_choices",
+)
+
+
+def compare_dicts(a, b, ignore_keys=()):
+    """Whether payload ``a`` equals, or is a subset of, payload ``b`` ignoring
+    ``ignore_keys``. Ported from Kowalski's auto-followup matching so that the
+    auto-trigger dedup behaves identically. Includes the SEDM-specific
+    observation_type handling (3-shot/4-shot/IFU/Mix 'n Match)."""
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        return a == b
+    for k, v in a.items():
+        if k in ignore_keys:
+            continue
+        if k not in b:
+            return False
+        if isinstance(v, dict):
+            if not compare_dicts(v, b[k]):
+                return False
+        elif isinstance(v, list):
+            if not all(i in b[k] for i in v):
+                return False
+        elif k == "observation_type":
+            # observation_type comparison expands shot/IFU choices; designed
+            # with SEDM in mind (matches Kowalski).
+            obs_list = {"a": [], "b": []}
+            for name, content in [("a", a), ("b", b)]:
+                if content[k] == "Mix 'n Match":
+                    obs_list[name] = content.get("observation_choices", [])
+                else:
+                    if "IFU" in content[k]:
+                        obs_list[name].append("IFU")
+                    if "3-shot" in content[k]:
+                        obs_list[name].extend(["g", "r", "i"])
+                    elif "4-shot" in content[k]:
+                        obs_list[name].extend(["u", "g", "r", "i"])
+            if not set(obs_list["a"]).issubset(set(obs_list["b"])):
+                return False
+        elif b[k] != v:
+            return False
+    return True
+
+
+async def post_followup_request_async(
+    data, constraints, session, refresh_source=True, refresh_requests=False
+):
+    """Async equivalent of ``post_followup_request``.
+
+    Mirrors the sync helper but uses an ``AsyncSession`` for DB I/O and awaits
+    the facility-API ``submit`` directly on the async session.
+    """
+
+    if isinstance(constraints, dict):
+        if len(constraints.get("source_group_ids", [])) > 0:
+            # verify that there is a source for each of the group IDs
+            result = await session.scalars(
+                Source.select(session.user_or_token).where(
+                    Source.group_id.in_(constraints["source_group_ids"]),
+                    Source.obj_id == data["obj_id"],
+                    Source.active.is_(True),
+                )
+            )
+            existing_sources = result.all()
+            if len(existing_sources) != len(constraints["source_group_ids"]):
+                raise ValueError(
+                    "There is no source for one or more of the source_group_ids specified as a constraint, not submitting request."
+                )
+
+        # the following constraints are spatial and require position and radius
+        radius = constraints.get("radius", 0.5) / 3600
+        obj = await session.scalar(
+            Obj.select(session.user_or_token).where(Obj.id == data["obj_id"])
+        )
+        if obj is None:
+            raise ValueError(f"Could not find source with ID {data['obj_id']}.")
+
+        if constraints.get("not_if_duplicates", False):
+            try:
+                ignore_allocation_ids = constraints.get("ignore_allocation_ids", [])
+                ignore_allocation_ids = [int(i) for i in ignore_allocation_ids]
+            except ValueError:
+                raise ValueError(
+                    "ignore_allocation_ids must be a valid list of integers."
+                )
+
+            existing_requests = await session.scalar(
+                FollowupRequest.select(session.user_or_token).where(
+                    FollowupRequest.allocation_id.in_(
+                        list(set([data["allocation_id"]] + ignore_allocation_ids))
+                    ),
+                    sa.or_(
+                        func.lower(FollowupRequest.status)
+                        .contains("submitted")
+                        .is_(True),
+                        func.lower(FollowupRequest.status)
+                        .contains("completed")
+                        .is_(True),
+                    ),
+                    FollowupRequest.obj_id.in_(
+                        sa.select(Obj.id).where(
+                            Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius)
+                        )
+                    ),
+                )
+            )
+            if existing_requests is not None:
+                if existing_requests.allocation_id == data["allocation_id"]:
+                    raise ValueError(
+                        "There is already a follow-up request for this source and allocation, not submitting request."
+                    )
+                else:
+                    raise ValueError(
+                        "There is already a follow-up request for this source and one of the ignore_allocation_ids, not submitting request."
+                    )
+
+        if len(constraints.get("ignore_source_group_ids", [])) > 0:
+            ignore_existing_sources = await session.scalar(
+                Source.select(session.user_or_token).where(
+                    Source.group_id.in_(constraints["ignore_source_group_ids"]),
+                    Source.obj_id.in_(
+                        sa.select(Obj.id).where(
+                            Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius)
+                        )
+                    ),
+                    Source.active.is_(True),
+                )
+            )
+            if ignore_existing_sources is not None:
+                raise ValueError(
+                    "There is a source for one or more of the ignore_source_group_ids specified as a constraint, not submitting request."
+                )
+
+        if constraints.get("not_if_classified", False):
+            existing_classifications = await session.scalar(
+                Classification.select(session.user_or_token).where(
+                    Classification.obj_id.in_(
+                        sa.select(Obj.id).where(
+                            Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius)
+                        )
+                    ),
+                    Classification.ml.is_(False),
+                )
+            )
+            if existing_classifications is not None:
+                raise ValueError(
+                    "Source has already been classified, not submitting request (as per constraint)."
+                )
+        if constraints.get("not_if_spectra_exist", False):
+            existing_spectra = await session.scalar(
+                Spectrum.select(session.user_or_token).where(
+                    Spectrum.obj_id.in_(
+                        sa.select(Obj.id).where(
+                            Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius)
+                        )
+                    )
+                )
+            )
+            if existing_spectra is not None:
+                raise ValueError(
+                    "Source has already been observed spectroscopically, not submitting request (as per constraint)."
+                )
+        if constraints.get("not_if_tns_classified", False):
+            existing_tns_classifications = await session.scalar(
+                Obj.select(session.user_or_token).where(
+                    Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius),
+                    Obj.tns_name.startswith("SN"),
+                )
+            )
+            if existing_tns_classifications is not None:
+                raise ValueError(
+                    f"Source within {radius} arcsec has already been classified in TNS, not submitting request (as per constraint)."
+                )
+        if isinstance(constraints.get("not_if_tns_reported", None), int | float):
+            result = await session.scalars(
+                Obj.select(session.user_or_token).where(
+                    Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius),
+                    Obj.tns_name.isnot(None),
+                    Obj.tns_name != "",
+                    Obj.tns_info.isnot(None),
+                    Obj.tns_info != {},
+                )
+            )
+            existing_tns_sources = result.all()
+            for existing_tns_source in existing_tns_sources:
+                try:
+                    tns_info = existing_tns_source.tns_info
+                    if tns_info is None:
+                        raise ValueError("TNS info missing")
+                    if isinstance(tns_info, str):
+                        tns_info = json.loads(tns_info)
+
+                    tns_time = None
+                    tns_photometry = tns_info.get("photometry", [])
+                    if len(tns_photometry) > 0 and all(
+                        isinstance(p, dict)
+                        and isinstance(p.get("jd"), int | float | str)
+                        for p in tns_photometry
+                    ):
+                        tns_time = max(float(p["jd"]) for p in tns_photometry)
+                        tns_time = Time(tns_time, format="jd").datetime
+                    else:
+                        tns_time = tns_info.get("discoverydate", None)
+                        tns_time = arrow.get(tns_time).datetime
+                except Exception as e:
+                    log(
+                        f"Error parsing TNS info for source {existing_tns_source.id}: {e}, skipping."
+                    )
+                    continue
+                if tns_time is not None:
+                    delta_hours = (utcnow_naive() - tns_time).total_seconds() / 3600
+                    if delta_hours > float(constraints["not_if_tns_reported"]):
+                        raise ValueError(
+                            f"A Source within {radius} arcsec ({existing_tns_source.id}) has already been reported to TNS {delta_hours} hours ago, not submitting request (as per constraint)."
+                        )
+        if constraints.get("not_if_assignment_exists", False):
+            existing_assignments = await session.scalar(
+                ClassicalAssignment.select(session.user_or_token).where(
+                    ClassicalAssignment.obj_id.in_(
+                        sa.select(Obj.id).where(
+                            Obj.within(ca.Point(ra=obj.ra, dec=obj.dec), radius)
+                        )
+                    )
+                )
+            )
+            if existing_assignments is not None:
+                raise ValueError(
+                    f"Source within {radius} arcsec is already assigned to an observing run, not submitting request (as per constraint)."
+                )
+    stmt = (
+        Allocation.select(session.user_or_token)
+        .where(Allocation.id == data["allocation_id"])
+        .options(joinedload(Allocation.instrument))
+    )
+    allocation = await session.scalar(stmt)
+    if allocation is None:
+        raise ValueError(f"Could not find allocation with ID {data['allocation_id']}.")
+
+    # If validity ranges are defined, ensure that the request dates are within one of the ranges
+    ranges = allocation.validity_ranges
+    if isinstance(ranges, list) and ranges:
+        start_date, end_date = (
+            data["payload"].get("start_date"),
+            data["payload"].get("end_date"),
+        )
+        start = arrow.get(start_date) if start_date else arrow.utcnow()
+        for range in ranges:
+            if not range.get("start_date") or not range.get("end_date"):
+                raise ValueError(
+                    "Validity ranges must have both start_date and end_date defined."
+                )
+            if arrow.get(range["start_date"]) <= start <= arrow.get(
+                range["end_date"]
+            ) and (
+                end_date is None
+                or arrow.get(range["start_date"])
+                <= arrow.get(end_date)
+                <= arrow.get(range["end_date"])
+            ):
+                break
+        else:
+            raise ValueError(
+                f"{'Provided dates are' if start_date else 'Current date is'} outside allowed validity ranges."
+            )
+
+    instrument = allocation.instrument
+    if instrument is None:
+        raise ValueError(f"Could not find instrument for allocation {allocation.id}.")
+
+    if instrument.api_classname is None:
+        raise ValueError("Instrument has no remote API.")
+
+    if not instrument.api_class.implements()["submit"]:
+        raise ValueError("Cannot submit followup requests to this Instrument.")
+
+    group_ids = data.pop("target_group_ids", [])
+    stmt = Group.select(session.user_or_token).where(Group.id.in_(group_ids))
+    result = await session.scalars(stmt)
+    target_groups = result.all()
+    obj = await session.scalar(
+        Obj.select(session.user_or_token).where(Obj.id == data["obj_id"])
+    )
+    requester = await session.scalar(
+        User.select(session.user_or_token).where(User.id == data["requester_id"])
+    )
+
+    watcher_ids = data.pop("watcher_ids", None)
+    if watcher_ids is not None:
+        result = await session.scalars(sa.select(User).where(User.id.in_(watcher_ids)))
+        watchers = result.all()
+    else:
+        watchers = []
+
+    try:
+        formSchema = instrument.api_class.custom_json_schema(
+            instrument, session.user_or_token
+        )
+    except AttributeError:
+        formSchema = instrument.api_class.form_json_schema
+
+    try:
+        formSchemaForcedPhotometry = (
+            instrument.api_class.form_json_schema_forced_photometry
+        )
+    except AttributeError:
+        formSchemaForcedPhotometry = None
+
+    # not all requests need payloads
+    if "payload" not in data:
+        data["payload"] = {}
+
+    # if the instrument has a "prepare_payload" method, call it
+    if instrument.api_class.implements()["prepare_payload"]:
+        data["payload"] = instrument.api_class.prepare_payload(data["payload"])
+
+    # validate the payload
+    if formSchemaForcedPhotometry is not None and (
+        data["payload"].get("request_type", None) == "forced_photometry"
+        or formSchema is None
+    ):
+        jsonschema.validate(data["payload"], formSchemaForcedPhotometry)
+    else:
+        jsonschema.validate(data["payload"], formSchema)
+
+    followup_request = FollowupRequest(
+        requester_id=data["requester_id"],
+        last_modified_by_id=data["last_modified_by_id"],
+        obj_id=data["obj_id"],
+        payload=data["payload"],
+        allocation_id=data["allocation_id"],
+        comment=data.get("comment", None),
+    )
+    followup_request.obj = obj
+    followup_request.requester = requester
+    followup_request.last_modified_by = requester
+    followup_request.allocation = allocation
+    followup_request.target_groups = target_groups
+    followup_request.watchers = watchers
+    session.add(followup_request)
+
+    if refresh_source or refresh_requests:
+        await session.commit()
+        flow = Flow()
+        if refresh_source:
+            flow.push(
+                "*",
+                "skyportal/REFRESH_SOURCE",
+                payload={"obj_key": followup_request.obj.internal_key},
+            )
+        if refresh_requests:
+            flow.push(
+                followup_request.last_modified_by_id,
+                "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+                payload={"request_id": followup_request.id},
+            )
+
+    try:
+        await instrument.api_class.submit(
+            followup_request,
+            session,
+            refresh_source=refresh_source,
+            refresh_requests=refresh_requests,
+        )
+    except Exception as e:
+        log(f"Failed to submit follow-up request: {e}, traceback:")
+        log(traceback.format_exc())
+        followup_request.status = f"failed to submit: {e}"
+        raise
+    finally:
+        await session.commit()
+        if (
+            refresh_source or refresh_requests
+        ) and "failed to submit" in followup_request.status:
+            flow = Flow()
+            if refresh_source:
+                flow.push(
+                    "*",
+                    "skyportal/REFRESH_SOURCE",
+                    payload={"obj_key": followup_request.obj.internal_key},
+                )
+            if refresh_requests:
+                flow.push(
+                    followup_request.last_modified_by_id,
+                    "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+                    payload={"request_id": followup_request.id},
+                )
+    return followup_request.id, followup_request.status
+
+
+async def _post_default_followup_requests_async(
+    obj_id, default_followup_request_ids, user_id
+):
+    # only called with `run_async` (via the sync shim below), so we open the
+    # session here with the plain async session factory.
+    async with async_plain_session_factory() as session:
+        user = await session.scalar(sa.select(User).where(User.id == user_id))
+        if user is None:
+            raise ValueError(
+                f"Could not find user with ID {user_id} to post default followup requests."
+            )
+        obj = None
+        n_retries = 0
+        while obj is None and n_retries < 3:
+            obj = await session.scalar(sa.select(Obj).where(Obj.id == obj_id))
+            n_retries += 1
+            if obj is None:
+                await asyncio.sleep(1)
+        if obj is None or n_retries >= 3:
+            raise ValueError(
+                f"Could not find object with ID {obj_id} (after 3 seconds) to post default followup requests."
+            )
+
+        session.user_or_token = user
+        session.add(obj)
+        # Re-query the default requests in this session (only IDs crossed the
+        # thread boundary); eager-load target_groups since async can't lazy-load.
+        default_followup_requests = (
+            await session.scalars(
+                sa.select(DefaultFollowupRequest)
+                .where(DefaultFollowupRequest.id.in_(default_followup_request_ids))
+                .options(selectinload(DefaultFollowupRequest.target_groups))
+            )
+        ).all()
+        for ii, default_followup_request in enumerate(default_followup_requests):
+            try:
+                followup_request = default_followup_request.to_dict()
+                allocation_id = followup_request["allocation_id"]
+                constraints = followup_request.get("constraints") or {}
+                priority_order = followup_request.get("priority_order") or "asc"
+                validity_days = followup_request.get("validity_days") or 7
+                # implements_update: operator override (null -> True)
+                implements_update = (
+                    followup_request.get("implements_update") is not False
+                )
+                comment_text = followup_request.get("comment")
+
+                # Results are shared with the filter's group plus any configured
+                # target groups (mirrors Kowalski). Re-bind the default request to
+                # this session so its target_groups relationship can be read.
+                source_filter = followup_request.get("source_filter") or {}
+                dfr = default_followup_request
+                target_group_ids = list(
+                    {
+                        *(
+                            [source_filter["group_id"]]
+                            if source_filter.get("group_id") is not None
+                            else []
+                        ),
+                        *(g.id for g in (dfr.target_groups if dfr else [])),
+                    }
+                )
+
+                # Build the request payload. Urgency-based instruments do not
+                # use start/end dates; everyone else gets a [now, now +
+                # validity_days] window (mirrors Kowalski's auto-followup).
+                payload = {**followup_request["payload"]}
+                priority_alias = detect_priority_alias(payload)
+                if str(priority_alias).lower() == "urgency":
+                    payload.pop("start_date", None)
+                    payload.pop("end_date", None)
+                else:
+                    now = utcnow_naive()
+                    payload["start_date"] = str(now).replace("T", "")
+                    payload["end_date"] = str(
+                        now + timedelta(days=validity_days)
+                    ).replace("T", "")
+
+                # Find existing, non-deleted requests for this obj+allocation
+                # that are effectively the SAME request (payload equal/subset
+                # ignoring priority & scheduling keys, and target groups
+                # overlapping or both empty) — mirrors Kowalski's dedup matching.
+                # selectinload target_groups so _same_request's r.target_groups
+                # access below doesn't fire one SELECT per existing request.
+                # Also eager-load allocation->instrument so candidate.instrument
+                # (== allocation.instrument) is greenlet-safe under async.
+                existing_requests = (
+                    await session.scalars(
+                        sa.select(FollowupRequest)
+                        .options(
+                            selectinload(FollowupRequest.target_groups),
+                            selectinload(FollowupRequest.allocation).selectinload(
+                                Allocation.instrument
+                            ),
+                        )
+                        .where(
+                            FollowupRequest.obj_id == obj_id,
+                            FollowupRequest.allocation_id == allocation_id,
+                            FollowupRequest.status != "deleted",
+                        )
+                    )
+                ).all()
+
+                def _same_request(
+                    r, target_group_ids=target_group_ids, payload=payload
+                ):
+                    r_group_ids = {g.id for g in r.target_groups}
+                    groups_overlap = bool(set(target_group_ids) & r_group_ids) or (
+                        len(target_group_ids) == 0 and len(r_group_ids) == 0
+                    )
+                    return groups_overlap and compare_dicts(
+                        payload, r.payload or {}, ignore_keys=FOLLOWUP_DEDUP_IGNORE_KEYS
+                    )
+
+                matching = [r for r in existing_requests if _same_request(r)]
+                # lowest-priority match first (so we bump the weakest existing
+                # request), respecting priority_order
+                matching.sort(
+                    key=lambda r: get_payload_priority(r.payload)[1] or 0,
+                    reverse=(priority_order == "desc"),
+                )
+
+                if matching:
+                    # An equivalent request already exists; bump its priority in
+                    # place if it's still submitted, this default is allowed to
+                    # update, and the new priority outranks the existing one.
+                    # Otherwise leave it untouched. Whether the instrument can
+                    # actually be updated is governed solely by the
+                    # implements_update flag (mirrors Kowalski): if the flag is
+                    # set but the instrument has no update API, the attempt below
+                    # raises and is rolled back + logged.
+                    candidate = matching[0]
+                    priority_key = detect_priority_alias(candidate.payload)
+                    _, new_priority = get_payload_priority(payload)
+                    _, existing_priority = get_payload_priority(candidate.payload)
+                    if (
+                        "submitted" in str(candidate.status).lower()
+                        and implements_update
+                        and new_priority is not None
+                        and existing_priority is not None
+                        and priority_should_update(
+                            existing_priority, new_priority, priority_order
+                        )
+                    ):
+                        try:
+                            candidate.payload = {
+                                **candidate.payload,
+                                priority_key: new_priority,
+                            }
+                            candidate.last_modified_by_id = user_id
+                            await candidate.instrument.api_class.update(
+                                candidate, session
+                            )
+                            await session.commit()
+                            log(
+                                f"Bumped priority of existing followup request "
+                                f"{candidate.id} for {obj_id} (allocation "
+                                f"{allocation_id}) from {existing_priority} to {new_priority}."
+                            )
+                        except Exception as e:
+                            await session.rollback()
+                            log(
+                                f"Failed to bump priority of followup request "
+                                f"{candidate.id} for {obj_id} (allocation "
+                                f"{allocation_id}): {e}"
+                            )
+                    else:
+                        log(
+                            f"Skipping default followup request for {obj_id} with "
+                            f"allocation ID {allocation_id} because an equivalent one "
+                            f"already exists."
+                        )
+                    continue
+
+                data = {
+                    "payload": payload,
+                    "allocation_id": allocation_id,
+                    "obj_id": obj_id,
+                    "requester_id": user_id,
+                    "last_modified_by_id": user_id,
+                    "target_group_ids": target_group_ids,
+                }
+
+                await post_followup_request_async(
+                    data, constraints, session, refresh_source=False
+                )
+                log(
+                    f"Posted default followup request for {obj_id} with allocation ID {allocation_id}."
+                )
+
+                # Post a comment to the source (mirrors Kowalski), annotated with
+                # the request priority, shared with the same target groups.
+                if comment_text is not None and str(comment_text).strip():
+                    _, prio = get_payload_priority(payload)
+                    annotated = str(comment_text).strip()
+                    if prio is not None:
+                        annotated += f" ({priority_alias}: {prio})"
+                    comment_groups = (
+                        (
+                            await session.scalars(
+                                Group.select(session.user_or_token).where(
+                                    Group.id.in_(target_group_ids)
+                                )
+                            )
+                        ).all()
+                        if target_group_ids
+                        else []
+                    )
+                    session.add(
+                        Comment(
+                            text=annotated,
+                            obj_id=obj_id,
+                            author=user,
+                            groups=comment_groups,
+                            bot=True,
+                        )
+                    )
+                    await session.commit()
+            except Exception as e:
+                # A failed trigger constraint raises ValueError("...not
+                # submitting request"); that is an expected skip, not an error.
+                if "not submitting request" in str(e):
+                    log(
+                        f"Not submitting default followup request for {obj_id} with "
+                        f"allocation ID {allocation_id} (constraint not met): {e}"
+                    )
+                else:
+                    traceback.print_exc()
+                    log(f"Error posting default followup request: {e}")
+
+
+def post_default_followup_requests(obj_id, default_followup_request_ids, user_id):
+    # Sync shim dispatched via `run_async` in a worker thread (no running loop),
+    # so asyncio.run is safe; the real work is async (facility APIs are async).
+    asyncio.run(
+        _post_default_followup_requests_async(
+            obj_id, default_followup_request_ids, user_id
+        )
+    )
+
+
+class FollowupRequestHandler(BaseHandler):
+    @auth_or_token
+    @format_doc(MAX_FOLLOWUP_REQUESTS=MAX_FOLLOWUP_REQUESTS)
+    async def get(self, followup_request_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Get a followup request
+          description: Retrieve a followup request
+          tags:
+            - followup requests
+          parameters:
+            - in: path
+              name: followup_request_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+               content:
+                application/json:
+                  schema: SingleFollowupRequest
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Retrieve multiple followup requests
+          description: Retrieve all followup requests
+          tags:
+            - followup requests
+          parameters:
+          - in: query
+            name: sourceID
+            nullable: true
+            schema:
+              type: string
+            description: Portion of ID to filter on
+          - in: query
+            name: instrumentID
+            nullable: true
+            schema:
+              type: integer
+            description: Instrument ID to filter on. Ignored if allocationID is provided.
+          - in: query
+            name: allocationID
+            nullable: true
+            schema:
+                type: integer
+            description: Allocation ID to filter on
+          - in: query
+            name: startDate
+            nullable: true
+            schema:
+              type: string
+            description: |
+              Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+              created_at >= startDate
+          - in: query
+            name: endDate
+            nullable: true
+            schema:
+              type: string
+            description: |
+              Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+              created_at <= endDate
+          - in: query
+            name: observationStartDate
+            nullable: true
+            schema:
+                type: string
+            description: |
+                Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+                payload.start_date >= observationStartDate
+          - in: query
+            name: observationEndDate
+            nullable: true
+            schema:
+                type: string
+            description: |
+                Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+                payload.end_date <= observationEndDate
+          - in: query
+            name: status
+            nullable: true
+            schema:
+              type: string
+            description: |
+              String to match status of request against
+          - in: query
+            name: priorityThreshold
+            nullable: true
+            schema:
+              type: number
+            description: |
+              Threshold on request priority to include. If provided, filter by
+              payload.priority >= priorityThreshold
+          - in: query
+            name: requesters
+            nullable: true
+            schema:
+                type: string
+            description: |
+                Comma seperated list of user IDs to filter on (e.g. 1,2,3). If provided, filter by
+                requester_id in requesters
+          - in: query
+            name: numPerPage
+            nullable: true
+            schema:
+              type: integer
+            description: |
+              Number of followup requests to return per paginated request. Defaults to 100. Can be no larger than {MAX_FOLLOWUP_REQUESTS}.
+          - in: query
+            name: pageNumber
+            nullable: true
+            schema:
+              type: integer
+            description: Page number for paginated query results. Defaults to 1
+          responses:
+            200:
+              content:
+                application/json:
+                  schema:
+                    allOf:
+                      - $ref: '#/components/schemas/Success'
+                      - type: object
+                        properties:
+                          data:
+                            type: object
+                            properties:
+                              followup_requests:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/FollowupRequest'
+                              totalMatches:
+                                type: integer
+                              pageNumber:
+                                type: integer
+                              numPerPage:
+                                type: integer
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        start_date = self.get_query_argument("startDate", None)
+        end_date = self.get_query_argument("endDate", None)
+        observation_start_date = self.get_query_argument("observationStartDate", None)
+        observation_end_date = self.get_query_argument("observationEndDate", None)
+        sourceID = self.get_query_argument("sourceID", None)
+        instrumentID = self.get_query_argument("instrumentID", None)
+        allocationID = self.get_query_argument("allocationID", None)
+        requesters = self.get_query_argument("requesters", [])
+        priority_threshold = self.get_query_argument("priorityThreshold", None)
+        status = self.get_query_argument("status", None)
+        page_number = self.get_query_argument("pageNumber", 1)
+        n_per_page = self.get_query_argument("numPerPage", 100)
+        include_obj_thumbnails = self.get_query_argument("includeObjThumbnails", True)
+        sortBy = self.get_query_argument("sortBy", "created_at")
+        sortOrder = self.get_query_argument("sortOrder", "asc")
+
+        if sortBy not in ["created_at", "modified", "status", "obj"]:
+            return self.error("Invalid sortBy value.")
+        if sortOrder not in ["asc", "desc"]:
+            return self.error("Invalid sortOrder value.")
+
+        try:
+            page_number, n_per_page = get_page_and_n_per_page(
+                page_number, n_per_page, MAX_FOLLOWUP_REQUESTS
+            )
+        except ValueError as e:
+            return self.error(str(e))
+
+        if requesters is not None:
+            requesters = get_list_typed(
+                requesters,
+                int,
+                "requesters must be a comma seperated string list or list of integers",
+            )
+
+        if allocationID is not None:
+            try:
+                allocationID = int(allocationID)
+            except ValueError:
+                return self.error("Allocation ID must be an integer.")
+
+        if instrumentID is not None:
+            try:
+                instrumentID = int(instrumentID)
+            except ValueError:
+                return self.error("Instrument ID must be an integer.")
+
+        async with self.AsyncSession() as session:
+            if allocationID is not None:
+                # verify that the user can access the allocation
+                allocation = await session.scalar(
+                    Allocation.select(session.user_or_token).where(
+                        Allocation.id == allocationID
+                    )
+                )
+                if allocation is None:
+                    return self.error(
+                        "Allocation ID does not exist or is not accessible."
+                    )
+
+            if len(requesters) > 0:
+                # verify that the users exist
+                result = await session.scalars(
+                    User.select(session.user_or_token, columns=[User.id]).where(
+                        User.id.in_(requesters)
+                    )
+                )
+                existing_users = result.all()
+                if len(existing_users) != len(requesters):
+                    return self.error(
+                        "One or more of the requesters specified does not exist."
+                    )
+            # get owned assignments
+            followup_requests = FollowupRequest.select(session.user_or_token)
+
+            if followup_request_id is not None:
+                try:
+                    followup_request_id = int(followup_request_id)
+                except ValueError:
+                    return self.error("Assignment ID must be an integer.")
+
+                followup_requests = followup_requests.where(
+                    FollowupRequest.id == followup_request_id
+                ).options(
+                    selectinload(FollowupRequest.obj).selectinload(Obj.thumbnails)
+                    if include_obj_thumbnails
+                    else selectinload(FollowupRequest.obj),
+                    selectinload(FollowupRequest.requester),
+                    selectinload(FollowupRequest.obj),
+                    selectinload(FollowupRequest.watchers),
+                    selectinload(FollowupRequest.transaction_requests),
+                    selectinload(FollowupRequest.transactions),
+                    selectinload(FollowupRequest.target_groups),
+                )
+                followup_request = await session.scalar(followup_requests)
+                if followup_request is None:
+                    return self.error("Could not retrieve followup request.")
+                return self.success(data=followup_request)
+
+            if start_date:
+                start_date = arrow.get(start_date.strip()).naive
+                followup_requests = followup_requests.where(
+                    FollowupRequest.created_at >= start_date
+                )
+            if end_date:
+                end_date = arrow.get(end_date.strip()).naive
+                followup_requests = followup_requests.where(
+                    FollowupRequest.created_at <= end_date
+                )
+            if observation_start_date:
+                observation_start_date = arrow.get(observation_start_date.strip()).naive
+                followup_requests = followup_requests.where(
+                    FollowupRequest.payload["start_date"].astext.cast(sa.DateTime)
+                    >= observation_start_date
+                )
+            if observation_end_date:
+                observation_end_date = arrow.get(observation_end_date.strip()).naive
+                followup_requests = followup_requests.where(
+                    FollowupRequest.payload["end_date"].astext.cast(sa.DateTime)
+                    <= observation_end_date
+                )
+            if sourceID:
+                obj_query = Obj.select(session.user_or_token).where(
+                    Obj.id.contains(sourceID.strip())
+                )
+                obj_subquery = obj_query.subquery()
+                followup_requests = followup_requests.join(
+                    obj_subquery, FollowupRequest.obj_id == obj_subquery.c.id
+                )
+            if allocationID:
+                followup_requests = followup_requests.where(
+                    FollowupRequest.allocation_id == allocationID
+                )
+            elif instrumentID:
+                # allocation query required as only way to reach
+                # instrument_id is through allocation (as requests
+                # are associated to allocations, not instruments)
+                allocation_query = Allocation.select(session.user_or_token).where(
+                    Allocation.instrument_id == instrumentID
+                )
+                allocation_subquery = allocation_query.subquery()
+                followup_requests = followup_requests.join(
+                    allocation_subquery,
+                    FollowupRequest.allocation_id == allocation_subquery.c.id,
+                )
+
+            if status:
+                followup_requests = followup_requests.where(
+                    FollowupRequest.status.icontains(status.strip())
+                )
+            if len(requesters) > 0:
+                followup_requests = followup_requests.where(
+                    FollowupRequest.requester_id.in_(requesters)
+                )
+
+            if priority_threshold:
+                comp_function = getattr(operator, "ge")
+                name = "priority"
+                followup_requests = followup_requests.where(
+                    comp_function(
+                        FollowupRequest.payload[name],
+                        cast(float(priority_threshold), JSONB),
+                    )
+                )
+
+            followup_requests = followup_requests.options(
+                selectinload(FollowupRequest.allocation).selectinload(
+                    Allocation.instrument
+                ),
+                selectinload(FollowupRequest.allocation).selectinload(Allocation.group),
+                selectinload(FollowupRequest.obj),
+                selectinload(FollowupRequest.requester),
+                selectinload(FollowupRequest.watchers),
+                selectinload(FollowupRequest.target_groups),
+            )
+
+            count_stmt = sa.select(func.count()).select_from(followup_requests)
+            total_matches = await session.scalar(count_stmt)
+
+            # sort by created_at ascending\
+            if sortBy == "created_at":
+                if sortOrder == "asc":
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.created_at.asc()
+                    )
+                else:
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.created_at.desc()
+                    )
+            elif sortBy == "modified":
+                if sortOrder == "asc":
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.modified.asc()
+                    )
+                else:
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.modified.desc()
+                    )
+            elif sortBy == "status":
+                if sortOrder == "asc":
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.status.asc()
+                    )
+                else:
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.status.desc()
+                    )
+            elif sortBy == "obj":
+                if sortOrder == "asc":
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.obj_id.asc()
+                    )
+                else:
+                    followup_requests = followup_requests.order_by(
+                        FollowupRequest.obj_id.desc()
+                    )
+            if n_per_page is not None:
+                followup_requests = (
+                    followup_requests.distinct()
+                    .limit(n_per_page)
+                    .offset((page_number - 1) * n_per_page)
+                )
+            result = await session.scalars(followup_requests)
+            followup_requests = result.unique().all()
+
+            info = {
+                "followup_requests": [req.to_dict() for req in followup_requests],
+                "totalMatches": int(total_matches),
+                "pageNumber": page_number,
+                "numPerPage": n_per_page,
+            }
+            return self.success(data=info)
+
+    @permissions(["Upload data"])
+    async def post(self):
+        """
+        ---
+        summary: Post new followup request
+        description: Submit follow-up request.
+        tags:
+          - followup requests
+        requestBody:
+          content:
+            application/json:
+              schema: FollowupRequestPost
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              description: New follow-up request ID
+        """
+        data = self.get_json()
+
+        refresh_source = self.get_query_argument(
+            "refreshSource", data.pop("refreshSource", True)
+        )
+        refresh_requests = self.get_query_argument(
+            "refreshRequests", data.pop("refreshRequests", False)
+        )
+
+        try:
+            data = FollowupRequestPost.load(data)
+        except ValidationError as e:
+            return self.error(
+                f"Invalid / missing parameters: {e.normalized_messages()}"
+            )
+
+        constraints = {}
+        if "not_if_duplicates" in data:
+            constraints["not_if_duplicates"] = data.pop("not_if_duplicates")
+        if "source_group_ids" in data:
+            constraints["source_group_ids"] = data.pop("source_group_ids")
+        if "ignore_source_group_ids" in data:
+            constraints["ignore_source_group_ids"] = data.pop("ignore_source_group_ids")
+        if "not_if_classified" in data:
+            constraints["not_if_classified"] = data.pop("not_if_classified")
+        if "not_if_spectra_exist" in data:
+            constraints["not_if_spectra_exist"] = data.pop("not_if_spectra_exist")
+        if "not_if_tns_classified" in data:
+            constraints["not_if_tns_classified"] = data.pop("not_if_tns_classified")
+        if "not_if_tns_reported" in data:
+            constraints["not_if_tns_reported"] = data.pop("not_if_tns_reported")
+        if "ignore_allocation_ids" in data:
+            constraints["ignore_allocation_ids"] = data.pop("ignore_allocation_ids")
+        if "not_if_assignment_exists" in data:
+            constraints["not_if_assignment_exists"] = data.pop(
+                "not_if_assignment_exists"
+            )
+        if len(list(constraints.keys())) == 0:
+            constraints = None
+        if constraints is not None:
+            try:
+                constraints["radius"] = float(data.pop("radius", 0.5))
+            except ValueError:
+                return self.error("Invalid specified radius for spatial constraints.")
+
+        async with self.AsyncSession() as session:
+            try:
+                data["requester_id"] = self.associated_user_object.id
+                data["last_modified_by_id"] = self.associated_user_object.id
+                data["allocation_id"] = int(data["allocation_id"])
+
+                (
+                    followup_request_id,
+                    followup_request_status,
+                ) = await post_followup_request_async(
+                    data,
+                    constraints,
+                    session,
+                    refresh_source=refresh_source,
+                    refresh_requests=refresh_requests,
+                )
+
+                return self.success(
+                    data={
+                        "id": followup_request_id,
+                        "request_status": followup_request_status,
+                    }
+                )
+            except Exception as e:
+                if (
+                    "not submitting request" in str(e)
+                    and constraints is not None
+                    and len(list(constraints.keys())) > 0
+                ):
+                    log(
+                        f"Not submitting request with allocation_id {data['allocation_id']}: {e}"
+                    )
+                    return self.success(
+                        data={"id": None, "ignored": True, "message": str(e)}
+                    )
+                return self.error(
+                    f"Error submitting follow-up request: {e.normalized_messages() if hasattr(e, 'normalized_messages') else str(e)}"
+                )
+
+    @permissions(["Upload data"])
+    async def put(self, request_id: int):
+        """
+        ---
+        summary: Update a follow-up request
+        description: Update a follow-up request
+        tags:
+          - followup requests
+        parameters:
+          - in: path
+            name: request_id
+            required: true
+            schema:
+              type: string
+        requestBody:
+          content:
+            application/json:
+              schema: FollowupRequestPost
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          $ref: '#/components/schemas/FollowupRequest'
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        try:
+            request_id = int(request_id)
+        except ValueError:
+            return self.error("Request id must be an int.")
+
+        async with self.AsyncSession() as session:
+            followup_request = await session.scalar(
+                FollowupRequest.select(session.user_or_token, mode="update")
+                .where(FollowupRequest.id == request_id)
+                .options(
+                    selectinload(FollowupRequest.allocation).selectinload(
+                        Allocation.instrument
+                    ),
+                    selectinload(FollowupRequest.obj),
+                )
+            )
+            if followup_request is None:
+                return self.error(
+                    message=f"Missing FollowUpRequest with id {request_id}"
+                )
+
+            data = self.get_json()
+
+            refresh_source = self.get_query_argument(
+                "refreshSource", data.pop("refreshSource", True)
+            )
+            refresh_requests = self.get_query_argument(
+                "refreshRequests", data.pop("refreshRequests", False)
+            )
+
+            if "status" in data:
+                # updating status does not require instrument API interaction
+                for k in data:
+                    setattr(followup_request, k, data[k])
+                await session.commit()
+            else:
+                try:
+                    data = FollowupRequestPost.load(data)
+                except ValidationError as e:
+                    return self.error(
+                        f"Invalid / missing parameters: {e.normalized_messages()}"
+                    )
+
+                data["id"] = request_id
+                data["last_modified_by_id"] = self.associated_user_object.id
+
+                api = followup_request.instrument.api_class
+                existing_status = str(followup_request.status).lower()
+
+                if any(x in existing_status for x in ["failed to submit", "rejected"]):
+                    if not api.implements()["submit"]:
+                        return self.error("Cannot submit requests on this instrument.")
+                else:
+                    if not api.implements()["update"]:
+                        return self.error("Cannot update requests on this instrument.")
+
+                group_ids = data.pop("target_group_ids", None)
+                if group_ids is not None:
+                    stmt = Group.select(session.user_or_token).where(
+                        Group.id.in_(group_ids)
+                    )
+                    result = await session.scalars(stmt)
+                    target_groups = result.all()
+                    followup_request.target_groups = target_groups
+
+                # validate posted data
+                try:
+                    FollowupRequest.__schema__().load(data, partial=True)
+                except ValidationError as e:
+                    return self.error(
+                        f'Error parsing followup request submit/update: "{e.normalized_messages()}"'
+                    )
+
+                # if the instrument has a "prepare_payload" method, call it
+                if followup_request.instrument.api_class.implements()[
+                    "prepare_payload"
+                ]:
+                    data["payload"] = (
+                        followup_request.instrument.api_class.prepare_payload(
+                            data["payload"], followup_request.payload
+                        )
+                    )
+
+                for k in data:
+                    setattr(followup_request, k, data[k])
+
+                # Capture references to avoid attribute access in callback
+                _req = followup_request
+                _api = followup_request.instrument.api_class
+
+                if any(x in existing_status for x in ["failed to submit", "rejected"]):
+                    try:
+                        await _api.submit(
+                            _req,
+                            session,
+                            refresh_source=refresh_source,
+                            refresh_requests=refresh_requests,
+                        )
+                        await session.commit()
+                    except Exception as e:
+                        return self.error(f"Failed to submit follow-up request: {e}")
+                elif followup_request.instrument.api_class.implements()["update"]:
+                    try:
+                        await _api.update(
+                            _req,
+                            session,
+                            refresh_source=refresh_source,
+                            refresh_requests=refresh_requests,
+                        )
+                        await session.commit()
+                    except Exception as e:
+                        return self.error(f"Failed to update follow-up request: {e}")
+                else:
+                    return self.error(
+                        "Could not update existing request, not implemented for this instrument."
+                    )
+
+            return self.success()
+
+    @permissions(["Upload data"])
+    async def delete(self, request_id: int):
+        """
+        ---
+        summary: Delete a follow-up request
+        description: Delete follow-up request.
+        tags:
+          - followup requests
+        parameters:
+          - in: path
+            name: request_id
+            required: true
+            schema:
+              type: string
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        data = self.get_json()
+
+        refresh_source = self.get_query_argument(
+            "refreshSource", data.pop("refreshSource", True)
+        )
+        refresh_requests = self.get_query_argument(
+            "refreshRequests", data.pop("refreshRequests", False)
+        )
+
+        try:
+            request_id = int(request_id)
+        except (TypeError, ValueError):
+            return self.error("Request id must be an int.")
+
+        async with self.AsyncSession() as session:
+            followup_request = await session.scalar(
+                FollowupRequest.select(session.user_or_token, mode="delete")
+                .where(FollowupRequest.id == request_id)
+                .options(
+                    selectinload(FollowupRequest.allocation).selectinload(
+                        Allocation.instrument
+                    ),
+                    selectinload(FollowupRequest.obj),
+                )
+            )
+            if followup_request is None:
+                return self.error(
+                    message=f"Missing FollowUpRequest with id {request_id}"
+                )
+
+            api = followup_request.instrument.api_class
+            if not api.implements()["delete"]:
+                return self.error("Cannot delete requests on this instrument.")
+
+            followup_request.last_modified_by_id = self.associated_user_object.id
+
+            _req = followup_request
+            _api = api
+
+            try:
+                await _api.delete(
+                    _req,
+                    session,
+                    refresh_source=refresh_source,
+                    refresh_requests=refresh_requests,
+                )
+                await session.commit()
+            except Exception as e:
+                traceback.print_exc()
+                return self.error(f"Failed to delete follow-up request: {e}")
+            return self.success()
+
+
+class FollowupRequestCommentHandler(BaseHandler):
+    @permissions(["Upload data"])
+    async def put(self, followup_request_id: int):
+        """
+        ---
+        summary: Update a follow-up request comment
+        description: Update a follow-up request comment
+        tags:
+          - followup requests
+        parameters:
+          - in: path
+            name: followup_request_id
+            required: true
+            schema:
+              type: string
+          - in: query
+            name: comment
+            nullable: true
+            schema:
+                type: string
+            description: Comment to add to the follow-up request
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          $ref: '#/components/schemas/FollowupRequest'
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        data = self.get_json()
+        comment = str(data.get("comment")).strip()
+
+        if comment in ["", "None"]:
+            comment = None
+
+        async with self.AsyncSession() as session:
+            try:
+                stmt = FollowupRequest.select(
+                    session.user_or_token, mode="update"
+                ).where(FollowupRequest.id == followup_request_id)
+                followup_request = await session.scalar(stmt)
+
+                if followup_request is None:
+                    return self.error(
+                        f"Followup request {followup_request_id} not found."
+                    )
+
+                followup_request.comment = comment
+                await session.commit()
+                self.push_all(
+                    action="skyportal/REFRESH_ALLOCATION_REQUEST_COMMENT",
+                    payload={
+                        "followup_request_id": followup_request.id,
+                        "followup_request_comment": followup_request.comment,
+                    },
+                )
+                return self.success({"id": followup_request.id})
+            except Exception as e:
+                await session.rollback()
+                return self.error(f"Failed to update followup request comment: {e}")
+
+
+class HourAngleConstraint(Constraint):
+    """
+    Constrain the hour angle of a target.
+
+    Parameters
+    ----------
+    min : float or `None`
+        Minimum hour angle of the target. `None` indicates no limit.
+    max : float or `None`
+        Maximum hour angle of the target. `None` indicates no limit.
+    """
+
+    def __init__(self, min=-5.5, max=5.5):
+        self.min = min
+        self.max = max
+
+    def compute_constraint(self, times, observer, targets):
+        jds = np.array([t.jd for t in times])
+        GMST = 18.697374558 + 24.06570982441908 * (jds - 2451545)
+        GMST = np.mod(GMST, 24)
+
+        lon = observer.location.lon.value / 15
+        if targets.size == 1:
+            lst = np.mod(GMST + lon, 24)
+            ras = np.tile([targets.ra.hour], len(jds))
+        else:
+            if len(jds) == 1:
+                lst = np.array([np.mod(GMST + lon, 24)] * len(targets)).flatten()
+                ras = np.array([target.ra.hour for target in targets]).flatten()
+            else:
+                lst = np.tile(np.mod(GMST + lon, 24), (len(targets), 1))
+                ras = np.tile(
+                    np.array([target.ra.hour for target in targets]).flatten(),
+                    (len(jds), 1),
+                ).T
+        has = np.mod(lst - ras, 24)
+        has = np.squeeze(has)
+
+        # Use hours from -12 to 12
+        idx = np.where(has > 12)[0]
+        has[idx] = has[idx] - 24
+
+        if self.min is None and self.max is not None:
+            mask = has <= self.max
+        elif self.max is None and self.min is not None:
+            mask = self.min <= has
+        elif self.min is not None and self.max is not None:
+            mask = (self.min <= has) & (has <= self.max)
+        else:
+            raise ValueError("No max and/or min specified in HourAngleConstraint.")
+        return mask
+
+
+class TargetOfOpportunityConstraint(Constraint):
+    """
+    Prioritize target of opportunity targets by giving them
+    higher weights at earlier times.
+
+    Parameters
+    ----------
+    toos : List[bool]
+        List indicating whether targets are ToOs or not.
+    tau : `~astropy.units.Quantity`
+        Exponential decay constant for normalization (in days).
+        Defaults to 1 hour.
+    """
+
+    def __init__(self, tau=1 / 24 * u.day, toos=None):
+        self.tau = tau
+        self.toos = toos
+
+    def compute_constraint(self, times, observer, targets):
+        tt = times - times[0]
+        exp_func = np.exp(-tt / self.tau)
+        exp_func = exp_func / np.max(exp_func)
+
+        reward_function = np.ones((len(targets), len(times)))
+        idx = np.where(self.toos)[0]
+        reward_function[idx, :] = exp_func
+
+        return reward_function
+
+
+def observation_schedule(
+    followup_requests,
+    instrument,
+    observation_start=Time.now(),
+    observation_end=Time.now() + TimeDelta(12 * u.hour),
+    time_resolution=20 * u.second,
+    standards=pd.DataFrame(),
+    output_format="csv",
+    figsize=(10, 8),
+):
+    """Create a schedule to display observations for a particular instrument
+    Parameters
+    ----------
+    followup_requests : skyportal.models.followup_request.FollowupRequest
+        The planned observations associated with the request
+    instrument : skyportal.models.instrument.Instrument
+        The instrument that the request is made based on
+    observation_start : astropy.time.Time
+        Start time for the observations
+    observation_end : astropy.time.Time
+        End time for the observations
+    time_resolution : astropy.units.quantity.Quantity
+        Time resolution to compute schedule for
+    standards : pandas.DataFrame
+        Standard stars for inclusion in the observation plan.
+        Columns should include name, ra_float, and dec_float.
+    output_format : str, optional
+        "csv", "pdf" or "png" -- determines the format of the returned observation plan
+    figsize : tuple, optional
+        Matplotlib figsize of the pdf/png created
+    Returns
+    -------
+    dict
+        success : bool
+            Whether the request was successful or not, returning
+            a sensible error in 'reason'
+        name : str
+            suggested filename based on `instrument` and `output_format`
+        data : str
+            binary encoded data for the file (to be streamed)
+        reason : str
+            If not successful, a reason is returned.
+    """
+
+    location = EarthLocation.from_geodetic(
+        instrument.telescope.lon * u.deg,
+        instrument.telescope.lat * u.deg,
+        instrument.telescope.elevation * u.m,
+    )
+    observer = Observer(location=location, name=instrument.name)
+
+    blocks = []
+    toos = []
+
+    # FIXME: account for different instrument readout times
+    read_out = 10.0 * u.s
+
+    log(f"Generating requested schedule for {instrument.name}")
+
+    start_time = time.time()
+
+    for ii, followup_request in enumerate(followup_requests):
+        obj = followup_request.obj
+        coord = SkyCoord(ra=obj.ra * u.deg, dec=obj.dec * u.deg)
+        target = FixedTarget(coord=coord, name=obj.id)
+
+        payload = followup_request.payload
+        allocation = followup_request.allocation
+        requester = followup_request.requester
+
+        if "start_date" in payload:
+            start_date = Time(payload["start_date"])
+            if start_date > observation_end:
+                continue
+
+        if "end_date" in payload:
+            end_date = Time(payload["end_date"])
+            if end_date < observation_start:
+                continue
+
+        if "priority" in payload:
+            priority = payload["priority"]
+        else:
+            priority = 1
+
+        # make sure to invert priority (priority = 5.0 is max, priority = 1.0 is min)
+        priority = 5.0 / np.max([0.1, priority])
+
+        if "exposure_time" in payload:
+            exposure_time = payload["exposure_time"] * u.s
+        else:
+            exposure_time = 3600 * u.s
+
+        if "exposure_counts" in payload:
+            exposure_counts = payload["exposure_counts"]
+        else:
+            exposure_counts = 1
+
+        if "too" in payload:
+            if type(payload["too"]) == bool:
+                too = payload["too"]
+            else:
+                too = str_to_bool(payload["too"], default=False)
+        else:
+            too = False
+
+        # get extra constraints
+        constraints = []
+        if "minimum_lunar_distance" in payload:
+            constraints.append(
+                MoonSeparationConstraint(min=payload["minimum_lunar_distance"] * u.deg)
+            )
+
+        if "maximum_airmass" in payload:
+            constraints.append(
+                AirmassConstraint(
+                    max=payload["maximum_airmass"], boolean_constraint=False
+                )
+            )
+
+        other_keys = set(payload.keys()) - {
+            "observation_choices",
+            "priority",
+            "start_date",
+            "end_date",
+            "exposure_time",
+            "exposure_counts",
+            "maximum_airmass",
+            "minimum_lunar_distance",
+            "too",
+        }
+
+        if "observation_choices" in payload:
+            configurations = [
+                {
+                    "requester": requester.username,
+                    "group_id": allocation.group_id,
+                    "request_id": followup_request.id,
+                    "filter": bandpass,
+                    "exposure_time": exposure_time,
+                    **{key: payload[key] for key in other_keys},
+                }
+                for bandpass in payload["observation_choices"]
+            ]
+        else:
+            configurations = [
+                {
+                    "requester": requester.username,
+                    "group_id": allocation.group_id,
+                    "request_id": followup_request.id,
+                    "filter": "default",
+                    "exposure_time": exposure_time,
+                    **{key: payload[key] for key in other_keys},
+                }
+            ]
+
+        for configuration in configurations:
+            b = ObservingBlock.from_exposures(
+                target,
+                priority,
+                exposure_time,
+                exposure_counts,
+                read_out,
+                configuration=configuration,
+                # FIXME: too slow for production use
+                # constraints=constraints,
+            )
+            blocks.append(b)
+
+            if too:
+                toos.append(True)
+            else:
+                toos.append(False)
+
+    log(
+        f"Assembled {len(blocks)} observations in schedule for {instrument.name} in {time.time() - start_time} s"
+    )
+
+    for index, standard in standards.iterrows():
+        coord = SkyCoord(ra=standard.ra_float * u.deg, dec=standard.dec_float * u.deg)
+        target = FixedTarget(coord=coord, name=f"STD-{standard['name']}")
+        priority = 100
+        exposure_time = 300 * u.s
+        exposure_counts = 1
+        too = False
+
+        configuration = {
+            "requester": "calibration",
+            "group_id": 1,
+            "request_id": f"standard_{str(uuid.uuid4())}",
+            "filter": "default",
+            "exposure_time": exposure_time,
+        }
+
+        b = ObservingBlock.from_exposures(
+            target,
+            priority,
+            exposure_time,
+            exposure_counts,
+            read_out,
+            configuration=configuration,
+        )
+        blocks.append(b)
+        toos.append(False)
+
+    start_time = time.time()
+
+    global_constraints = [
+        AirmassConstraint(max=2.50, boolean_constraint=False),
+        AltitudeConstraint(20 * u.deg, 90 * u.deg),
+        AtNightConstraint.twilight_nautical(),
+        HourAngleConstraint(min=-5.5, max=5.5),
+        MoonSeparationConstraint(min=30.0 * u.deg),
+        TargetOfOpportunityConstraint(toos=toos),
+    ]
+
+    # Initialize a transitioner object with the slew rate and/or the
+    # duration of other transitions (e.g. filter changes)
+
+    # FIXME: account for different telescope slew rates
+    slew_rate = 2.0 * u.deg / u.second
+    transitioner = Transitioner(slew_rate, {"filter": {"default": 10 * u.second}})
+
+    # Initialize the sequential scheduler with the constraints and transitioner
+    prior_scheduler = PriorityScheduler(
+        constraints=global_constraints,
+        observer=observer,
+        transitioner=transitioner,
+        time_resolution=time_resolution,
+    )
+    # Initialize a Schedule object, to contain the new schedule
+    priority_schedule = Schedule(observation_start, observation_end)
+
+    if len(blocks) == 0:
+        raise ValueError("Scheduling failed: there are probably no observable targets.")
+
+    # Call the schedule with the observing blocks and schedule to schedule the blocks
+    prior_scheduler(blocks, priority_schedule)
+
+    log(f"Generated schedule for {instrument.name} in {time.time() - start_time} s")
+
+    if len(priority_schedule.observing_blocks) == 0:
+        raise ValueError("Scheduling failed: there are probably no observable targets.")
+
+    if output_format in ["png", "pdf"]:
+        matplotlib.use("Agg")
+        fig = plt.figure(figsize=figsize, constrained_layout=False)
+        plot_schedule_airmass(priority_schedule, show_night=True)
+        plt.legend(loc="upper right")
+        buf = io.BytesIO()
+        fig.savefig(buf, format=output_format)
+        plt.close(fig)
+        buf.seek(0)
+
+        return {
+            "success": True,
+            "name": f"schedule_{instrument.name}.{output_format}",
+            "data": buf.read(),
+            "reason": "",
+        }
+    elif output_format == "csv":
+        try:
+            schedule_table = priority_schedule.to_table(
+                show_transitions=False, show_unused=False
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Scheduling failed: there are probably no observable targets: {str(e)}."
+            )
+
+        schedule = []
+        for block in schedule_table:
+            target = block["target"]
+            if target == "TransitionBlock":
+                continue
+
+            configuration = block["configuration"]
+            filt = configuration["filter"]
+            request_id = configuration["request_id"]
+            group_id = configuration["group_id"]
+            requester = configuration["requester"]
+            exposure_time = int(configuration["exposure_time"].value)
+
+            obs_start = Time(block["start time (UTC)"], format="iso")
+            obs_end = Time(block["end time (UTC)"], format="iso")
+
+            c = SkyCoord(
+                ra=block["ra"] * u.degree, dec=block["dec"] * u.degree, frame="icrs"
+            )
+            ra = c.ra.to_string(unit=u.hour, sep=":")
+            dec = c.dec.to_string(unit=u.degree, sep=":")
+
+            other_keys = set(configuration.keys()) - {
+                "requester",
+                "group_id",
+                "request_id",
+                "filter",
+                "exposure_time",
+            }
+            observation = {
+                "request_id": request_id,
+                "group_id": group_id,
+                "object_id": target,
+                "ra": ra,
+                "dec": dec,
+                "epoch": 2000,
+                "observation_start": obs_start,
+                "observation_end": obs_end,
+                "exposure_time": exposure_time,
+                "filter": filt,
+                "requester": requester,
+                **{key: configuration[key] for key in other_keys},
+            }
+            schedule.append(observation)
+
+        df = pd.DataFrame(schedule)
+        with tempfile.NamedTemporaryFile(mode="w", suffix="." + output_format) as f:
+            df.to_csv(f.name)
+            f.flush()
+
+            with open(f.name, mode="rb") as g:
+                csv_content = g.read()
+
+        return {
+            "success": True,
+            "name": f"schedule_{instrument.name}.{output_format}",
+            "data": csv_content,
+            "reason": "",
+        }
+
+
+class FollowupRequestSchedulerHandler(BaseHandler):
+    @auth_or_token
+    async def get(self, instrument_id: int):
+        """
+        ---
+        summary: Retrieve followup requests schedule
+        description: Retrieve followup requests schedule
+        tags:
+            - followup requests
+        parameters:
+        - in: query
+          name: sourceID
+          nullable: true
+          schema:
+            type: string
+          description: Portion of ID to filter on
+        - in: query
+          name: startDate
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+            created_at >= startDate
+        - in: query
+          name: endDate
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Arrow-parseable date string (e.g. 2020-01-01). If provided, filter by
+            created_at <= endDate
+        - in: query
+          name: status
+          nullable: true
+          schema:
+            type: string
+          description: |
+            String to match status of request against
+        - in: query
+          name: priorityThreshold
+          nullable: true
+          schema:
+            type: number
+          description: |
+            Threshold on request priority to include. If provided, filter by
+            payload.priority >= priorityThreshold
+        - in: query
+          name: timeResolution
+          nullable: true
+          schema:
+            type: number
+          description: |
+            Time resolution for scheduler creation in seconds. Defaults to 20.
+        - in: query
+          name: observationStartDate
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Arrow-parseable date string (e.g. 2020-01-01). If provided, start time
+            of observation window, otherwise now.
+        - in: query
+          name: observationEndDate
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Arrow-parseable date string (e.g. 2020-01-01). If provided, end time
+            of observation window, otherwise 12 hours from now.
+        - in: query
+          name: includeStandards
+          nullable: true
+          schema:
+            type: boolean
+          description: |
+            Include standards in schedule. Defaults to False.
+        - in: query
+          name: standardsOnly
+          nullable: true
+          schema:
+            type: boolean
+          description: |
+            Only request standards in schedule. Defaults to False.
+        - in: query
+          name: standardType
+          schema:
+            type: string
+          description: |
+            Origin of the standard stars, defined in config.yaml.
+            Defaults to ESO.
+        - in: query
+          name: magnitudeRange
+          nullable: True
+          schema:
+            type: list
+          description: |
+            lowest and highest magnitude to return, e.g. "(12,9)"
+        - in: query
+          name: output_format
+          nullable: true
+          schema:
+            type: string
+          description: |
+            Output format for schedule. Can be png, pdf, or csv
+        responses:
+          200:
+            description: A PDF/PNG schedule file
+            content:
+              application/pdf:
+                schema:
+                  type: string
+                  format: binary
+              image/png:
+                schema:
+                  type: string
+                  format: binary
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        try:
+            instrument_id = int(instrument_id)
+        except (TypeError, ValueError):
+            return self.error(f"Invalid instrument id: {instrument_id}")
+
+        async with self.AsyncSession() as session:
+            from ...models.instrument import Instrument as _Instrument
+
+            instrument = await session.scalar(
+                Instrument.select(
+                    session.user_or_token,
+                )
+                .where(
+                    Instrument.id == instrument_id,
+                )
+                .options(selectinload(_Instrument.telescope))
+            )
+            if instrument is None:
+                return self.error(message=f"Missing instrument with id {instrument_id}")
+
+            start_date = self.get_query_argument("startDate", None)
+            end_date = self.get_query_argument("endDate", None)
+            sourceID = self.get_query_argument("sourceID", None)
+            status = self.get_query_argument("status", None)
+            priority_threshold = self.get_query_argument("priorityThreshold", None)
+            output_format = self.get_query_argument("output_format", "csv")
+            observation_start_date = self.get_query_argument(
+                "observationStartDate", None
+            )
+            observation_end_date = self.get_query_argument("observationEndDate", None)
+            standard_type = self.get_query_argument("standardType", "ESO")
+            include_standards = self.get_query_argument("includeStandards", False)
+            standards_only = self.get_query_argument("standardsOnly", False)
+            magnitude_range_str = self.get_query_argument("magnitudeRange", None)
+            time_resolution = self.get_query_argument("timeResolution", 20)
+            if magnitude_range_str is None:
+                magnitude_range = (np.inf, -np.inf)
+            else:
+                magnitude_range = ast.literal_eval(magnitude_range_str)
+                if not (
+                    isinstance(magnitude_range, list | tuple)
+                    and len(magnitude_range) == 2
+                ):
+                    return self.error("Invalid argument for `magnitude_range`")
+
+            if magnitude_range[0] < magnitude_range[1]:
+                magnitude_range = magnitude_range[::-1]
+
+            if not observation_start_date:
+                observation_start = Time.now()
+            else:
+                observation_start = Time(
+                    arrow.get(observation_start_date.strip()).naive
+                )
+            if not observation_end_date:
+                observation_end = Time.now() + TimeDelta(12 * u.hour)
+            else:
+                observation_end = Time(arrow.get(observation_end_date.strip()).naive)
+
+            if not standards_only:
+                allocation_query = Allocation.select(session.user_or_token).where(
+                    Allocation.instrument_id == instrument_id
+                )
+                allocation_subquery = allocation_query.subquery()
+
+                # get owned assignments
+                followup_requests = FollowupRequest.select(session.user_or_token).join(
+                    allocation_subquery,
+                    FollowupRequest.allocation_id == allocation_subquery.c.id,
+                )
+
+                if start_date:
+                    start_date = arrow.get(start_date.strip()).naive
+                    followup_requests = followup_requests.where(
+                        FollowupRequest.created_at >= start_date
+                    )
+                if end_date:
+                    end_date = arrow.get(end_date.strip()).naive
+                    followup_requests = followup_requests.where(
+                        FollowupRequest.created_at <= end_date
+                    )
+                if sourceID:
+                    obj_query = Obj.select(session.user_or_token).where(
+                        Obj.id.contains(sourceID.strip())
+                    )
+                    obj_subquery = obj_query.subquery()
+                    followup_requests = followup_requests.join(
+                        obj_subquery, FollowupRequest.obj_id == obj_subquery.c.id
+                    )
+                if status:
+                    followup_requests = followup_requests.where(
+                        FollowupRequest.status.icontains(status.strip())
+                    )
+
+                if priority_threshold:
+                    comp_function = getattr(operator, "ge")
+                    name = "priority"
+                    followup_requests = followup_requests.where(
+                        comp_function(
+                            FollowupRequest.payload[name],
+                            cast(float(priority_threshold), JSONB),
+                        )
+                    )
+
+                followup_requests = followup_requests.options(
+                    selectinload(FollowupRequest.allocation).selectinload(
+                        Allocation.instrument
+                    ),
+                    selectinload(FollowupRequest.allocation).selectinload(
+                        Allocation.group
+                    ),
+                    selectinload(FollowupRequest.obj),
+                    selectinload(FollowupRequest.requester),
+                )
+
+                result = await session.scalars(followup_requests)
+                followup_requests = result.unique().all()
+            else:
+                followup_requests = []
+
+            if include_standards:
+                standards = get_formatted_standards_list(
+                    standard_type=standard_type,
+                    return_dataframe=True,
+                    magnitude_range=magnitude_range,
+                )
+            else:
+                standards = pd.DataFrame()
+
+            if (len(followup_requests) == 0) and (len(standards) == 0):
+                return self.error("Need at least one observation to schedule.")
+
+            schedule = functools.partial(
+                observation_schedule,
+                followup_requests,
+                instrument,
+                observation_start=observation_start,
+                observation_end=observation_end,
+                time_resolution=time_resolution * u.s,
+                standards=standards,
+                output_format=output_format,
+                figsize=(10, 8),
+            )
+
+            self.push_notification(
+                "Schedule generation in progress. Download will start soon."
+            )
+            rez = await IOLoop.current().run_in_executor(None, schedule)
+
+            filename = rez["name"]
+            data = io.BytesIO(rez["data"])
+
+            await self.send_file(data, filename, output_type=output_format)
+
+
+class FollowupRequestPrioritizationHandler(BaseHandler):
+    @auth_or_token
+    async def put(self):
+        """
+        ---
+        summary: Reprioritize followup requests
+        description: |
+          Reprioritize followup requests schedule automatically based on
+          either magnitude or location within skymap.
+        tags:
+            - followup requests
+        parameters:
+        - in: body
+          name: requestIds
+          schema:
+            type: list of integers
+          description: List of follow-up request IDs
+        - in: body
+          name: priorityType
+          schema:
+            type: string
+          description: Priority source. Must be either localization or magnitude. Defaults to magnitude.
+        - in: body
+          name: magnitudeOrdering
+          schema:
+            type: string
+          description: Ordering for brightness based prioritization. Must be either ascending (brightest first) or descending (faintest first). Defaults to ascending.
+        - in: body
+          name: localizationId
+          schema:
+            type: integer
+          description: Filter by localization ID
+        - in: body
+          name: minimumPriority
+          schema:
+            type: string
+          description: Minimum priority for the instrument. Defaults to 1.
+        - in: body
+          name: maximumPriority
+          schema:
+            type: string
+          description: Maximum priority for the instrument. Defaults to 5.
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          $ref: '#/components/schemas/FollowupRequest'
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+
+        data = self.get_json()
+        priority_type = data.get("priorityType", "magnitude")
+        magnitude_ordering = data.get("magnitudeOrdering", "ascending")
+        localization_id = data.get("localizationId", None)
+        request_ids = data.get("requestIds", None)
+        minimum_priority = data.get("minimumPriority", 1)
+        maximum_priority = data.get("maximumPriority", 5)
+
+        if request_ids is None:
+            return self.error("requestIds is required")
+
+        if priority_type not in ["magnitude", "localization"]:
+            return self.error("priority_type must be either magnitude or localization")
+
+        if magnitude_ordering not in ["ascending", "descending"]:
+            return self.error(
+                "magnitude_ordering must be either ascending or descending"
+            )
+
+        async with self.AsyncSession() as session:
+            followup_requests = []
+            for request_id in request_ids:
+                try:
+                    request_id_int = int(request_id)
+                except (TypeError, ValueError):
+                    return self.error(f"Invalid request id: {request_id}")
+                # get owned assignments
+                followup_request = await session.scalar(
+                    FollowupRequest.select(session.user_or_token, mode="update")
+                    .options(
+                        selectinload(FollowupRequest.obj).selectinload(Obj.photstats),
+                        selectinload(FollowupRequest.allocation).selectinload(
+                            Allocation.instrument
+                        ),
+                    )
+                    .where(FollowupRequest.id == request_id_int)
+                )
+                if followup_request is None:
+                    return self.error(
+                        message=f"Missing FollowUpRequest with id {request_id}"
+                    )
+                followup_requests.append(followup_request)
+
+            if len(followup_requests) == 0:
+                return self.error("Need at least one observation to modify.")
+
+            if priority_type == "localization":
+                if localization_id is None:
+                    return self.error(
+                        "localizationId is required if priorityType is localization"
+                    )
+
+                localization = await session.scalar(
+                    Localization.select(session.user_or_token)
+                    .where(
+                        Localization.id == localization_id,
+                    )
+                    .options(
+                        undefer(Localization.uniq),
+                        undefer(Localization.probdensity),
+                        undefer(Localization.distmu),
+                        undefer(Localization.distsigma),
+                        undefer(Localization.distnorm),
+                    )
+                )
+                if localization is None:
+                    return self.error(
+                        message=f"Missing localization with id {localization_id}"
+                    )
+
+                ras = np.array(
+                    [followup_request.obj.ra for followup_request in followup_requests]
+                )
+                decs = np.array(
+                    [followup_request.obj.dec for followup_request in followup_requests]
+                )
+                dists = np.array(
+                    [
+                        cosmo.luminosity_distance(followup_request.obj.redshift).value
+                        if followup_request.obj.redshift is not None
+                        else -1
+                        for followup_request in followup_requests
+                    ]
+                )
+
+                tab = localization.flat
+                ipix = hp.ang2pix(Localization.nside, ras, decs, lonlat=True)
+                if localization.is_3d:
+                    prob, distmu, distsigma, distnorm = tab
+                    if not all(dist > 0 for dist in dists):
+                        weights = prob[ipix]
+                    else:
+                        weights = prob[ipix] * (
+                            distnorm[ipix]
+                            * norm(distmu[ipix], distsigma[ipix]).pdf(dists)
+                        )
+                else:
+                    (prob,) = tab
+                    weights = prob[ipix]
+
+            elif priority_type == "magnitude":
+                mags = np.array(
+                    [
+                        followup_request.obj.photstats[0].peak_mag_global
+                        if followup_request.obj.photstats[0].peak_mag_global is not None
+                        else 99
+                        for followup_request in followup_requests
+                    ]
+                )
+                if magnitude_ordering == "descending":
+                    weights = mags - np.min(mags)
+                else:
+                    weights = -(mags - np.min(mags))
+            if len(weights) > 1:
+                weights = (weights - np.min(weights)) / (
+                    np.max(weights) - np.min(weights)
+                )
+            else:
+                weights = weights / np.max(weights)
+
+            priorities = [
+                int(
+                    np.round(
+                        weight * (maximum_priority - minimum_priority)
+                        + minimum_priority
+                    )
+                )
+                for weight in weights
+            ]
+
+            for followup_request, priority in zip(followup_requests, priorities):
+                api = followup_request.instrument.api_class
+                if not api.implements()["update"]:
+                    return self.error("Cannot update requests on this instrument.")
+                payload = followup_request.payload
+                payload["priority"] = priority
+                await session.execute(
+                    sa.update(FollowupRequest)
+                    .where(FollowupRequest.id == followup_request.id)
+                    .values(payload=payload)
+                )
+                await session.commit()
+
+                followup_request.payload = payload
+
+                _req = followup_request
+
+                await _req.instrument.api_class.update(_req, session)
+
+            flow = Flow()
+            flow.push(
+                "*",
+                "skyportal/REFRESH_FOLLOWUP_REQUESTS",
+            )
+
+            return self.success()
+
+
+def load_source_filter(source_filter):
+    if isinstance(source_filter, dict):
+        return source_filter
+
+    if source_filter.startswith('"') and source_filter.endswith('"'):
+        source_filter = source_filter[1:-1]
+    source_filter = source_filter.replace("'", '"')
+    source_filter = source_filter.encode().decode("unicode-escape")
+    source_filter_json = json.loads(source_filter)
+
+    if "group_id" in source_filter_json:
+        try:
+            source_filter_json["group_id"] = int(source_filter_json["group_id"])
+        except Exception:
+            raise ValueError(
+                "The group_id provided in the source filter is not an integer."
+            )
+
+    return source_filter_json
+
+
+# A source_filter "name" is a user-supplied regex run in Postgres on every
+# source save (models/followup_request.py: regexp_match on the object id). Bound
+# and validate it at creation so a malformed or catastrophic-backtracking
+# pattern can't break the trigger or hang the query later.
+MAX_SOURCE_FILTER_REGEX_LENGTH = 1000
+# Classic exponential-backtracking shape: a quantifier applied to a group that
+# already contains an unbounded quantifier, e.g. (a+)+, (.*)*, (a+){2,}. This is
+# a conservative heuristic (it doesn't catch every ReDoS, e.g. nested groups),
+# but rejects the common footguns.
+_NESTED_QUANTIFIER_RE = re.compile(r"\([^)]*[+*][^)]*\)[+*{]")
+
+
+async def validate_source_filter_regex(session, name):
+    """Reject a user-supplied source_filter 'name' regex that is malformed,
+    oversized, or an obvious catastrophic-backtracking shape."""
+    if name is None:
+        return
+    if not isinstance(name, str):
+        raise ValueError("source_filter 'name' must be a string.")
+    if len(name) > MAX_SOURCE_FILTER_REGEX_LENGTH:
+        raise ValueError(
+            f"source_filter 'name' regex must be at most "
+            f"{MAX_SOURCE_FILTER_REGEX_LENGTH} characters."
+        )
+    if _NESTED_QUANTIFIER_RE.search(name):
+        raise ValueError(
+            "source_filter 'name' contains a nested quantifier that can cause "
+            "catastrophic backtracking; please simplify the pattern."
+        )
+    # Validate against Postgres itself (the engine that runs it), so dialect
+    # quirks are caught and a malformed pattern can't silently break the trigger.
+    try:
+        await session.execute(sa.text("SELECT regexp_match('', :pat)"), {"pat": name})
+    except Exception:
+        await session.rollback()
+        raise ValueError(
+            f"source_filter 'name' is not a valid regular expression: {name}"
+        )
+
+
+class DefaultFollowupRequestHandler(BaseHandler):
+    @auth_or_token
+    async def post(self):
+        """
+        ---
+        summary: Create default follow-up request
+        description: Create default follow-up request.
+        tags:
+          - default followup requests
+        requestBody:
+          content:
+            application/json:
+              schema: DefaultFollowupRequestPost
+        responses:
+          200:
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: '#/components/schemas/Success'
+                    - type: object
+                      properties:
+                        data:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              description: New default follow-up request ID
+        """
+        data = self.get_json()
+
+        async with self.AsyncSession() as session:
+            target_group_ids = data.pop("target_group_ids", [])
+            stmt = Group.select(session.user_or_token).where(
+                Group.id.in_(target_group_ids)
+            )
+            result = await session.scalars(stmt)
+            target_groups = result.all()
+
+            stmt = (
+                Allocation.select(session.user_or_token)
+                .where(
+                    Allocation.id == data["allocation_id"],
+                )
+                .options(joinedload(Allocation.instrument))
+            )
+            allocation = await session.scalar(stmt)
+            if allocation is None:
+                return self.error(
+                    f"Cannot access allocation with ID: {data['allocation_id']}",
+                    status=403,
+                )
+
+            instrument = allocation.instrument
+            if instrument.api_classname is None:
+                return self.error("Instrument has no remote API.", status=403)
+
+            try:
+                formSchema = instrument.api_class.custom_json_schema(
+                    instrument, session.user_or_token
+                )
+            except AttributeError:
+                formSchema = instrument.api_class.form_json_schema
+
+            payload = data["payload"]
+            if "start_date" in payload:
+                return self.error("Cannot have start_date in the payload")
+            if "end_date" in payload:
+                return self.error("Cannot have end_date in the payload")
+            # Urgency-based instruments do not use start/end dates; only add
+            # placeholder dates for the others (the real window is recomputed
+            # when the request actually fires on source save).
+            if str(detect_priority_alias(payload)).lower() != "urgency":
+                payload["start_date"] = str(utcnow_naive())
+                payload["end_date"] = str(utcnow_naive() + timedelta(days=1))
+
+            # validate the payload
+            try:
+                jsonschema.validate(payload, formSchema)
+            except jsonschema.exceptions.ValidationError as e:
+                return self.error(f"Payload failed to validate: {e}", status=403)
+
+            if "source_filter" in data:
+                if not isinstance(data["source_filter"], dict):
+                    try:
+                        data["source_filter"] = load_source_filter(
+                            data["source_filter"]
+                        )
+                    except Exception as e:
+                        return self.error(
+                            f"Incorrect format for source_filter. Must be a valid json string: {e}",
+                        )
+            else:
+                return self.error("source_filter is required")
+
+            try:
+                await validate_source_filter_regex(
+                    session, data["source_filter"].get("name")
+                )
+            except ValueError as e:
+                return self.error(str(e))
+
+            try:
+                constraints = build_constraints_dict(data)
+            except ValueError as e:
+                return self.error(str(e))
+
+            priority_order = data.get("priority_order", "asc")
+            if priority_order not in ("asc", "desc"):
+                return self.error("priority_order must be one of: asc, desc.")
+
+            validity_days = data.get("validity_days", None)
+            if validity_days is not None:
+                try:
+                    validity_days = int(validity_days)
+                except (TypeError, ValueError):
+                    return self.error("validity_days must be an integer.")
+
+            default_followup_request = DefaultFollowupRequest(
+                requester_id=self.associated_user_object.id,
+                allocation_id=allocation.id,
+                payload=payload,
+                default_followup_name=data["default_followup_name"],
+                source_filter=data["source_filter"],
+                constraints=constraints,
+                priority_order=priority_order,
+                validity_days=validity_days,
+                comment=data.get("comment", None),
+                implements_update=data.get("implements_update", True),
+            )
+            default_followup_request.target_groups = target_groups
+
+            session.add(default_followup_request)
+            await session.commit()
+
+            self.push_all(action="skyportal/REFRESH_DEFAULT_FOLLOWUP_REQUESTS")
+            return self.success(data={"id": default_followup_request.id})
+
+    @auth_or_token
+    async def get(self, default_followup_request_id: int | None = None):
+        """
+        ---
+        single:
+          summary: Get a default follow-up request
+          description: Retrieve a single default follow-up request
+          tags:
+            - default followup requests
+          parameters:
+            - in: path
+              name: default_followup_request_id
+              required: true
+              schema:
+                type: integer
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: SingleDefaultFollowupRequest
+            400:
+              content:
+                application/json:
+                  schema: Error
+        multiple:
+          summary: Get all default follow-up requests
+          description: Retrieve all default follow-up requests
+          tags:
+            - filters
+          responses:
+            200:
+              content:
+                application/json:
+                  schema: ArrayOfDefaultFollowupRequests
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        async with self.AsyncSession() as session:
+            if default_followup_request_id is not None:
+                default_followup_request = await session.scalar(
+                    DefaultFollowupRequest.select(
+                        session.user_or_token,
+                        mode="update",
+                        options=[selectinload(DefaultFollowupRequest.allocation)],
+                    ).where(DefaultFollowupRequest.id == default_followup_request_id)
+                )
+                if default_followup_request is None:
+                    return self.error(
+                        f"Cannot find DefaultFollowupRequestRequest with ID {default_followup_request_id}"
+                    )
+                return self.success(data=default_followup_request)
+
+            result = await session.scalars(
+                DefaultFollowupRequest.select(
+                    session.user_or_token,
+                    options=[selectinload(DefaultFollowupRequest.allocation)],
+                )
+            )
+            default_followup_requests = result.unique().all()
+
+            default_followup_request_data = []
+            for request in default_followup_requests:
+                default_followup_request_data.append(
+                    {
+                        **request.to_dict(),
+                        "source_filter": load_source_filter(request.source_filter),
+                        "allocation": request.allocation.to_dict(),
+                    }
+                )
+
+            return self.success(data=default_followup_request_data)
+
+    @auth_or_token
+    async def delete(self, default_followup_request_id: int):
+        """
+        ---
+        summary: Delete a default follow-up request
+        description: Delete a default follow-up request
+        tags:
+          - filters
+        parameters:
+          - in: path
+            name: default_followup_request_id
+            required: true
+            schema:
+              type: integer
+        responses:
+          200:
+            content:
+              application/json:
+                schema: Success
+        """
+
+        async with self.AsyncSession() as session:
+            stmt = DefaultFollowupRequest.select(
+                session.user_or_token, mode="delete"
+            ).where(DefaultFollowupRequest.id == default_followup_request_id)
+            default_followup_request = await session.scalar(stmt)
+
+            if default_followup_request is None:
+                return self.error(
+                    f"Default follow-up request with ID {default_followup_request_id} is not available."
+                )
+
+            await session.delete(default_followup_request)
+            await session.commit()
+            self.push_all(action="skyportal/REFRESH_DEFAULT_FOLLOWUP_REQUESTS")
+            return self.success()
+
+
+class FollowupRequestWatcherHandler(BaseHandler):
+    @auth_or_token
+    async def post(self, followup_request_id: int):
+        """
+        ---
+        summary: Add follow-up request to watch list
+        description: Add follow-up request to watch list
+        tags:
+            - followup requests
+        parameters:
+            - in: path
+              name: followup_request_id
+              required: true
+              schema:
+                type: integer
+        responses:
+            200:
+               content:
+                application/json:
+                  schema: Success
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        data = self.get_json()
+
+        refresh_source = self.get_query_argument(
+            "refreshSource", data.pop("refreshSource", True)
+        )
+        refresh_requests = self.get_query_argument(
+            "refreshRequests", data.pop("refreshRequests", False)
+        )
+
+        async with self.AsyncSession() as session:
+            # get owned assignments
+            followup_requests = FollowupRequest.select(session.user_or_token)
+
+            try:
+                followup_request_id = int(followup_request_id)
+            except ValueError:
+                return self.error("Assignment ID must be an integer.")
+
+            followup_requests = followup_requests.where(
+                FollowupRequest.id == followup_request_id
+            ).options(
+                selectinload(FollowupRequest.watchers),
+                selectinload(FollowupRequest.obj),
+            )
+            followup_request = await session.scalar(followup_requests)
+            if followup_request is None:
+                return self.error("Could not retrieve followup request.")
+
+            watchers = followup_request.watchers
+            if any(watcher.id == session.user_or_token.id for watcher in watchers):
+                return self.error("User already watching this request")
+
+            watcher = FollowupRequestUser(
+                user_id=session.user_or_token.id,
+                followuprequest_id=followup_request_id,
+            )
+            session.add(watcher)
+            await session.commit()
+
+            flow = Flow()
+            if refresh_source:
+                flow.push(
+                    user_id=session.user_or_token.id,
+                    action_type="skyportal/REFRESH_SOURCE",
+                    payload={"obj_key": followup_request.obj.internal_key},
+                )
+            if refresh_requests:
+                flow.push(
+                    user_id=session.user_or_token.id,
+                    action_type="skyportal/REFRESH_FOLLOWUP_REQUESTS",
+                )
+
+            return self.success()
+
+    @auth_or_token
+    async def delete(self, followup_request_id: int):
+        """
+        ---
+        summary: Delete follow-up request from watch list
+        description: Delete follow-up request from watch list
+        tags:
+            - followup requests
+        parameters:
+            - in: path
+              name: followup_request_id
+              required: true
+              schema:
+                type: integer
+        responses:
+            200:
+               content:
+                application/json:
+                  schema: Success
+            400:
+              content:
+                application/json:
+                  schema: Error
+        """
+
+        # get parameters
+        data = self.get_json()
+
+        refresh_source = self.get_query_argument(
+            "refreshSource", data.pop("refreshSource", True)
+        )
+        refresh_requests = self.get_query_argument(
+            "refreshRequests", data.pop("refreshRequests", False)
+        )
+
+        async with self.AsyncSession() as session:
+            # get owned assignments
+            followup_requests = FollowupRequest.select(session.user_or_token)
+
+            try:
+                followup_request_id = int(followup_request_id)
+            except ValueError:
+                return self.error("Assignment ID must be an integer.")
+
+            followup_requests = followup_requests.where(
+                FollowupRequest.id == followup_request_id
+            ).options(
+                selectinload(FollowupRequest.watchers),
+                selectinload(FollowupRequest.obj),
+            )
+            followup_request = await session.scalar(followup_requests)
+            if followup_request is None:
+                return self.error("Could not retrieve followup request.")
+
+            watcher = await session.scalar(
+                FollowupRequestUser.select(session.user_or_token, mode="delete").where(
+                    FollowupRequestUser.user_id == session.user_or_token.id,
+                    FollowupRequestUser.followuprequest_id == followup_request_id,
+                )
+            )
+            if watcher is None:
+                return self.error(
+                    f"The user {session.user_or_token.id} is not watching request {followup_request_id}."
+                )
+
+            await session.delete(watcher)
+            await session.commit()
+
+            flow = Flow()
+            if refresh_source:
+                flow.push(
+                    user_id=session.user_or_token.id,
+                    action_type="skyportal/REFRESH_SOURCE",
+                    payload={"obj_key": followup_request.obj.internal_key},
+                )
+            if refresh_requests:
+                flow.push(
+                    user_id=session.user_or_token.id,
+                    action_type="skyportal/REFRESH_FOLLOWUP_REQUESTS",
+                )
+
+            return self.success()

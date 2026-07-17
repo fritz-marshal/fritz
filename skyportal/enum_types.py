@@ -1,0 +1,220 @@
+import inspect
+from enum import Enum
+
+import astropy.units as u
+import numpy as np
+import sncosmo
+import sqlalchemy as sa
+from sncosmo.bandpasses import _BANDPASSES
+from sncosmo.magsystems import _MAGSYSTEMS
+
+from baselayer.app.env import load_env
+from baselayer.log import make_log
+
+from .facility_apis import APIS, LISTENERS
+
+log = make_log("enum_types")
+
+_, cfg = load_env()
+
+# Point sncosmo at the vendored data dir (the skyportal-data submodule) before
+# any bandpass lookup, so app import reads local files instead of blocking on
+# the flaky SVO Filter Profile Service. A missing bandpass still falls back to a
+# network fetch into this directory.
+sncosmo_data_folder = cfg.get("misc.sncosmo_data_folder")
+if sncosmo_data_folder:
+    sncosmo.conf.data_dir = sncosmo_data_folder
+
+# load additional bandpasses into the SN comso registry
+existing_bandpasses_names = [val["name"] for val in _BANDPASSES.get_loaders_metadata()]
+additional_bandpasses_names = []
+for additional_bandpasses in cfg.get("additional_bandpasses", []):
+    name = additional_bandpasses.get("name")
+    if not name:
+        continue
+    if name in existing_bandpasses_names:
+        log(
+            f"Additional Bandpass name={name} is already in the sncosmo registry. Skipping."
+        )
+    try:
+        wavelength = np.array(additional_bandpasses.get("wavelength"))
+        transmission = np.array(additional_bandpasses.get("transmission"))
+        band = sncosmo.Bandpass(wavelength, transmission, name=name, wave_unit=u.AA)
+    except Exception as e:
+        log(f"Could not make bandpass for {name}: {e}")
+        continue
+
+    sncosmo.registry.register(band)
+    additional_bandpasses_names.append(name)
+
+if len(additional_bandpasses_names) > 0:
+    log(f"registered custom bandpasses: {additional_bandpasses_names}")
+
+
+def force_render_enum_markdown(values):
+    return ", ".join([f"`{v}`" for v in values])
+
+
+ALLOWED_SPECTRUM_TYPES = tuple(cfg["spectrum_types.types"])
+ALLOWED_MAGSYSTEMS = tuple(val["name"] for val in _MAGSYSTEMS.get_loaders_metadata())
+# though in the registry, the additional bandpass names are not in the _BANDPASSES list
+ALLOWED_BANDPASSES = tuple(existing_bandpasses_names + additional_bandpasses_names)
+TIME_STAMP_ALIGNMENT_TYPES = ("start", "middle", "end")
+
+THUMBNAIL_TYPES = (
+    "new",
+    "ref",
+    "sub",
+    "sdss",
+    "dr8",
+    "ls",
+    "ps1",
+    "sm",
+    "hst",
+    "chandra",
+    "jwst",
+    "new_gz",
+    "ref_gz",
+    "sub_gz",
+)
+INSTRUMENT_TYPES = ("imager", "spectrograph", "imaging spectrograph")
+MMA_DETECTOR_TYPES = ("gravitational-wave", "neutrino", "gamma-ray-burst")
+FOLLOWUP_PRIORITIES = ("1", "2", "3", "4", "5")
+FOLLOWUP_HTTP_REQUEST_ORIGINS = ("remote", "skyportal")
+
+LISTENER_CLASSES = LISTENERS
+LISTENER_CLASSNAMES = [c.__name__ for c in LISTENERS]
+
+
+ANALYSIS_TYPES = ("lightcurve_fitting", "spectrum_fitting", "meta_analysis")
+ANALYSIS_INPUT_TYPES = (
+    "photometry",
+    "spectra",
+    "redshift",
+    "annotations",
+    "comments",
+    "classifications",
+)
+DEFAULT_ANALYSIS_FILTER_TYPES = {"classifications": ["name", "probability"]}
+# Scalar (non list-of-dicts) source-filter keys. group_id triggers a default
+# analysis when a source is saved to that group (see create_default_analysis_on_save).
+DEFAULT_ANALYSIS_SCALAR_FILTERS = {"group_id": int}
+AUTHENTICATION_TYPES = (
+    "none",
+    "header_token",
+    "api_key",
+    "HTTPBasicAuth",
+    "HTTPDigestAuth",
+    "OAuth1",
+)
+WEBHOOK_STATUS_TYPES = (
+    "queued",
+    "pending",
+    "completed",
+    "failure",
+    "cancelled",
+    "timed_out",
+)
+ALLOWED_ALLOCATION_TYPES = (
+    "triggered",
+    "forced_photometry",
+    "observation_plan",
+)
+allowed_webbook_status_types = sa.Enum(
+    *WEBHOOK_STATUS_TYPES, name="webhookstatustypes", validate_strings=True
+)
+
+allowed_analysis_types = sa.Enum(
+    *ANALYSIS_TYPES, name="analysistypes", validate_strings=True
+)
+
+allowed_analysis_input_types = sa.Enum(
+    *ANALYSIS_INPUT_TYPES, name="analysisinputtypes", validate_strings=True
+)
+
+allowed_external_authentication_types = sa.Enum(
+    *AUTHENTICATION_TYPES, name="authenticationtypes", validate_strings=True
+)
+
+allowed_allocation_types = sa.Enum(
+    *ALLOWED_ALLOCATION_TYPES, name="allocationtypes", validate_strings=True
+)
+
+allowed_spectrum_types = sa.Enum(
+    *ALLOWED_SPECTRUM_TYPES, name="spectrumtypes", validate_strings=True
+)
+default_spectrum_type = cfg["spectrum_types.default"]
+
+allowed_magsystems = sa.Enum(
+    *ALLOWED_MAGSYSTEMS, name="magsystems", validate_strings=True
+)
+allowed_bandpasses = sa.Enum(
+    *ALLOWED_BANDPASSES, name="bandpasses", validate_strings=True
+)
+time_stamp_alignment_types = sa.Enum(
+    *TIME_STAMP_ALIGNMENT_TYPES, name="time_stamp_alignments", validate_strings=True
+)
+thumbnail_types = sa.Enum(
+    *THUMBNAIL_TYPES, name="thumbnail_types", validate_strings=True
+)
+instrument_types = sa.Enum(
+    *INSTRUMENT_TYPES, name="instrument_types", validate_strings=True
+)
+mma_detector_types = sa.Enum(
+    *MMA_DETECTOR_TYPES, name="mma_detector_types", validate_strings=True
+)
+followup_priorities = sa.Enum(
+    *FOLLOWUP_PRIORITIES, name="followup_priorities", validate_strings=True
+)
+
+ALLOWED_API_CLASSNAMES = [c.__name__ for c in APIS]
+
+api_classnames = sa.Enum(
+    *ALLOWED_API_CLASSNAMES,
+    name="followup_apis",
+    validate_strings=True,
+)
+
+listener_classnames = sa.Enum(
+    *LISTENER_CLASSNAMES,
+    name="followup_listeners",
+    validate_strings=True,
+)
+
+py_allowed_spectrum_types = Enum("spectrumtypes", ALLOWED_SPECTRUM_TYPES)
+py_allowed_magsystems = Enum("magsystems", ALLOWED_MAGSYSTEMS)
+py_allowed_bandpasses = Enum("bandpasses", ALLOWED_BANDPASSES)
+py_thumbnail_types = Enum("thumbnail_types", THUMBNAIL_TYPES)
+py_followup_priorities = Enum("priority", FOLLOWUP_PRIORITIES)
+py_allowed_analysis_types = Enum("analysistypes", ANALYSIS_TYPES)
+py_allowed_analysis_input_types = Enum("analysisinputtypes", ANALYSIS_INPUT_TYPES)
+py_allowed_external_authentication_types = Enum(
+    "authenticationtypes", AUTHENTICATION_TYPES
+)
+py_allowed_webbook_status_types = Enum("webhookstatustypes", WEBHOOK_STATUS_TYPES)
+
+
+sqla_enum_types = [
+    allowed_spectrum_types,
+    allowed_bandpasses,
+    thumbnail_types,
+    instrument_types,
+    mma_detector_types,
+    followup_priorities,
+    api_classnames,
+    listener_classnames,
+    allowed_analysis_types,
+    allowed_analysis_input_types,
+    allowed_external_authentication_types,
+    allowed_webbook_status_types,
+]
+
+GCN_NOTICE_TYPES = tuple(
+    str(notice_type).replace("gcn.notices.", "").replace("gcn.classic.voevent.", "")
+    for notice_type in cfg.get("gcn.notice_types.voevent", [])
+    + cfg.get("gcn.notice_types.json", [])
+)
+GCN_ACKNOWLEDGEMENTS = tuple(
+    text.strip('"') if text is not None else text
+    for text in cfg.get("gcn.summary.acknowledgements", [])
+)

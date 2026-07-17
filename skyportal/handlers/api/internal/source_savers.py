@@ -1,0 +1,135 @@
+import datetime
+
+import sqlalchemy as sa
+from sqlalchemy import desc, func
+
+from baselayer.app.access import auth_or_token
+
+from ....models import Candidate, Source, User
+from ....utils.data_access import (
+    accessible_group_ids_async,
+    team_scoped_group_ids,
+)
+from ....utils.naive_datetime import utcnow_naive
+from ...base import BaseHandler
+
+default_prefs = {"maxNumSavers": 100, "sinceDaysAgo": 7, "candidatesOnly": True}
+
+
+class SourceSaverHandler(BaseHandler):
+    @classmethod
+    async def get_top_source_savers(
+        cls, current_user, session, user_options, team_group_ids=None
+    ):
+        user_prefs = getattr(current_user, "preferences", None) or {}
+        top_savers_prefs = user_prefs.get("topSavers", {})
+        top_savers_prefs = {**default_prefs, **top_savers_prefs, **user_options}
+
+        max_num_savers = int(top_savers_prefs["maxNumSavers"])
+        since_days_ago = float(top_savers_prefs["sinceDaysAgo"])
+        cutoff_day = utcnow_naive() - datetime.timedelta(days=since_days_ago)
+        stmt = Source.select(
+            session.user_or_token,
+            columns=[
+                func.count(sa.distinct(Source.obj_id)).label("saves"),
+                Source.saved_by_id,
+            ],
+        ).where(Source.saved_at >= cutoff_day)
+
+        if top_savers_prefs["candidatesOnly"]:
+            stmt = stmt.where(
+                sa.exists(
+                    sa.select(Candidate.obj_id).where(Candidate.obj_id == Source.obj_id)
+                )
+            )
+
+        if team_group_ids is not None:
+            stmt = stmt.where(Source.group_id.in_(team_group_ids))
+
+        stmt = (
+            stmt.group_by(Source.saved_by_id)
+            .order_by(desc("saves"))
+            .limit(max_num_savers)
+        )
+
+        result = await session.execute(stmt)
+        return result.all()
+
+    @auth_or_token
+    async def get(self):
+        """
+        ---
+        description: Retrieve users saving candidates
+        tags:
+          - sources
+        parameters:
+          - in: query
+            name: maxNumSavers
+            required: false
+            schema:
+              type: integer
+          - in: query
+            name: sinceDaysAgo
+            required: false
+            schema:
+              type: integer
+          - in: query
+            name: candidatesOnly
+            required: false
+            schema:
+              type: boolean
+        responses:
+          200:
+            content:
+              application/json:
+                schema: ArrayOfUsers
+          400:
+            content:
+              application/json:
+                schema: Error
+        """
+        max_num_savers = self.get_query_argument("maxNumSavers", None)
+        since_days_ago = self.get_query_argument("sinceDaysAgo", None)
+        candidates_only = self.get_query_argument("candidatesOnly", None)
+
+        user_options = {}
+        if max_num_savers is not None:
+            user_options["maxNumSavers"] = max_num_savers
+        if since_days_ago is not None:
+            user_options["sinceDaysAgo"] = since_days_ago
+        if candidates_only is not None:
+            user_options["candidatesOnly"] = candidates_only
+
+        async with self.AsyncSession() as session:
+            try:
+                accessible = set(
+                    await accessible_group_ids_async(session.user_or_token, session)
+                )
+                team_group_ids = await team_scoped_group_ids(
+                    session,
+                    self.current_user,
+                    self.get_query_argument("teamID", None),
+                    accessible,
+                )
+                query_results = await SourceSaverHandler.get_top_source_savers(
+                    self.current_user,
+                    session,
+                    user_options,
+                    team_group_ids=team_group_ids,
+                )
+                savers = []
+                for rank, (saved, user_id) in enumerate(query_results):
+                    s = await session.scalar(
+                        User.select(session.user_or_token).where(User.id == user_id)
+                    )
+                    savers.append(
+                        {
+                            "rank": rank + 1,
+                            "author": {**s.to_dict(), "gravatar_url": s.gravatar_url},
+                            "saves": saved,
+                        }
+                    )
+
+                return self.success(data=savers)
+            except Exception as e:
+                return self.error(f"Failed to fetch source savers: {e}")

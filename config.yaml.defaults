@@ -1,0 +1,1038 @@
+app:
+  title: SkyPortal
+  logos: # Logos to place in the top-left of the header/login page (zero or more)
+    - src: /static/images/skyportal_logo_dark.png
+      alt_text: Skyportal logo
+  login_message: |
+    For more information about the project, see
+    <a href="https://github.com/skyportal/skyportal">
+      https://github.com/skyportal/skyportal
+    </a>
+
+  # Anonymous read-only access. When true, visitors who are not signed in are
+  # served as `anonymous_user` (a "View only" account) so pages render without a
+  # login. Write endpoints still 401 because that account holds no write ACLs.
+  # The account is auto-provisioned (in the public group) when this is enabled.
+  anonymous_access: false
+  anonymous_user: anonymous
+
+  secret_key: abc01234  # This secret key can be any random string of
+                        # characters.
+                        #
+                        # You should re-generate this for your application
+                        # using:
+                        #
+                        # base64.b64encode(os.urandom(50)).decode('ascii')
+  factory: skyportal.app_server.make_app
+
+  observation_plan:
+    default_filters: ['ztfg', 'ztfr', 'ztfi']
+    use_skyportal_fields: True
+    use_parallel: False
+    Ncores: 1
+
+  heasarc_endpoint: https://heasarc.gsfc.nasa.gov
+
+  # this endpoint does not actually do anything -- it is just for testing
+  sedm_endpoint: http://minar.caltech.edu/add_fritz
+  sedmv2_endpoint:
+  trt_endpoint: https://trt.narit.or.th/hub/api
+
+  lt_host: 161.72.57.3
+  lt_port: 8080
+
+  lco_protocol: https
+  lco_host: observe.lco.global
+  lco_port: 443
+
+  lco_archive_endpoint: https://archive-api.lco.global
+
+  # The Tarot API is not publicly accessible.
+  # To interact with it, we use a proxy hosted on the Icare instance of SkyPortal.
+  # Access to the proxy requires an Icare account and a valid token specified in each allocation using the Tarot API.
+  # This URL points to the Tarot API proxy endpoint:
+  tarot_proxy_endpoint: https://skyportal-icare.ijclab.in2p3.fr/api/tarot_proxy
+
+  # MMT API endpoint
+  mmt_endpoint: https://scheduler.mmto.arizona.edu/APIv2
+
+  # TTT API endpoint
+  ttt_endpoint: https://dto.ttt.lightbridges.es/api
+
+  ztf:
+    protocol: https
+    host: kowalski.caltech.edu
+    port: 443
+
+  ztf_forced_endpoint: https://ztfweb.ipac.caltech.edu
+
+  fink_endpoint: https://fink-portal.org
+
+  mpc_endpoint: https://minorplanetcenter.net
+
+  swift:
+    protocol: https
+    host: www.swift.psu.edu
+    port: 443
+
+  swift_xrt_endpoint: https://www.swift.ac.uk/user_objects
+
+  ps1_endpoint: https://catalogs.mast.stsci.edu/
+
+  # PS1 cutout service used to scrape the public thumbnail link for an Obj.
+  # Set to an empty string to skip the HTTP call and use the
+  # "currently_unavailable.png" placeholder (useful in tests).
+  ps1_cutout_url: http://ps1images.stsci.edu/cgi-bin/ps1cutouts
+  skymapper_cutout_url: https://api.skymapper.nci.org.au/public/siap/dr4/query
+
+  tess_endpoint: https://tess.mit.edu/public/tesstransients/
+
+  atlas:
+    protocol: https
+    host: fallingstar-data.com
+    port:
+
+  kait:
+    protocol: http
+    host: herculesii.astro.berkeley.edu
+    port:
+
+  gemini:
+    protocol: https
+    north_prefix: gnodbtest # this is the test prefix, just remove 'test' for production
+    south_prefix: gsodbtest # this is the test prefix, just remove 'test' for production
+    domain: gemini.edu
+    port: 8443
+
+  treasuremap_endpoint: https://treasuremap.space
+
+  tns:
+    endpoint: https://sandbox.wis-tns.org
+    bot_id:
+    bot_name:
+    api_key:
+    look_back_days: 1
+
+  hermes:
+      endpoint: https://hermes.lco.global/api/v0  # Base URL of the Hermes API
+      token:  # Hermes API token for authentication (required to publish messages)
+      topic: skyportal.skyportal  # Kafka topic used to publish outgoing SkyPortal alerts to Hermes
+      test_topic: skyportal.skyportal_test  # Kafka topic used during testing
+      sync:
+        scimma_username: # SCiMMA/Kafka username for authentication
+        scimma_password: # SCiMMA/Kafka password for authentication
+        kafka_server: kafka.scimma.org
+        from_start: False  # Start from beginning of topic (True) or latest message (False)
+        max_age_days:  # Skip messages older than N days (null/empty = no limit)
+        bot_user_id:   # User ID of the bot account that will save sources and own photometry. If not set, the service will not start.
+        group_ids: []  # List of group IDs to assign imported sources to
+        instrument_tns_ids: # Whitelist of TNS instrument IDs whose photometry will be imported (see https://www.wis-tns.org/api/get/values). If not set, photometry import is skipped entirely.
+
+  # Configuration for the WINTER and SPRING instruments.
+  winter:
+    protocol: http
+    host: winter.caltech.edu
+    port: 82
+    submit_trigger: False # if False, the API POST call to WINTER and SPRING will only validate the payload
+
+  gracedb_endpoint: https://gracedb.ligo.org/api/
+  # See https://computing.docs.ligo.org/guide/auth/x509/ for example
+  gracedb_credential:
+
+  # See https://stackoverflow.com/a/35604855 for syntax
+  # These are Javascript component routes
+  routes:
+    - path: "/"
+      component: templates/HomePage
+      exact: True
+      anonymous_ok: true
+    - path: "/sources"
+      component: source/SourceList
+      anonymous_ok: true
+    - path: "/source/:id"
+      component: source/Source
+      anonymous_ok: true
+    - path: "/source/:id/finder"
+      component: FindingChart
+      anonymous_ok: true
+    - path: "/source/:id/periodogram"
+      component: Periodogram
+      anonymous_ok: true
+    - path: "/source/:obj_id/analysis/:analysis_id"
+      component: source/SourceAnalysisPage
+      anonymous_ok: true
+    - path: "/favorites"
+      component: listing/FavoritesPage
+    - path: "/groups"
+      component: group/Groups
+    - path: "/group/:id"
+      component: group/Group
+    - path: "/teams"
+      component: team/Teams
+    - path: "/group_sources/:id"
+      component: group/GroupSources
+    - path: "/candidates"
+      component: candidate/CandidateList
+    - path: "/candidates/scan_reports"
+      component: candidate/scan_reports/ReportsList
+    - path: "/profile"
+      component: user/Profile
+    - path: "/user/:id"
+      component: user/UserInfo
+    - path: "/upload_photometry/:id"
+      component: photometry/UploadPhotometry
+    - path: "/share_data/:id"
+      component: source/ShareDataForm
+    - path: "/filter/:fid"
+      component: filter/Filter
+    - path: "/about"
+      component: About
+      anonymous_ok: true
+    - path: "/runs"
+      component: observing_run/ObservingRunPage
+    - path: "/run/:id"
+      component: observing_run/RunSummary
+    - path: "/allocations"
+      component: allocation/AllocationList
+    - path: "/allocation/:id"
+      component: allocation/Allocation
+    - path: "/instruments"
+      component: instrument/InstrumentList
+      anonymous_ok: true
+    - path: "/instrument/:id"
+      component: instrument/Instrument
+      anonymous_ok: true
+    - path: "/telescopes"
+      component: telescope/TelescopeList
+      anonymous_ok: true
+    - path: "/telescope/:id"
+      component: telescope/Telescope
+      anonymous_ok: true
+    - path: "/observations"
+      component: observation/ObservationPage
+    - path: "/galaxies"
+      component: galaxy/GalaxyPage
+      anonymous_ok: true
+    - path: "/spatial_catalogs"
+      component: spatial_catalog/SpatialCatalogPage
+      anonymous_ok: true
+    - path: "/followup_requests"
+      component: followup_request/FollowupRequestPage
+    - path: "/user_management"
+      component: user/UserManagement
+    - path: "/upload_spectrum/:id"
+      component: spectrum/UploadSpectrum
+    - path: "/observability/:id"
+      component: source/Observability
+      anonymous_ok: true
+    - path: "/db_stats"
+      component: DBStats
+    - path: "/source_statistics"
+      component: SourceStatistics
+    - path: "/gcn_events"
+      component: gcn/GcnEvents
+      anonymous_ok: true
+    - path: "/gcn_events/:dateobs"
+      component: gcn/GcnEventPage
+      anonymous_ok: true
+    - path: "/mmadetectors"
+      component: mma_detector/MMADetectorPage
+    - path: "/earthquakes"
+      component: earthquake/EarthquakesPage
+      anonymous_ok: true
+    - path: "/earthquakes/:event_id"
+      component: earthquake/EarthquakePage
+      anonymous_ok: true
+    - path: "/services"
+      component: analysis/AnalysisServicePage
+    - path: "/analysis_requests"
+      component: analysis/AnalysisRequestPage
+    - path: "/recurring_apis"
+      component: RecurringAPIPage
+    - path: "/shifts"
+      component: shift/ShiftNoId
+    - path: "/shifts/:id"
+      component: shift/ShiftWithId
+    - path: "/summary_search"
+      component: summary/SummarySearch
+    - path: "/tag_management"
+      component: TagManagement
+    - path: "/taxonomies"
+      component: taxonomy/TaxonomyPage
+    - path: "/sharing_services"
+      component: sharing_service/SharingServicesPage
+    - path: "/sharing_service/:id/submissions"
+      component: sharing_service/SharingServiceSubmissionsPage
+    - path: "/moving_objects/obsplan"
+      component: moving_object/MovingObjectObsPlanPage
+
+  sidebar:
+    # See https://material-ui.com/components/material-icons/
+    - name: main
+      subitems:
+        - name: Dashboard
+          icon: Home
+          url: /
+          anonymous_ok: true
+
+        - name: Sources
+          icon: Storage
+          url: /sources
+          anonymous_ok: true
+
+        - name: Candidates
+          icon: Search
+          url: /candidates
+
+        - name: Favorites
+          icon: Star
+          url: /favorites
+
+        - name: Groups
+          icon: GroupWork
+          url: /groups
+
+        - name: Teams
+          icon: Diversity3
+          url: /teams
+
+        - name: Observing Runs
+          icon: LocalCafe
+          url: /runs
+
+        - name: GCN Events
+          icon: SettingsInputAntenna
+          url: /gcn_events
+          anonymous_ok: true
+
+        - name: Followup Requests
+          icon: WorkOutlined
+          url: /followup_requests
+
+        - name: Analysis Requests
+          icon: Analytics
+          url: /analysis_requests
+
+        - name: Shifts
+          icon: SubwayRounded
+          url: /shifts
+
+        - name: Summary Search
+          icon: Troubleshoot
+          url: /summary_search
+
+        - name: Source Statistics
+          icon: ScatterPlot
+          url: /source_statistics
+
+        - name: About
+          icon: Info
+          url: /about
+          anonymous_ok: true
+
+    - name: Other
+      icon: MoreHoriz
+      subitems:
+        - name: Telescopes
+          icon: MyLocation
+          url: /telescopes
+          anonymous_ok: true
+
+        - name: Instruments
+          icon: Wifi
+          url: /instruments
+          anonymous_ok: true
+
+        - name: MMADetectors
+          icon: Abc
+          url: /mmadetectors
+
+        - name: Allocations
+          icon: HourglassEmptyOutlined
+          url: /allocations
+
+        - name: Observations
+          icon: ZoomInOutlined
+          url: /observations
+
+        - name: Sharing Services
+          icon: Share
+          url: /sharing_services
+
+        - name: Moving Objects
+          icon: Animation
+          url: /moving_objects/obsplan
+
+        - name: Earthquakes
+          icon: PieChart
+          url: /earthquakes
+          anonymous_ok: true
+
+        - name: Galaxies
+          icon: TornadoOutlined
+          url: /galaxies
+          anonymous_ok: true
+
+        - name: Spatial Catalogs
+          icon: PhotoSizeSelectLargeOutlined
+          url: /spatial_catalogs
+          anonymous_ok: true
+
+        - name: Analysis Services
+          icon: SentimentSatisfied
+          url: /services
+
+        - name: Recurring API
+          icon: Restore
+          url: /recurring_apis
+
+        - name: Taxonomies
+          icon: WallpaperOutlined
+          url: /taxonomies
+
+        - name: Tag Management
+          icon: LocalOffer
+          permissions: ["Manage sources", "System admin"]
+          url: /tag_management
+
+        - name: Scanning report
+          icon: Summarize
+          url: /candidates/scan_reports
+
+    - name: Admin
+      icon: AdminPanelSettings
+      permissions: ["Manage users", "System admin"]
+      subitems:
+        - name: DB Stats
+          icon: Assessment
+          permissions: ["System admin"]
+          url: /db_stats
+        - name: User Management
+          icon: Group
+          permissions: ["Manage users", "System admin"]
+          url: /user_management
+
+
+  # See https://github.com/STRML/react-grid-layout for more on the grid package
+  homepage_grid:
+    # This section describes the grid on which Home Page widgets are laid out.
+    #
+    # The breakpoints describe screen sizes at which a different set of widget
+    # layouts should be used. Note that these breakpoints describe minimum width
+    # values, unlike the maximum width bounds used by Material UI breakpoints.
+    # For example, a breakpoint of "sm: 650" will match windows with width 650px
+    # or greater, until the next highest breakpoint is hit (probably a "md").
+    # This is different from Material UI, where a breakpoint of 650 would match
+    # window widths that are at most 650px.
+    #
+    # The cols describe the number of evenly spaced columns that make up the
+    # grid at a given breakpoint. For example, on extra-large screens (greater
+    # than ${breakpoints.xlg} pixels), the grid will use ${cols.xlg} columns of
+    # equal width to describe sizes of widgets based on the layouts provided.
+    #
+    # Optionally, you may provide a "row_height: {a rem value}" property in
+    # this section to change the height of a row on the grid. By default, this
+    # value is 9.375rem (150px for the default 16px = 1rem configuration).
+
+    breakpoints:
+      xlg: 1400
+      lg: 1150
+      md: 996
+      sm: 650
+      xs: 0
+
+    cols:
+      xlg: 16
+      lg: 12
+      md: 10
+      sm: 6
+      xs: 4
+
+  homepage_widgets:
+    # This section describes the specific widgets shown on the Home Page and how
+    # they are laid out by default on the grid of the page.
+    #
+    # The name of section should be the same as the widget's React component.
+    #
+    # The props property should be a set of properties to be passed on to the
+    # underlying React component for the widget. You may run into cases in which
+    # you must pass a more complex, dynamic property (perhaps fetched from the
+    # application redux store). Since you can not know that in the time of the
+    # configuration writing, such properties should be directly coded into the
+    # HomePage.jsx.template file (see the GroupList widget for an example)
+    #
+    # By default, any widget listed here is shown on the Home Page. However, you
+    # can give a widget the property "show: false" to turn off rendering of the
+    # widget.
+    #
+    # The resizable property determines whether the user is able to resize the
+    # widget after it has been rendered based on default layouts.
+    #
+    # Finally, the layouts property provides an array of default sizes/locations
+    # for each screen width breakpoint for the given widget. Layout arrays are
+    # given in the order [x, y, width, height], in units of grid columns/rows.
+    # For example, a layout array of [1, 2, 3, 4] will render a widget 3 grid
+    # columns in width, 4 grid rows in height, and have its upper-left corner at
+    # the column 1 (zero-indexed) and row 2. Note that each row is by default
+    # 150px in height. The row height can be altered in the homepage_grid
+    # section above (as well as other grid characteristics).
+    GettingStarted:
+      # Onboarding checklist + guided tour. Shown to every user until they
+      # dismiss it (persisted per-user); reopenable any time. Set show: false to
+      # disable it for a deployment.
+      resizeable: true
+      minW: 2
+      layouts:
+        xlg: [0, 0, 4, 3]
+        lg: [0, 0, 4, 3]
+        md: [0, 0, 4, 3]
+        sm: [0, 0, 6, 3]
+        xs: [0, 0, 4, 3]
+
+    WeatherWidget:
+      resizeable: true
+      minW: 2
+      layouts:
+        xlg: [12, 3, 4, 2]
+        lg: [9, 3, 3, 2]
+        md: [6, 6, 4, 3]
+        sm: [0, 9, 6, 1]
+        xs: [0, 19, 5, 1]
+
+    SourceCounts:
+      props:
+        sinceDaysAgo: 7
+      resizeable: true
+      minW: 1.5
+      layouts:
+        xlg: [14, 0, 2, 1]
+        lg: [10, 0, 2, 1]
+        md: [8, 0, 2, 1]
+        sm: [4.5, 0, 1.5, 1]
+        xs: [0, 0, 4, 1]
+
+    RecentSources:
+      resizeable: true
+      minW: 2
+      layouts:
+        xlg: [0, 0, 5, 3]
+        lg: [0, 0, 4, 3]
+        md: [0, 0, 4, 3]
+        sm: [0, 3, 3, 3]
+        xs: [0, 4, 4, 3]
+
+    NewsFeed:
+      resizeable: true
+      minW: 2
+      layouts:
+        xlg: [10, 0, 4, 3]
+        lg: [7, 0, 3, 3]
+        md: [4, 0, 4, 3]
+        sm: [0, 0, 4.5, 3]
+        xs: [0, 1, 4, 3]
+
+    TopSources:
+      resizeable: true
+      minW: 2
+      layouts:
+        xlg: [5, 0, 5, 3]
+        lg: [4, 0, 3, 3]
+        md: [0, 3, 4, 3]
+        sm: [3, 3, 3, 3]
+        xs: [0, 7, 4, 3]
+
+    TopSavers:
+      resizeable: true
+      minW: 3
+      layouts:
+        xlg: [7, 3, 5, 3]
+        lg: [5, 3, 4, 2]
+        md: [0, 6, 6, 3]
+        sm: [0, 10, 6, 3]
+        xs: [0, 14, 4, 3]
+
+    RecentGcnEvents:
+      resizeable: true
+      minW: 3
+      layouts:
+        xlg: [0, 3, 7, 3]
+        lg: [0, 3, 5, 2]
+        md: [4, 3, 6, 3]
+        sm: [0, 6, 6, 3]
+        xs: [0, 10, 4, 4]
+
+    # Use linkToGroupSources: true in props to link to the group sources page instead.
+    GroupList:
+      props:
+        title: My Groups
+      resizeable: true
+      minW: 1.5
+      layouts:
+        xlg: [14, 1, 2, 2]
+        lg: [10, 1, 2, 2]
+        md: [8, 1, 2, 2]
+        sm: [4.5, 1, 1.5, 2]
+        xs: [0, 17, 4, 2]
+
+    TelescopeMapWidget:
+      show: False
+
+database:
+  database: skyportal
+  host: localhost
+  port: 5432
+  user: skyportal
+  password:
+
+  # Optional transaction-mode connection pooler (pgbouncer/pgcat) between the app
+  # and Postgres, so many processes share a small bounded backend pool instead of
+  # exhausting max_connections. Pooler-agnostic: point `host`/`port` at whichever
+  # pooler you run (the bundled `pgbouncer` service, or an external one).
+  pooler:
+    enabled: false
+    host: localhost
+    port: 6432
+    pool_mode: transaction
+    # Real Postgres backend connections the pooler keeps per user/db.
+    default_pool_size: 25
+    max_client_conn: 1000
+    # Seconds before the pooler force-closes a connection left idle in a
+    # transaction; guards the pool against leaked transactions (0 = disabled).
+    idle_transaction_timeout: 0
+
+# Valkey connection. Valkey speaks the redis protocol, so a standard redis
+# client talks to it directly; these keys are the redis client's host/port/db.
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+
+cache:
+  # When false (default), `get_cache()` returns a no-op cache and nothing uses
+  # Valkey — behavior is unchanged until caching is explicitly enabled.
+  enabled: false
+  ttl:
+    # Default time-to-live (seconds) for cached entries when a caller does not
+    # specify one.
+    default: 300
+
+# Optional: route the source page's photometry fetch through a custom endpoint
+# (e.g. a broker passthrough that merges saved DB photometry with on-demand
+# broker photometry). "{id}" is substituted with the object id; the endpoint
+# must return the same response shape as /api/sources/{id}/photometry (a bare
+# list of serialized points). Null (default) uses the standard endpoint.
+photometry_display_endpoint:
+
+server:
+  # From https://console.developers.google.com/
+  #
+  # - Create Client ID
+  # - Javascript origins: https://localhost:5000
+  # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
+  #
+  # You need to have Google+ API enabled; it takes a few minutes to activate.
+  protocol: http
+  host: localhost
+  port: 5000  # This is the public-facing port
+
+  # Whether the base URL is http or https
+  ssl: False
+
+  # According to the Tornado docs at
+  # https://www.tornadoweb.org/en/stable/guide/running.html#processes-and-ports:
+  #
+  # Due to the Python GIL (Global Interpreter Lock), it is necessary
+  # to run multiple Python processes to take full advantage of
+  # multi-CPU machines. Typically it is best to run one process per
+  # CPU.
+  processes: 4
+
+  # How many of the above processes should be dedicated to
+  # frontend only (i.e., no token authorized API requests)
+  dedicated_frontend_processes: 2
+
+  # The max size of a request body in megabytes (M)
+  max_body_size: 100
+
+  # nginx parameter which sets both the time in seconds before which
+  # the server is considered unavailable and the subsequent period of
+  # time the server will be unavailable
+  fail_timeout: 20
+
+  # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
+  rate_limit: 5
+  # Rate limit burst size (https://www.nginx.com/blog/rate-limiting-nginx/#bursts)
+  burst: 10
+
+  # In addition to the local network, specify any IP addresses that are to be
+  # exempt from API rate limiting
+  whitelisted_ips: []
+
+  # Specify IPs or address ranges (e.g., 130.211.0.0/22) that are associated
+  # with upstream load balancing.
+  # These trusted addresses are used to uncover the originating IP.
+  loadbalancer_ips: []
+
+  auth:
+    debug_login: True
+    google_oauth2_key:
+    google_oauth2_secret:
+    google_oauth2_timeout: 15
+
+services:
+  dask: False
+
+misc:
+  days_to_keep_unsaved_candidates: 7
+  days_to_keep_finding_charts_cache: 30
+  minutes_to_keep_candidate_query_cache: 60
+  minutes_to_keep_source_query_cache: 360 # 6 hours
+  minutes_to_keep_annotations_info_query_cache: 360 # 6 hours
+  minutes_to_keep_localization_instrument_query_cache: 1440 # 1 day
+  max_items_in_localization_instrument_query_cache: 100
+  minutes_to_keep_public_source_pages_cache: 1440 # 1 day
+  minutes_to_keep_reports_cache: 1440 # 1 day
+  max_seconds_to_sleep_reminders_service: 60
+  max_seconds_to_sleep_recurring_apis_service: 60
+  public_group_name: "Sitewide Group"
+  # Use a named cosmology from `astropy.cosmology.parameters.available` cosmologies
+  # or supply the arguments for an `astropy.cosmology.FLRW` cosmological instance.
+  # If {"flat": True} then use a subclass of the FLRW, called `FlatLambdaCMD`
+  # otherwise use `LambdaCDM`. See `utils.cosmology.py` for the way in which
+  # the user-supplied cosmology parameter set constructs the site-wide cosmology.
+  cosmology: Planck18
+  #cosmology: {H0: "65.0", Om0: 0.3, Ode0: 0.7, name: 'skyportal_user_cosmo'}
+
+  dustmap: sfd
+  # Vendored in the skyportal-data submodule so the SFD maps are present
+  # without a network fetch at startup. obj.py still falls back to fetching
+  # if the files are absent (e.g. submodule not initialized).
+  dustmap_folder: skyportal-data/dustmaps
+
+  # sncosmo cache (bandpasses, SED models, spectra), vendored in the
+  # skyportal-data submodule. Pointing sncosmo here keeps app import off the
+  # flaky SVO Filter Profile Service; any missing bandpass still falls back to
+  # a network fetch into this directory.
+  sncosmo_data_folder: skyportal-data/sncosmo
+
+  # The minimum signal-to-noise ratio/ n-sigma for lim mag cacluations to
+  # consider a photometry point as a detection
+  photometry_detection_threshold_nsigma: 3.0
+
+  # whether or not the frontend show photometry validation information
+  # and if the backend allows adding/editing/deleting it
+  photometry_validation: True
+
+  # The airmass value below which to track hours for when plotting
+  # on an object's observability page
+  hours_below_airmass_threshold: 2.9
+
+  color_palette: turbo
+
+weather:
+  # time in seconds to wait before fetching weather for a given telescope
+  refresh_time: 3600.0
+  # Get an API key at OpenWeatherMap https://openweathermap.org/price
+  # the free tier should be sufficent, as we cache the weather results
+  # for each telescope
+  openweather_api_key:
+
+across:
+  # NASA ACROSS joint-visibility integration. Uses the public, unauthenticated
+  # ACROSS API to compute per-instrument visibility for a source; joint windows
+  # are intersected locally. See https://across.sciencecloud.nasa.gov
+  api_url: https://api.across.sciencecloud.nasa.gov/v1
+  # hi_res=true routinely exceeds the ACROSS gateway timeout; keep it off.
+  hi_res: False
+  request_timeout: 20.0
+
+external_logging:
+  papertrail:
+    # get an account at https://papertrailapp.com
+    enabled: False
+    # change url to the correct subdomain for your account
+    # and change the port as well
+    url:
+    port:
+    # which log files, if any do you not want to send over to the 3rd party?
+    excluded_log_files: ["log/websocket_server.log"]
+  sentry:
+    endpoint:
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # Sentry recommends adjusting this value in production.
+    traces_sample_rate: 0.25
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate: 1.0
+
+observability:
+  # Enable OpenTelemetry instrumentation of the Tornado app and expose request
+  # metrics in Prometheus format at /api/internal/metrics. The endpoint requires
+  # a System admin token (scrape with `Authorization: token <id>`). Each app
+  # worker serves its own metrics on its internal port (ports.app_internal +
+  # worker number); point Prometheus at those ports directly rather than the
+  # load-balanced public endpoint. Disabled by default.
+  enabled: False
+  service_name: skyportal
+
+cron:
+  # - interval: 60
+  #  script: jobs/count_unsaved_candidates.py
+  # - interval: 1440
+  #   script: jobs/delete_unsaved_candidates.py
+  #   limit: ["01:00", "02:00"]
+
+twilio:
+  # Twilio Sendgrid API configs
+  # This needs to be set to a valid, Sendgrid-registered address in config.yaml
+  from_email:
+  # This needs to be obtained via Sendgrid setup on their site
+  sendgrid_api_key:
+
+  # Twilio SMS API configs
+  # These values must be valid ones from the Twitter API console
+  from_number:
+  sms_account_sid:
+  sms_auth_token:
+
+smtp:
+  from_email:  # This is both the email used to authenticate with smtplib and the sender address
+  password:
+  host: smtp.gmail.com  # Default Gmail settings; modify as needed
+  port: 587  # Default Gmail settings; modify as needed
+
+# This value needs to be either "sendgrid" or "smtp" (without quotes)
+email_service:
+
+invitations:
+  enabled: False  # If debug_login=True above, invite tokens won't be used during auth
+  days_until_expiry: 3
+  disable_emailing: False  # If True, the app will generate invite tokens but not send emails
+  email_subject: "You've been invited to collaborate on SkyPortal"
+  email_body_preamble: | # This can include HTML tags
+    Welcome to <b>SkyPortal</b>!
+    <br />
+    Some other text here.
+
+notifications:
+  enabled: True
+
+standard_stars:
+  ZTF: data/ztf_standards.csv
+  ESO: data/eso_standards.csv
+
+# Parameters for the thumbnail classification function which labels
+# images as grayscale or colored. See utils/thumbnail.py for the function.
+image_grayscale_params:
+  thumb_size: 40
+  MSE_cutoff: 22
+  adjust_color_bias: True
+
+slack:
+  microservice_port: 64100
+  expected_url_preamble: "https://hooks.slack.com/"
+
+spectrum_types:
+  types:
+   - source
+   - host
+   - host_center
+  default: source
+
+cross_match:
+  gaia:
+    catalog: "gaiaedr3.gaia_source"
+    radius: 2.0
+    limmag: 20.5
+    number: 1
+
+
+# define the additional passbands that are not in SNCosmo
+# (https://sncosmo.readthedocs.io/en/stable/bandpass-list.html)
+# the names must be unique. The wavelength array should
+# describe the full extent of the bandpass in Angstrom
+# and the transmission should be a vector of the same
+# length that defines the full Quantum Efficiency at each wavelength.
+# must have at least two elements in the arrays
+# `wavelength` and `transmission`.
+additional_bandpasses:
+#  - name: 'atlasc'
+#    filterset: 'atlas'
+#    wavelength: [4150, 4157, 6556, 6560]
+#    transmission: [0, 1, 1, 0]
+#    description: "basic ATLAS C filter - tophat transmission"
+#  - name: 'atlaso'
+#    filterset: 'atlas'
+#    wavelength: [5580, 5582, 8249, 8250]
+#    transmission: [0, 1, 1, 0]
+#    description: "basic ATLAS O filter - tophat transmission"
+  - name: 'swiftxrt'
+    filterset: 'xrt'
+    wavelength: [0.1, 1, 62, 100]
+    transmission: [0, 1, 1, 0]
+    description: "basic XRT filter - tophat transmission"
+  - name: 'nicerxti'
+    filterset: 'xti'
+    wavelength: [0.1, 1.2, 41, 100]
+    transmission: [0, 1, 1, 0]
+    description: "basic XTI filter - tophat transmission"
+
+user:
+  default_role: 'Full user'
+  default_groups: []
+  default_acls: []
+
+ports:
+  app: 5000 # This is the internal port
+  # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
+  # migration_manager:
+  notification_queue: 64610
+  tns_retrieval_queue: 64810
+
+hosts:
+  # Hostnames the application uses to reach its internal microservices. These
+  # default to the loopback address, which is correct for the standard
+  # single-host deployment where every service runs alongside the app. Override
+  # a service's host to run it on a separate host/container (e.g. to scale a
+  # microservice independently, or for a distributed/Kubernetes deployment).
+  migration_manager: 127.0.0.1
+  notification_queue: 127.0.0.1
+  tns_retrieval_queue: 127.0.0.1
+  slack: 127.0.0.1
+
+gcn:
+  server: gcn.nasa.gov
+  # you can obtain a client_id and client_secret at https://gcn.nasa.gov/quickstart
+  # you can set a group_id to remember the last GCN the app ingested from the stream
+  client_group_id:
+  client_id:
+  client_secret:
+  notice_types:
+    # notices come in 2 formats: VOEVENT and JSON
+    # You can get the notice types from the GCN website
+    # First create some credentials at https://gcn.nasa.gov/quickstart/
+    # Select the notices you are interested in, and the autogenerated
+    # code will give you the notice types / topics to include here
+    voevent:
+      - gcn.notices.svom.voevent.grm
+      - gcn.notices.svom.voevent.eclairs
+      - gcn.classic.voevent.FERMI_GBM_FLT_POS
+      - gcn.classic.voevent.FERMI_GBM_GND_POS
+      - gcn.classic.voevent.FERMI_GBM_FIN_POS
+      - gcn.classic.voevent.FERMI_GBM_SUBTHRESH
+      - gcn.classic.voevent.SWIFT_BAT_GRB_POS_ACK
+      - gcn.classic.voevent.SWIFT_XRT_POSITION
+      # - gcn.classic.voevent.AMON_ICECUBE_COINC
+      # - gcn.classic.voevent.AMON_ICECUBE_HESE
+      - gcn.classic.voevent.ICECUBE_ASTROTRACK_GOLD
+      - gcn.classic.voevent.ICECUBE_ASTROTRACK_BRONZE
+      # - gcn.classic.voevent.MAXI_UNKNOWN
+    json:
+      - igwn.gwalert
+      - gcn.notices.einstein_probe.wxt.alert
+      - gcn.notices.swift.bat.guano
+      # - gcn.notices.icecube.lvk_nu_track_search
+  reject_tags: # reject notices with these tags (optional)
+    - MDC
+    - ECLAIRs-Catalog
+  summary:
+    acknowledgements:
+      - The SkyPortal project acknowledges the generous support of The Gordon and Betty Moore Foundation.
+  source_radius_threshold: 8.0 # max skymap cone radius to create a source, in arcmin
+
+health_monitor:
+  seconds_between_checks: 30.5
+  allowed_downtime_seconds: 120
+  allowed_times_down: 3
+  request_timeout_seconds: 30
+  # How long do we give apps after restart to become healthy
+  startup_grace_seconds: 30
+
+analysis_services:
+  analysis_folder: persistentdata/analysis
+  max_analysis_per_obj_per_user: 50
+  sn_analysis_service:
+    port: 6801
+  ngsf_analysis_service:
+    port: 7001
+  spectral_cube_analysis_service:
+    port: 7002
+  openai_analysis_service:
+    port: 7003
+    summary:
+      # set this global API key if the project
+      # will pay for the OpenAI costs. Otherwise
+      # individual users need to set their own key
+      # in the user preferences
+      # Get a global key at:
+      #   https://platform.openai.com/account/api-keys
+      api_key:
+      temperature: 0.3
+      max_tokens: 350
+      top_p: 1.0
+      frequency_penalty: 0.0
+      model: o4-mini
+      presence_penalty: 1.0
+      prompt: Using markdown (including URL links), in one succinct (less than 250 words) paragraph written in the 3rd person summarize the following comments about this astronomical source.  If classifications and/or the redshift are given, then note those in the summary. This will be read by expert astrophysicists, so no need to explain known concepts and definitions.
+    embeddings_store:
+      summary:
+        location: pinecone
+        api_key:
+        index_name: openai-skyportal-summary
+        index_size: 1536
+        model: text-embedding-3-small
+        cloud: aws
+        region: us-east-1
+
+
+
+comments_folder: persistentdata/comments
+localizations_folder: persistentdata/localizations
+photometric_series_folder: persistentdata/phot_series
+photometric_series_autodelete: True
+
+colors:
+  classifications:
+    classification:
+      # A few examples that show up in the demo data. You can modify the config on deploy to fill out the colors and types you want.
+      {
+        "variable": "#3a87ad",
+        "Time-domain Source": "#ff0000",
+      }
+    origin:
+      {
+        "SCoPe": "#3a87ad",
+      }
+  gcnTags:
+    {
+      "BNS": "#468847",
+      "NSBH": "#b94a48",
+      "BBH": "#333333",
+      "GRB": "#f89406",
+      "AMON": "#3a87ad",
+      "Significant": "#8B008B",
+      "retracted": "#ffffff",
+    }
+
+  summary_sources:
+  - score: 0.9
+    fw: bold
+    col: green
+  - score: 0.8
+    fw: bold
+    col: black
+  - score: 0.7
+    fw: normal
+    col: black
+  - score: 0.0
+    fw: normal
+    col: grey
+
+docs:
+  servers:
+    - url: http://localhost:5000
+      description: Development server
+    - url: https://skyportal.io
+      description: Production server
