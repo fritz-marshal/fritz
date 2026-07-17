@@ -4,8 +4,6 @@ import concurrent
 from skyportal.app_server import make_app
 from skyportal.handlers.api.boom import (
     BoomAlertHandler,
-    BoomCatalogNamesHandler,
-    BoomCrossMatchHandler,
     BoomCutoutHandler,
     BoomFilterHandler,
     BoomFilterModulesHandler,
@@ -43,8 +41,6 @@ fritz_handlers = [
         BoomObjectHandler,
     ),
     (r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/alerts/cutouts", BoomCutoutHandler),
-    (r"/api/boom/archive/catalogs", BoomCatalogNamesHandler),
-    (r"/api/boom/archive/cross_match", BoomCrossMatchHandler),
     # Kowalski API endpoints
     (r"/api/kowalski/filters/([0-9]+)?/v", KowalskiFilterHandler),
     (r"/api/kowalski/alerts(/.+)?", KowalskiAlertHandler),
