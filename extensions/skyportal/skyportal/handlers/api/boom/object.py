@@ -124,9 +124,19 @@ async def make_survey2instrumentid(session: Session):
     return {"ZTF": ztf_instrument_id, "LSST": lsst_instrument_id}
 
 
-async def process_photometry(
-    object_id, survey, data, survey2instrumentid, programid2streamid, user, session
+def build_photometry_groups(
+    object_id, survey, data, survey2instrumentid, programid2streamid
 ):
+    """Transform raw BOOM arrays into per-(survey, programid) photometry groups.
+
+    Each group holds SkyPortal-unit arrays (MJD, Jy flux, AB) plus the
+    ``stream_ids`` that gate its visibility. This is the single shared source of
+    the unit conversions and the programid->stream mapping, used by both the
+    persisting path (:func:`process_photometry`) and the ephemeral
+    broker-canonical passthrough cache, so the two can never drift — which is
+    what keeps the passthrough's access-scope filtering faithful to what the
+    persisted rows would have been.
+    """
     instrument_id = survey2instrumentid.get(survey)
     if instrument_id is None:
         raise ValueError(f"No instrument found for survey {survey}")
@@ -190,8 +200,18 @@ async def process_photometry(
             photometry_data[key]["ra"].append(phot.get("ra"))
             photometry_data[key]["dec"].append(phot.get("dec"))
 
-    for key, data in photometry_data.items():
-        await add_external_photometry(data, user, session)
+    return photometry_data
+
+
+async def process_photometry(
+    object_id, survey, data, survey2instrumentid, programid2streamid, user, session
+):
+    """Transform raw BOOM arrays and persist them to Postgres."""
+    photometry_data = build_photometry_groups(
+        object_id, survey, data, survey2instrumentid, programid2streamid
+    )
+    for _key, group in photometry_data.items():
+        await add_external_photometry(group, user, session)
 
 
 class BoomObjectHandler(BaseHandler):
