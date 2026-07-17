@@ -72,11 +72,13 @@ export const {
   usePutFilterElementMutation,
 } = boomFilterModulesApi;
 
-// Shared read of the filter schema for the current boom filter version's survey.
-// Replaces the ambient `state.filter_modules.schema` slice; RTK Query dedupes so
-// the builder and its condition components share one request/cache entry.
-export const useFilterSchema = () => {
+// Shared read of the filter schema. Defaults to the current boom filter
+// version's survey, but a caller without a filter version (the standalone Lasair
+// query builder) can pass the survey explicitly. Replaces the ambient
+// `state.filter_modules.schema` slice; RTK Query dedupes so the builder and its
+// condition components share one request/cache entry.
+export const useFilterSchema = (surveyOverride?: string) => {
   const { data: filterVersion } = useBoomFilterVersion();
-  const survey = filterVersion?.stream?.name?.split(" ")[0];
+  const survey = surveyOverride ?? filterVersion?.stream?.name?.split(" ")[0];
   return useGetFilterSchemaQuery(survey ?? "", { skip: !survey });
 };
