@@ -25,7 +25,7 @@ from ....models import (
 from ....utils.asynchronous import run_async
 from ....utils.parse import str_to_bool
 from ...base import BaseHandler
-from ..photometry import add_external_photometry
+from ..photometry import commit_external_photometry
 from .utils import (
     add_thumbnails,
     boom_available,
@@ -204,14 +204,17 @@ def build_photometry_groups(
 
 
 async def process_photometry(
-    object_id, survey, data, survey2instrumentid, programid2streamid, user, session
+    object_id, survey, data, survey2instrumentid, programid2streamid, user
 ):
     """Transform raw BOOM arrays and persist them to Postgres."""
     photometry_data = build_photometry_groups(
         object_id, survey, data, survey2instrumentid, programid2streamid
     )
     for _key, group in photometry_data.items():
-        await add_external_photometry(group, user, session)
+        # commit_external_photometry uses its own session; add_external_photometry
+        # on the caller's session commits mid-request, expiring the accessor and
+        # tripping the final verify under async. The Obj must already be committed.
+        await commit_external_photometry(group, user.id)
 
 
 class BoomObjectHandler(BaseHandler):
@@ -552,10 +555,10 @@ class BoomObjectHandler(BaseHandler):
                         )
                     )
 
-            # Persist the Obj before process_photometry: the app runs with
-            # autoflush=False, and add_external_photometry validates that obj_id
-            # already exists ("Invalid object ID" otherwise).
-            await session.flush()
+            # Commit the Obj before process_photometry: commit_external_photometry
+            # persists in its own session, so the Obj must be durable (not just
+            # flushed) for its obj_id to validate.
+            await session.commit()
 
             await process_photometry(
                 object_id,
@@ -564,7 +567,6 @@ class BoomObjectHandler(BaseHandler):
                 survey2instrumentid,
                 programid2streamid,
                 user,
-                session,
             )
 
             other_obj = None
@@ -616,9 +618,9 @@ class BoomObjectHandler(BaseHandler):
                             origin="BOOM",
                         )
                         session.add(other_obj)
-                    # Same as above: flush so the cross-survey Obj exists before
-                    # add_external_photometry validates its obj_id.
-                    await session.flush()
+                    # Same as above: commit so the cross-survey Obj is durable
+                    # before commit_external_photometry (own session) validates it.
+                    await session.commit()
                     await process_photometry(
                         other_alert["_id"],
                         other_survey,
@@ -626,7 +628,6 @@ class BoomObjectHandler(BaseHandler):
                         survey2instrumentid,
                         programid2streamid,
                         user,
-                        session,
                     )
 
                     existing_associations = (
