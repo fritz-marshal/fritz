@@ -299,12 +299,36 @@ def test_passthrough_refresh_returns_photometry(
 
 @pytest.mark.requires_boom_data
 def test_passthrough_populates_phot_stat(
-    upload_data_token, super_admin_token, public_group, boom_seed_oid
+    upload_data_token, super_admin_token, public_group, boom_seed_oid, ztf_camera
 ):
     """A passthrough fetch fires a (fire-and-forget) PhotStat recompute over the
-    full DB + broker photometry, so listings/scanning reflect broker data. We
+    full DB + broker photometry, so listings/scanning reflect it. We post a
+    distinctive DB detection first (deterministic, independent of whether the
+    seeded broker object happens to carry any detections of its own — its aux
+    points can be all non-detections) and confirm the recompute reflects it. We
     poll because the update runs in the background after the response returns."""
     _save_object(upload_data_token, public_group, boom_seed_oid)
+
+    # A distinctive detection at an epoch far from any real ZTF point, so the
+    # recompute has at least one detection to report regardless of the seeded
+    # object's own photometry.
+    status, _ = api(
+        "POST",
+        "photometry",
+        data={
+            "obj_id": boom_seed_oid,
+            "mjd": 40000.0,
+            "instrument_id": ztf_camera.id,
+            "flux": 12.24,
+            "fluxerr": 0.031,
+            "zp": 25.0,
+            "magsys": "ab",
+            "filter": "ztfg",
+            "group_ids": [public_group.id],
+        },
+        token=upload_data_token,
+    )
+    assert status == 200
 
     status, _ = api(
         "GET", f"{_phot_url(boom_seed_oid)}?refresh=true", token=super_admin_token
