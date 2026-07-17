@@ -167,3 +167,34 @@ def test_save_alert_as_source(page, boom_seed_oid, public_group, super_admin_tok
         f"Source {boom_seed_oid} never appeared after submit "
         f"(last GET /sources status={last_status})"
     )
+
+
+@pytest.mark.requires_boom_data
+def test_saved_alert_shows_group_chips(
+    page, boom_seed_oid, public_group, super_admin_token
+):
+    """Regression: once saved, the alert detail page must render the source's
+    group chips (the "saved" state), not "NOT SAVED".
+
+    The saved check reads GET /api/source_exists, whose {status, data, version}
+    envelope skyportalBaseQuery strips — so Alert.tsx must read
+    ``result.data.source_exists`` directly. It previously tested the pre-unwrap
+    shape (``result.data.status``/``result.data.data.source_exists``), which is
+    always undefined, so every alert rendered "NOT SAVED" with no group chips.
+    """
+    # Save the object as a Source up front (the UI save flow itself is covered
+    # by test_save_alert_as_source); we only need the saved state on page load.
+    status, _ = api(
+        "POST",
+        f"boom/surveys/ZTF/objects/{boom_seed_oid}",
+        data={"group_ids": [public_group.id]},
+        token=super_admin_token,
+    )
+    assert status == 200
+
+    page.goto(f"/alerts/ZTF/{boom_seed_oid}")
+    # The saved branch renders one chip per group (data-testid=groupChip_<id>);
+    # the bug always fell through to a bare "NOT SAVED" chip instead.
+    expect(
+        page.locator(f"//*[@data-testid='groupChip_{public_group.id}']").first
+    ).to_be_visible(timeout=30000)
