@@ -172,13 +172,15 @@ def test_save_alert_as_source(page, boom_seed_oid, public_group, super_admin_tok
         )
 
     # Regression for the alert saved-state: re-open the detail page (as the same
-    # user who just saved it, so the Source is visible) and confirm it renders a
-    # chip per group (data-testid=groupChip_<id>) rather than "NOT SAVED". The
-    # check reads GET /api/source_exists, whose {status, data, version} envelope
-    # skyportalBaseQuery strips — Alert.tsx must read result.data.source_exists
-    # directly; it previously read the pre-unwrap shape and always fell through
-    # to "NOT SAVED".
+    # user who just saved it, so the Source is visible) and confirm it renders
+    # the saved branch ("Previously Saved") instead of "NOT SAVED". That branch
+    # is gated on the GET /api/source_exists check, whose {status, data, version}
+    # envelope skyportalBaseQuery strips — Alert.tsx must read
+    # result.data.source_exists directly; it previously read the pre-unwrap shape
+    # and always fell through to "NOT SAVED". Asserted on the branch's own chip
+    # rather than the per-group chips, which need the lazy getSource to have
+    # resolved with groups too.
     page.goto(f"/alerts/ZTF/{boom_seed_oid}")
     expect(
-        page.locator(f"//*[@data-testid='groupChip_{public_group.id}']").first
+        page.locator("//*[contains(text(),'Previously Saved')]").first
     ).to_be_visible(timeout=30000)
