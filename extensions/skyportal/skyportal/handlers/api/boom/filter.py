@@ -66,7 +66,7 @@ class BoomFilterHandler(BaseHandler):
                         headers = {
                             "Authorization": f"Bearer {boom_token}",
                         }
-                        response = requests.get(url, headers=headers)
+                        response = requests.get(url, headers=headers, timeout=10)
                         response.raise_for_status()
 
                         f.fv = response.json()["data"]["fv"]
@@ -147,7 +147,7 @@ class BoomFilterHandler(BaseHandler):
                     }
 
                     response = requests.post(
-                        data_url, json=data_payload, headers=headers
+                        data_url, json=data_payload, headers=headers, timeout=10
                     )
                     if not response.ok:
                         # Surface BOOM's actual rejection message instead
@@ -200,7 +200,7 @@ class BoomFilterHandler(BaseHandler):
                         "Content-Type": "application/json",
                     }
                     response = requests.post(
-                        data_url, json=data_payload, headers=headers
+                        data_url, json=data_payload, headers=headers, timeout=10
                     )
                     response.raise_for_status()
 
@@ -294,7 +294,9 @@ class BoomFilterHandler(BaseHandler):
                     "Authorization": f"Bearer {boom_token}",
                     "Content-Type": "application/json",
                 }
-                response = requests.patch(data_url, json=data_payload, headers=headers)
+                response = requests.patch(
+                    data_url, json=data_payload, headers=headers, timeout=10
+                )
                 response.raise_for_status()
             elif "autoAnnotate" in data:
                 f.altdata["autoAnnotate"] = data["autoAnnotate"]
