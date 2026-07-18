@@ -6,6 +6,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 
 import { useGetFilterQuery } from "../../ducks/filter";
 import { useGetGroupsQuery } from "../../ducks/groups";
+import { useGetBrokersQuery } from "../../ducks/brokers";
+import { setBrokerFilterTarget } from "../../ducks/brokerFilterTarget";
 
 import BoomFilterPlugins from "./boom/BoomFilterPlugins";
 import KowalskiFilterPlugins from "./kowalski/KowalskiFilterPlugins";
@@ -67,6 +69,13 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
     }
   }, [fid, filter]);
 
+  // The boom filter builder now uses SkyPortal's per-broker endpoints
+  // (/api/brokers/{id}/filters), so it needs the BOOM broker targeted.
+  const { data: brokers } = useGetBrokersQuery();
+  const boomBrokerId = (brokers || []).find(
+    (b: any) => b.broker_classname === "BOOMBROKER" && b.active,
+  )?.id;
+
   const { data: groupsData } = useGetGroupsQuery();
   const allGroups = groupsData?.all;
 
@@ -85,6 +94,14 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
   }
 
   if (filterOrigin === "boom") {
+    if (boomBrokerId == null) {
+      return (
+        <Paper className={classes.paperDiv}>
+          <CircularProgress />
+        </Paper>
+      );
+    }
+    setBrokerFilterTarget(boomBrokerId);
     return <BoomFilterPlugins group={group} />;
   } else if (filterOrigin === "kowalski") {
     return <KowalskiFilterPlugins group={group} />;
