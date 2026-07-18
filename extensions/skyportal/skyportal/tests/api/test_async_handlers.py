@@ -26,11 +26,8 @@ HANDLER_MODULES = [
     "skyportal.handlers.api.kowalski.archive",
     "skyportal.handlers.api.kowalski.filter",
     "skyportal.handlers.api.kowalski_filter",
-    "skyportal.handlers.api.boom.alert",
-    "skyportal.handlers.api.boom.cutout",
     "skyportal.handlers.api.boom.filter",
     "skyportal.handlers.api.boom.filter_modules",
-    "skyportal.handlers.api.boom.object",
     "skyportal.handlers.api.boom.run_filter",
     "skyportal.handlers.api.db_stats",
 ]

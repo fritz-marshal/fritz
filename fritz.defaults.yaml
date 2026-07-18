@@ -157,10 +157,6 @@ skyportal:
         component: group/GroupSources
       - path: "/user_management"
         component: user/UserManagement
-      - path: "/alerts"
-        component: alert/Alerts
-      - path: "/alerts/:survey/:id"
-        component: alert/Alert
       - path: "/brokers"
         component: broker/BrokerAlerts
       - path: "/brokers/:brokerId/filter/:fid"
@@ -267,7 +263,7 @@ skyportal:
 
           - name: Alerts
             icon: Explore
-            url: /alerts
+            url: /brokers
 
           - name: Persistent Sources
             icon: CloudCircle

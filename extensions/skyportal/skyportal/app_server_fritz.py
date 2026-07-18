@@ -3,12 +3,8 @@ import concurrent
 
 from skyportal.app_server import make_app
 from skyportal.handlers.api.boom import (
-    BoomAlertHandler,
-    BoomCutoutHandler,
     BoomFilterHandler,
     BoomFilterModulesHandler,
-    BoomObjectHandler,
-    BoomPhotometryHandler,
     BoomRunFilterHandler,
 )
 from skyportal.handlers.api.kowalski import (
@@ -25,22 +21,11 @@ from skyportal.handlers.api.kowalski import (
 
 # Fritz-specific API endpoints
 fritz_handlers = [
-    # BOOM API endpoints
+    # BOOM filter-builder API (alerts/objects/cutouts/photometry are now served
+    # natively by SkyPortal's broker framework at /api/brokers/{id}/...).
     (r"/api/boom/filters(/.*)", BoomFilterHandler),
     (r"/api/boom/filter_modules(/.*)?", BoomFilterModulesHandler),
     (r"/api/boom/run_filter", BoomRunFilterHandler),
-    (r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/alerts", BoomAlertHandler),
-    # Ephemeral photometry passthrough — registered before the object route so
-    # the more specific `/photometry` path is matched first.
-    (
-        r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/objects/([0-9A-Za-z-_\.\+]+)/photometry",
-        BoomPhotometryHandler,
-    ),
-    (
-        r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/objects/([0-9A-Za-z-_\.\+]+)",
-        BoomObjectHandler,
-    ),
-    (r"/api/boom/surveys/([0-9A-Za-z-_\.]+)/alerts/cutouts", BoomCutoutHandler),
     # Kowalski API endpoints
     (r"/api/kowalski/filters/([0-9]+)?/v", KowalskiFilterHandler),
     (r"/api/kowalski/alerts(/.+)?", KowalskiAlertHandler),
