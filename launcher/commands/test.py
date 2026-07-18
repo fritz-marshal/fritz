@@ -9,18 +9,17 @@ from launcher.skyportal import api as skyportal_api
 
 _SCOPE_TO_SUBDIRS = {
     "api": ["api/boom"],
-    "frontend": ["frontend/boom"],
-    "all": ["api/boom", "frontend/boom"],
+    "all": ["api/boom"],
 }
 
 
 def test(scope: str = "all"):
     """Run the integration test suite.
 
-    scope: which test slice to run.
-        api      → just BOOM API tests (no browser/Firefox needed)
-        frontend → just BOOM frontend tests (requires Firefox)
-        all      → both (default)
+    scope: which test slice to run (only the BOOM API tests remain; the alert
+        page is now served natively by SkyPortal and tested there).
+        api      → BOOM API tests
+        all      → same as api (default)
     """
     if scope not in _SCOPE_TO_SUBDIRS:
         print(f"Unknown test scope '{scope}'. Choose: {list(_SCOPE_TO_SUBDIRS)}")
@@ -104,8 +103,8 @@ def test(scope: str = "all"):
     # Discover fritz-specific BOOM test files on the host, then translate
     # the paths to where they land inside the container.
     #
-    # We deliberately scope to the boom/ subdirs (api and frontend) rather
-    # than rglob'ing the whole tests/ tree. The legacy api/test_alerts.py,
+    # We deliberately scope to the boom/ subdirs rather than rglob'ing the
+    # whole tests/ tree. The legacy api/test_alerts.py,
     # test_archive.py, test_kowalski_filters.py and
     # api_tests/.../test_filters.py all fail with
     # `TypeError: 'module' object is not callable` because of a name
@@ -141,22 +140,9 @@ def test(scope: str = "all"):
         "pytest-rerunfailures pytest-randomly==4.0.1"
     )
 
-    # Firefox is only needed for frontend tests (the Playwright `page` fixture
-    # in skyportal/tests/test_util.py launches Playwright's bundled Firefox).
-    # The CI workflow apt-installs firefox-esr as root beforehand to provide the
-    # required system libraries; here (as the skyportal user) we install
-    # Playwright's own Firefox build into the user browser cache.
-    # FRONTEND_TEST_HEADLESS=1 tells the fixture to launch headless, since the
-    # CI container has no display.
-    needs_firefox = "frontend/boom" in boom_subdirs
-
     docker_exec_args = ["docker", "exec", "-i"]
-    if needs_firefox:
-        docker_exec_args.extend(["-e", "FRONTEND_TEST_HEADLESS=1"])
 
     pre_pytest = f"source .venv/bin/activate && uv pip install --quiet {test_deps}"
-    if needs_firefox:
-        pre_pytest += " && playwright install firefox"
 
     command = docker_exec_args + [
         "skyportal-web-1",

@@ -435,28 +435,9 @@ jobs:
           docker exec -i skyportal-web-1 cat /tmp/boom_seed.json
 
       # ── Tests ──────────────────────────────────────────────────────────
-      # Split mirrors skyportal's CI structure: one job, multiple pytest
-      # invocations against slices of the test tree. Sharing the stack
-      # build across the steps; failures in one don't mask the other.
+      # BOOM API tests (the alert page is now native SkyPortal, tested there).
       - name: Run API tests
         run: ./fritz test api
-
-      # The container runs as the `skyportal` user (Dockerfile line 75);
-      # apt requires root. Install Firefox here via a dedicated root exec
-      # so the launcher itself can stay user-mode.
-      - name: Install Firefox in container (for frontend tests)
-        if: always()
-        run: |
-          docker exec -i -u root skyportal-web-1 /bin/bash -c "
-            command -v firefox >/dev/null 2>&1 || (
-              apt-get update >/dev/null &&
-              apt-get install -y --no-install-recommends firefox-esr >/dev/null
-            )
-          "
-
-      - name: Run frontend tests
-        if: always()
-        run: ./fritz test frontend
 
       # ── Diagnostics on failure ─────────────────────────────────────────
       - name: Dump skyportal logs on failure
