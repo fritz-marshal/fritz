@@ -664,29 +664,9 @@ skyportal:
     disabled:
       - dask
     external:
-      boom:
-        repo: https://github.com/fritz-marshal/boom-skyportal-plugin.git
-        rev: main
-        # One consumer per alert stream (ZTF, LSST, WINTER); Kafka distributes
-        # the topic partitions across them. Bounded by partition count + DB.
-        numprocs: 3
-        params:
-          kafka:
-            host: kafka-1
-            port: 9092
-            username: readonly
-            password: readonlysecret
-            sasl_mechanism: SCRAM-SHA-512
-            topics:
-              - ZTF_alerts_results
-              - LSST_alerts_results
-              - WINTER_alerts_results
-          api:
-            protocol: http
-            host: boom-api-1
-            port: 4000
-            username: admin
-            password: adminsecret
+      # The BOOM alert ingestion is now handled natively by SkyPortal's generic
+      # broker_ingest service (driven by the BOOM Broker record's kafka altdata),
+      # so the old boom-skyportal-plugin listener has been retired.
       osg:
         repo: https://github.com/skyportal/osg-skyportal-plugin.git
         rev: main
@@ -727,6 +707,13 @@ skyportal:
           auth:
             # Real value provided via the sops-managed config secret at deploy.
             incoming_bearer_token: CHANGEME_SHARED_SECRET
+
+  brokers:
+    # Run the native in-core ingestion service (services/broker_ingest), which
+    # replaces the retired boom-skyportal-plugin listener. It consumes each
+    # active broker's stream (BOOM's kafka config lives on the Broker record's
+    # altdata) and ingests alerts via the shared save transform.
+    ingest_enabled: True
 
   misc:
     days_to_keep_unsaved_candidates: 7
