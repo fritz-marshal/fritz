@@ -177,6 +177,8 @@ class StatsHandler(BaseHandler):
                         .order_by(CronJobRun.created_at.desc())
                     )
                 ).first()
+                if cron_job_run is None:
+                    continue
                 data["Latest cron job run times & statuses"].append(
                     {
                         "summary": f"{script} ran at {cron_job_run.created_at} with exit status {cron_job_run.exit_status}",
