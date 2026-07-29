@@ -1,6 +1,6 @@
-import requests
 from typing import Any
 
+import requests
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import joinedload
 
@@ -10,6 +10,7 @@ from ...models import Filter
 from ..base import BaseHandler
 from .boom.utils import boom_token, boom_url, get_boom_token
 from .group import has_admin_access_for_group
+
 
 class FilterPostBody(BaseModel):
     """Request body for creating a filter."""
@@ -24,10 +25,12 @@ class FilterPostBody(BaseModel):
         description="Arbitrary additional JSON data associated with the Filter.",
     )
 
+
 class FilterPostResponse(BaseModel):
     """Data payload returned when creating a filter."""
 
     id: int = Field(description="New filter ID")
+
 
 class FilterPatchBody(BaseModel):
     """Request body for updating a filter."""
@@ -49,6 +52,7 @@ class FilterPatchBody(BaseModel):
         description="ID of the Filter's Stream. Cannot be changed; accepted "
         "only if it matches the current value.",
     )
+
 
 class FilterHandler(BaseHandler):
     @auth_or_token
