@@ -158,11 +158,11 @@ skyportal:
       - path: "/user_management"
         component: user/UserManagement
       - path: "/brokers"
-        component: broker/BrokerAlerts
+        component: broker/BrokerList
+      - path: "/brokers/:brokerId"
+        component: broker/Broker
       - path: "/brokers/:brokerId/filter/:fid"
         component: broker/BrokerFilterPage
-      - path: "/broker_admin"
-        component: broker/BrokerAdmin
       - path: "/archive"
         component: archive/Archive
       - path: "/upload_spectrum/:id"
@@ -261,10 +261,6 @@ skyportal:
             icon: Star
             url: /favorites
 
-          - name: Alerts
-            icon: Explore
-            url: /brokers
-
           - name: Persistent Sources
             icon: CloudCircle
             url: /archive
@@ -328,6 +324,10 @@ skyportal:
             icon: HourglassEmptyOutlined
             url: /allocations
 
+          - name: Brokers
+            icon: Hub
+            url: /brokers
+
           - name: Observations
             icon: ZoomInOutlined
             url: /observations
@@ -381,10 +381,6 @@ skyportal:
             icon: Group
             permissions: ["Manage users", "System admin"]
             url: /user_management
-          - name: Brokers
-            icon: Hub
-            permissions: ["System admin"]
-            url: /broker_admin
 
     security:
       strict: true
