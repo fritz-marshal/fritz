@@ -5,6 +5,7 @@ import { makeStyles } from "tss-react/mui";
 import CircularProgress from "@mui/material/CircularProgress";
 
 import { useGetFilterQuery } from "../../ducks/filter";
+import { useGetBrokersQuery } from "../../ducks/brokers";
 import { setBrokerFilterTarget } from "../../ducks/brokerFilterTarget";
 
 import BoomFilterPlugins from "./boom/BoomFilterPlugins";
@@ -22,7 +23,8 @@ const useStyles = makeStyles()(() => ({
 }));
 
 // Skyportal's FilterPlugins renders the broker builder for any filter with a
-// broker_id. Fritz adds the Kowalski fallback for filters that predate it.
+// broker_id, defaulting to BOOM when it has none. Fritz adds the Kowalski
+// fallback, which takes precedence for the filters that predate broker_id.
 const FilterPlugins = ({ group }: FilterPluginsProps) => {
   const { classes } = useStyles();
 
@@ -31,6 +33,7 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
   const { data: filter } = useGetFilterQuery(fid ?? "", {
     skip: !fid,
   }) as any;
+  const { data: brokers } = useGetBrokersQuery();
   const [kowalski, setKowalski] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -65,7 +68,20 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
     );
   }
 
-  return kowalski ? <KowalskiFilterPlugins group={group} /> : <></>;
+  if (kowalski) {
+    return <KowalskiFilterPlugins group={group} />;
+  }
+
+  // A filter that is neither broker-attached nor from Kowalski is newly
+  // created; the backend attaches it to BOOM on its first version.
+  const boomBrokerId = brokers?.find(
+    (broker: any) => broker.broker_classname === "BOOMBROKER",
+  )?.id;
+  if (!boomBrokerId) {
+    return <></>;
+  }
+  setBrokerFilterTarget(boomBrokerId);
+  return <BoomFilterPlugins />;
 };
 
 export default FilterPlugins;
