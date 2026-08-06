@@ -11,10 +11,25 @@ import uuid
 
 import pytest
 
-from baselayer.app.env import load_env
+from baselayer.app.config import load_config
 from skyportal.tests import api
 
-_, cfg = load_env()
+
+def _boom_config():
+    """The deployment's `boom.*` block.
+
+    load_env() takes --config from sys.argv, which pytest doesn't pass, so it
+    merges only the *.defaults files -- and `boom` lives in the fritz-generated
+    config.yaml. Read that directly, as the workflow does elsewhere.
+    """
+    for path in ("config.yaml", "test_config.yaml"):
+        if os.path.exists(path):
+            try:
+                return load_config(config_files=[path]).get("boom") or {}
+            except Exception:
+                continue
+    return {}
+
 
 # Path inside the container written by the workflow's "Inject BOOM seed
 # reference" step. Contains the objectId and candid of the first alert
@@ -134,7 +149,7 @@ def boom_broker_id(super_admin_token):
                 yield b["id"]
                 return
 
-    conf = cfg.get("boom") or {}
+    conf = _boom_config()
     if not conf.get("host"):
         pytest.skip("No boom.* configuration to build a BOOMBROKER record from")
 
