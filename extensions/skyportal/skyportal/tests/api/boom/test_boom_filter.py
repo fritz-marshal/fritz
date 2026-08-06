@@ -16,8 +16,10 @@ def test_get_boom_filter(view_only_token, boom_broker_id, boom_filter):
     )
     assert status == 200
     assert data["status"] == "success"
-    for key in ("name", "group_id", "stream_id"):
+    for key in ("id", "name", "group_id", "broker_id"):
         assert key in data["data"]
+    # The stream comes back as a nested object, not a bare stream_id.
+    assert (data["data"].get("stream") or {}).get("id") is not None
     # The BOOM-side provisioning should have stamped altdata.boom.filter_id.
     altdata = data["data"].get("altdata") or {}
     assert isinstance(altdata.get("boom"), dict)
@@ -248,9 +250,22 @@ def test_run_filter_nonpositive_limit_errors(super_admin_token, boom_broker_id):
 # ── /brokers/{id}/filter_modules ─────────────────────────────────────────────
 
 
-def test_filter_modules_missing_elements_errors(view_only_token, boom_broker_id):
+def test_filter_modules_default_returns_schema(view_only_token, boom_broker_id):
+    """`elements` defaults to "schema", which round-trips to BOOM's
+    filters/schemas/{survey} rather than reading the module store."""
     status, data = api(
         "GET", f"brokers/{boom_broker_id}/filter_modules", token=view_only_token
+    )
+    assert status == 200
+    assert data["status"] == "success"
+    assert "schema" in data["data"]
+
+
+def test_filter_modules_invalid_elements_errors(view_only_token, boom_broker_id):
+    status, data = api(
+        "GET",
+        f"brokers/{boom_broker_id}/filter_modules?elements=bogus",
+        token=view_only_token,
     )
     assert status == 400
     assert data["status"] == "error"
