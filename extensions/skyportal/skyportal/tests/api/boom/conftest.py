@@ -11,7 +11,10 @@ import uuid
 
 import pytest
 
+from baselayer.app.env import load_env
 from skyportal.tests import api
+
+_, cfg = load_env()
 
 # Path inside the container written by the workflow's "Inject BOOM seed
 # reference" step. Contains the objectId and candid of the first alert
@@ -120,14 +123,51 @@ def boom_ztf_stream(super_admin_token, public_stream):
 
 @pytest.fixture
 def boom_broker_id(super_admin_token):
-    """Id of an active BOOMBROKER record; the broker filter endpoints are
-    all scoped to one."""
+    """An active BOOMBROKER record, which the broker filter endpoints are all
+    scoped to. Deployments configure BOOM under `boom.*` but don't necessarily
+    seed a broker row, so build one from that config when it's missing.
+    """
     status, data = api("GET", "brokers", token=super_admin_token)
     if status == 200:
         for b in data.get("data", []) or []:
             if b.get("broker_classname") == "BOOMBROKER" and b.get("active"):
-                return b["id"]
-    pytest.skip("No active BOOMBROKER record configured")
+                yield b["id"]
+                return
+
+    conf = cfg.get("boom") or {}
+    if not conf.get("host"):
+        pytest.skip("No boom.* configuration to build a BOOMBROKER record from")
+
+    altdata = {
+        key: conf[key]
+        for key in ("protocol", "host", "port", "username", "password")
+        if conf.get(key) is not None
+    }
+    status, data = api(
+        "POST",
+        "brokers",
+        data={
+            "name": f"boom_{uuid.uuid4().hex[:8]}",
+            "broker_classname": "BOOMBROKER",
+            "altdata": altdata,
+        },
+        token=super_admin_token,
+    )
+    assert status == 200, data
+    broker_id = data["data"]["id"]
+
+    # BOOMBROKER implements test_connection, so it is created inactive and the
+    # activation PATCH is what checks the credentials against the live service.
+    status, data = api(
+        "PATCH", f"brokers/{broker_id}", data={"active": True}, token=super_admin_token
+    )
+    if status != 200:
+        api("DELETE", f"brokers/{broker_id}", token=super_admin_token)
+        pytest.skip(f"BOOM refused the configured credentials: {data.get('message')}")
+
+    yield broker_id
+
+    api("DELETE", f"brokers/{broker_id}", token=super_admin_token)
 
 
 @pytest.fixture
