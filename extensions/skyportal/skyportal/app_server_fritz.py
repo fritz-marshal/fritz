@@ -2,11 +2,6 @@ import asyncio
 import concurrent
 
 from skyportal.app_server import make_app
-from skyportal.handlers.api.boom import (
-    BoomFilterHandler,
-    BoomFilterModulesHandler,
-    BoomRunFilterHandler,
-)
 from skyportal.handlers.api.kowalski import (
     KowalskiAlertAuxHandler,
     KowalskiAlertCutoutHandler,
@@ -21,11 +16,6 @@ from skyportal.handlers.api.kowalski import (
 
 # Fritz-specific API endpoints
 fritz_handlers = [
-    # BOOM filter-builder API (alerts/objects/cutouts/photometry are now served
-    # natively by SkyPortal's broker framework at /api/brokers/{id}/...).
-    (r"/api/boom/filters(/.*)", BoomFilterHandler),
-    (r"/api/boom/filter_modules(/.*)?", BoomFilterModulesHandler),
-    (r"/api/boom/run_filter", BoomRunFilterHandler),
     # Kowalski API endpoints
     (r"/api/kowalski/filters/([0-9]+)?/v", KowalskiFilterHandler),
     (r"/api/kowalski/alerts(/.+)?", KowalskiAlertHandler),

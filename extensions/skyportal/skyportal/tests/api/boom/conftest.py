@@ -119,13 +119,26 @@ def boom_ztf_stream(super_admin_token, public_stream):
 
 
 @pytest.fixture
-def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream):
+def boom_broker_id(super_admin_token):
+    """Id of an active BOOMBROKER record; the broker filter endpoints are
+    all scoped to one."""
+    status, data = api("GET", "brokers", token=super_admin_token)
+    if status == 200:
+        for b in data.get("data", []) or []:
+            if b.get("broker_classname") == "BOOMBROKER" and b.get("active"):
+                return b["id"]
+    pytest.skip("No active BOOMBROKER record configured")
+
+
+@pytest.fixture
+def boom_filter(super_admin_token, boom_broker_id, boom_ztf_stream, group_with_stream):
     """A SkyPortal Filter provisioned on the BOOM side.
 
     Two-step setup, mirroring the frontend:
       1. POST /filters to create the SkyPortal-side Filter (no altdata).
-      2. POST /boom/filters/{id} which round-trips to BOOM, creates the
-         BOOM filter, and populates Filter.altdata with the BOOM filter_id.
+      2. POST /brokers/{broker_id}/filters/{id} which round-trips to BOOM,
+         creates the BOOM filter, and populates Filter.altdata with the
+         BOOM filter_id.
 
     Yields the SkyPortal Filter ID. Best-effort DELETE on teardown.
 
@@ -160,41 +173,16 @@ def boom_filter(super_admin_token, boom_ztf_stream, group_with_stream):
     ]
     status, data = api(
         "POST",
-        f"boom/filters/{filter_id}",
-        data={
-            "name": f"boom_filter_{filter_id}",
-            "altdata": pipeline,
-            "filters": "v1",
-        },
+        f"brokers/{boom_broker_id}/filters/{filter_id}",
+        data={"altdata": pipeline, "filters": "v1"},
         token=super_admin_token,
     )
     assert status == 200, data
 
     yield filter_id
 
-    api("DELETE", f"boom/filters/{filter_id}", token=super_admin_token)
-
-
-@pytest.fixture
-def boom_filter_module_block(super_admin_token):
-    """Insert a sample BOOM filter-module block into the MongoDB store.
-
-    `BoomFilterModulesHandler` exposes no DELETE, so the block leaks; we
-    use a UUID-suffixed name to avoid collisions across test runs.
-    """
-    name = f"test_block_{uuid.uuid4().hex[:8]}"
-    payload = {
-        "elements": "blocks",
-        "data": {
-            "block": {"$match": {"candidate.drb": {"$gt": 0.5}}},
-            "streams": ["ZTF (1, 2)"],
-        },
-    }
-    status, data = api(
-        "POST",
-        f"boom/filter_modules/{name}",
-        data=payload,
+    api(
+        "DELETE",
+        f"brokers/{boom_broker_id}/filters/{filter_id}",
         token=super_admin_token,
     )
-    assert status == 200, data
-    return name

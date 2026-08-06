@@ -5,8 +5,6 @@ import { makeStyles } from "tss-react/mui";
 import CircularProgress from "@mui/material/CircularProgress";
 
 import { useGetFilterQuery } from "../../ducks/filter";
-import { useGetGroupsQuery } from "../../ducks/groups";
-import { useGetBrokersQuery } from "../../ducks/brokers";
 import { setBrokerFilterTarget } from "../../ducks/brokerFilterTarget";
 
 import BoomFilterPlugins from "./boom/BoomFilterPlugins";
@@ -23,6 +21,8 @@ const useStyles = makeStyles()(() => ({
   },
 }));
 
+// Skyportal's FilterPlugins renders the broker builder for any filter with a
+// broker_id. Fritz adds the Kowalski fallback for filters that predate it.
 const FilterPlugins = ({ group }: FilterPluginsProps) => {
   const { classes } = useStyles();
 
@@ -31,61 +31,19 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
   const { data: filter } = useGetFilterQuery(fid ?? "", {
     skip: !fid,
   }) as any;
-  const [filterOrigin, setFilterOrigin] = useState<any>(null);
+  const [kowalski, setKowalski] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (filterOrigin || !filter) {
+    if (!filter || filter.broker_id || kowalski !== null) {
       return;
     }
-    // Determine filter origin
-    if (filter?.altdata?.boom) {
-      setFilterOrigin("boom");
-    } else {
-      // Check if filter exists in Kowalski (we call the API directy and not via the
-      // Redux action o avoid toast notifications for status codes other than 200)
-      fetch(`/api/kowalski/filters/${fid}/v`)
-        .then((response) => {
-          if (response.status === 200) {
-            console.log(
-              "Filter found in Kowalski, setting filter origin to kowalski",
-            );
-            setFilterOrigin("kowalski");
-          } else if (response.status === 404) {
-            console.log(
-              "Filter not found in Kowalski, setting filter origin to boom",
-            );
-            setFilterOrigin("boom");
-          } else {
-            console.error(
-              `Unexpected response status ${response.status} when determining filter origin`,
-            );
-            setFilterOrigin("boom");
-          }
-        })
-        .catch(() => {
-          console.error("Error occurred while determining filter origin");
-          setFilterOrigin("unknown");
-        });
-    }
-  }, [fid, filter]);
+    // Called directly rather than via the Redux action to avoid toasts on 404.
+    fetch(`/api/kowalski/filters/${fid}/v`)
+      .then((response) => setKowalski(response.status === 200))
+      .catch(() => setKowalski(false));
+  }, [fid, filter, kowalski]);
 
-  // The boom filter builder now uses SkyPortal's per-broker endpoints
-  // (/api/brokers/{id}/filters), so it needs the BOOM broker targeted.
-  const { data: brokers } = useGetBrokersQuery();
-  const boomBrokerId = (brokers || []).find(
-    (b: any) => b.broker_classname === "BOOMBROKER" && b.active,
-  )?.id;
-
-  const { data: groupsData } = useGetGroupsQuery();
-  const allGroups = groupsData?.all;
-
-  const groupLookUp: Record<string, any> = {};
-
-  allGroups?.forEach((g: any) => {
-    groupLookUp[g.id] = g;
-  });
-
-  if (!filter || filterOrigin === null) {
+  if (!filter) {
     return (
       <Paper className={classes.paperDiv}>
         <CircularProgress />
@@ -93,25 +51,21 @@ const FilterPlugins = ({ group }: FilterPluginsProps) => {
     );
   }
 
-  if (filterOrigin === "boom") {
-    if (boomBrokerId == null) {
-      return (
-        <Paper className={classes.paperDiv}>
-          <CircularProgress />
-        </Paper>
-      );
-    }
-    setBrokerFilterTarget(boomBrokerId);
-    return <BoomFilterPlugins group={group} />;
-  } else if (filterOrigin === "kowalski") {
-    return <KowalskiFilterPlugins group={group} />;
-  } else {
+  if (filter.broker_id) {
+    // Set synchronously, before BoomFilterPlugins' mount effects read it.
+    setBrokerFilterTarget(filter.broker_id);
+    return <BoomFilterPlugins />;
+  }
+
+  if (kowalski === null) {
     return (
       <Paper className={classes.paperDiv}>
-        <div>Unable to determine filter type.</div>
+        <CircularProgress />
       </Paper>
     );
   }
+
+  return kowalski ? <KowalskiFilterPlugins group={group} /> : <></>;
 };
 
 export default FilterPlugins;
