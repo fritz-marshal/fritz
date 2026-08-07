@@ -554,6 +554,9 @@ skyportal:
     user: skyportal
     password: password
 
+    # Superuser for `make db_init`; empty defaults to "postgres".
+    admin_user:
+
     # Transaction-mode connection pooler (bundled pgbouncer, runs in the web
     # container). host/port here are where the app reaches pgbouncer; the
     # database.host/port above stay pointed at the real Postgres backend.
