@@ -554,6 +554,9 @@ skyportal:
     user: skyportal
     password: password
 
+    # Superuser for `make db_init`; empty defaults to "postgres".
+    admin_user:
+
     # Transaction-mode connection pooler (bundled pgbouncer, runs in the web
     # container). host/port here are where the app reaches pgbouncer; the
     # database.host/port above stay pointed at the real Postgres backend.
@@ -720,6 +723,12 @@ skyportal:
     minutes_to_keep_public_source_pages_cache: 1440
     minutes_to_keep_reports_cache: 1440
     public_group_name: "Sitewide Group"
+    # When a data product (photometry, spectra, ...) is uploaded without specifying
+    # any groups, share it with the sitewide public group (public_group_name) in
+    # addition to the uploader's single-user group (which is always included). When
+    # false (default) an unspecified upload is shared only with the uploader. Groups
+    # given explicitly on the upload are always honored as-is.
+    share_data_with_public_group_by_default: false
     # External survey thumbnails fetched (outbound HTTP) when a source is saved.
     # Set to [] to disable, e.g. on instances without external network egress.
     external_thumbnail_types:
