@@ -22,7 +22,6 @@ import pytest
 # Modules overlaid onto skyportal by the fritz extensions that were migrated to
 # async. Paths are the in-skyportal import paths (post-overlay).
 HANDLER_MODULES = [
-    "skyportal.handlers.api.kowalski.alert",
     "skyportal.handlers.api.kowalski.archive",
     "skyportal.handlers.api.kowalski.filter",
     "skyportal.handlers.api.kowalski_filter",

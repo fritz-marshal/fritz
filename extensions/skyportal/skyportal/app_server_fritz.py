@@ -3,10 +3,6 @@ import concurrent
 
 from skyportal.app_server import make_app
 from skyportal.handlers.api.kowalski import (
-    KowalskiAlertAuxHandler,
-    KowalskiAlertCutoutHandler,
-    KowalskiAlertHandler,
-    KowalskiAlertTripletsHandler,
     KowalskiArchiveCatalogsHandler,
     KowalskiArchiveHandler,
     KowalskiCrossMatchHandler,
@@ -18,20 +14,12 @@ from skyportal.handlers.api.kowalski import (
 fritz_handlers = [
     # Kowalski API endpoints
     (r"/api/kowalski/filters/([0-9]+)?/v", KowalskiFilterHandler),
-    (r"/api/kowalski/alerts(/.+)?", KowalskiAlertHandler),
-    (r"/api/kowalski/alerts_aux(/.+)?", KowalskiAlertAuxHandler),
-    (r"/api/kowalski/alerts_cutouts(/.+)?", KowalskiAlertCutoutHandler),
-    (r"/api/kowalski/alerts_triplets(/.+)?", KowalskiAlertTripletsHandler),
     (r"/api/kowalski/archive", KowalskiArchiveHandler),
     (r"/api/kowalski/archive/catalogs", KowalskiArchiveCatalogsHandler),
     (r"/api/kowalski/archive/cross_match", KowalskiCrossMatchHandler),
     (r"/api/kowalski/archive/features", KowalskiScopeFeaturesHandler),
     # Same but without the "/kowalski" prefix, to maintain
     # compatibility with existing Fritz API endpoints
-    (r"/api/alerts(/.+)?", KowalskiAlertHandler),
-    (r"/api/alerts_aux(/.+)?", KowalskiAlertAuxHandler),
-    (r"/api/alerts_cutouts(/.+)?", KowalskiAlertCutoutHandler),
-    (r"/api/alerts_triplets(/.+)?", KowalskiAlertTripletsHandler),
     (r"/api/archive", KowalskiArchiveHandler),
     (r"/api/archive/catalogs", KowalskiArchiveCatalogsHandler),
     (r"/api/archive/cross_match", KowalskiCrossMatchHandler),
