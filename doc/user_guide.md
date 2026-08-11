@@ -13,7 +13,7 @@ It implements an end-to-end, scalable, API-first system for Time-domain Astronom
 
 The key characteristics of Fritz are efficiency, scalability, portability, and extensibility.
 Fritz employs a modular architecture and
-integrates and extends two major components: [Kowalski](https://github.com/dmitryduev/kowalski)
+integrates and extends two major components: [BOOM](https://github.com/boom-astro/boom)
 acts as the alert processor and data archive, and [SkyPortal](https://github.com/skyportal/skyportal),
 which handles the rest of the stack.
 The schematic overview of our system is shown below:
@@ -58,7 +58,7 @@ the group, and the group's [alert filters](https://docs.fritz.science/user_guide
 on the Group page. Group admins can create new filters (and modify existing ones).
 System administrators can grant alert stream access to the groups.
 
-`Fritz` provides rich alert stream filtering capabilities through its Kowalski backend,
+`Fritz` provides rich alert stream filtering capabilities through its BOOM backend,
 which consumes the ZTF Kafka alert stream, persisting the alerts to a database,
 and supplementing them with additional data such as the Galactic coordinates,
 external catalog cross-matches, machine learning scores etc.
@@ -86,7 +86,7 @@ Finally, we provide public alert databases for filter design and debugging.
 Alerts passing a filter are posted to Fritz's SkyPortal backend as Candidates
 and appear on the Scanning page (for the corresponding filter groups).
 
-Candidates do not have to originate from `Kowalski` and could be posted (manually) via the API.
+Candidates do not have to originate from `BOOM` and could be posted (manually) via the API.
 
 On the Candidates page, the users can filter, scan and inspect the objects that have passed filters of their groups
 and save them to one or more groups. Candidates that are not saved to any group within 7 days are removed from `Fritz`.
@@ -167,7 +167,7 @@ Fritz's interfaces are mobile-friendly, so the app will work as expected on your
 
 ### Using the API
 
-An API enables access to most of the underlying functionality of Fritz/SkyPortal/Kowalski.
+An API enables access to most of the underlying functionality of Fritz/SkyPortal/BOOM.
 The workflows described above are all enabled by specific API calls.
 The complete OpenAPI specification is available at [https://docs.fritz.science/api.html](https://docs.fritz.science/api.html).
 
@@ -241,11 +241,11 @@ This section describes how to define alert stream filters within `Fritz` and pro
 [ZTF alerts](https://github.com/ZwickyTransientFacility/ztf-avro-alert) are
 [generated at IPAC](https://iopscience.iop.org/article/10.1088/1538-3873/aae8ac/meta) based on difference
 imaging analysis and are distributed to the world at low latency via a Kafka alert stream.
-`Fritz`'s `Kowalski` backend consumes this stream, persisting the alerts to a `MongoDB` database,
+`Fritz`'s `BOOM` backend consumes this stream, persisting the alerts to a `MongoDB` database,
 and supplementing them with other useful quantities such as Galactic coordinates, external catalog cross-matches,
-machine learning scores etc. Next, `Kowalski` executes a series of user-defined filters on each new ("enhanced")
+machine learning scores etc. Next, `BOOM` executes a series of user-defined filters on each new ("enhanced")
 incoming alert accessible to the filter. Users create filters on the `SkyPortal` frontend and they are executed
-on the `Kowalski` backend. If an alert passes a filter, it is pushed up to `SkyPortal` and appears on a program's
+on the `BOOM` backend. If an alert passes a filter, it is pushed up to `SkyPortal` and appears on a program's
 scanning page.
 
 Note: for a detailed description of the ZTF alerts and their contents, please see
@@ -253,7 +253,7 @@ Note: for a detailed description of the ZTF alerts and their contents, please se
 
 #### Implementation of Filters as MongoDB Aggregation Pipelines
 
-`Kowalski` uses [`MongoDB`](https://mongodb.com), a document-based NoSQL database, on the backend.
+`BOOM` uses [`MongoDB`](https://mongodb.com), a document-based NoSQL database, on the backend.
 
 - For a very brief introduction into `MongoDB`, we recommend watching
   [MongoDB in 5 Minutes with Eliot Horowitz](https://www.youtube.com/watch?v=EE8ZTQxa0AM).
@@ -297,61 +297,34 @@ Expressions can be nested.
 
 #### Testing your filter
 
-To ease the process of writing and debugging the filters, we have set up two live _public_ `MongoDB Atlas` databases
-in the cloud:
+To ease the process of writing and debugging the filters, Fritz can run a candidate pipeline against
+real recent alerts and show you what it would have returned, without saving anything or activating the
+filter. This is the recommended way to iterate: it runs against the same backend, the same collection
+and the same permissions your filter will see in production.
 
-- The first one contains a small curated set of ~300 sample public ZTF alerts originating from SNe, variable stars,
-  AGN, and bogus detections. The auxiliary information is limited to the detection history present in the alert packets.
-- The second one contains ~120,000 public ZTF alerts from July 6, 2020. The auxiliary information contains a ~100-day
-  history of detections (limited to reduce the test database size), cross-matches with external catalogs, and a few
-  additional computed quantities.
-
-We recommend to begin exploring filtering on the first database and then move onto the second one.
-
-We will show how to use a tool called [MongoDB Compass](https://www.mongodb.com/try/download/compass)
-(the full version is now free) to construct and debug aggregation pipelines (aka alert filters), using the two cloud
-databases, that can be then plugged into `Fritz`.
-
-Filters will be managed on a dedicated page on `Fritz`. A detailed description of the interface and its capabilities
-(including, for example, filter versioning and diff'ing) will be covered elsewhere -- please stay tuned.
-
-##### MongoDB Compass
-
-Download and install MongoDB Compass for your system from [here](https://www.mongodb.com/try/download/compass).
-
-The connection string to access the first sample public alert database:
+Filter preview is available from the filter's page, and over the API:
 
 ```
-mongodb://ztf:FritzZwicky@fritz-test-shard-00-00-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-01-uas9d.gcp.mongodb.net:27017,fritz-test-shard-00-02-uas9d.gcp.mongodb.net:27017/test?authSource=admin&replicaSet=fritz-test-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true
+POST /api/brokers/{broker_id}/filter/test
 ```
 
-The connection string to access the second sample public alert database:
+with the aggregation pipeline in the request body. The response contains the alerts that passed, so you
+can check both that the filter returns something and that what it returns is what you expected. Note that
+the preview runs over a bounded recent time window rather than the whole archive, so a filter targeting
+rare events may legitimately come back empty -- widen the window or relax a stage to convince yourself
+the pipeline is doing what you think.
 
-```
-mongodb+srv://ztf:FritzZwicky@fritz-public-20200706.uas9d.gcp.mongodb.net/kowalski
-```
+A few practical notes:
 
-Upon connection:
+- The filter code you save on Fritz must be valid JSON. If you draft pipelines in a tool that emits
+  JavaScript-style output (single quotes, unquoted keys), convert it before saving, and use an editor that
+  can validate JSON.
+- The last stage of a pipeline must be a `$project` that includes `objectId`, so the backend can tell which
+  object each passing alert belongs to.
 
-- Select the `kowalski` database
-- Select the `ZTF_alerts` collection
-- Go to the Aggregations tab
-- Click the down arrow located to the left of the "Collation" button and select "New Pipeline From Text"
-- Copy paste the contents of the provided JSON files with the sample filters (see below)
-
-Note that Compass shows the output of all stages interactively and also displays/explains any errors in the code,
-which is extremely helpful for debugging and experimentation.
-
-By default, Compass' aggregation pipeline builder works in Sample Mode, showing up to 20 documents that pass any
-given stage. You can change the default settings, including the default timeout by clicking the button
-with a little gear next to the "Auto Preview" toggle switch.
-
-![fritz-filters-01](https://user-images.githubusercontent.com/7557205/87487417-6f66ff80-c5f2-11ea-8d7b-49c51b6a502d.gif)
-
-Note: the filter code that you will save on Fritz must be valid JSON, so, once you're done with debugging,
-when exporting a filter in Compass, select "NODE" under "Export Pipeline To:", copy-paste into a text editor,
-and then manually replace single quotes with double quotes. We also recommend using a text editor that can validate
-JSON.
+If you have direct read access to a MongoDB deployment holding alert data, tools such as
+[MongoDB Compass](https://www.mongodb.com/try/download/compass) are also useful for interactive pipeline
+building, since they show the output of each stage as you go and explain errors in place.
 
 #### "Upstream" aggregation pipeline stages
 
@@ -476,7 +449,7 @@ filters in Compass, the users must take care of that -- all the examples below c
 
 #### Alert data augmentation
 
-Fritz's Kowalski backend augments the alert data with the following: [as of January 2021]
+Fritz's BOOM backend augments the alert data with the following: [as of January 2021]
 
 - Galactic coordinates
 
@@ -492,7 +465,7 @@ Fritz's Kowalski backend augments the alert data with the following: [as of Janu
   - PS1_DR1 (all matches within 2")
   - PS1_STRM (all matches within 2")
   - galaxy_redshifts_20200522 (all matches within 2")
-  - CLU_20190625 (["elliptical" matches with close galaxies using 3x their size](https://github.com/dmitryduev/kowalski/blob/master/kowalski/alert_broker_ztf.py#L351))
+  - CLU_20190625 ("elliptical" matches with close galaxies, using 3x their size)
 
 For the detailed description of the available catalogs, see [here](catalogs.html)
 
@@ -1741,49 +1714,50 @@ Here you will find the full version (as of December 2020) of the Bright Transien
 
 #### Fast Transients program filter
 
-In this example, we will see how to adapt the Fast Transients' program filter that has been using Kowalski for the
-initial search.
+In this example, we will see how the Fast Transients' program expresses its initial search.
 
 {download}`fritz_filter_fast.json <data/filter_examples/fritz_filter_fast.json>`
 
-In the `python` code snippet below, courtesy of Anna Ho and Yuhan Yao, a coarse search is run using Kowalski and then a
-number of logical expressions would be evaluated on the query result:
+The coarse search is the filter pipeline itself: a `$match` stage selecting on the alert's own
+quality columns, followed by a `$project` naming the fields the later logic needs. Expressed as an
+aggregation pipeline, that first stage is:
+
+```json
+[
+  {
+    "$match": {
+      "candidate.magpsf": { "$lt": 20 },
+      "candidate.isdiffpos": { "$in": ["1", "t"] },
+      "candidate.programid": { "$gt": 0 },
+      "candidate.ssdistnr": { "$lt": -1 },
+      "candidate.drb": { "$gt": 0.65 }
+    }
+  },
+  {
+    "$project": {
+      "objectId": 1,
+      "candidate.distpsnr1": 1,
+      "candidate.sgscore1": 1,
+      "candidate.srmag1": 1,
+      "candidate.sgmag1": 1,
+      "candidate.simag1": 1,
+      "candidate.szmag1": 1
+    }
+  }
+]
+```
+
+The `drb` cut of 0.65 gives roughly a 1.7% false-negative and false-positive rate. Note that the
+time window is not part of the pipeline: the backend restricts each run to the alerts it is
+processing, so a filter should not select on `candidate.jd` itself.
+
+In the `python` code snippet below, courtesy of Anna Ho and Yuhan Yao, a number of logical
+expressions are then evaluated on the alerts the search returned, where `out` is the list of
+passing alerts (for example, the `data` of a filter preview response):
 
 ```python
-from astropy.time import Time
 import numpy as np
-from penquins import Kowalski
 
-# Set search window
-obst = obs['UT_START'].values
-start = Time(obst[0], format='isot').jd - 0.02
-end = Time(obst[-1], format='isot').jd + 0.02
-# gt is greater than, lt is lower than
-q = {"query_type": "find",
-     "query": {
-         "catalog": "ZTF_alerts",
-         "filter": {
-                 'candidate.jd': {'$gt': start, '$lt': end},
-                 'candidate.magpsf': {'$lt': 20},
-                 'candidate.isdiffpos': {'$in': ['1', 't']},
-                 'candidate.programid': {'$gt': 0},
-                 'candidate.ssdistnr': {'$lt': -1},
-                 'candidate.drb': {'$gt': 0.65}, # That gives a 1.7% FNR and FPR.
-         },
-         "projection": {
-                 "objectId": 1,
-                 "candidate.distpsnr1": 1,
-                 "candidate.sgscore1": 1,
-                 "candidate.srmag1": 1,
-                 "candidate.sgmag1": 1,
-                 "candidate.simag1": 1,
-                 "candidate.szmag1": 1,
-         }
-     }
-     }
-kowalski = Kowalski()
-query_result = kowalski.query(query=q)
-out = query_result['data']
 names_all = np.array([val['objectId'] for val in out])
 names = np.unique(names_all)
 print(f"There are {len(names)} unique cands from this initial filter.")

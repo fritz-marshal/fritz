@@ -1,15 +1,12 @@
 name: Integration tests (fritz + boom)
 
-# Runs on every PR and on push to main / the kowalski-to-boom migration
-# branch. The boom service bring-up has open TODOs (see steps below);
-# expect failures until those are resolved by iterating in CI.
+# Runs on every PR and on push to main.
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - from-kowalski-to-boom
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
 

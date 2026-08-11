@@ -4,18 +4,14 @@ This is the TL;DR section of the docs.
 
 The key characteristics of Fritz are efficiency, scalability, portability, and extensibility.
 Fritz employs a modular architecture and
-integrates and extends two major components: [Kowalski](https://github.com/dmitryduev/kowalski)
+integrates and extends two major components: [BOOM](https://github.com/boom-astro/boom)
 acts as the alert processor and data archive, and [SkyPortal](https://github.com/skyportal/skyportal),
 which handles the rest of the stack.
 The schematic overview of our system is shown below:
 
 ![img/fritz.png](img/fritz.jpg)
 
-## Kowalski and SkyPortal
-
-A schematic overview of the functional aspects of `Kowalski` and how they interact is shown below:
-
-![img/kowalski.png](img/kowalski.jpg)
+## BOOM and SkyPortal
 
 A non-relational (NoSQL) database `MongoDB` powers the data archive, the alert stream sink,
 and the alert handling service. We base the choice of `MongoDB` as the workhorse on the following reasons:
@@ -31,20 +27,15 @@ and the alert handling service. We base the choice of `MongoDB` as the workhorse
 - Built-in `GeoJSON` support with 2D indexes on the sphere allowing efficient (potentially complicated) positional queries.
 - Built-in support for horizontal scaling through sharding.
 
-An API layer provides an interface for the interaction with the backend:
-it is built using a `python` asynchronous web framework, `aiohttp`, and the standard `python` async event loop
-serves as a simple, fast, and robust job queue.
-A [programmatic `python` client](https://github.com/dmitryduev/penquins) is also available
-to interact with Kowalski's API.
-Multiple instances of the API service are maintained using the `Gunicorn` WSGI HTTP Server.
-Incoming and outgoing traffic is routed through `traefik`,
-which acts as a simple and performant reverse proxy/load balancer.
-An alert brokering layer listens to `Kafka` alert streams and uses a `dask.distributed` cluster for
-distributed alert packet processing, which includes data preprocessing, execution of machine learning models,
+An HTTP API layer provides the interface to the backend, and is what SkyPortal talks to:
+Fritz reaches it through SkyPortal's broker API abstraction, so alert queries, filter
+testing and photometry retrieval all go through one documented surface.
+
+An alert brokering layer listens to `Kafka` alert streams and processes each packet,
+which includes data preprocessing, execution of machine learning models,
 catalog cross-matching, and ingestion into `MongoDB`.
 It also executes user-defined filters based on the augmented alert data and posts the filtering results
-to a `SkyPortal` instance. Kowalski is containerized using `Docker` software and orchestrated with `docker-compose`
-allowing for simple and efficient deployment in the cloud and/or on-premise.
+to a `SkyPortal` instance, where they appear as Candidates on the relevant scanning page.
 
 [`SkyPortal`](https://skyportal.io), similarly being an API-driven system, provides an interactive marshal
 and a follow-up observation manager with flawless integration with both robotic and classical follow-up facilities.

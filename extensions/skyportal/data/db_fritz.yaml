@@ -4,11 +4,6 @@ user:
       - Super admin
     =id: fritz
     oauth_uid: fritz.astro.marshal@gmail.com
-  - username: kowalski.astro.bot@gmail.com
-    roles:
-      - Super admin
-    =id: kowalski
-    oauth_uid: kowalski.astro.bot@gmail.com
 
 streams:
   - name: ZTF Public
@@ -40,7 +35,7 @@ streams:
 groups:
   - name: ZTF Science Validation
     group_admins:
-      - =kowalski
+      - =fritz
     =id: ztf_science_validation
   - name: Redshift Completeness Factor
     =id: rcf
@@ -67,23 +62,18 @@ groups:
 
 streams/=ztf_public/users:
   - user_id: =fritz
-  - user_id: =kowalski
 
 streams/=ztf_partnership/users:
   - user_id: =fritz
-  - user_id: =kowalski
 
 streams/=ztf_caltech/users:
   - user_id: =fritz
-  - user_id: =kowalski
 
 streams/=pgir/users:
   - user_id: =fritz
-  - user_id: =kowalski
 
 streams/=wntr/users:
   - user_id: =fritz
-  - user_id: =kowalski
 
 groups/=ztf_science_validation/streams:
   - stream_id: =ztf_public

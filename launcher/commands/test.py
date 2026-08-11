@@ -104,15 +104,13 @@ def test(scope: str = "all"):
     # the paths to where they land inside the container.
     #
     # We deliberately scope to the boom/ subdirs rather than rglob'ing the
-    # whole tests/ tree. The legacy api/test_alerts.py,
-    # test_archive.py, test_kowalski_filters.py and
-    # api_tests/.../test_filters.py all fail with
-    # `TypeError: 'module' object is not callable` because of a name
-    # collision: skyportal/tests/__init__.py defines an `api()` function,
-    # and `skyportal/tests/api/` is a subpackage. Once the subpackage is
-    # imported during test collection, the function is rebound to the
-    # package. The boom tests live deeper (tests/api/boom/) and resolve
-    # correctly via import order; the sibling-level legacy tests do not.
+    # whole tests/ tree. Tests sitting directly under skyportal/tests/api/
+    # fail with `TypeError: 'module' object is not callable` because of a
+    # name collision: skyportal/tests/__init__.py defines an `api()`
+    # function, and `skyportal/tests/api/` is a subpackage. Once the
+    # subpackage is imported during test collection, the function is
+    # rebound to the package. The boom tests live deeper (tests/api/boom/)
+    # and resolve correctly via import order; sibling-level ones do not.
     # Fixing the collision belongs in skyportal proper.
     host_tests = Path("extensions/skyportal/skyportal/tests")
     container_tests = Path("skyportal/tests")
