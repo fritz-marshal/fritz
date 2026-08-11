@@ -2,29 +2,9 @@ import asyncio
 import concurrent
 
 from skyportal.app_server import make_app
-from skyportal.handlers.api.kowalski import (
-    KowalskiArchiveCatalogsHandler,
-    KowalskiArchiveHandler,
-    KowalskiCrossMatchHandler,
-    KowalskiFilterHandler,
-    KowalskiScopeFeaturesHandler,
-)
 
 # Fritz-specific API endpoints
-fritz_handlers = [
-    # Kowalski API endpoints
-    (r"/api/kowalski/filters/([0-9]+)?/v", KowalskiFilterHandler),
-    (r"/api/kowalski/archive", KowalskiArchiveHandler),
-    (r"/api/kowalski/archive/catalogs", KowalskiArchiveCatalogsHandler),
-    (r"/api/kowalski/archive/cross_match", KowalskiCrossMatchHandler),
-    (r"/api/kowalski/archive/features", KowalskiScopeFeaturesHandler),
-    # Same but without the "/kowalski" prefix, to maintain
-    # compatibility with existing Fritz API endpoints
-    (r"/api/archive", KowalskiArchiveHandler),
-    (r"/api/archive/catalogs", KowalskiArchiveCatalogsHandler),
-    (r"/api/archive/cross_match", KowalskiCrossMatchHandler),
-    (r"/api/archive/features", KowalskiScopeFeaturesHandler),
-]
+fritz_handlers = []
 
 
 def make_app_fritz(cfg, baselayer_handlers, baselayer_settings, process=None, env=None):

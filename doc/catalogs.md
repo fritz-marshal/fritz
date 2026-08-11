@@ -1,6 +1,6 @@
-# Kowalski collection schemas
+# Catalog collection schemas
 
-Fritz hosts a number of astronomical catalogs on its Kowalski backend.
+Fritz hosts a number of astronomical catalogs on its BOOM backend.
 Below you will find a list of available catalogs and the approximate contents of
 individual entries therein (i.e. example documents per MongoDB collection).
 Note that there is no schema enforcement, so specific fields may or may not exist

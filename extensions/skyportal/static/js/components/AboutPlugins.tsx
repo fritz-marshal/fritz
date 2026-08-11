@@ -104,7 +104,7 @@ const AboutPlugins = () => {
       </Paper>
       <Typography variant="body1">
         Fritz integrates and extends two projects,&nbsp;
-        <a href="https://github.com/skyportal/kowalski">Kowalski</a>
+        <a href="https://github.com/boom-astro/boom">BOOM</a>
         &nbsp;&&nbsp;
         <a href="https://skyportal.io">SkyPortal</a>, and has the functionality
         of an alert broker, a multi-survey data sink/archive, a marshal, and a
@@ -270,9 +270,7 @@ archivePrefix = {arXiv},
                   SkyPortal
                 </a>
                 , and{" "}
-                <a href="https://github.com/skyportal/kowalski/pulls">
-                  Kowalski
-                </a>
+                <a href="https://github.com/boom-astro/boom/pulls">BOOM</a>
               </div>
               <ul className={classes.gitlogList}>
                 {gitlog.map(
