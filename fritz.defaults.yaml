@@ -15,7 +15,10 @@ skyportal:
     #
     # base64.b64encode(os.urandom(50)).decode('ascii')
     secret_key: abc01234
-    factory: skyportal.app_server_fritz.make_app_fritz
+    factory: skyportal.app_server.make_app
+
+    # Bounded so the pool cannot exhaust the database connections.
+    thread_pool_size: 8
 
     heasarc_endpoint: https://heasarc.gsfc.nasa.gov
 

@@ -87,10 +87,9 @@ def doc(yes: bool = False, upload: bool = False):
     from baselayer.app.app_server import handlers as baselayer_handlers
     from skyportal import openapi
     from skyportal.app_server import skyportal_handlers
-    from skyportal.app_server_fritz import fritz_handlers
 
     spec = openapi.spec_from_handlers(
-        baselayer_handlers + skyportal_handlers + fritz_handlers,
+        baselayer_handlers + skyportal_handlers,
         metadata={
             "title": "Fritz: SkyPortal API",
             "servers": [{"url": "https://fritz.science"}],
