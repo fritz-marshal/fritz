@@ -40,11 +40,25 @@ jobs:
           # git blobs in the submodule, so a recursive checkout pulls it in.
           submodules: recursive
 
+      # Track boom's latest release rather than main: releases are what gets
+      # deployed, and each one publishes an image we can pull instead of
+      # compiling the Rust source on every run.
+      - name: Resolve latest boom release
+        id: boom
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/boom-astro/boom/releases/latest --jq .tag_name)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Testing against boom $tag"
+
+      # Checked out at the same tag as the image: compose file, config and
+      # binary have to agree.
       - name: Checkout boom (sibling working dir)
         uses: actions/checkout@v6
         with:
           repository: boom-astro/boom
-          ref: main
+          ref: ${{ steps.boom.outputs.tag }}
           path: boom
 
       - uses: actions/setup-python@v6
@@ -85,8 +99,6 @@ jobs:
       # `boom-api-1`, which is what fritz.defaults.yaml's boom.host expects.
       # --profile prod selects the prebuilt-image variant rather than the
       # cargo-watch dev container (faster, no rebuild on file changes).
-      # The Rust image is built from source via the compose `build:` block;
-      # boom does not publish a tagged image to ghcr yet.
       #
       # Boom's compose only exposes BOOM_API__AUTH__SECRET_KEY to the api
       # service, but the shared config.yaml that all boom services parse
@@ -159,6 +171,14 @@ jobs:
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
           EOF
 
+      # Compose refers to the boom services by the unqualified local name, so
+      # retag the released image rather than patching nine service entries.
+      - name: Pull the released boom image
+        run: |
+          docker pull ghcr.io/boom-astro/boom:${{ steps.boom.outputs.tag }}
+          docker tag ghcr.io/boom-astro/boom:${{ steps.boom.outputs.tag }} \
+            boom-astro/boom:latest
+
       - name: Bring up boom stack
         working-directory: boom
         env:
@@ -194,10 +214,13 @@ jobs:
           BOOM_KAFKA__CONSUMER__WINTER__GROUP_ID: boom-winter-consumer-group
           BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
         run: |
+          # No --build: every service in this profile runs the image pulled
+          # above. frontend is scaled to 0 -- it is boom's own web UI, is not
+          # published to ghcr, and nothing here talks to it.
           docker compose -p boom \
             -f docker-compose.yaml \
             -f docker-compose.ci.yaml \
-            --profile prod up -d --build
+            --profile prod up -d --scale frontend=0
 
       # Boom's api + mongo services are on boom's internal network, not
       # fritz_net. Connect them so skyportal-web-1 can resolve `boom-api-1`
