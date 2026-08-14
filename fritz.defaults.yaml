@@ -244,6 +244,10 @@ skyportal:
             icon: Search
             url: /candidates
 
+          - name: Brokers
+            icon: Hub
+            url: /brokers
+
           - name: Favorites
             icon: Star
             url: /favorites
@@ -276,10 +280,6 @@ skyportal:
             icon: SubwayRounded
             url: /shifts
 
-          - name: Summary Search
-            icon: Troubleshoot
-            url: /summary_search
-
           - name: Source Statistics
             icon: ScatterPlot
             url: /source_statistics
@@ -306,10 +306,6 @@ skyportal:
           - name: Allocations
             icon: HourglassEmptyOutlined
             url: /allocations
-
-          - name: Brokers
-            icon: Hub
-            url: /brokers
 
           - name: Observations
             icon: ZoomInOutlined
@@ -342,6 +338,10 @@ skyportal:
           - name: Recurring API
             icon: Restore
             url: /recurring_apis
+
+          - name: Summary Search
+            icon: Troubleshoot
+            url: /summary_search
 
           - name: Tag Management
             icon: LocalOffer
