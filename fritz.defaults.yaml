@@ -579,6 +579,20 @@ skyportal:
     tns_retrieval_queue: 127.0.0.1
     slack: 127.0.0.1
 
+  # JPL Scout NEO Target-of-Opportunity candidates, published by
+  # lsst-sssc/scout-alert-bridge. Leave `topic` unset to disable the service.
+  scout:
+    topic: # e.g. lco.scout-neo-too-test
+    kafka_server: kafka.scimma.org
+    scimma_username: # SCiMMA/Kafka credentials; omit both for an unauthenticated broker
+    scimma_password:
+    group_ids: [] # groups the NEO candidates are saved to
+    bot_user_id: # user recorded as saving the sources and authoring the annotations
+    from_start: False # read the topic from the beginning (True) or from latest (False)
+    # The bridge can publish under a `relaxed_test` filter mode that waives all but
+    # the identity filters. Off by default so test traffic can't look like a trigger.
+    allow_relaxed_test: False
+
   server:
     # From https://console.developers.google.com/
     #
@@ -709,7 +723,7 @@ skyportal:
     # addition to the uploader's single-user group (which is always included). When
     # false (default) an unspecified upload is shared only with the uploader. Groups
     # given explicitly on the upload are always honored as-is.
-    share_data_with_public_group_by_default: false
+    share_data_with_public_group_by_default: true
     # External survey thumbnails fetched (outbound HTTP) when a source is saved.
     # Set to [] to disable, e.g. on instances without external network egress.
     external_thumbnail_types:
