@@ -2,8 +2,6 @@ skyportal:
   app:
     title: Fritz
     logos: # Logos to place in the top-left of the header bar (zero or more)
-      - src: /static/images/GROWTH_logo.png
-        alt_text: GROWTH logo
       - src: /static/images/skyportal_logo_dark.png
         alt_text: Skyportal logo
 

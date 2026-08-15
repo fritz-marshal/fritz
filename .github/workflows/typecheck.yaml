@@ -30,13 +30,6 @@ jobs:
         with:
           bun-version-file: skyportal/package.json
 
-      # Mirrors the JS half of launcher/skyportal.py `patch()`: drop the fritz
-      # extension assets onto skyportal so tsc sees the same tree the real
-      # build compiles.
-      - name: Apply fritz JS overlay onto skyportal
-        run: |
-          cp -r extensions/skyportal/static skyportal/
-
       - name: Install JS dependencies
         run: cd skyportal && bun install
 
