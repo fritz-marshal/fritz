@@ -78,19 +78,6 @@ def patch():
         json.dump(skyportal_log, f)
 
     # add Fritz-specific dependencies for SP
-    # js
-    with open("extensions/skyportal/package.fritz.json") as f:
-        fritz_pkg = json.load(f)
-    with open("skyportal/package.json") as f:
-        skyportal_pkg = json.load(f)
-
-    skyportal_pkg["dependencies"] = {
-        **skyportal_pkg["dependencies"],
-        **fritz_pkg["dependencies"],
-    }
-    with open("skyportal/package.json", "w") as f:
-        json.dump(skyportal_pkg, f, indent=2)
-
     # python
     with open("pyproject.toml", "rb") as f:
         fritz_pyproject = tl.load(f)
