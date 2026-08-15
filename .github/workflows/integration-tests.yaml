@@ -1,6 +1,8 @@
-name: Integration tests (fritz + boom)
+name: Build, integration test, and deploy
 
-# Runs on every PR and on push to main.
+# One build feeds three purposes: the "does it build" gate, the fritz+boom
+# integration tests, and (on main only) publish to gcr.io + staging deploy.
+# The deploy is gated on success(), so failing tests never ship.
 
 on:
   workflow_dispatch:
@@ -12,10 +14,17 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded PR runs, but never a main run mid-deploy.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT || 'local' }}
+  GKE_CLUSTER: fritz-staging
+  GKE_ZONE: us-west2-a
+  IMAGE: fritz
 
 jobs:
-  integration:
+  build-test-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -39,6 +48,7 @@ jobs:
           # skyportal-data (SFD dust maps + sncosmo models) is vendored as plain
           # git blobs in the submodule, so a recursive checkout pulls it in.
           submodules: recursive
+          fetch-depth: 0
 
       # Track boom's latest release rather than main: releases are what gets
       # deployed, and each one publishes an image we can pull instead of
@@ -458,6 +468,72 @@ jobs:
       # BOOM API tests (the alert page is now native SkyPortal, tested there).
       - name: Run API tests
         run: ./fritz test api
+
+      # ── Publish + deploy (main push only, and only if everything above
+      # passed) ──────────────────────────────────────────────────────────
+      # The image built and tested above (skyportal/web:latest) is retagged
+      # and pushed, so what ships is exactly what the tests ran against.
+      - id: "auth"
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: "google-github-actions/auth@v3"
+        with:
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+
+      - name: Setup gcloud cli
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ secrets.GKE_PROJECT }}
+
+      - name: Set up docker credentials
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: gcloud --quiet auth configure-docker
+
+      - name: Get Google Kubernetes Engine credentials
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: "google-github-actions/get-gke-credentials@v3"
+        with:
+          cluster_name: fritz-staging
+          location: us-west2-a
+
+      - name: Publish image to gcr.io
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |-
+          docker tag skyportal/web:latest "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+          docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+
+      - name: Checkout fritz-deploy
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/checkout@v6
+        with:
+          repository: "fritz-marshal/fritz-deploy"
+          path: "fritz-deploy"
+          ssh-key: ${{ secrets.CI_FRITZ_DEPLOY_DEPLOY_KEY }}
+
+      - name: Set up SOPS
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |-
+          SOPS_VER=3.5.0
+          CACHED_DOWNLOAD_DIR=~/.local/downloads
+          FILENAME=sops-v${SOPS_VER}.linux
+          SOPS_BINARY=~/.local/bin/sops
+
+          if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
+            wget https://github.com/mozilla/sops/releases/download/v${SOPS_VER}/${FILENAME} --quiet --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
+          fi
+
+          mkdir -p ~/.local/bin
+          cp ${CACHED_DOWNLOAD_DIR}/${FILENAME} ${SOPS_BINARY}
+          chmod u+x ${SOPS_BINARY}
+          ${SOPS_BINARY} --version
+
+      - name: Deploy to staging
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |-
+          source .venv/bin/activate
+          cd fritz-deploy
+          export PATH=$PATH:~/.local/bin
+          ./deploy.py --staging --tag=$GITHUB_SHA
 
       # ── Diagnostics on failure ─────────────────────────────────────────
       - name: Dump skyportal logs on failure
