@@ -54,7 +54,7 @@ Then, for each feature you wish to contribute, create a pull request:
 
 ## Setting up your environment
 
-We use flake8 to verify that code complies with [PEP8](https://www.python.org/dev/peps/pep-0008/).  Please install the git pre-commit hook using:
+We use [ruff](https://docs.astral.sh/ruff/) to lint and format code, so that it complies with [PEP8](https://www.python.org/dev/peps/pep-0008/).  Please install the git pre-commit hook using:
 
 ```sh
 ./fritz developer

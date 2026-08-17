@@ -2,10 +2,40 @@ skyportal:
   app:
     title: Fritz
     logos: # Logos to place in the top-left of the header bar (zero or more)
-      - src: /static/images/GROWTH_logo.png
-        alt_text: GROWTH logo
       - src: /static/images/skyportal_logo_dark.png
         alt_text: Skyportal logo
+
+    # Copy for the About page, rendered by SkyPortal's AboutPlugins template.
+    about:
+      description: >-
+        Fritz is an open source codebase that serves as a dynamic collaborative
+        platform for time-domain astronomy. It is being jointly developed at
+        Caltech, UC Berkeley, the University of Minnesota, and Université
+        Paris-Saclay.
+      homepage_url: https://fritz.science
+      docs_url: https://docs.fritz.science/
+      api_docs_url: https://docs.fritz.science/api.html
+      repository_url: https://github.com/fritz-marshal/fritz
+      funding: >-
+        Fritz development is funded by the Moore Foundation, Heising Simons
+        Foundation, National Science Foundation, NASA and the Packard
+        Foundation.
+      extra_paragraphs:
+        - text: >-
+            Fritz integrates and extends two projects, {BOOM} & {SkyPortal},
+            and has the functionality of an alert broker, a multi-survey data
+            sink/archive, a marshal, and a target and observation/follow-up
+            management tool.
+          links:
+            BOOM: https://github.com/boom-astro/boom
+            SkyPortal: https://skyportal.io
+      changelog_repositories:
+        - name: Fritz
+          url: https://github.com/fritz-marshal/fritz/pulls
+        - name: SkyPortal
+          url: https://github.com/skyportal/skyportal/pulls
+        - name: BOOM
+          url: https://github.com/boom-astro/boom/pulls
 
     # This secret key can be any random string of
     # characters.
