@@ -738,6 +738,8 @@ skyportal:
     # active broker's stream (BOOM's kafka config lives on the Broker record's
     # altdata) and ingests alerts via the shared save transform.
     ingest_enabled: True
+    # broker_ingest OS processes; extras replicate only Kafka-group providers.
+    ingest_processes: 2
 
   misc:
     days_to_keep_unsaved_candidates: 7
