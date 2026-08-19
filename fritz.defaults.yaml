@@ -680,9 +680,23 @@ skyportal:
 
     auth:
       debug_login: True
-      google_oauth2_key:
-      google_oauth2_secret:
       google_oauth2_timeout: 15
+
+      # Sign-in providers, in the order offered. This list is now the only
+      # source of providers, so Google is named here too; keys come from the
+      # deployment config.
+      backends:
+        - name: google-oauth2
+          class: social_core.backends.google.GoogleOAuth2
+          key:
+          secret:
+        - name: orcid
+          class: social_core.backends.orcid.ORCIDOAuth2
+          key:
+          secret:
+          label: Sign in with ORCID
+          # ORCID verifies the addresses it publishes
+          trust_email: true
 
   services:
     disabled:
