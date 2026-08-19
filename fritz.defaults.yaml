@@ -122,7 +122,7 @@ skyportal:
       endpoint: https://hermes.lco.global/api/v0 # Base URL of the Hermes API
       token: # Hermes API token for authentication (required to publish messages)
       topic: hermes.test # Kafka topic used to publish outgoing SkyPortal alerts to Hermes
-      test_topic: # Kafka topic used during testing
+      test_topic: skyportal.skyportal_test # Kafka topic used during testing
       sync:
         scimma_username: # SCiMMA/Kafka username for authentication
         scimma_password: # SCiMMA/Kafka password for authentication
