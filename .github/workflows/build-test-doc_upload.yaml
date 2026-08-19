@@ -41,29 +41,6 @@ jobs:
         with:
           node-version: 22
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: skyportal/package.json
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v1
-
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('skyportal/bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      # The SFD dust maps and sncosmo SED models are now vendored in the
-      # skyportal-data submodule (misc.dustmap_folder / sncosmo_data_folder) and
-      # pulled via `lfs: true` above, so no separate download cache is needed.
-
-      - name: Install system dependencies
-        run: |
-          sudo apt update -y && sudo apt install -y libcurl4-gnutls-dev libgnutls28-dev
-
       - name: Install dependencies
         run: |
           uv sync --inexact --group dev --group docs
@@ -76,7 +53,6 @@ jobs:
       - name: Build docs
         run: |
           source .venv/bin/activate
-          uv pip install wheel
           uv sync --inexact --project skyportal --active
           ./fritz doc --yes
 
