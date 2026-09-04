@@ -49,6 +49,16 @@ skyportal:
         - name: BOOM
           url: https://github.com/boom-astro/boom/pulls
 
+    # Accepted once per version; bump the version to ask everyone again.
+    terms_of_service:
+      # Enable once skyportal supports exempt_tokens, which keeps API clients working.
+      enabled: false
+      version: "2026-09-04"
+      title: Fritz Terms of Service
+      text_file: data/fritz_terms_of_service.md
+      # A token cannot be shown the dialog; its owner still accepts at next login.
+      exempt_tokens: true
+
     # This secret key can be any random string of
     # characters.
     #
