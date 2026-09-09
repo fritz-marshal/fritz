@@ -37,6 +37,9 @@ ext = [
     # Extraction engine for the circex external service. Switch to
     # "circex>=0.2.0" once that release is on PyPI.
     "circex @ git+https://github.com/skyportal/Circex.git@main",
+    # Observation-plan scheduler, with the SCIP backend since SkyPortal ships no
+    # solver. Pinned to the same revision as skyportal's own m4opt extra.
+    "m4opt[scip] @ git+https://github.com/skyportal/m4opt@5bba6e4",
 ]
 
 [tool.ruff]
