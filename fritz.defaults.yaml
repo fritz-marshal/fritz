@@ -49,6 +49,14 @@ skyportal:
         - name: BOOM
           url: https://github.com/boom-astro/boom/pulls
 
+    # Observation plans solved as a MILP instead of greedily. Runs as a
+    # subprocess, so a solve that hangs stays out of the app process.
+    m4opt:
+      enabled: true
+      solver: scip
+      missions:
+        ZTF: ztf
+
     # Accepted once per version; bump the version to ask everyone again.
     terms_of_service:
       enabled: true
