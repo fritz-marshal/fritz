@@ -630,7 +630,6 @@ skyportal:
       default_pool_size: 100
       max_client_conn: 1000
 
-
   ports:
     # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
     # migration_manager:
