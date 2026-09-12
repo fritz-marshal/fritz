@@ -37,10 +37,14 @@ ext = [
     # Extraction engine for the circex external service. Switch to
     # "circex>=0.2.0" once that release is on PyPI.
     "circex @ git+https://github.com/skyportal/Circex.git@main",
-    # Observation-plan scheduler, with the SCIP backend since SkyPortal ships no
-    # solver. Pinned to the same revision as skyportal's own m4opt extra.
-    "m4opt[scip] @ git+https://github.com/skyportal/m4opt@5bba6e4",
 ]
+
+[tool.fritz]
+# SkyPortal extras to install alongside its base dependencies. An extra is
+# optional upstream for a reason -- m4opt needs a MILP solver -- but fritz wants
+# it, and naming it here takes the revision from skyportal's own pyproject
+# rather than restating it. A restated pin is one that can drift, and did.
+skyportal_extras = ["m4opt"]
 
 [tool.ruff]
 target-version = "py312"
