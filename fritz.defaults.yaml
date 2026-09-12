@@ -260,6 +260,8 @@ skyportal:
         component: analysis/AnalysisServicePage
       - path: "/analysis_requests"
         component: analysis/AnalysisRequestPage
+      - path: "/observation_plan_requests"
+        component: observation_plan/ObservationPlanRequestPage
       - path: "/recurring_apis"
         component: RecurringAPIPage
       - path: "/shifts"
@@ -288,6 +290,11 @@ skyportal:
     observation_plan:
       default_filters: ["ztfg", "ztfr", "ztfi"]
       use_skyportal_fields: True
+      # Plan groups scheduled at once. At 1 a slow scheduler holds up every
+      # request behind it: twelve plans submitted together during GRB 260910B
+      # took 46 minutes, nearly all of it waiting. Each worker costs a
+      # scheduler process, so this tracks spare cores, not queue depth.
+      max_concurrent: 3
 
     sidebar:
       # See https://material-ui.com/components/material-icons/
@@ -336,6 +343,10 @@ skyportal:
           - name: Analysis Requests
             icon: Analytics
             url: /analysis_requests
+
+          - name: Observation Plans
+            icon: Assignment
+            url: /observation_plan_requests
 
           - name: Data Requests
             icon: LockOpen
@@ -619,12 +630,6 @@ skyportal:
       default_pool_size: 100
       max_client_conn: 1000
 
-  # To serve the source page's photometry from the broker-canonical passthrough
-  # (saved DB photometry merged with on-demand BOOM photometry), set:
-  #   photometry_display_endpoint: "/api/boom/surveys/ZTF/objects/{id}/photometry"
-  # Left unset by default: it changes every source page's photometry fetch and
-  # requires BOOM to be reliably available, so enable it deliberately per
-  # deployment once that holds.
 
   ports:
     # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
