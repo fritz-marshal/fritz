@@ -85,6 +85,20 @@ def patch():
         skyportal_pyproject = tl.load(f)
     # we get the ext dependencies from the "ext" dependency group in the pyproject.toml of fritz
     ext_dependencies = fritz_pyproject["dependency-groups"]["ext"]
+    # An extra skyportal declares is optional upstream but may be required here.
+    # Resolving it from skyportal's own pyproject keeps the revision in one
+    # place: fritz names the extra, skyportal owns what it pins to.
+    extras = (
+        fritz_pyproject.get("tool", {}).get("fritz", {}).get("skyportal_extras", [])
+    )
+    optional = skyportal_pyproject["project"].get("optional-dependencies", {})
+    for extra in extras:
+        if extra not in optional:
+            raise SystemExit(
+                f"fritz asks for the skyportal extra '{extra}', which skyportal "
+                f"does not declare; it has {sorted(optional)}"
+            )
+        ext_dependencies = ext_dependencies + optional[extra]
     skyportal_pyproject["project"]["dependencies"] = list(
         set(skyportal_pyproject["project"]["dependencies"] + ext_dependencies)
     )
