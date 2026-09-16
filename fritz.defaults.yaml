@@ -250,6 +250,8 @@ skyportal:
         component: gcn/GcnEvents
       - path: "/gcn_events/:dateobs"
         component: gcn/GcnEventPage
+      - path: "/gcn_events/:dateobs/analysis/:analysis_id"
+        component: source/GcnEventAnalysisPage
       - path: "/telescopes"
         component: telescope/TelescopeList
       - path: "/instruments"
