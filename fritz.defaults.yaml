@@ -224,6 +224,8 @@ skyportal:
         component: group/GroupSources
       - path: "/user_management"
         component: user/UserManagement
+      - path: "/user_applications"
+        component: user/UserApplications
       - path: "/brokers"
         component: broker/BrokerList
       - path: "/brokers/:brokerId"
@@ -442,6 +444,10 @@ skyportal:
             icon: Group
             permissions: ["Manage users", "System admin"]
             url: /user_management
+          - name: Account applications
+            icon: HowToReg
+            enabled_if: canDecideUserApplications
+            url: /user_applications
 
     security:
       strict: true
@@ -1055,6 +1061,15 @@ skyportal:
 
   # This value needs to be either "sendgrid" or "smtp" (without quotes)
   email_service: sendgrid
+
+  user_applications:
+    enabled: True
+    peer_endorsement: False
+    email_subject: "A new Fritz account application is awaiting review"
+    form_preamble: |
+      Tell us who you are and what you would use Fritz for. An administrator
+      reviews each application, and you will be emailed an invitation if it is
+      approved.
 
   invitations:
     enabled: False # If debug_login=True above, invite tokens won't be used during auth
