@@ -988,13 +988,10 @@ skyportal:
         prompt: Using markdown (with appropriate URL links), in one human-readable paragraph please summarize the following comments about this astronomical source. If classification and/or redshift are given, then note those in the summary. This summary will be primarily read by professional astronomers to help them with their work.
       embeddings_store:
         summary:
-          location: pinecone
-          environment: us-east1-gcp
+          location: pgvector
+          model: qwen3-embedding
+          base_url: https://ellm.nrp-nautilus.io/v1
           api_key:
-          index_name: openai-skyportal-summary
-          index_size: 1536
-          model: text-embedding-ada-002
-          pod_type: p1.x1
 
   gcn:
     server: gcn.nasa.gov
