@@ -893,7 +893,6 @@ skyportal:
     cosmology: Planck18
     #cosmology: {H0: "65.0", Om0: 0.3, Ode0: 0.7, name: 'skyportal_user_cosmo'}
 
-    dustmap: sfd
     # Vendored in the skyportal-data submodule so the SFD maps are present
     # without a network fetch at startup. obj.py still falls back to fetching
     # if the files are absent (e.g. submodule not initialized).
