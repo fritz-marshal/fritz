@@ -57,6 +57,13 @@ skyportal:
       missions:
         ZTF: ztf
 
+    assistant:
+      # Triage each analysis as it completes, against the shared queries
+      # saved on the Assistant Queries page. The model and its credentials
+      # come from the deployed config.
+      analysis_triage:
+        enabled: true
+
     # Accepted once per version; bump the version to ask everyone again.
     terms_of_service:
       enabled: true
