@@ -4,6 +4,7 @@ __all__ = [
 ]
 
 
+import secrets
 import subprocess
 from pathlib import Path
 
@@ -26,6 +27,25 @@ def check_config_exists(cfg="fritz.defaults.yaml", yes=False):
             raise OSError(f"{c} does not exist, aborting")
 
 
+# The key shipped in skyportal's config.yaml.defaults, which the app refuses
+# to start on: session cookies and the credentials encrypted in the database
+# would be readable by anyone holding a copy of the defaults.
+DEFAULT_SECRET_KEY = "abc01234"
+
+
+def ensure_secret_key(skyportal_config):
+    """Give this checkout its own app.secret_key, once.
+
+    fritz.yaml is local and gitignored, so the generated key stays out of the
+    repository and survives rebuilds -- sessions and anything encrypted under
+    it keep working. Production sets its own key and never reaches this.
+    """
+    app = skyportal_config.setdefault("app", {})
+    if app.get("secret_key") in (None, "", DEFAULT_SECRET_KEY):
+        app["secret_key"] = secrets.token_urlsafe(32)
+        print("Generated an app.secret_key for this checkout")
+
+
 def check_config(cfg="fritz.defaults.yaml", yes=False):
     """
     Check if config exists, generate a K token for SP, adjust cfg and distribute to K and SP
@@ -39,6 +59,7 @@ def check_config(cfg="fritz.defaults.yaml", yes=False):
     # Docker-specific SkyPortal stuff:
     config["skyportal"]["database"]["host"] = "db"
     config["skyportal"]["server"]["url"] = "http://localhost:5000"
+    ensure_secret_key(config["skyportal"])
     config_skyportal = config["skyportal"]
     with open("skyportal/docker.yaml", "w") as skyportal_config_yaml:
         yaml.dump(config_skyportal, skyportal_config_yaml)
