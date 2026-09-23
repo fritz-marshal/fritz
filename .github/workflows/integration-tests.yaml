@@ -233,11 +233,14 @@ jobs:
           # or scheduler-ztf declares depends_on, so the infrastructure they
           # need is listed too.
           #
-          # No --build: every service here runs the image pulled above.
+          # --no-build, not merely the absence of --build: these services
+          # declare both an image and a build, and compose builds them anyway,
+          # which is a 12-minute cargo build --release on every run. The image
+          # was pulled and tagged in the step above; refuse to build it again.
           docker compose -p boom \
             -f docker-compose.yaml \
             -f docker-compose.ci.yaml \
-            up -d --wait \
+            up -d --wait --no-build \
               mongo valkey broker kafka-acl-init \
               api consumer-ztf-public scheduler-ztf
 
