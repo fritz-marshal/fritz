@@ -226,13 +226,20 @@ jobs:
           BOOM_KAFKA__CONSUMER__WINTER__GROUP_ID: boom-winter-consumer-group
           BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
         run: |
-          # No --build: every service in this profile runs the image pulled
-          # above. frontend is scaled to 0 -- it is boom's own web UI, is not
-          # published to ghcr, and nothing here talks to it.
+          # Named services rather than --profile prod: the profile also brings
+          # up grafana, loki, tempo, prometheus, cadvisor and five exporters,
+          # none of which these tests touch, and pulling them was most of the
+          # 14 minutes this step used to take. None of api, consumer-ztf-public
+          # or scheduler-ztf declares depends_on, so the infrastructure they
+          # need is listed too.
+          #
+          # No --build: every service here runs the image pulled above.
           docker compose -p boom \
             -f docker-compose.yaml \
             -f docker-compose.ci.yaml \
-            --profile prod up -d --scale frontend=0
+            up -d --wait \
+              mongo valkey broker kafka-acl-init \
+              api consumer-ztf-public scheduler-ztf
 
       # Boom's api + mongo services are on boom's internal network, not
       # fritz_net. Connect them so skyportal-web-1 can resolve `boom-api-1`
@@ -291,7 +298,7 @@ jobs:
             sleep 5
           done
           echo "BOOM never ingested alerts"
-          (cd boom && docker compose -p boom logs --tail=200 consumer-ztf) || true
+          (cd boom && docker compose -p boom logs --tail=200 consumer-ztf-public) || true
           exit 1
 
       # ── Fritz / SkyPortal stack ────────────────────────────────────────
