@@ -183,13 +183,12 @@ jobs:
                 BOOM_API__AUTH__ADMIN_PASSWORD: ${BOOM_API__AUTH__ADMIN_PASSWORD}
           EOF
 
-      # Compose refers to the boom services by the unqualified local name, so
-      # retag the released image rather than patching nine service entries.
+      # boom's compose reads ${BOOM_IMAGE:-ghcr.io/boom-astro/boom:latest}, so
+      # the released tag is passed in below rather than retagged to a name the
+      # compose file stopped using.
       - name: Pull the released boom image
         run: |
           docker pull ghcr.io/boom-astro/boom:${{ steps.boom.outputs.tag }}
-          docker tag ghcr.io/boom-astro/boom:${{ steps.boom.outputs.tag }} \
-            boom-astro/boom:latest
 
       - name: Bring up boom stack
         working-directory: boom
@@ -225,14 +224,28 @@ jobs:
           BOOM_WORKERS__ZTF__FILTER__MAX_MATCH_RATE: "100"
           BOOM_KAFKA__CONSUMER__WINTER__GROUP_ID: boom-winter-consumer-group
           BOOM_KAFKA__CONSUMER__WINTER__SERVER: broker:29092
+          # The tag pulled above. Without this compose falls back to
+          # ghcr.io/boom-astro/boom:latest, which is not present, and
+          # builds boom from source instead -- 12 minutes a run.
+          BOOM_IMAGE: ghcr.io/boom-astro/boom:${{ steps.boom.outputs.tag }}
         run: |
-          # No --build: every service in this profile runs the image pulled
-          # above. frontend is scaled to 0 -- it is boom's own web UI, is not
-          # published to ghcr, and nothing here talks to it.
+          # Named services rather than --profile prod: the profile also brings
+          # up grafana, loki, tempo, prometheus, cadvisor and five exporters,
+          # none of which these tests touch, and pulling them was most of the
+          # 14 minutes this step used to take. None of api, consumer-ztf-public
+          # or scheduler-ztf declares depends_on, so the infrastructure they
+          # need is listed too.
+          #
+          # --no-build, not merely the absence of --build: these services
+          # declare both an image and a build, and compose builds them anyway,
+          # which is a 12-minute cargo build --release on every run. The image
+          # was pulled and tagged in the step above; refuse to build it again.
           docker compose -p boom \
             -f docker-compose.yaml \
             -f docker-compose.ci.yaml \
-            --profile prod up -d --scale frontend=0
+            up -d --wait --no-build \
+              mongo valkey broker kafka-acl-init \
+              api consumer-ztf-public scheduler-ztf
 
       # Boom's api + mongo services are on boom's internal network, not
       # fritz_net. Connect them so skyportal-web-1 can resolve `boom-api-1`
@@ -291,7 +304,7 @@ jobs:
             sleep 5
           done
           echo "BOOM never ingested alerts"
-          (cd boom && docker compose -p boom logs --tail=200 consumer-ztf) || true
+          (cd boom && docker compose -p boom logs --tail=200 consumer-ztf-public) || true
           exit 1
 
       # ── Fritz / SkyPortal stack ────────────────────────────────────────
