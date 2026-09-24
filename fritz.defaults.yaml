@@ -58,6 +58,15 @@ skyportal:
         ZTF: ztf
 
     assistant:
+      # Building a filter takes more lookups than a question about one source:
+      # reading the alert schema alone ran to seven calls, which left none for
+      # the preview the answer is supposed to be measured against.
+      max_tool_calls: 20
+      # The model is slower on a turn that calls tools than on one that does
+      # not, and a cut-off answer reaches the user as "something went wrong".
+      # request_timeout is already 300, so this stops the overall deadline
+      # ending a turn the model would have finished.
+      answer_timeout: 300
       # Triage each analysis as it completes, against the shared queries
       # saved on the Assistant Queries page. The model and its credentials
       # come from the deployed config.
