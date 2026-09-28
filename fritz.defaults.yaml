@@ -246,8 +246,6 @@ skyportal:
         component: broker/BrokerList
       - path: "/brokers/:brokerId"
         component: broker/Broker
-      - path: "/brokers/:brokerId/filter/:fid"
-        component: broker/BrokerFilterPage
       - path: "/upload_spectrum/:id"
         component: spectrum/UploadSpectrum
       - path: "/source/:id/finder"
