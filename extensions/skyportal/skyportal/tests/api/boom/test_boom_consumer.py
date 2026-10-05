@@ -34,11 +34,12 @@ def _photometry_point(**overrides):
     return point
 
 
-def _record(photometry, *, obj_id="ZTF_boomnorm", candid=10_000_001):
+def _record(photometry, *, obj_id="ZTF_boomnorm", candid=10_000_001, jd=2459000.5):
     return {
         "objectId": obj_id,
         "survey": "ZTF",
         "candid": candid,
+        "jd": jd,
         "ra": 234.22,
         "dec": -22.33,
         "drb": 0.99,
@@ -53,7 +54,14 @@ def test_normalize_detection_maps_flux_and_candidate():
 
     assert data["objectId"] == "ZTF_boomnorm"
     assert data["candid"] == 10_000_001
-    assert data["candidate"] == {"ra": 234.22, "dec": -22.33, "drb": 0.99}
+    # The alert's own epoch rides in the candidate, where the shared save
+    # transform reads it to date the cutouts.
+    assert data["candidate"] == {
+        "jd": 2459000.5,
+        "ra": 234.22,
+        "dec": -22.33,
+        "drb": 0.99,
+    }
 
     assert len(data["prv_candidates"]) == 1
     p = data["prv_candidates"][0]
