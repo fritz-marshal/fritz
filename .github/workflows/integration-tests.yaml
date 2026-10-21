@@ -77,6 +77,11 @@ jobs:
           uv sync --inexact
           ./fritz develop
 
+      - name: Start building the fritz image
+        run: |
+          cp fritz.defaults.yaml fritz.yaml
+          nohup bash -c './fritz build > fritz-build.log 2>&1; echo $? > fritz-build.status' > /dev/null 2>&1 &
+
       # The SFD dust maps are now vendored in the skyportal-data submodule and
       # pulled via `lfs: true` above. `ADD . /skyportal` bakes them into the
       # image, so no host-side download/cache/inject is needed.
@@ -372,8 +377,9 @@ jobs:
 
       - name: Build fritz image
         run: |
-          cp fritz.defaults.yaml fritz.yaml
-          ./fritz build
+          while [ ! -f fritz-build.status ]; do sleep 5; done
+          cat fritz-build.log
+          exit "$(cat fritz-build.status)"
 
       - name: Start fritz stack
         run: ./fritz run
