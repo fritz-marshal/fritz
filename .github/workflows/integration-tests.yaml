@@ -381,6 +381,28 @@ jobs:
           cat fritz-build.log
           exit "$(cat fritz-build.status)"
 
+      - id: "auth"
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: "google-github-actions/auth@v3"
+        with:
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+
+      - name: Setup gcloud cli
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ secrets.GKE_PROJECT }}
+
+      - name: Set up docker credentials
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: gcloud --quiet auth configure-docker
+
+      - name: Start pushing the image to gcr.io
+        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag skyportal/web:latest "gcr.io/$PROJECT_ID/$IMAGE:ci-$GITHUB_SHA"
+          nohup bash -c 'docker push "gcr.io/$PROJECT_ID/$IMAGE:ci-$GITHUB_SHA" > image-push.log 2>&1; echo $? > image-push.status' > /dev/null 2>&1 &
+
       - name: Start fritz stack
         run: ./fritz run
 
@@ -479,24 +501,6 @@ jobs:
 
       # ── Publish + deploy (main push only, and only if everything above
       # passed) ──────────────────────────────────────────────────────────
-      # The image built and tested above (skyportal/web:latest) is retagged
-      # and pushed, so what ships is exactly what the tests ran against.
-      - id: "auth"
-        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: "google-github-actions/auth@v3"
-        with:
-          credentials_json: ${{ secrets.GKE_SA_KEY }}
-
-      - name: Setup gcloud cli
-        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: google-github-actions/setup-gcloud@v3
-        with:
-          project_id: ${{ secrets.GKE_PROJECT }}
-
-      - name: Set up docker credentials
-        if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: gcloud --quiet auth configure-docker
-
       - name: Get Google Kubernetes Engine credentials
         if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: "google-github-actions/get-gke-credentials@v3"
@@ -507,8 +511,11 @@ jobs:
       - name: Publish image to gcr.io
         if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |-
-          docker tag skyportal/web:latest "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
-          docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+          while [ ! -f image-push.status ]; do sleep 5; done
+          cat image-push.log
+          [ "$(cat image-push.status)" = 0 ]
+          gcloud container images add-tag --quiet "gcr.io/$PROJECT_ID/$IMAGE:ci-$GITHUB_SHA" "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+          gcloud container images untag --quiet "gcr.io/$PROJECT_ID/$IMAGE:ci-$GITHUB_SHA" || true
 
       - name: Checkout fritz-deploy
         if: success() && github.repository == 'fritz-marshal/fritz' && github.event_name == 'push' && github.ref == 'refs/heads/main'
