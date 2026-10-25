@@ -13,9 +13,6 @@ skyportal:
       This work acknowledges support from the National Science Foundation through
       AST Award No. 2432476 (PI Kasliwal; co-PI Coughlin) and leverages experience
       from the Zwicky Transient Facility (co-PIs Graham and Kasliwal).
-    logos: # Logos to place in the top-left of the header bar (zero or more)
-      - src: /static/images/skyportal_logo_dark.png
-        alt_text: Skyportal logo
 
     # Copy for the About page, rendered by SkyPortal's AboutPlugins template.
     about:
@@ -53,7 +50,6 @@ skyportal:
     # subprocess, so a solve that hangs stays out of the app process.
     m4opt:
       enabled: true
-      solver: scip
       missions:
         ZTF: ztf
 
@@ -82,136 +78,25 @@ skyportal:
       # A token cannot be shown the dialog; its owner still accepts at next login.
       exempt_tokens: true
 
-    # This secret key can be any random string of
-    # characters.
-    #
-    # You should re-generate this for your application
-    # using:
-    #
-    # base64.b64encode(os.urandom(50)).decode('ascii')
-    secret_key: abc01234
-    factory: skyportal.app_server.make_app
-
     # Bounded so the pool cannot exhaust the database connections.
     thread_pool_size: 8
 
-    heasarc_endpoint: https://heasarc.gsfc.nasa.gov
-
-    # this endpoint does not actually do anything -- it is just for testing
-    sedm_endpoint: http://minar.caltech.edu/add_fritz
-
-    lt_host: 161.72.57.3
-    lt_port: 8080
-
-    lco_protocol: https
-    lco_host: observe.lco.global
-    lco_port: 443
-
-    lco_archive_endpoint: https://archive-api.lco.global
-
-    # ZTF triggering (api/triggers/ztf, api/triggers/ztfmma). This host also used
-    # to serve the Kowalski alert broker, which is retired -- but the trigger API
-    # still lives here, so the host stays.
-    ztf:
-      protocol: https
-      host: kowalski.caltech.edu
-      port: 443
-
-    ztf_forced_endpoint: https://ztfweb.ipac.caltech.edu
-
-    swift:
-      protocol: https
-      host: www.swift.psu.edu
-      port: 443
-
-    swift_xrt_endpoint: https://www.swift.ac.uk/user_objects
-
-    ps1_endpoint: https://catalogs.mast.stsci.edu/
-
-    # PS1 cutout service used to scrape the public thumbnail link for an Obj.
-    # Set to an empty string to skip the HTTP call and use the
-    # "currently_unavailable.png" placeholder (useful in tests).
-    ps1_cutout_url: http://ps1images.stsci.edu/cgi-bin/ps1cutouts
-    skymapper_cutout_url: https://api.skymapper.nci.org.au/public/siap/dr4/query
-
-    tess_endpoint: https://tess.mit.edu/public/tesstransients/
-
-    atlas:
-      protocol: https
-      host: fallingstar-data.com
-
-    kait:
-      protocol: http
-      host: herculesii.astro.berkeley.edu
-
-    colibri:
-      protocol: http
-      host:
-      port:
-
-    gemini:
-      protocol: https
-      host: gsodbtest.gemini.edu # this is the test server host, just remove 'test' for production
-      port: 8443 # this is the test server port, production is 443
-
-    treasuremap_endpoint: https://treasuremap.space
-
     tns:
-      endpoint: https://sandbox.wis-tns.org
-      bot_id:
-      bot_name:
-      api_key:
       look_back_days: 7
 
     hermes:
-      endpoint: https://hermes.lco.global/api/v0 # Base URL of the Hermes API
-      token: # Hermes API token for authentication (required to publish messages)
       topic: hermes.test # Kafka topic used to publish outgoing SkyPortal alerts to Hermes
-      test_topic: skyportal.skyportal_test # Kafka topic used during testing
-      sync:
-        scimma_username: # SCiMMA/Kafka username for authentication
-        scimma_password: # SCiMMA/Kafka password for authentication
-        kafka_server: kafka.scimma.org
-        from_start: False # Start from beginning of topic (True) or latest message (False)
-        max_age_days: # Skip messages older than N days (null/empty = no limit)
-        bot_user_id: # User ID of the bot account that will save sources and own photometry. If not set, the service will not start.
-        group_ids: [] # List of group IDs to assign imported sources to
-        instrument_tns_ids: # Whitelist of TNS instrument IDs whose photometry will be imported (see https://www.wis-tns.org/api/get/values). If not set, photometry import is skipped entirely.
-
-    winter:
-      protocol: http
-      host: winter.caltech.edu
-      port: 82
-      submit_trigger: False # if False, the API POST call will only validate the payload
-
-    gracedb_endpoint: https://gracedb.ligo.org/api/
-
-    mpc_endpoint: https://minorplanetcenter.net
 
     observation_plan:
-      default_filters: ["ztfg", "ztfr", "ztfi"]
-      use_skyportal_fields: True
       # Plan groups scheduled at once. At 1 a slow scheduler holds up every
       # request behind it: twelve plans submitted together during GRB 260910B
       # took 46 minutes, nearly all of it waiting. Each worker costs a
       # scheduler process, so this tracks spare cores, not queue depth.
       max_concurrent: 3
 
-    security:
-      strict: true
-      slack:
-        enabled: false
-        url: null
-
   database:
-    database: skyportal
     host: db
-    port: 5432
-    user: skyportal
     password: password
-
-    # Superuser for `make db_init`; empty defaults to "postgres".
-    admin_user:
 
     # Transaction-mode connection pooler (bundled pgbouncer, runs in the web
     # container). host/port here are where the app reaches pgbouncer; the
@@ -221,73 +106,16 @@ skyportal:
       # IPv4 explicitly: pgbouncer listens on 127.0.0.1, and localhost can
       # resolve to ::1 (IPv6), where it isn't listening.
       host: 127.0.0.1
-      port: 6432
-      pool_mode: transaction
       # Sized for production concurrency; Cloud SQL max_connections is 600.
       default_pool_size: 100
-      max_client_conn: 1000
-
-  ports:
-    # migration_manager port is already defined in baselayer config.yaml.defaults, but can be overridden here
-    # migration_manager:
-    notification_queue: 64610
-    thumbnail_queue: 64910
-    tns_retrieval_queue: 64810
-
-  hosts:
-    # Hostnames the application uses to reach its internal microservices. These
-    # default to the loopback address, which is correct for the standard
-    # single-host deployment where every service runs alongside the app. Override
-    # a service's host to run it on a separate host/container (e.g. to scale a
-    # microservice independently, or for a distributed/Kubernetes deployment).
-    migration_manager: 127.0.0.1
-    notification_queue: 127.0.0.1
-    tns_retrieval_queue: 127.0.0.1
-    slack: 127.0.0.1
-
-  # JPL Scout NEO Target-of-Opportunity candidates, published by
-  # lsst-sssc/scout-alert-bridge. Leave `topic` unset to disable the service.
-  scout:
-    topic: # e.g. Scout.scout-test
-    kafka_server: kafka.scimma.org
-    scimma_username: # SCiMMA/Kafka credentials; omit both for an unauthenticated broker
-    scimma_password:
-    group_ids: [] # groups the NEO candidates are saved to
-    bot_user_id: # user recorded as saving the sources and authoring the annotations
-    from_start: False # read the topic from the beginning (True) or from latest (False)
-    # The bridge can publish under a `relaxed_test` filter mode that waives all but
-    # the identity filters. Off by default so test traffic can't look like a trigger.
-    allow_relaxed_test: False
 
   server:
-    # From https://console.developers.google.com/
-    #
-    # - Create Client ID
-    # - Javascript origins: https://localhost:5000
-    # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
-    #
-    # You need to have Google+ API enabled; it takes a few minutes to activate.
-
-    protocol: http
     host: <host>
     port:
-
-    # It is recommended to use TLS in production
-    ssl: False
-    processes: 4
-
-    # The max size of a request body in megabytes (M)
-    max_body_size: 100
-
     # nginx parameter which sets both the time in seconds before which
     # the server is considered unavailable and the subsequent period of
     # time the server will be unavailable
     fail_timeout: 60
-
-    # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
-    rate_limit: 5
-    # Rate limit burst size (https://www.nginx.com/blog/rate-limiting-nginx/#bursts)
-    burst: 10
 
     # In addition to the local network, specify any IP addresses that are to be
     # exempt from API rate limiting
@@ -316,7 +144,6 @@ skyportal:
 
     auth:
       debug_login: True
-      google_oauth2_timeout: 15
 
       # Sign-in providers, in the order offered. This list is now the only
       # source of providers, so Google is named here too; keys come from the
@@ -454,140 +281,39 @@ skyportal:
     ingest_processes: 2
 
   misc:
-    days_to_keep_unsaved_candidates: 7
     minutes_to_keep_candidate_query_cache: 120
-    minutes_to_keep_source_query_cache: 360
-    minutes_to_keep_localization_instrument_query_cache: 1440
-    max_items_in_localization_instrument_query_cache: 100
-    minutes_to_keep_public_source_pages_cache: 1440
-    minutes_to_keep_reports_cache: 1440
-    public_group_name: "Sitewide Group"
     # When a data product (photometry, spectra, ...) is uploaded without specifying
     # any groups, share it with the sitewide public group (public_group_name) in
     # addition to the uploader's single-user group (which is always included). When
     # false (default) an unspecified upload is shared only with the uploader. Groups
     # given explicitly on the upload are always honored as-is.
     share_data_with_public_group_by_default: true
-    # External survey thumbnails fetched (outbound HTTP) when a source is saved.
-    # Set to [] to disable, e.g. on instances without external network egress.
-    external_thumbnail_types:
-      - sdss
-      - ps1
-      - ls
-    # Use a named cosmology from `astropy.cosmology.parameters.available` cosmologies
-    # or supply the arguments for an `astropy.cosmology.FLRW` cosmological instance.
-    # If {"flat": True} then use a subclass of the FLRW, called `FlatLambdaCMD`
-    # otherwise use `LambdaCDM`. See `utils.cosmology.py` for the way in which
-    # the user-supplied cosmology parameter set constructs the site-wide cosmology.
-    cosmology: Planck18
-    #cosmology: {H0: "65.0", Om0: 0.3, Ode0: 0.7, name: 'skyportal_user_cosmo'}
-
-    # Vendored in the skyportal-data submodule so the SFD maps are present
-    # without a network fetch at startup. obj.py still falls back to fetching
-    # if the files are absent (e.g. submodule not initialized).
-    dustmap_folder: skyportal-data/dustmaps
-
-    # sncosmo cache (bandpasses, SED models, spectra), vendored in the
-    # skyportal-data submodule. Pointing sncosmo here keeps app import off the
-    # flaky SVO Filter Profile Service; any missing bandpass still falls back to
-    # a network fetch into this directory.
-    sncosmo_data_folder: skyportal-data/sncosmo
-
-    # The minimum signal-to-noise ratio/ n-sigma for lim mag cacluations to
-    # consider a photometry point as a detection
-    photometry_detection_threshold_nsigma: 3.0
-
-    # The airmass value below which to track hours for when plotting
-    # on an object's observability page
-    hours_below_airmass_threshold: 2.9
-
-    color_palette: turbo
 
   external_logging:
-    papertrail:
-      # get an account at https://papertrailapp.com
-      enabled: False
-      # change url to the correct subdomain for your account
-      # and change the port as well
-      url:
-      port:
-      # which log files, if any do you not want to send over to the 3rd party?
-      excluded_log_files: ["log/websocket_server.log"]
-
     sentry:
-      endpoint:
       # Set traces_sample_rate to 1.0 to capture 100%
       # of transactions for performance monitoring.
       # Sentry recommends adjusting this value in production.
       traces_sample_rate: 1.0
-      # Set profiles_sample_rate to 1.0 to profile 100%
-      # of sampled transactions.
-      # We recommend adjusting this value in production.
-      profiles_sample_rate: 1.0
-
-    observability:
-      # Enable OpenTelemetry instrumentation of the Tornado app and expose request
-      # metrics in Prometheus format at /api/internal/metrics. The endpoint requires
-      # a System admin token (scrape with `Authorization: token <id>`). Each app
-      # worker serves its own metrics on its internal port (ports.app_internal +
-      # worker number); point Prometheus at those ports directly rather than the
-      # load-balanced public endpoint. Disabled by default.
-      enabled: False
-      service_name: skyportal
-
-  weather:
-    refresh_time: 3600.0
-    openweather_api_key:
 
   cron: []
-  #    - interval: 60
-  #      script: jobs/count_unsaved_candidates.py
   # - interval: 1440
   #   script: jobs/delete_unsaved_candidates.py
   #   limit: ["01:00", "02:00"]
 
-  comments_folder: persistentdata/comments
-
   analysis_services:
-    analysis_folder: persistentdata/analysis
-    max_analysis_per_obj_per_user: 50
-    sn_analysis_service:
-      port: 6801
-    ngsf_analysis_service:
-      port: 7001
-    spectral_cube_analysis_service:
-      port: 7002
     openai_analysis_service:
-      port: 7003
       summary:
-        # set this global API key if the project
-        # will pay for the OpenAI costs. Otherwise
-        # individual users need to set their own key
-        # in the user preferences
-        # Get a global key at:
-        #   https://platform.openai.com/account/api-keys
-        api_key:
         temperature: 0.2
-        max_tokens: 350
-        top_p: 1.0
-        frequency_penalty: 0.0
         model: gpt-3.5-turbo
-        presence_penalty: 1.0
         prompt: Using markdown (with appropriate URL links), in one human-readable paragraph please summarize the following comments about this astronomical source. If classification and/or redshift are given, then note those in the summary. This summary will be primarily read by professional astronomers to help them with their work.
       embeddings_store:
         summary:
           location: pgvector
           model: qwen3-embedding
           base_url: https://ellm.nrp-nautilus.io/v1
-          api_key:
 
   gcn:
-    server: gcn.nasa.gov
-    # you can obtain a client_id and client_secret at https://gcn.nasa.gov/quickstart
-    # you can set a group_id to remember the last GCN the app ingested from the stream
-    client_group_id:
-    client_id:
-    client_secret:
     notice_types:
       voevent:
         - gcn.classic.voevent.FERMI_GBM_FLT_POS
@@ -609,80 +335,20 @@ skyportal:
         - einstein_probe.wxt.alert
         - swift.bat.guano
         - icecube.lvk_nu_track_search
-    # Circulars are prose follow-up reports. Ingesting them keeps each event's
-    # circular list and aliases current in real time, where the TACH backfill
-    # (POST /gcn_event/<dateobs>/tach) only fills them in on demand and lags.
-    # Circulars never create events; one whose event is unknown is skipped.
-    circulars:
-      enabled: false
-      topic: gcn.circulars
-      # Only used for the first circular of an event, before any alias exists to
-      # match on; later ones match the designation this one writes. A designation
-      # ("GRB 260604C") fixes the burst's UTC day but not its time, so the search
-      # centres on noon that day and 12 hours spans exactly midnight to midnight.
-      window_hours: 12
-    reject_tags: # reject notices with these tags (optional)
-      - MDC
-      - ECLAIRs-Catalog
-
-  twilio:
-    # Twilio Sendgrid API configs
-    # This needs to be set to a valid, Sendgrid-registered address in config.yaml
-    from_email:
-    # This needs to be obtained via Sendgrid setup on their site
-    sendgrid_api_key:
-
-    # Twilio SMS API configs
-    # These values must be valid ones from the Twilio API console
-    from_number:
-    sms_account_sid:
-    sms_auth_token:
 
   smtp:
-    from_email:
-    password:
     host:
     port:
-
   # This value needs to be either "sendgrid" or "smtp" (without quotes)
   email_service: sendgrid
 
   user_applications:
     enabled: True
-    peer_endorsement: False
     email_subject: "A new Fritz account application is awaiting review"
     form_preamble: |
       Tell us who you are and what you would use Fritz for. An administrator
       reviews each application, and you will be emailed an invitation if it is
       approved.
-
-  invitations:
-    enabled: False # If debug_login=True above, invite tokens won't be used during auth
-
-  notifications:
-    enabled: True
-
-  standard_stars:
-    ZTF: data/ztf_standards.csv
-    ESO: data/eso_standards.csv
-
-  # Parameters for the thumbnail classification function which labels
-  # images as grayscale or colored. See utils/thumbnail.py for the function.
-  image_grayscale_params:
-    thumb_size: 40
-    MSE_cutoff: 22
-    adjust_color_bias: True
-
-  slack:
-    microservice_port: 64100
-    expected_url_preamble: "https://hooks.slack.com/"
-
-  spectrum_types:
-    types:
-      - source
-      - host
-      - host_center
-    default: source
 
   # define the additional passbands that are not in SNCosmo
   # (https://sncosmo.readthedocs.io/en/stable/bandpass-list.html)
