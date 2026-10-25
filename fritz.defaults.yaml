@@ -454,7 +454,6 @@ skyportal:
     ingest_processes: 2
 
   misc:
-    days_to_keep_unsaved_candidates: 7
     minutes_to_keep_candidate_query_cache: 120
     minutes_to_keep_source_query_cache: 360
     minutes_to_keep_localization_instrument_query_cache: 1440
@@ -540,8 +539,6 @@ skyportal:
     openweather_api_key:
 
   cron: []
-  #    - interval: 60
-  #      script: jobs/count_unsaved_candidates.py
   # - interval: 1440
   #   script: jobs/delete_unsaved_candidates.py
   #   limit: ["01:00", "02:00"]
