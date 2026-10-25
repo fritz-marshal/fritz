@@ -81,13 +81,6 @@ skyportal:
     # Bounded so the pool cannot exhaust the database connections.
     thread_pool_size: 8
 
-    colibri:
-      protocol: http
-      host:
-      port:
-    gemini:
-      host: gsodbtest.gemini.edu # this is the test server host, just remove 'test' for production
-
     tns:
       look_back_days: 7
 
@@ -100,12 +93,6 @@ skyportal:
       # took 46 minutes, nearly all of it waiting. Each worker costs a
       # scheduler process, so this tracks spare cores, not queue depth.
       max_concurrent: 3
-
-    security:
-      strict: true
-      slack:
-        enabled: false
-        url: null
 
   database:
     host: db
@@ -122,19 +109,7 @@ skyportal:
       # Sized for production concurrency; Cloud SQL max_connections is 600.
       default_pool_size: 100
 
-  ports:
-    thumbnail_queue: 64910
-
   server:
-    # From https://console.developers.google.com/
-    #
-    # - Create Client ID
-    # - Javascript origins: https://localhost:5000
-    # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
-    #
-    # You need to have Google+ API enabled; it takes a few minutes to activate.
-
-    protocol: http
     host: <host>
     port:
     # nginx parameter which sets both the time in seconds before which
@@ -313,7 +288,6 @@ skyportal:
     # false (default) an unspecified upload is shared only with the uploader. Groups
     # given explicitly on the upload are always honored as-is.
     share_data_with_public_group_by_default: true
-    #cosmology: {H0: "65.0", Om0: 0.3, Ode0: 0.7, name: 'skyportal_user_cosmo'}
 
   external_logging:
     sentry:
@@ -321,16 +295,6 @@ skyportal:
       # of transactions for performance monitoring.
       # Sentry recommends adjusting this value in production.
       traces_sample_rate: 1.0
-
-    observability:
-      # Enable OpenTelemetry instrumentation of the Tornado app and expose request
-      # metrics in Prometheus format at /api/internal/metrics. The endpoint requires
-      # a System admin token (scrape with `Authorization: token <id>`). Each app
-      # worker serves its own metrics on its internal port (ports.app_internal +
-      # worker number); point Prometheus at those ports directly rather than the
-      # load-balanced public endpoint. Disabled by default.
-      enabled: False
-      service_name: skyportal
 
   cron: []
   # - interval: 1440
