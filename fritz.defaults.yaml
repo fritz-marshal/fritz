@@ -38,13 +38,6 @@ skyportal:
           links:
             BOOM: https://github.com/boom-astro/boom
             SkyPortal: https://skyportal.io
-      changelog_repositories:
-        - name: Fritz
-          url: https://github.com/fritz-marshal/fritz/pulls
-        - name: SkyPortal
-          url: https://github.com/skyportal/skyportal/pulls
-        - name: BOOM
-          url: https://github.com/boom-astro/boom/pulls
 
     # Observation plans solved as a MILP instead of greedily. Runs as a
     # subprocess, so a solve that hangs stays out of the app process.
