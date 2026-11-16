@@ -113,7 +113,7 @@ Users can send notifications about the source to the group members, provided the
 
 ![lsst-ws-source-2](https://user-images.githubusercontent.com/7557205/113928363-89a9c480-97a3-11eb-86d0-713b7c3ceee9.gif)
 
-For sources [annotated with Gaia color information](https://skyportal.io/docs/advanced_usage.html?highlight=gaia), an
+For sources [annotated with Gaia color information](https://docs.skyportal.io/advanced_usage.html?highlight=gaia), an
 HR diagram is rendered.
 ![lsst-ws-source-hr](https://user-images.githubusercontent.com/7557205/113984246-bab7e280-97ff-11eb-9c64-472af5864d64.gif)
 
