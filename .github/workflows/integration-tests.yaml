@@ -80,7 +80,7 @@ jobs:
       - name: Start building the fritz image
         run: |
           cp fritz.defaults.yaml fritz.yaml
-          nohup bash -c './fritz build > fritz-build.log 2>&1; echo $? > fritz-build.status' > /dev/null 2>&1 &
+          nohup bash -c './fritz build --output=type=docker,compression=zstd,oci-mediatypes=true > fritz-build.log 2>&1; echo $? > fritz-build.status' > /dev/null 2>&1 &
 
       # The SFD dust maps are now vendored in the skyportal-data submodule and
       # pulled via `lfs: true` above. `ADD . /skyportal` bakes them into the

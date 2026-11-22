@@ -18,6 +18,7 @@ def build(
     traefik: bool = False,
     do_update: bool = False,
     skyportal_tag: str = "skyportal/web:latest",
+    output: str = None,
     yes: bool = False,
 ):
     """Build Fritz
@@ -28,6 +29,7 @@ def build(
     :param traefik: Build Fritz to run behind Traefik
     :param do_update: pull <repo>/<branch>, autostash SP and update submodules
     :param skyportal_tag: Tag to apply to SkyPortal docker image
+    :param output: Value passed to `docker build --output`
     :param yes: agree with all potentially asked questions
     """
     if do_update:
@@ -74,6 +76,8 @@ def build(
     cmd = ["docker", "build", "."]
     if skyportal_tag:
         cmd.extend(["-t", skyportal_tag])
+    if output:
+        cmd.extend(["--output", output])
     print(f"Building SkyPortal docker image (tag: {skyportal_tag})")
     p = subprocess.run(cmd, cwd="skyportal")
     if p.returncode != 0:
